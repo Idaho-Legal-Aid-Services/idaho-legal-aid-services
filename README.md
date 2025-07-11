@@ -1,6 +1,6 @@
 # ILAS Drupal Website
 
-This repository contains the ILAS (International Legal Aid Services) Drupal website codebase.
+This repository contains the ILAS (Idaho Legal Aid Services) Drupal website codebase.
 
 ## Project Overview
 
