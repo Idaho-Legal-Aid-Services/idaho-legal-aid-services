@@ -1,23 +1,4 @@
 @import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
-@import url(https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap);
 @charset "UTF-8";
 /*!
  * Bootstrap  v5.3.6 (https://getbootstrap.com/)
@@ -22512,7 +22493,7 @@ readers do not read off random characters that represent icons */
 .utility-bar .get-help > button {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.05rem;
   color: #ffffff;
   padding: 0.5rem 0.75rem;
   line-height: 1;
@@ -23665,6 +23646,8 @@ html, body {
 @media (max-width: 767.98px) {
   .main-content {
     font-size: 1.25rem;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
 .main-content p {
@@ -24832,10 +24815,6 @@ html, body {
 }
 /**
  * Home Page Styles
- * 
- * Custom styles for the home page layout.
- * This page uses a custom header/footer implementation 
- * and does NOT use the standard page.html.twig layout.
  */
 /*--------------------------------------*
  * 1) GRAY HERO BANNER - Title with curved background
@@ -29814,7 +29793,7 @@ body.mobile-menu-open {
   height: 50px;
   background-color: #1263a0;
   color: #ffffff;
-  border: 2px solid #1263a0;
+  border: 3px solid #ffffff;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -29832,6 +29811,7 @@ body.mobile-menu-open {
 .back-to-top:hover, .back-to-top:focus {
   background-color: #ffffff;
   color: #1263a0;
+  border-color: #1263a0;
   transform: translateY(-3px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
 }
@@ -29874,5 +29854,133 @@ html {
   }
   .back-to-top {
     transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+}
+.language-switcher-floating {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 9980;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+.toolbar-tray-open .language-switcher-floating, .toolbar-fixed .language-switcher-floating, .toolbar-horizontal .language-switcher-floating, .toolbar-vertical .language-switcher-floating {
+  display: none !important;
+}
+.language-switcher-floating.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.language-switcher-floating .language-switcher-toggle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #1263a0;
+  color: #ffffff;
+  border: 3px solid #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  font-size: 1.25rem;
+  padding: 0;
+}
+.language-switcher-floating .language-switcher-toggle:hover {
+  background-color: #ffffff;
+  color: #1263a0;
+  border-color: #1263a0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+.language-switcher-floating .language-switcher-toggle:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+.language-switcher-floating .language-switcher-toggle[aria-expanded=true] {
+  background-color: #ffffff;
+  color: #1263a0;
+}
+.language-switcher-floating .language-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+.language-switcher-floating .language-menu.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.language-switcher-floating .language-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.language-switcher-floating .language-menu li {
+  margin: 0;
+}
+.language-switcher-floating .language-menu a {
+  display: block;
+  padding: 0.75rem 1rem;
+  color: #212529;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.language-switcher-floating .language-menu a:hover {
+  background-color: #f8f9fa;
+  color: #1263a0;
+}
+.language-switcher-floating .language-menu a.is-active {
+  background-color: #1263a0;
+  color: #ffffff;
+}
+.language-switcher-floating .language-menu a.is-active:hover {
+  background-color: rgb(15.4213483146, 84.8174157303, 137.0786516854);
+  color: #ffffff;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .language-switcher-floating {
+    bottom: 1.5rem;
+    left: 1.5rem;
+  }
+  .language-switcher-floating .language-switcher-toggle {
+    width: 45px;
+    height: 45px;
+    font-size: 1.125rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .language-switcher-floating {
+    bottom: 1rem;
+    left: 1rem;
+  }
+  .language-switcher-floating .language-switcher-toggle {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  .language-switcher-floating .language-menu {
+    min-width: 120px;
+  }
+  .language-switcher-floating .language-menu a {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
   }
 }

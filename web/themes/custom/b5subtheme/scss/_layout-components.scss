@@ -26,6 +26,8 @@
   
   @include mobile {
     font-size: 1.25rem;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   /* Style common body field elements */

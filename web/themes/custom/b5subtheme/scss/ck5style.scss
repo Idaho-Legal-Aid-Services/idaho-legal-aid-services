@@ -1,3 +1,18 @@
+// CKEditor 5 styles
+// Import necessary components without duplicating font imports
 .ck-content {
-  @import './style.scss';
+  // Import variables without font @import
+  @import 'variables_drupal';
+  @import 'variables_bootswatch';
+  @import 'variables_bootstrap';
+  @import 'variables_theme';
+  @import 'mixins';
+  
+  // Include bootstrap
+  @import '~bootstrap/scss/bootstrap';
+  @import 'bootswatch';
+  
+  // Import only necessary component styles
+  @import 'buttons';
+  @import 'accordion';
 }

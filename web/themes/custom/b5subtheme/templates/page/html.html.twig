@@ -108,7 +108,8 @@
     {# Preload critical resources #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap"></noscript>
     
     <css-placeholder token="{{ placeholder_token }}">
     <js-placeholder token="{{ placeholder_token }}">
@@ -130,6 +131,31 @@
     <button class="back-to-top" aria-label="{{ 'Back to top'|t }}">
       <i class="fas fa-chevron-up"></i>
     </button>
+    
+    {# Language switcher button #}
+    {% set current_language = language %}
+    {% set languages = language_links %}
+    {% if languages and languages|length > 1 %}
+    <div class="language-switcher-floating">
+      <button class="language-switcher-toggle" aria-label="{{ 'Change language'|t }}" aria-expanded="false" aria-controls="languageMenu">
+        <i class="fas fa-globe"></i>
+      </button>
+      <div class="language-menu" id="languageMenu">
+        <ul>
+          {% for lang_code, lang_data in languages %}
+            <li>
+              <a href="{{ lang_data.url }}" 
+                 class="language-link{% if lang_code == current_language.id %} is-active{% endif %}"
+                 hreflang="{{ lang_code }}"
+                 data-drupal-link-system-path="{{ lang_data.url.routeName }}">
+                {{ lang_data.title }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
     <js-bottom-placeholder token="{{ placeholder_token }}">
   </body>
 </html>

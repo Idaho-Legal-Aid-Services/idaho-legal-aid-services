@@ -7,6 +7,7 @@
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Url;
 
 /**
  * Implements hook_theme_suggestions_HOOK_alter().
@@ -109,4 +110,34 @@ function b5subtheme_preprocess_menu(&$variables) {
       }
     }
   }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for html templates.
+ */
+function b5subtheme_preprocess_html(&$variables) {
+  // Get the language manager and path matcher services.
+  $language_manager = \Drupal::languageManager();
+  $languages = $language_manager->getLanguages();
+  $current_language = $language_manager->getCurrentLanguage();
+  $route_match = \Drupal::routeMatch();
+  
+  // Build language links array.
+  $language_links = [];
+  
+  if (count($languages) > 1) {
+    foreach ($languages as $language) {
+      $language_links[$language->getId()] = [
+        'title' => $language->getName(),
+        'url' => Url::fromRoute('<current>', [], [
+          'language' => $language,
+          'query' => \Drupal::request()->query->all(),
+        ])->toString(),
+      ];
+    }
+  }
+  
+  // Add variables to template.
+  $variables['language_links'] = $language_links;
+  $variables['language'] = $current_language;
 }

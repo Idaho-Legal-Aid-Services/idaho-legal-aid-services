@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a96235a991f98be16c21e29ce5dc13dd",
+    "content-hash": "5b7c98e88be48d098ee52bfeb9904718",
     "packages": [
         {
             "name": "adrienrn/php-mimetyper",
@@ -9441,6 +9441,138 @@
             "support": {
                 "source": "https://git.drupalcode.org/project/tagify",
                 "issues": "https://www.drupal.org/project/issues/tagify"
+            }
+        },
+        {
+            "name": "drupal/tmgmt",
+            "version": "1.17.0",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/tmgmt.git",
+                "reference": "8.x-1.17"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/tmgmt-8.x-1.17.zip",
+                "reference": "8.x-1.17",
+                "shasum": "83d9796a0e5219cf6fc752d8db8ecadc81550f34"
+            },
+            "require": {
+                "drupal/core": "^10.2 || ^11"
+            },
+            "require-dev": {
+                "drupal/metatag": "2.0.x-dev || 1.x-dev",
+                "drupal/paragraphs": "1.x-dev",
+                "drupal/pathauto": "1.x-dev",
+                "drupal/tmgmt_content": "*",
+                "drupal/tmgmt_file": "*",
+                "drupal/tmgmt_language_combination": "*",
+                "drupal/tmgmt_local": "*",
+                "drupal/tmgmt_locale": "*",
+                "drupal/webform": "6.1.x-dev || 6.2.x-dev"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "8.x-1.17",
+                    "datestamp": "1731630348",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "berdir",
+                    "homepage": "https://www.drupal.org/user/214652"
+                },
+                {
+                    "name": "cgalli",
+                    "homepage": "https://www.drupal.org/user/77453"
+                },
+                {
+                    "name": "dawehner",
+                    "homepage": "https://www.drupal.org/user/99340"
+                },
+                {
+                    "name": "floretan",
+                    "homepage": "https://www.drupal.org/user/66163"
+                },
+                {
+                    "name": "fubhy",
+                    "homepage": "https://www.drupal.org/user/761344"
+                },
+                {
+                    "name": "miro_dietiker",
+                    "homepage": "https://www.drupal.org/user/227761"
+                },
+                {
+                    "name": "schnitzel",
+                    "homepage": "https://www.drupal.org/user/643820"
+                },
+                {
+                    "name": "webflo",
+                    "homepage": "https://www.drupal.org/user/254778"
+                }
+            ],
+            "description": "Translation Management Tool",
+            "homepage": "https://www.drupal.org/project/tmgmt",
+            "support": {
+                "source": "https://git.drupalcode.org/project/tmgmt"
+            }
+        },
+        {
+            "name": "drupal/tmgmt_google",
+            "version": "1.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/tmgmt_google.git",
+                "reference": "8.x-1.2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/tmgmt_google-8.x-1.2.zip",
+                "reference": "8.x-1.2",
+                "shasum": "964218dc3b774379ebc81be9e35b651e672d8500"
+            },
+            "require": {
+                "drupal/core": "^9 || ^10 || ^11",
+                "drupal/tmgmt": "^1"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "8.x-1.2",
+                    "datestamp": "1739171051",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "berdir",
+                    "homepage": "https://www.drupal.org/user/214652"
+                },
+                {
+                    "name": "miro_dietiker",
+                    "homepage": "https://www.drupal.org/user/227761"
+                }
+            ],
+            "description": "TMGMT Translator Google",
+            "homepage": "https://www.drupal.org/project/tmgmt_google",
+            "support": {
+                "source": "https://git.drupalcode.org/project/tmgmt_google"
             }
         },
         {

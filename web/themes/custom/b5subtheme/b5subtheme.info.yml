@@ -12,6 +12,7 @@ libraries:
   - b5subtheme/search-overlay
   - b5subtheme/scroll-behaviors
   - b5subtheme/lazy-loading
+  - b5subtheme/language-switcher
   
 ckeditor_stylesheets:
   - css/style.css

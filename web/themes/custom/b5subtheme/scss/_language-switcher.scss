@@ -1,0 +1,152 @@
+// Language Switcher Button Styles
+.language-switcher-floating {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 9980; // Same as back-to-top
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  
+  // Hide when admin toolbar is present
+  .toolbar-tray-open &,
+  .toolbar-fixed &,
+  .toolbar-horizontal &,
+  .toolbar-vertical & {
+    display: none !important;
+  }
+  
+  &.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  
+  // Main button
+  .language-switcher-toggle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: $color-primary;
+    color: $color-white;
+    border: 3px solid $color-white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    font-size: 1.25rem;
+    padding: 0;
+    
+    &:hover {
+      background-color: $color-white;
+      color: $color-primary;
+      border-color: $color-primary;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
+    }
+    
+    &[aria-expanded="true"] {
+      background-color: $color-white;
+      color: $color-primary;
+    }
+  }
+  
+  // Language dropdown menu
+  .language-menu {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    background-color: $color-white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    
+    &.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    
+    li {
+      margin: 0;
+    }
+    
+    a {
+      display: block;
+      padding: 0.75rem 1rem;
+      color: #212529;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: background-color 0.2s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+      
+      &:hover {
+        background-color: #f8f9fa;
+        color: $color-primary;
+      }
+      
+      &.is-active {
+        background-color: $color-primary;
+        color: $color-white;
+        
+        &:hover {
+          background-color: darken($color-primary, 5%);
+          color: $color-white;
+        }
+      }
+    }
+  }
+  
+  // Responsive adjustments
+  @include tablet {
+    bottom: 1.5rem;
+    left: 1.5rem;
+    
+    .language-switcher-toggle {
+      width: 45px;
+      height: 45px;
+      font-size: 1.125rem;
+    }
+  }
+  
+  @include mobile {
+    bottom: 1rem;
+    left: 1rem;
+    
+    .language-switcher-toggle {
+      width: 40px;
+      height: 40px;
+      font-size: 1rem;
+    }
+    
+    .language-menu {
+      min-width: 120px;
+      
+      a {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8125rem;
+      }
+    }
+  }
+}

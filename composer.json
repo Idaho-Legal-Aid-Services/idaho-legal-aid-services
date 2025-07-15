@@ -47,6 +47,8 @@
         "drupal/project_browser": "@beta",
         "drupal/recipe_installer_kit": "^1-alpha3@alpha",
         "drupal/search_api_page": "^1.1",
+        "drupal/tmgmt": "^1.17",
+        "drupal/tmgmt_google": "^1.2",
         "drupal/twig_tweak": "^3.4",
         "drupal/webform": "@beta",
         "drush/drush": "^13"

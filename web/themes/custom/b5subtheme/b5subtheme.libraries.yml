@@ -139,3 +139,11 @@ donation-inquiry:
     - core/jquery
     - core/once
     - core/drupal
+
+language-switcher:
+  version: 1.0
+  js:
+    js/language-switcher.js: {}
+  dependencies:
+    - core/drupal
+    - b5subtheme/fontawesome
