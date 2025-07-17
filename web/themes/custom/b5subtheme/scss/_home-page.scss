@@ -29,7 +29,7 @@
     }
     
     @include mobile {
-      font-size: 2.25rem;
+      font-size: $font-size-mobile-header;
       width: 100%;
     }
   }
@@ -45,10 +45,10 @@
   z-index: 1;
 
   @include tablet {
-    padding: 2.5rem 0;
+    padding: 0;
   }
   @include mobile {
-    padding: 2rem 0;
+    padding: 0;
   }
 
   .hero-sub-heading {
@@ -58,7 +58,7 @@
 
     @include mobile {
       text-align: center;
-      font-size: 1.1rem;
+      font-size: $font-size-mobile-body;
       margin-bottom: 1.5rem;
     }
   }
@@ -124,8 +124,13 @@
     padding: 3rem 0 2rem;
   }
   @include mobile {
-    min-height: auto;
-    padding: 2.5rem 0 1.5rem;
+    min-height: 500px;
+    padding: 1rem 0; // Reduce padding to allow more centering space
+    
+    // Ensure flexbox centering works on mobile too
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   // Flexbox container for vertical centering
@@ -146,12 +151,25 @@
     background-position: center center;
     z-index: -1;
     pointer-events: none;
+    
+    @include mobile {
+      background-image: url('/themes/custom/b5subtheme/images/curved-background (2400 x 600 px) (500 x 500 px).svg');
+      background-size: cover;
+      background-position: center center;
+    }
   }
 
   .container {
     position: relative;
     z-index: 1;
     width: 100%;
+    
+    @include mobile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   .section-heading {
@@ -166,7 +184,7 @@
       margin-bottom: 2.5rem;
     }
     @include mobile {
-      font-size: 1.7rem;
+      font-size: $font-size-mobile-subheader;
       margin-bottom: 2rem;
     }
   }
@@ -194,6 +212,8 @@
 
     @include mobile {
       max-width: 100%;
+      display: flex;
+      justify-content: center;
     }
   }
 
@@ -201,7 +221,7 @@
     font-size: 1.5rem;
     
     @include mobile {
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
   }
 
@@ -234,7 +254,7 @@
       font-size: 2.2rem;
     }
     @include mobile {
-      font-size: 1.7rem;
+      font-size: $font-size-mobile-subheader;
     }
   }
 
@@ -247,7 +267,7 @@
     line-height: 1.4;
 
     @include mobile {
-      font-size: 1.1rem;
+      font-size: $font-size-mobile-body;
       max-width: calc(100% - 3rem);
     }
   }

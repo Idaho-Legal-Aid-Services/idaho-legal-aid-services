@@ -175,4 +175,21 @@ html body .help-overlay.show-overlay .help-panel,
   .help-overlay.show-overlay .help-panel {
     right: 2.5vw !important;
   }
+  
+  .help-panel-header {
+    font-size: 1.25rem;
+  }
+  
+  .help-panel-content {
+    gap: 1rem;
+    justify-content: center;
+  }
+  
+  .help-panel-content h3 a {
+    font-size: 1.2rem;
+  }
+  
+  .help-panel-content ul li a {
+    font-size: 1.1rem;
+  }
 }

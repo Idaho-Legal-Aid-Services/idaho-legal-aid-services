@@ -44,6 +44,7 @@
       flex: 0 1 100% !important;
       max-width: 100% !important;
       display: flex !important;
+      justify-content: center !important;
     }
   }
 }
@@ -67,6 +68,11 @@
 
   /* Thick white border by default */
   border: 6px solid $color-white !important;
+  
+  @include mobile {
+    border-width: 3px !important;
+    max-width: 300px !important;
+  }
 
   /* Blue variant */
   &.topic-card--blue {
@@ -127,6 +133,11 @@
     text-decoration:none      !important;
     padding:        2rem      !important;  // Equal padding all sides
     position:       relative  !important;
+    
+    @include mobile {
+      min-height: 120px !important;
+      padding: 0.75rem !important;
+    }
   }
 
   /* Content container: left-aligned */
@@ -145,6 +156,10 @@
     margin:          0       !important;
     transition:      all 0.3s ease !important;
     text-align:      left    !important;
+    
+    @include mobile {
+      font-size: $font-size-mobile-subheader !important;
+    }
   }
 
   /* Description hidden by default => expand on hover */
@@ -170,7 +185,7 @@
     .topic-card__title {
       color:         $color-primary  !important;
       margin-bottom: 0.75rem  !important;
-      font-size:     1.7rem   !important;
+      font-size:     $font-size-mobile-subheader !important;
     }
 
     .topic-card__description {

@@ -21,7 +21,7 @@
       font-weight: 700;
 
       @include mobile {
-        font-size: 1.2rem;
+        font-size: $font-size-mobile-subheader;
       }
     }
   }
@@ -48,7 +48,7 @@
     text-transform: uppercase !important;
     
     @include mobile {
-      font-size: 1.2rem !important;  // Match subtitle mobile size
+      font-size: $font-size-mobile-subheader !important;  // Match subtitle mobile size
     }
   }
 }

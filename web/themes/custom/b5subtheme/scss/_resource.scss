@@ -499,7 +499,7 @@
     }
 
     @include mobile {
-      font-size: 1.25rem;
+      font-size: $font-size-mobile-body;
     }
   }
 }

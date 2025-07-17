@@ -33,7 +33,7 @@
       }
       
       @include mobile {
-        font-size: 2.25rem;
+        font-size: $font-size-mobile-header;
       }
     }
   }
@@ -52,7 +52,7 @@
     }
     
     @include mobile {
-      font-size: 1.25rem;
+      font-size: $font-size-mobile-body;
     }
     
     p {
@@ -97,7 +97,7 @@
     }
     
     @include mobile {
-      font-size: 1.25rem;
+      font-size: $font-size-mobile-body;
     }
     
     p {
@@ -153,6 +153,7 @@
     @include mobile {
       margin: 2rem 1rem;
       padding: 1.5rem;
+      border: 4px solid $color-primary;
     }
 
     .form-header {
@@ -169,7 +170,7 @@
         margin-bottom: 1.5rem;
         
         @include mobile {
-          font-size: 1.5rem;
+          font-size: $font-size-mobile-subheader;
           margin-bottom: 1rem;
         }
       }
@@ -278,7 +279,7 @@
         color: #333;
         
         @include mobile {
-          font-size: 1rem;
+          font-size: $font-size-mobile-subheader;
         }
       }
       
@@ -329,7 +330,7 @@
       
       @include mobile {
         width: 80%;
-        font-size: 1.1rem;
+        font-size: $font-size-mobile-body;
       }
     }
 
@@ -394,13 +395,13 @@
         font-size: 2.5rem;
         
         @include mobile {
-          font-size: 2rem;
+          font-size: $font-size-mobile-subheader;
         }
       }
       
       .form-instruction {
         text-align: center;
-        color: $color-gray-text;
+        color: $color-black;
         margin-bottom: 2rem;
         font-size: 1.1rem;
       }
@@ -656,7 +657,7 @@
       
       .progress-text {
         text-align: center;
-        color: $color-gray-text;
+        color: $color-black;
         font-size: 0.9rem;
       }
     }

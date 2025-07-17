@@ -23645,7 +23645,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .main-content {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -23696,7 +23696,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .page-subheader {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 }
 
@@ -23723,7 +23723,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .impact-quote {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     margin-top: 0.5rem;
     padding: 1rem;
   }
@@ -23840,7 +23840,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .curved-page-header .curved-page-header-subtitle {
-    font-size: 1.4rem;
+    font-size: 1.7rem;
     margin-top: 0.5rem;
   }
 }
@@ -24010,7 +24010,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .section-title {
-    font-size: 2rem;
+    font-size: 1.7rem;
     margin-bottom: 1.5rem;
   }
 }
@@ -24027,7 +24027,7 @@ html, body {
 @media (max-width: 767.98px) {
   .info-card {
     padding: 1.5rem;
-    border-width: 4px;
+    border: 4px solid #1263a0;
   }
 }
 .info-card__title {
@@ -24067,7 +24067,7 @@ html, body {
 .info-list dd {
   margin-left: 0;
   margin-bottom: 0;
-  color: #6c757d;
+  color: #000000;
 }
 
 /* Lead text for CTAs and important paragraphs */
@@ -24078,7 +24078,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .lead {
-    font-size: 1.125rem;
+    font-size: 1.1rem;
   }
 }
 
@@ -24189,7 +24189,7 @@ html, body {
 @media (max-width: 767.98px) {
   .apply-schedule-section .field--name-field-apply-schedule table th,
   .apply-schedule-section table th {
-    font-size: 1.125rem;
+    font-size: 1.1rem;
   }
 }
 .apply-schedule-section .field--name-field-apply-schedule table tbody tr:last-child td,
@@ -24245,6 +24245,7 @@ html, body {
     flex: 0 1 100% !important;
     max-width: 100% !important;
     display: flex !important;
+    justify-content: center !important;
   }
 }
 
@@ -24271,6 +24272,12 @@ html, body {
   /* Title styling */
   /* Description hidden by default => expand on hover */
   /* Hover expansion for any variant */
+}
+@media (max-width: 767.98px) {
+  .topic-card {
+    border-width: 3px !important;
+    max-width: 300px !important;
+  }
 }
 .topic-card.topic-card--blue {
   background-color: #1263a0 !important;
@@ -24321,6 +24328,12 @@ html, body {
   padding: 2rem !important;
   position: relative !important;
 }
+@media (max-width: 767.98px) {
+  .topic-card .topic-card__link {
+    min-height: 120px !important;
+    padding: 0.75rem !important;
+  }
+}
 .topic-card .topic-card__content {
   display: block !important;
   text-align: left !important;
@@ -24334,6 +24347,11 @@ html, body {
   margin: 0 !important;
   transition: all 0.3s ease !important;
   text-align: left !important;
+}
+@media (max-width: 767.98px) {
+  .topic-card .topic-card__title {
+    font-size: 1.7rem !important;
+  }
 }
 .topic-card .topic-card__description {
   position: relative !important;
@@ -24904,12 +24922,12 @@ html, body {
 }
 @media (min-width: 768px) and (max-width: 991.98px) {
   .hero-content-section {
-    padding: 2.5rem 0;
+    padding: 0;
   }
 }
 @media (max-width: 767.98px) {
   .hero-content-section {
-    padding: 2rem 0;
+    padding: 0;
   }
 }
 .hero-content-section .hero-sub-heading {
@@ -24985,8 +25003,11 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .how-we-help-section {
-    min-height: auto;
-    padding: 2.5rem 0 1.5rem;
+    min-height: 500px;
+    padding: 1rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 .how-we-help-section::before {
@@ -25004,10 +25025,25 @@ html, body {
   z-index: -1;
   pointer-events: none;
 }
+@media (max-width: 767.98px) {
+  .how-we-help-section::before {
+    background-image: url("/themes/custom/b5subtheme/images/curved-background (2400 x 600 px) (500 x 500 px).svg");
+    background-size: cover;
+    background-position: center center;
+  }
+}
 .how-we-help-section .container {
   position: relative;
   z-index: 1;
   width: 100%;
+}
+@media (max-width: 767.98px) {
+  .how-we-help-section .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
 }
 .how-we-help-section .section-heading {
   font-size: 2.5rem;
@@ -25052,6 +25088,8 @@ html, body {
 @media (max-width: 767.98px) {
   .how-we-help-section .topic-card-col {
     max-width: 100%;
+    display: flex;
+    justify-content: center;
   }
 }
 .how-we-help-section .topic-card__description {
@@ -25059,7 +25097,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .how-we-help-section .topic-card__description {
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 }
 
@@ -25408,7 +25446,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .main-content {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 }
 .node--type-donate.donate-page .main-content p {
@@ -25448,7 +25486,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .donate-body {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 }
 .node--type-donate.donate-page .donate-body p {
@@ -25494,6 +25532,7 @@ html, body {
   .node--type-donate.donate-page .custom-donation-form {
     margin: 2rem 1rem;
     padding: 1.5rem;
+    border: 4px solid #1263a0;
   }
 }
 .node--type-donate.donate-page .custom-donation-form .form-header {
@@ -25510,7 +25549,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .custom-donation-form .form-header h3, .node--type-donate.donate-page .custom-donation-form .form-header .h3 {
-    font-size: 1.5rem;
+    font-size: 1.7rem;
     margin-bottom: 1rem;
   }
 }
@@ -25607,7 +25646,7 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .custom-donation-form .donation-frequency h4, .node--type-donate.donate-page .custom-donation-form .donation-frequency .h4 {
-    font-size: 1rem;
+    font-size: 1.7rem;
   }
 }
 .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options {
@@ -25754,12 +25793,12 @@ html, body {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .donation-inquiry-form .form-step h2, .node--type-donate.donate-page .donation-inquiry-form .form-step .h2 {
-    font-size: 2rem;
+    font-size: 1.7rem;
   }
 }
 .node--type-donate.donate-page .donation-inquiry-form .form-step .form-instruction {
   text-align: center;
-  color: #6c757d;
+  color: #000000;
   margin-bottom: 2rem;
   font-size: 1.1rem;
 }
@@ -25980,7 +26019,7 @@ html, body {
 }
 .node--type-donate.donate-page .donation-inquiry-form .form-progress .progress-text {
   text-align: center;
-  color: #6c757d;
+  color: #000000;
   font-size: 0.9rem;
 }
 .node--type-donate.donate-page .donation-inquiry-form .g-recaptcha {
@@ -26175,6 +26214,19 @@ html body .help-overlay.show-overlay .help-panel,
   }
   .help-overlay.show-overlay .help-panel {
     right: 2.5vw !important;
+  }
+  .help-panel-header {
+    font-size: 1.25rem;
+  }
+  .help-panel-content {
+    gap: 1rem;
+    justify-content: center;
+  }
+  .help-panel-content h3 a, .help-panel-content .h3 a {
+    font-size: 1.2rem;
+  }
+  .help-panel-content ul li a {
+    font-size: 1.1rem;
   }
 }
 /*--------------------------------------*
@@ -26429,7 +26481,7 @@ html body .help-overlay.show-overlay .help-panel,
 .search-results-dropdown .search-no-results {
   padding: 2rem 1rem;
   text-align: center;
-  color: #6c757d;
+  color: #000000;
 }
 .search-results-dropdown .search-no-results p {
   margin: 0;
@@ -26487,7 +26539,7 @@ html body .help-overlay.show-overlay .help-panel,
 }
 @media (max-width: 767.98px) {
   .node--apply-for-help .subtitle-section .apply-subtitle {
-    font-size: 1.2rem;
+    font-size: 1.7rem;
   }
 }
 .node--apply-for-help .main-content {
@@ -26506,7 +26558,7 @@ html body .help-overlay.show-overlay .help-panel,
 }
 @media (max-width: 767.98px) {
   .node--apply-for-help .content-section .section-title {
-    font-size: 1.2rem !important;
+    font-size: 1.7rem !important;
   }
 }
 
@@ -26542,7 +26594,7 @@ html body .help-overlay.show-overlay .help-panel,
 @media (max-width: 767.98px) {
   .node--office-locations .office-locations-map-wrapper .leaflet-container {
     height: 300px;
-    border-width: 4px;
+    border: 4px solid #1263a0;
   }
 }
 
@@ -26600,10 +26652,20 @@ html body .help-overlay.show-overlay .help-panel,
   font-size: 1.5rem;
   margin-bottom: 0.25rem;
 }
+@media (max-width: 767.98px) {
+  .column-subtitle {
+    font-size: 1.7rem;
+  }
+}
 
 .column-body {
   color: #000;
   font-size: 1.25rem;
+}
+@media (max-width: 767.98px) {
+  .column-body {
+    font-size: 1.1rem;
+  }
 }
 
 .accordion-section, .faq-smart-section {
@@ -26618,6 +26680,7 @@ html body .help-overlay.show-overlay .help-panel,
   .accordion-section, .faq-smart-section {
     padding: 1rem;
     margin-bottom: 1.5rem;
+    border: 3px solid #1263a0;
   }
 }
 
@@ -26815,6 +26878,7 @@ html body .help-overlay.show-overlay .help-panel,
   .accordion-section, .faq-smart-section {
     padding: 1rem;
     margin-bottom: 1.5rem;
+    border: 3px solid #1263a0;
   }
 }
 
@@ -27169,6 +27233,7 @@ html body .help-overlay.show-overlay .help-panel,
   .accordion-section, .faq-smart-section {
     padding: 1rem;
     margin-bottom: 1.5rem;
+    border: 3px solid #1263a0;
   }
 }
 
@@ -27839,7 +27904,7 @@ mark.search-highlight, .search-highlight.mark {
 }
 @media (max-width: 767.98px) {
   .application-header .application-title {
-    font-size: 1.75rem;
+    font-size: 1.7rem;
   }
 }
 .application-header .application-subtitle {
@@ -28087,7 +28152,7 @@ mark.search-highlight, .search-highlight.mark {
 }
 @media (max-width: 767.98px) {
   .step-header h2, .step-header .h2 {
-    font-size: 1.5rem;
+    font-size: 1.7rem;
   }
 }
 .step-header p {
@@ -28097,7 +28162,7 @@ mark.search-highlight, .search-highlight.mark {
 }
 @media (max-width: 767.98px) {
   .step-header p {
-    font-size: 1rem;
+    font-size: 1.1rem;
   }
 }
 
@@ -28665,7 +28730,7 @@ mark.search-highlight, .search-highlight.mark {
 }
 @media (max-width: 767.98px) {
   .application-success-modal h2, .application-success-modal .h2 {
-    font-size: 1.5rem;
+    font-size: 1.7rem;
   }
 }
 .application-success-modal p {
@@ -28675,7 +28740,7 @@ mark.search-highlight, .search-highlight.mark {
 }
 @media (max-width: 767.98px) {
   .application-success-modal p {
-    font-size: 1rem;
+    font-size: 1.1rem;
   }
 }
 .application-success-modal .next-steps {
@@ -29246,7 +29311,7 @@ mark.search-highlight, .search-highlight.mark {
 @media (max-width: 767.98px) {
   .node--type-legal-content .content .lead,
   .node--type-legal-content > .lead {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 }
 
@@ -29830,8 +29895,8 @@ body.mobile-menu-open {
   .back-to-top {
     bottom: 1.5rem;
     right: 1rem;
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
   }
   .back-to-top i {
     font-size: 1.1rem;
@@ -29968,7 +30033,7 @@ html {
 }
 @media (max-width: 767.98px) {
   .language-switcher-floating {
-    bottom: 1rem;
+    bottom: 1.5rem;
     left: 1rem;
   }
   .language-switcher-floating .language-switcher-toggle {

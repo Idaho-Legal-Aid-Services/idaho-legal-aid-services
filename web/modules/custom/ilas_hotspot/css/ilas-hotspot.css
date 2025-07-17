@@ -46,20 +46,25 @@
   height: auto;
 }
 
-/* Responsive adjustments */
+/* Mobile adjustments - proper breakpoints and touch targets */
 @media (max-width: 768px) {
+  .hotspot-trigger {
+    width: 35px; /* Smaller touch target */
+    height: 35px;
+  }
+}
+
+@media (max-width: 576px) {
   .hotspot-trigger {
     width: 30px;
     height: 30px;
   }
 }
 
-/* Category specific styling - removed color backgrounds */
-
 /* Popover styling to match theme */
 .popover {
-  font-family: inherit; /* Use the same font as the parent theme */
-  max-width: 350px; /* Increase max width for better readability */
+  font-family: inherit;
+  max-width: 350px;
 }
 
 .popover-header {
@@ -69,11 +74,37 @@
   text-align: center;
 }
 
+/* Mobile font scaling for popover headers */
+@media (max-width: 768px) {
+  .popover-header {
+    font-size: 1.7rem; /* Use subheader size */
+  }
+}
+
+@media (max-width: 576px) {
+  .popover-header {
+    font-size: 1.7rem; /* Use subheader size */
+  }
+}
+
 .popover-body {
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.5;
   text-align: center;
+}
+
+/* Mobile font scaling for popover body */
+@media (max-width: 768px) {
+  .popover-body {
+    font-size: 1.1rem; /* Use body size */
+  }
+}
+
+@media (max-width: 576px) {
+  .popover-body {
+    font-size: 1.1rem; /* Use body size */
+  }
 }
 
 /* Category-specific popover header colors and borders */
@@ -142,6 +173,11 @@
   padding: 0;
   text-align: center;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
 }
 
 .ilas-impact-table {
@@ -174,6 +210,9 @@
   text-align: center;
   width: 30%;
   padding-left: 3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .annual-report-content {
@@ -187,11 +226,24 @@
   border-radius: 4px;
 }
 
+/* Mobile border adjustment */
+@media (max-width: 768px) {
+  .annual-report-cover {
+    border: 3px solid #1263a0;
+  }
+}
+
+@media (max-width: 576px) {
+  .annual-report-cover {
+    border: 3px solid #1263a0;
+  }
+}
+
 .annual-report-cover:hover {
   transform: scale(1.05);
 }
 
-/* Responsive adjustments */
+/* Responsive adjustments - proper mobile breakpoints */
 @media (max-width: 1200px) {
   .ilas-impact-table {
     display: block;
@@ -208,5 +260,109 @@
   
   .annual-report-cell {
     margin-top: 2rem;
+  }
+}
+
+/* Tablet specific adjustments */
+@media (max-width: 768px) {
+  .ilas-impact-wrapper {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .ilas-impact-table {
+    max-width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .hotspot-cell {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  
+  .hotspot-cell .ilas-hotspot-container {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  
+  .annual-report-cell {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 0;
+  }
+  
+  .annual-report-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 250px;
+    width: 250px;
+    margin: 0 auto;
+  }
+  
+  .annual-report-cover {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+  }
+  
+  /* Make buttons smaller on tablet */
+  .annual-report-content .btn,
+  .annual-report-content button,
+  .annual-report-content a.btn {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    min-height: auto;
+    line-height: 1.2;
+  }
+}
+
+/* Mobile specific adjustments */
+@media (max-width: 576px) {
+  .ilas-impact-wrapper {
+    padding: 0.25rem;
+  }
+  
+  .annual-report-content {
+    max-width: 200px;
+    width: 200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .annual-report-cover {
+    width: 100%;
+    max-width: 180px;
+  }
+  
+  .annual-report-cell {
+    margin-top: 1rem;
+  }
+  
+  /* Make buttons smaller on mobile */
+  .annual-report-content .btn,
+  .annual-report-content button,
+  .annual-report-content a.btn {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
+    min-height: auto;
+    line-height: 1.1;
   }
 }

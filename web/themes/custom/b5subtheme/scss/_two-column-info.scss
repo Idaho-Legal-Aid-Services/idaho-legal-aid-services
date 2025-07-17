@@ -24,7 +24,7 @@
     }
     
     @include mobile {
-      font-size: 1.7rem;
+      font-size: $font-size-mobile-subheader;
       margin-bottom: 1rem;
     }
   }
@@ -32,10 +32,18 @@
     color: #4a4a4a; 
     font-size: 1.5rem;
     margin-bottom: .25rem;
+    
+    @include mobile {
+      font-size: $font-size-mobile-subheader;
+    }
   }
   .column-body {
     color: #000; 
     font-size: 1.25rem;
+    
+    @include mobile {
+      font-size: $font-size-mobile-body;
+    }
   }
 
   // Buttons in two-column-info sections use standardized button styles
