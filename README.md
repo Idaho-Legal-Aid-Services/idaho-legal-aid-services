@@ -194,7 +194,6 @@ ddev drush cr
 
 For issues or questions about this codebase, please create an issue in the GitHub repository.
 
-
 ## License
 
 This project is proprietary software for ILAS. All rights reserved.
