@@ -77,7 +77,10 @@
             "civicrm/civicrm-asset-plugin": true
         },
         "sort-packages": true,
-        "optimize-autoloader": true
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "dist": "dist"
+        }
     },
     "extra": {
         "compile-mode": "all",
