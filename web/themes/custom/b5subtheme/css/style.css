@@ -25477,6 +25477,18 @@ html, body {
     border: 4px solid #1263a0;
   }
 }
+.node--type-donate.donate-page .custom-donation-form #donation-inquiry-title {
+  text-transform: none;
+  font-size: 2.5rem;
+  color: #1263a0;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 767.98px) {
+  .node--type-donate.donate-page .custom-donation-form #donation-inquiry-title {
+    font-size: 1.7rem;
+  }
+}
 .node--type-donate.donate-page .custom-donation-form .form-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -25752,26 +25764,60 @@ html, body {
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) {
   display: flex;
-  align-items: flex-start;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  align-items: center;
+  padding: 1.5rem;
+  border: 2px solid #1263a0;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
-  line-height: 1.5;
+  background: #ffffff;
+  min-height: 60px;
+  touch-action: manipulation;
+  font-size: 1.1rem;
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option):hover {
-  background-color: #f0f2f5;
   border-color: #1263a0;
+  background-color: rgb(172.0337078652, 214.0353932584, 245.6662921348);
+}
+.node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option):focus-within {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) input[type=checkbox] {
-  margin-right: 0.75rem;
-  margin-top: 0.25rem;
+  width: 20px;
+  height: 20px;
+  margin-right: 1rem;
+  cursor: pointer;
   flex-shrink: 0;
 }
+@media (max-width: 767.98px) {
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) input[type=checkbox] {
+    width: 24px;
+    height: 24px;
+    margin-right: 1.25rem;
+  }
+}
+.node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) input[type=checkbox]:focus {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+.node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) span {
+  font-size: 1.1rem;
+  flex: 1;
+}
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option):has(input:checked) {
-  background-color: rgb(172.0337078652, 214.0353932584, 245.6662921348);
   border-color: #1263a0;
+  background-color: rgb(162.8651685393, 209.5084269663, 244.6348314607);
+}
+@media (max-width: 767.98px) {
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) {
+    padding: 1.25rem;
+    min-height: 64px;
+    font-size: 1rem;
+  }
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-group label:not(.checkbox-option) span {
+    font-size: 1rem;
+  }
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option {
   display: flex;
@@ -25782,10 +25828,16 @@ html, body {
   cursor: pointer;
   transition: all 0.3s ease;
   background: #ffffff;
+  min-height: 60px;
+  touch-action: manipulation;
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option:hover {
   border-color: #1263a0;
   background-color: rgb(172.0337078652, 214.0353932584, 245.6662921348);
+}
+.node--type-donate.donate-page .donation-inquiry-form .checkbox-option:focus-within {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option input[type=checkbox] {
   width: 20px;
@@ -25793,10 +25845,22 @@ html, body {
   margin-right: 1rem;
   cursor: pointer;
 }
+@media (max-width: 767.98px) {
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-option input[type=checkbox] {
+    width: 24px;
+    height: 24px;
+    margin-right: 1.25rem;
+  }
+}
+.node--type-donate.donate-page .donation-inquiry-form .checkbox-option input[type=checkbox]:focus {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option .checkbox-label {
   display: flex;
   align-items: center;
   font-size: 1.1rem;
+  flex: 1;
 }
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option .checkbox-label i {
   font-size: 1.5rem;
@@ -25806,6 +25870,15 @@ html, body {
 .node--type-donate.donate-page .donation-inquiry-form .checkbox-option:has(input:checked) {
   border-color: #1263a0;
   background-color: rgb(162.8651685393, 209.5084269663, 244.6348314607);
+}
+@media (max-width: 767.98px) {
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-option {
+    padding: 1.25rem;
+    min-height: 64px;
+  }
+  .node--type-donate.donate-page .donation-inquiry-form .checkbox-option .checkbox-label {
+    font-size: 1rem;
+  }
 }
 .node--type-donate.donate-page .donation-inquiry-form .radio-group {
   display: flex;
@@ -25871,6 +25944,11 @@ html, body {
   min-width: 120px;
   padding: 0.75rem 1.5rem;
   font-size: 1.1rem;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
 }
 .node--type-donate.donate-page .donation-inquiry-form .form-navigation .btn.prev-step, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .resource-full .sidebar-card .card-footer .prev-step.sidebar-btn, .resource-full .sidebar-card .card-footer .node--type-donate.donate-page .donation-inquiry-form .form-navigation .prev-step.sidebar-btn, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .amount-selection .amount-buttons .prev-step.amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .donation-inquiry-form .form-navigation .prev-step.amount-btn, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donation-frequency .frequency-options .prev-step.frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .donation-inquiry-form .form-navigation .prev-step.frequency-btn, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .prev-step.donate-button, .node--type-donate.donate-page .custom-donation-form .donation-inquiry-form .form-navigation .prev-step.donate-button {
   background-color: #868e96;
@@ -25884,6 +25962,13 @@ html, body {
 .node--type-donate.donate-page .donation-inquiry-form .form-navigation .btn:disabled, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .resource-full .sidebar-card .card-footer .sidebar-btn:disabled, .resource-full .sidebar-card .card-footer .node--type-donate.donate-page .donation-inquiry-form .form-navigation .sidebar-btn:disabled, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .amount-selection .amount-buttons .amount-btn:disabled, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .donation-inquiry-form .form-navigation .amount-btn:disabled, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donation-frequency .frequency-options .frequency-btn:disabled, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .donation-inquiry-form .form-navigation .frequency-btn:disabled, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donate-button:disabled, .node--type-donate.donate-page .custom-donation-form .donation-inquiry-form .form-navigation .donate-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.node--type-donate.donate-page .donation-inquiry-form .form-navigation .btn:focus-visible, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .resource-full .sidebar-card .card-footer .sidebar-btn:focus-visible, .resource-full .sidebar-card .card-footer .node--type-donate.donate-page .donation-inquiry-form .form-navigation .sidebar-btn:focus-visible, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .amount-selection .amount-buttons .amount-btn:focus-visible, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .donation-inquiry-form .form-navigation .amount-btn:focus-visible, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donation-frequency .frequency-options .frequency-btn:focus-visible, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .donation-inquiry-form .form-navigation .frequency-btn:focus-visible, .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donate-button:focus-visible, .node--type-donate.donate-page .custom-donation-form .donation-inquiry-form .form-navigation .donate-button:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+.node--type-donate.donate-page .donation-inquiry-form .form-navigation .btn:focus:not(:focus-visible), .node--type-donate.donate-page .donation-inquiry-form .form-navigation .resource-full .sidebar-card .card-footer .sidebar-btn:focus:not(:focus-visible), .resource-full .sidebar-card .card-footer .node--type-donate.donate-page .donation-inquiry-form .form-navigation .sidebar-btn:focus:not(:focus-visible), .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .amount-selection .amount-buttons .amount-btn:focus:not(:focus-visible), .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .donation-inquiry-form .form-navigation .amount-btn:focus:not(:focus-visible), .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donation-frequency .frequency-options .frequency-btn:focus:not(:focus-visible), .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .donation-inquiry-form .form-navigation .frequency-btn:focus:not(:focus-visible), .node--type-donate.donate-page .donation-inquiry-form .form-navigation .custom-donation-form .donate-button:focus:not(:focus-visible), .node--type-donate.donate-page .custom-donation-form .donation-inquiry-form .form-navigation .donate-button:focus:not(:focus-visible) {
+  outline: none;
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .donation-inquiry-form .form-navigation {
@@ -25929,6 +26014,17 @@ html, body {
 .node--type-donate.donate-page .donation-inquiry-form .form-group .form-control:required:valid {
   border-color: #38a169;
 }
+.node--type-donate.donate-page .donation-inquiry-form .form-group .form-control.is-invalid {
+  border-color: #d9534f !important;
+  box-shadow: 0 0 0 2px rgba(217, 83, 79, 0.2) !important;
+}
+.node--type-donate.donate-page .donation-inquiry-form .form-group .form-control.is-invalid:focus {
+  border-color: #d9534f;
+  box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.25);
+}
+.node--type-donate.donate-page .donation-inquiry-form .form-group .form-control[aria-invalid=true] {
+  border-color: #d9534f;
+}
 .node--type-donate.donate-page .donation-inquiry-form .form-progress {
   position: absolute;
   bottom: -3rem;
@@ -25965,17 +26061,80 @@ html, body {
   display: flex;
   justify-content: center;
 }
-.node--type-donate.donate-page .donation-inquiry-form .alert-success {
-  text-align: center;
-  padding: 3rem;
+.node--type-donate.donate-page .donation-inquiry-form .alert {
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  border: 1px solid;
 }
-.node--type-donate.donate-page .donation-inquiry-form .alert-success h3, .node--type-donate.donate-page .donation-inquiry-form .alert-success .h3 {
+.node--type-donate.donate-page .donation-inquiry-form .alert[role=alert] {
+  position: relative;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert[role=alert]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 2px 0 0 2px;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-success {
+  color: rgb(29.6774193548, 85.3225806452, 55.6451612903);
+  background-color: rgb(170.0483870968, 225.4516129032, 195.9032258065);
+  border-color: rgb(94.3709677419, 199.1290322581, 143.2580645161);
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-success::before {
+  background-color: #38a169;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-success h3, .node--type-donate.donate-page .donation-inquiry-form .alert.alert-success .h3 {
   color: #38a169;
   margin-bottom: 1rem;
+  font-size: 1.5rem;
 }
-.node--type-donate.donate-page .donation-inquiry-form .alert-success p {
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-success p {
   font-size: 1.1rem;
-  color: #333333;
+  margin-bottom: 0;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-danger {
+  color: rgb(159.5514018692, 38.0747663551, 34.4485981308);
+  background-color: rgb(248.6962616822, 226.4672897196, 225.8037383178);
+  border-color: rgb(230.5841121495, 144.4859813084, 141.9158878505);
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-danger::before {
+  background-color: #d9534f;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-danger strong {
+  font-weight: 600;
+  color: rgb(117.6074766355, 28.0654205607, 25.3925233645);
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-danger ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  padding-left: 1.5rem;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-danger ul li {
+  margin-bottom: 0.25rem;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-warning {
+  color: rgb(152.109375, 94.53125, 12.890625);
+  background-color: rgb(249.9609375, 227.453125, 195.5390625);
+  border-color: rgb(243.984375, 194.78125, 125.015625);
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-warning::before {
+  background-color: #f0ad4e;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-warning strong {
+  font-weight: 600;
+  color: rgb(105.09375, 65.3125, 8.90625);
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-warning ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  padding-left: 1.5rem;
+}
+.node--type-donate.donate-page .donation-inquiry-form .alert.alert-warning ul li {
+  margin-bottom: 0.25rem;
 }
 
 /* _help-overlay.scss */

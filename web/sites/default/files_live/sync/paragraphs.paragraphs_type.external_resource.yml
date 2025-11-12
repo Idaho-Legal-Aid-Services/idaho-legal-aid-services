@@ -1,0 +1,10 @@
+uuid: 12f3cde1-1fac-47aa-b363-d720544a22d5
+langcode: en
+status: true
+dependencies: {  }
+id: external_resource
+label: 'External Resource'
+icon_uuid: null
+icon_default: null
+description: ''
+behavior_plugins: {  }

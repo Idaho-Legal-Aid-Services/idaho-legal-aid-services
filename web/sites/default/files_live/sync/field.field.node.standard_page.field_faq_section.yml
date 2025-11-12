@@ -1,0 +1,49 @@
+uuid: ae13b2f3-cb82-4b3c-b5aa-7ca485dc093e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_faq_section
+    - node.type.standard_page
+    - paragraphs.paragraphs_type.faq_smart_section
+  module:
+    - entity_reference_revisions
+id: node.standard_page.field_faq_section
+field_name: field_faq_section
+entity_type: node
+bundle: standard_page
+label: 'FAQ Section'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      faq_smart_section: faq_smart_section
+    negate: 0
+    target_bundles_drag_drop:
+      accordion_item:
+        weight: 8
+        enabled: false
+      accordion_section:
+        weight: 9
+        enabled: false
+      faq_item:
+        weight: 10
+        enabled: false
+      faq_smart_section:
+        weight: 11
+        enabled: true
+      impact_card:
+        weight: 12
+        enabled: false
+      topic_card:
+        weight: 13
+        enabled: false
+      two_column_info:
+        weight: 14
+        enabled: false
+field_type: entity_reference_revisions

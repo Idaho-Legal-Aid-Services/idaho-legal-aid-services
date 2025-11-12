@@ -1,0 +1,22 @@
+uuid: b96bcded-e534-4858-a12b-3f8d7c901bc7
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_external_description
+    - paragraphs.paragraphs_type.external_resource
+  module:
+    - text
+id: paragraph.external_resource.field_external_description
+field_name: field_external_description
+entity_type: paragraph
+bundle: external_resource
+label: 'External Description'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text

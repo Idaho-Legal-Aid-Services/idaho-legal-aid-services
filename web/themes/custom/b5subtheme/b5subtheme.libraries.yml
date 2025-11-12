@@ -140,6 +140,11 @@ donation-inquiry:
     - core/once
     - core/drupal
 
+recaptcha:
+  version: 1.0
+  js:
+    https://www.google.com/recaptcha/api.js: { type: external, attributes: { async: true, defer: true } }
+
 language-switcher:
   version: 1.0
   js:

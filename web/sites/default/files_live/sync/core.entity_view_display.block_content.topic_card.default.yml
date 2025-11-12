@@ -1,0 +1,46 @@
+uuid: e934755d-d051-417b-82e6-a9d5cba4ca6e
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.topic_card
+    - field.field.block_content.topic_card.field_topic_card_color
+    - field.field.block_content.topic_card.field_topic_card_description
+    - field.field.block_content.topic_card.field_topic_card_link
+  module:
+    - link
+    - options
+    - text
+id: block_content.topic_card.default
+targetEntityType: block_content
+bundle: topic_card
+mode: default
+content:
+  field_topic_card_color:
+    type: list_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_topic_card_description:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_topic_card_link:
+    type: link
+    label: hidden
+    settings:
+      trim_length: 80
+      url_only: false
+      url_plain: false
+      rel: ''
+      target: ''
+    third_party_settings: {  }
+    weight: 2
+    region: content
+hidden:
+  search_api_excerpt: true

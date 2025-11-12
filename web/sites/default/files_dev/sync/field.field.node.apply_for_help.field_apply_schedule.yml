@@ -1,0 +1,22 @@
+uuid: ad13a126-a662-401e-b199-a98d4195f9d2
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_apply_schedule
+    - node.type.apply_for_help
+  module:
+    - text
+id: node.apply_for_help.field_apply_schedule
+field_name: field_apply_schedule
+entity_type: node
+bundle: apply_for_help
+label: 'Apply Schedule'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

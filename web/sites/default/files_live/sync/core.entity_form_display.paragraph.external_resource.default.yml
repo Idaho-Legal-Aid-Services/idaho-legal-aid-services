@@ -1,0 +1,44 @@
+uuid: 063fba37-34db-4e6b-920a-f4fc645c84d3
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.external_resource.field_external_description
+    - field.field.paragraph.external_resource.field_external_link
+    - field.field.paragraph.external_resource.field_external_title
+    - paragraphs.paragraphs_type.external_resource
+  module:
+    - link
+    - text
+id: paragraph.external_resource.default
+targetEntityType: paragraph
+bundle: external_resource
+mode: default
+content:
+  field_external_description:
+    type: text_textfield
+    weight: 1
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_external_link:
+    type: link_default
+    weight: 2
+    region: content
+    settings:
+      placeholder_url: ''
+      placeholder_title: ''
+    third_party_settings: {  }
+  field_external_title:
+    type: string_textfield
+    weight: 0
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  created: true
+  status: true

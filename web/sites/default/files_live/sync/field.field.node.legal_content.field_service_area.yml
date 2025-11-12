@@ -1,0 +1,29 @@
+uuid: d1d975b9-5181-4b14-932b-8883ca7622e8
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_service_area
+    - node.type.legal_content
+    - taxonomy.vocabulary.service_areas
+id: node.legal_content.field_service_area
+field_name: field_service_area
+entity_type: node
+bundle: legal_content
+label: 'Related Service Area'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings:
+    target_bundles:
+      service_areas: service_areas
+    sort:
+      field: name
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

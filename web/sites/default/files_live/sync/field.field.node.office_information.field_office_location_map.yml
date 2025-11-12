@@ -1,0 +1,21 @@
+uuid: 2773ded6-e1f0-4ab3-869f-b31fe5de87d1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_office_location_map
+    - node.type.office_information
+  module:
+    - geofield
+id: node.office_information.field_office_location_map
+field_name: field_office_location_map
+entity_type: node
+bundle: office_information
+label: 'Office Location Map'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: geofield

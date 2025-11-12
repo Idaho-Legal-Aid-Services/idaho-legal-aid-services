@@ -1,0 +1,15 @@
+_core:
+  default_config_hash: HlN7eAN2N4JIHsYv56V4E7sqC9bS609KwvGFjyD_mgk
+langcode: en
+uuid: 176ce502-5152-4f80-90ed-ffb3942c8575
+name: 'ILAS Dev'
+mail: evancurry@idaholegalaid.org
+slogan: ''
+page:
+  403: /user/login
+  404: ''
+  front: /node/25
+admin_compact_mode: false
+weight_select_max: 100
+default_langcode: en
+mail_notification: null

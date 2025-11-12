@@ -1,0 +1,43 @@
+uuid: ecde2c8d-f954-4940-8c2a-25d3d36f89bd
+langcode: en
+status: true
+dependencies:
+  config:
+    - dashboard.dashboard.welcome
+    - filter.format.webform_default
+    - search_api_autocomplete.search.content_autocomplete
+  module:
+    - captcha
+    - coffee
+    - dashboard
+    - editoria11y
+    - file
+    - filter
+    - honeypot
+    - klaro
+    - media
+    - node
+    - search_api_autocomplete
+    - sitemap
+    - system
+_core:
+  default_config_hash: dJ0L2DNSj5q6XVZAGsuVDpJTh5UeYkIPwKrUOOpr8YI
+id: authenticated
+label: 'Authenticated user'
+weight: 1
+is_admin: false
+permissions:
+  - 'access coffee'
+  - 'access content'
+  - 'access sitemap'
+  - 'bypass honeypot protection'
+  - 'delete own files'
+  - 'mark as hidden in editoria11y'
+  - 'skip CAPTCHA'
+  - 'use klaro'
+  - 'use search_api_autocomplete for content_autocomplete'
+  - 'use text format webform_default'
+  - 'view editoria11y checker'
+  - 'view media'
+  - 'view own unpublished content'
+  - 'view welcome dashboard'

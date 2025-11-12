@@ -1,0 +1,10 @@
+uuid: 1c8d0785-6270-4f66-bb59-cae35d8bfc28
+langcode: en
+status: true
+dependencies: {  }
+id: topic_card
+label: 'Topic Card'
+icon_uuid: null
+icon_default: null
+description: 'Colored topic cards with hover effects'
+behavior_plugins: {  }

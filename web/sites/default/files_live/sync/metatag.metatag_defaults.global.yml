@@ -1,0 +1,17 @@
+uuid: a8107db5-99d7-4b8e-aebd-1dbf02a0b665
+langcode: en
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: UK8MKR9oBWjx3zdZsbpT7TAULUMit79oeoD1BCnSjDE
+id: global
+label: Global
+tags:
+  referrer: unsafe-url
+  title: '[current-page:title] | [site:name]'
+  canonical_url: '[current-page:url:absolute]'
+  shortlink: '[current-page:url:unaliased]'
+  rights: 'Copyright ©[date:html_year] All rights reserved.'
+  og_url: '[current-page:url:absolute]'
+  og_site_name: '[site:name]'
+  twitter_cards_type: summary

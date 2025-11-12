@@ -1,0 +1,23 @@
+uuid: 0f5973a5-ba14-4194-a422-627f7128fbb3
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_legal_content_link
+    - node.type.legal_content
+  module:
+    - link
+id: node.legal_content.field_legal_content_link
+field_name: field_legal_content_link
+entity_type: node
+bundle: legal_content
+label: 'Legal Content Link'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  title: 1
+  link_type: 17
+field_type: link

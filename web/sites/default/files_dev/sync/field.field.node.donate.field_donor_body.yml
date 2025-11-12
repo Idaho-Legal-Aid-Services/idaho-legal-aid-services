@@ -1,0 +1,22 @@
+uuid: 9c7ac7ea-46f9-4f23-a597-ae1d05873bb8
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_donor_body
+    - node.type.donate
+  module:
+    - text
+id: node.donate.field_donor_body
+field_name: field_donor_body
+entity_type: node
+bundle: donate
+label: 'Donor Body'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

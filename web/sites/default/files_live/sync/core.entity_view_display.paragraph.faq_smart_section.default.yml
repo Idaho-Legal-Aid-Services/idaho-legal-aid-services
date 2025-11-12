@@ -1,0 +1,43 @@
+uuid: 364a459f-6065-4776-95e7-65f89fe3fe1d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.faq_smart_section.field_faq_items
+    - field.field.paragraph.faq_smart_section.field_faq_section_title
+    - field.field.paragraph.faq_smart_section.field_search_placeholder
+    - paragraphs.paragraphs_type.faq_smart_section
+  module:
+    - entity_reference_revisions
+id: paragraph.faq_smart_section.default
+targetEntityType: paragraph
+bundle: faq_smart_section
+mode: default
+content:
+  field_faq_items:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_faq_section_title:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_search_placeholder:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 2
+    region: content
+hidden:
+  search_api_excerpt: true

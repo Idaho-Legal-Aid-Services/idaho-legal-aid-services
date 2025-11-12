@@ -1,0 +1,37 @@
+uuid: ae1da8a8-2748-48ed-a8b0-9590a12dc400
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_topic_cards
+    - node.type.standard_page
+    - paragraphs.paragraphs_type.topic_card
+  module:
+    - entity_reference_revisions
+id: node.standard_page.field_topic_cards
+field_name: field_topic_cards
+entity_type: node
+bundle: standard_page
+label: 'Topic Cards'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      topic_card: topic_card
+    negate: 0
+    target_bundles_drag_drop:
+      info_card:
+        weight: 3
+        enabled: false
+      service_box:
+        weight: 5
+        enabled: false
+      topic_card:
+        weight: 4
+        enabled: true
+field_type: entity_reference_revisions

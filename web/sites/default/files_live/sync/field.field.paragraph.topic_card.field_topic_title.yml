@@ -1,0 +1,19 @@
+uuid: 231f3e89-e791-41b7-b6c6-a293095c3418
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_topic_title
+    - paragraphs.paragraphs_type.topic_card
+id: paragraph.topic_card.field_topic_title
+field_name: field_topic_title
+entity_type: paragraph
+bundle: topic_card
+label: 'Topic Title'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

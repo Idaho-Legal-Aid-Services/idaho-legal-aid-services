@@ -150,10 +150,24 @@
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     
+    
     @include mobile {
       margin: 2rem 1rem;
       padding: 1.5rem;
       border: 4px solid $color-primary;
+    }
+    
+    // Override title formatting for donation inquiry
+    #donation-inquiry-title {
+      text-transform: none;
+      font-size: 2.5rem;
+      color: $color-primary;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      
+      @include mobile {
+        font-size: $font-size-mobile-subheader;
+      }
     }
 
     .form-header {
@@ -410,31 +424,71 @@
         grid-template-columns: repeat(2, 1fr);
       }
       
-      // For text-based checkboxes in step 2
+      // For text-based checkboxes in step 2 - match step 1 styling
       label:not(.checkbox-option) {
         display: flex;
-        align-items: flex-start;
-        padding: 0.75rem 1rem;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
+        align-items: center;
+        padding: 1.5rem;
+        border: 2px solid $color-primary;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.3s ease;
-        line-height: 1.5;
+        background: $color-white;
+        min-height: 60px;
+        touch-action: manipulation;
         
         &:hover {
-          background-color: $color-gray-bg;
           border-color: $color-primary;
+          background-color: lighten($color-primary, 47%);
+        }
+        
+        // Enhanced focus states for accessibility
+        &:focus-within {
+          border-color: $color-primary;
+          box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
         }
         
         input[type="checkbox"] {
-          margin-right: 0.75rem;
-          margin-top: 0.25rem;
+          width: 20px;
+          height: 20px;
+          margin-right: 1rem;
+          cursor: pointer;
           flex-shrink: 0;
+          
+          // Enhanced touch target for mobile
+          @include mobile {
+            width: 24px;
+            height: 24px;
+            margin-right: 1.25rem;
+          }
+          
+          &:focus {
+            outline: 2px solid $color-primary;
+            outline-offset: 2px;
+          }
+        }
+        
+        // Match step 1 font size exactly
+        font-size: 1.1rem;
+        
+        span {
+          font-size: 1.1rem;
+          flex: 1;
         }
         
         &:has(input:checked) {
-          background-color: lighten($color-primary, 47%);
           border-color: $color-primary;
+          background-color: lighten($color-primary, 45%);
+        }
+        
+        @include mobile {
+          padding: 1.25rem;
+          min-height: 64px;
+          font-size: 1rem;
+          
+          span {
+            font-size: 1rem;
+          }
         }
       }
     }
@@ -448,10 +502,18 @@
       cursor: pointer;
       transition: all 0.3s ease;
       background: $color-white;
+      min-height: 60px; // Enhanced touch target
+      touch-action: manipulation;
       
       &:hover {
         border-color: $color-primary;
         background-color: lighten($color-primary, 47%);
+      }
+      
+      // Enhanced focus states for accessibility
+      &:focus-within {
+        border-color: $color-primary;
+        box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
       }
       
       input[type="checkbox"] {
@@ -459,12 +521,25 @@
         height: 20px;
         margin-right: 1rem;
         cursor: pointer;
+        
+        // Enhanced touch target for mobile
+        @include mobile {
+          width: 24px;
+          height: 24px;
+          margin-right: 1.25rem;
+        }
+        
+        &:focus {
+          outline: 2px solid $color-primary;
+          outline-offset: 2px;
+        }
       }
       
       .checkbox-label {
         display: flex;
         align-items: center;
         font-size: 1.1rem;
+        flex: 1;
         
         i {
           font-size: 1.5rem;
@@ -476,6 +551,15 @@
       &:has(input:checked) {
         border-color: $color-primary;
         background-color: lighten($color-primary, 45%);
+      }
+      
+      @include mobile {
+        padding: 1.25rem;
+        min-height: 64px; // Larger touch target on mobile
+        
+        .checkbox-label {
+          font-size: 1rem;
+        }
       }
     }
     
@@ -554,6 +638,11 @@
         min-width: 120px;
         padding: 0.75rem 1.5rem;
         font-size: 1.1rem;
+        min-height: 48px; // Enhanced touch target
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation; // Improve touch responsiveness
         
         &.prev-step {
           background-color: $color-gray-border;
@@ -569,6 +658,16 @@
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+        
+        // Enhanced accessibility
+        &:focus-visible {
+          outline: 2px solid $color-primary;
+          outline-offset: 2px;
+        }
+        
+        &:focus:not(:focus-visible) {
+          outline: none;
         }
       }
       
@@ -619,6 +718,21 @@
         &:required:valid {
           border-color: $color-success;
         }
+        
+        // Enhanced validation states
+        &.is-invalid {
+          border-color: $color-danger !important;
+          box-shadow: 0 0 0 2px rgba($color-danger, 0.2) !important;
+          
+          &:focus {
+            border-color: $color-danger;
+            box-shadow: 0 0 0 3px rgba($color-danger, 0.25);
+          }
+        }
+        
+        &[aria-invalid="true"] {
+          border-color: $color-danger;
+        }
       }
     }
     
@@ -663,19 +777,97 @@
       justify-content: center;
     }
     
-    // Success message styling
-    .alert-success {
-      text-align: center;
-      padding: 3rem;
+    // Alert message styling
+    .alert {
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      border-radius: 4px;
+      border: 1px solid;
       
-      h3 {
-        color: $color-success;
-        margin-bottom: 1rem;
+      // Accessible focus management
+      &[role="alert"] {
+        position: relative;
+        
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          border-radius: 2px 0 0 2px;
+        }
       }
       
-      p {
-        font-size: 1.1rem;
-        color: $color-gray-dark;
+      &.alert-success {
+        color: darken($color-success, 20%);
+        background-color: lighten($color-success, 35%);
+        border-color: lighten($color-success, 15%);
+        
+        &::before {
+          background-color: $color-success;
+        }
+        
+        h3 {
+          color: $color-success;
+          margin-bottom: 1rem;
+          font-size: 1.5rem;
+        }
+        
+        p {
+          font-size: 1.1rem;
+          margin-bottom: 0;
+        }
+      }
+      
+      &.alert-danger {
+        color: darken($color-danger, 20%);
+        background-color: lighten($color-danger, 35%);
+        border-color: lighten($color-danger, 15%);
+        
+        &::before {
+          background-color: $color-danger;
+        }
+        
+        strong {
+          font-weight: 600;
+          color: darken($color-danger, 30%);
+        }
+        
+        ul {
+          margin-top: 0.5rem;
+          margin-bottom: 0;
+          padding-left: 1.5rem;
+          
+          li {
+            margin-bottom: 0.25rem;
+          }
+        }
+      }
+      
+      &.alert-warning {
+        color: darken($color-warning, 30%);
+        background-color: lighten($color-warning, 25%);
+        border-color: lighten($color-warning, 10%);
+        
+        &::before {
+          background-color: $color-warning;
+        }
+        
+        strong {
+          font-weight: 600;
+          color: darken($color-warning, 40%);
+        }
+        
+        ul {
+          margin-top: 0.5rem;
+          margin-bottom: 0;
+          padding-left: 1.5rem;
+          
+          li {
+            margin-bottom: 0.25rem;
+          }
+        }
       }
     }
   }

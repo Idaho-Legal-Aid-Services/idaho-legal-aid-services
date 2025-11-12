@@ -1,0 +1,22 @@
+uuid: 10bce06c-b4bb-409f-9374-6ee190062a31
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_main_content
+    - node.type.employment
+  module:
+    - text
+id: node.employment.field_main_content
+field_name: field_main_content
+entity_type: node
+bundle: employment
+label: 'Main Content'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

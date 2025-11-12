@@ -1,0 +1,19 @@
+uuid: 6b3294d4-186f-4cd0-aef7-fe0be98ce836
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_left_title
+    - paragraphs.paragraphs_type.two_column_info
+id: paragraph.two_column_info.field_left_title
+field_name: field_left_title
+entity_type: paragraph
+bundle: two_column_info
+label: 'Left Title'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

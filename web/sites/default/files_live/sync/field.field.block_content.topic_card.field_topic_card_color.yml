@@ -1,0 +1,21 @@
+uuid: b4f1841a-6484-4e6f-8bef-3c9682d9fcf9
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.topic_card
+    - field.storage.block_content.field_topic_card_color
+  module:
+    - options
+id: block_content.topic_card.field_topic_card_color
+field_name: field_topic_card_color
+entity_type: block_content
+bundle: topic_card
+label: 'Topic Card Color'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

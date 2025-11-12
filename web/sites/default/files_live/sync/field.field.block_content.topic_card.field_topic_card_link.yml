@@ -1,0 +1,23 @@
+uuid: 7a7480af-8896-4632-88db-e747d642e224
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.topic_card
+    - field.storage.block_content.field_topic_card_link
+  module:
+    - link
+id: block_content.topic_card.field_topic_card_link
+field_name: field_topic_card_link
+entity_type: block_content
+bundle: topic_card
+label: 'Topic Card Link'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  title: 1
+  link_type: 17
+field_type: link

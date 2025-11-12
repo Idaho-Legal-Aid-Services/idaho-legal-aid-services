@@ -1,0 +1,19 @@
+uuid: 08e8ce00-a43d-4d84-9104-857d9f7cbb60
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_telephone
+    - node.type.office_information
+id: node.office_information.field_telephone
+field_name: field_telephone
+entity_type: node
+bundle: office_information
+label: Telephone
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

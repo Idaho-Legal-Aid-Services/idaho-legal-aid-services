@@ -1,0 +1,26 @@
+uuid: 55721dfd-aa21-4f58-adf3-6b709384daf1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_topic_description
+    - filter.format.basic_html
+    - filter.format.full_html
+    - paragraphs.paragraphs_type.impact_card
+  module:
+    - text
+id: paragraph.impact_card.field_topic_description
+field_name: field_topic_description
+entity_type: paragraph
+bundle: impact_card
+label: 'Topic Description'
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats:
+    - basic_html
+    - full_html
+field_type: text_long

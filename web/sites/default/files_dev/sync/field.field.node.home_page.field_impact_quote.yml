@@ -1,0 +1,22 @@
+uuid: 0c5b1738-d5d7-46ff-8276-328a353837c0
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_impact_quote
+    - node.type.home_page
+  module:
+    - text
+id: node.home_page.field_impact_quote
+field_name: field_impact_quote
+entity_type: node
+bundle: home_page
+label: 'Impact Quote'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

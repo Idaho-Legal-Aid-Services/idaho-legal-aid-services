@@ -1,0 +1,11 @@
+uuid: 1a17a88a-c97f-4ebc-9c07-287fa742d3e5
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: node.legal_topics
+label: 'Legal Topics'
+description: ''
+targetEntityType: node
+cache: true

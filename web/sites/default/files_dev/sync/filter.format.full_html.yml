@@ -1,0 +1,17 @@
+uuid: c53ec72b-02da-4abd-9953-b9e440b04f42
+langcode: en
+status: true
+dependencies: {  }
+name: 'Full HTML'
+format: full_html
+weight: 0
+filters:
+  filter_html:
+    id: filter_html
+    provider: filter
+    status: false
+    weight: -10
+    settings:
+      allowed_html: '<script> <iframe>'
+      filter_html_help: true
+      filter_html_nofollow: false

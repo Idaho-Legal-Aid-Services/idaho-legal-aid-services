@@ -1,0 +1,24 @@
+uuid: 23c104d6-bc38-46da-bd82-22ab9ed6e8dd
+langcode: en
+status: true
+dependencies:
+  config:
+    - search_api_autocomplete.search.content_autocomplete
+  module:
+    - klaro
+    - media
+    - search_api_autocomplete
+    - sitemap
+    - system
+_core:
+  default_config_hash: j5zLMOdJBqC0bMvSdth5UebkprJB8g_2FXHqhfpJzow
+id: anonymous
+label: 'Anonymous user'
+weight: 0
+is_admin: false
+permissions:
+  - 'access content'
+  - 'access sitemap'
+  - 'use klaro'
+  - 'use search_api_autocomplete for content_autocomplete'
+  - 'view media'
