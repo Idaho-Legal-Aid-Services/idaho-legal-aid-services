@@ -55,7 +55,7 @@
         "drupal/tmgmt_google": "^1.2",
         "drupal/twig_tweak": "^3.4",
         "drupal/webform": "@beta",
-        "drush/drush": "^13",
+        "drush/drush": "^13.6",
         "pantheon-systems/drupal-integrations": "^11",
         "pantheon-upstreams/upstream-configuration": "dev-main"
     },
