@@ -1,0 +1,9 @@
+uuid: a4cb83a5-9e01-4cab-b048-c1b2fbf6e6e8
+langcode: en
+status: true
+dependencies: {  }
+id: sw
+label: Swahili
+direction: ltr
+weight: 2
+locked: false

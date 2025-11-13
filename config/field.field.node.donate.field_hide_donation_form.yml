@@ -1,0 +1,23 @@
+uuid: d0f92d66-36d4-45b3-92f1-7ae824632fc2
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_hide_donation_form
+    - node.type.donate
+id: node.donate.field_hide_donation_form
+field_name: field_hide_donation_form
+entity_type: node
+bundle: donate
+label: 'Hide Donation Form'
+description: 'Check this box to hide the standard donation form on this page.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

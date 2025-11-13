@@ -1,0 +1,20 @@
+uuid: 87c97ee2-61ec-4269-8b51-5099eab23149
+langcode: en
+status: true
+dependencies:
+  config:
+    - media.type.svg_image
+  module:
+    - options
+id: media.svg_image.publish_state
+field_name: publish_state
+entity_type: media
+bundle: svg_image
+label: 'Publish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

@@ -1,0 +1,34 @@
+uuid: dbcb175f-caf5-458b-ae02-1b09d715e09b
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_impact_cards
+    - node.type.home_page
+    - paragraphs.paragraphs_type.impact_card
+  module:
+    - entity_reference_revisions
+id: node.home_page.field_impact_cards
+field_name: field_impact_cards
+entity_type: node
+bundle: home_page
+label: 'Impact Cards'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      impact_card: impact_card
+    negate: 0
+    target_bundles_drag_drop:
+      impact_card:
+        weight: 3
+        enabled: true
+      topic_card:
+        weight: 4
+        enabled: false
+field_type: entity_reference_revisions

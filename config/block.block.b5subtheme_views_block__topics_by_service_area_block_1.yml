@@ -1,0 +1,34 @@
+uuid: 7445b3ea-11d0-42b7-b358-f349dcf52470
+langcode: en
+status: false
+dependencies:
+  config:
+    - views.view.topics_by_service_area
+  module:
+    - node
+    - views
+  theme:
+    - b5subtheme
+id: b5subtheme_views_block__topics_by_service_area_block_1
+theme: b5subtheme
+region: sidebar_first
+weight: 0
+provider: null
+plugin: 'views_block:topics_by_service_area-block_1'
+settings:
+  id: 'views_block:topics_by_service_area-block_1'
+  label: ''
+  label_display: visible
+  provider: views
+  views_label: ''
+  items_per_page: null
+  context_mapping: {  }
+visibility:
+  'entity_bundle:node':
+    id: 'entity_bundle:node'
+    negate: false
+    context_mapping:
+      node: '@node.node_route_context:node'
+    bundles:
+      legal_content: legal_content
+      resource: resource

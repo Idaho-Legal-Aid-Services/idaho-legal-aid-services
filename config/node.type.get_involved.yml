@@ -1,0 +1,35 @@
+uuid: 7341f0b7-525b-449c-b39b-a44494caf5f1
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+    - scheduler
+    - search_api_exclude
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+  scheduler:
+    expand_fieldset: when_required
+    fields_display_mode: vertical_tab
+    publish_enable: false
+    publish_past_date: error
+    publish_past_date_created: false
+    publish_required: false
+    publish_revision: false
+    publish_touch: false
+    show_message_after_update: true
+    unpublish_enable: false
+    unpublish_required: false
+    unpublish_revision: false
+  search_api_exclude:
+    enabled: false
+name: 'Get Involved'
+type: get_involved
+description: 'Page template for employment and pro bono pages.'
+help: null
+new_revision: true
+preview_mode: 1
+display_submitted: false

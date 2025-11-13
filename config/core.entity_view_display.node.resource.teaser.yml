@@ -1,0 +1,39 @@
+uuid: 8084c89b-4c16-4987-9e68-851ae3d334fc
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.node.teaser
+    - field.field.node.resource.field_external_resources
+    - field.field.node.resource.field_file
+    - field.field.node.resource.field_link
+    - field.field.node.resource.field_main_content
+    - field.field.node.resource.field_section_heading
+    - field.field.node.resource.field_sections
+    - field.field.node.resource.field_service_areas
+    - field.field.node.resource.field_topics
+    - node.type.resource
+  module:
+    - layout_builder
+    - user
+third_party_settings:
+  layout_builder:
+    enabled: false
+    allow_custom: false
+id: node.resource.teaser
+targetEntityType: node
+bundle: resource
+mode: teaser
+content: {  }
+hidden:
+  field_external_resources: true
+  field_file: true
+  field_link: true
+  field_main_content: true
+  field_section_heading: true
+  field_sections: true
+  field_service_areas: true
+  field_topics: true
+  langcode: true
+  links: true
+  search_api_excerpt: true

@@ -1,0 +1,21 @@
+uuid: ed306d1d-e8c4-47c4-ac17-4a70db0366d1
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_available_positions
+    - node.type.employment_application
+  module:
+    - options
+id: node.employment_application.field_available_positions
+field_name: field_available_positions
+entity_type: node
+bundle: employment_application
+label: 'Available Positions'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

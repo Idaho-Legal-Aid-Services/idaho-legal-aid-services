@@ -58,15 +58,6 @@ label.option {
   margin-top: 0.4em;
   margin-bottom: 0.4em;
 }
-.form-type-radio .description,
-.form-type-checkbox .description {
-  margin-left: 2.4em; /* LTR */
-}
-[dir="rtl"] .form-type-radio .description,
-[dir="rtl"] .form-type-checkbox .description {
-  margin-right: 2.4em;
-  margin-left: 0;
-}
 .marker {
   color: #e00;
 }

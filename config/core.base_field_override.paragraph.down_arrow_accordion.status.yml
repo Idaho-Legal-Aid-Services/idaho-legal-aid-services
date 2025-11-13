@@ -1,0 +1,22 @@
+uuid: 5b6446b4-fa49-4952-b9a6-6fb09f3bdb9b
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.down_arrow_accordion
+id: paragraph.down_arrow_accordion.status
+field_name: status
+entity_type: paragraph
+bundle: down_arrow_accordion
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

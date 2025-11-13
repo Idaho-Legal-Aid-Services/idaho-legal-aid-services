@@ -1,0 +1,18 @@
+uuid: 53c02bcf-0517-483f-a4a7-c2b7fe306e11
+langcode: en
+status: true
+dependencies:
+  module:
+    - menu_ui
+third_party_settings:
+  menu_ui:
+    available_menus:
+      - main
+    parent: 'main:'
+name: Event
+type: event
+description: 'Events for legal clinics, trainings, fundraisers, and community outreach.'
+help: ''
+new_revision: true
+preview_mode: 1
+display_submitted: false

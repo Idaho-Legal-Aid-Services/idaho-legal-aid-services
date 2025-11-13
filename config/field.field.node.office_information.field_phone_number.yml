@@ -1,0 +1,22 @@
+uuid: e0be80c1-1610-440a-b691-443b799a8b97
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_phone_number
+    - node.type.office_information
+  module:
+    - text
+id: node.office_information.field_phone_number
+field_name: field_phone_number
+entity_type: node
+bundle: office_information
+label: 'Phone Number'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text

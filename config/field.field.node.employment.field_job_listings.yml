@@ -1,0 +1,61 @@
+uuid: a91f9cf4-7c1c-400e-8481-eb9f9e4eb4c4
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_job_listings
+    - node.type.employment
+    - paragraphs.paragraphs_type.accordion_section
+  module:
+    - entity_reference_revisions
+id: node.employment.field_job_listings
+field_name: field_job_listings
+entity_type: node
+bundle: employment
+label: 'Job Listings'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      accordion_section: accordion_section
+    negate: 0
+    target_bundles_drag_drop:
+      accordion_item:
+        weight: 12
+        enabled: false
+      accordion_section:
+        weight: 13
+        enabled: true
+      donation_questions:
+        weight: 14
+        enabled: false
+      down_arrow_accordion:
+        weight: 15
+        enabled: false
+      down_arrow_accordion_item:
+        weight: 16
+        enabled: false
+      external_resource:
+        weight: 17
+        enabled: false
+      faq_item:
+        weight: 18
+        enabled: false
+      faq_smart_section:
+        weight: 19
+        enabled: false
+      impact_card:
+        weight: 20
+        enabled: false
+      topic_card:
+        weight: 21
+        enabled: false
+      two_column_info:
+        weight: 22
+        enabled: false
+field_type: entity_reference_revisions

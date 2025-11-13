@@ -1,0 +1,22 @@
+uuid: ef52a12c-9105-4a67-b62e-801cc186e467
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.down_arrow_accordion_item
+id: paragraph.down_arrow_accordion_item.status
+field_name: status
+entity_type: paragraph
+bundle: down_arrow_accordion_item
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

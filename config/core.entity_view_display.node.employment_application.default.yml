@@ -1,0 +1,30 @@
+uuid: e01b863d-5ac2-450a-840f-d9a7299b13d7
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.employment_application.field_available_positions
+    - node.type.employment_application
+  module:
+    - options
+    - user
+id: node.employment_application.default
+targetEntityType: node
+bundle: employment_application
+mode: default
+content:
+  field_available_positions:
+    type: list_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 101
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true
+  search_api_excerpt: true

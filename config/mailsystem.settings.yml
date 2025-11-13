@@ -1,0 +1,25 @@
+theme: easy_email_theme
+defaults:
+  sender: symfony_mailer_lite
+  formatter: symfony_mailer_lite
+modules:
+  symfony_mailer_lite:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite
+  easy_email:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite
+  webform:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite
+  user:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite
+  system:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite

@@ -1,0 +1,22 @@
+uuid: 351d89fd-7067-4f93-81e0-1c910c354db8
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.impact_card
+id: paragraph.impact_card.status
+field_name: status
+entity_type: paragraph
+bundle: impact_card
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

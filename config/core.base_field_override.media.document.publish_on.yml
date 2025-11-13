@@ -1,0 +1,18 @@
+uuid: bad351bb-8b6e-4e36-8516-58b2ab88c1a1
+langcode: en
+status: true
+dependencies:
+  config:
+    - media.type.document
+id: media.document.publish_on
+field_name: publish_on
+entity_type: media
+bundle: document
+label: 'Publish on'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

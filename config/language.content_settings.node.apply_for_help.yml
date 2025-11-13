@@ -1,0 +1,18 @@
+uuid: 402d30b3-e4fc-487d-a0df-44eec742b2e4
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.apply_for_help
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+    bundle_settings:
+      untranslatable_fields_hide: '0'
+id: node.apply_for_help
+target_entity_type_id: node
+target_bundle: apply_for_help
+default_langcode: site_default
+language_alterable: true

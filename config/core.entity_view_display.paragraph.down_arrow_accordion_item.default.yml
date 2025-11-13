@@ -1,0 +1,23 @@
+uuid: 6146f0b0-4dfa-4678-a415-559b4358eef6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.down_arrow_accordion_item.field_daa_button_files
+    - paragraphs.paragraphs_type.down_arrow_accordion_item
+id: paragraph.down_arrow_accordion_item.default
+targetEntityType: paragraph
+bundle: down_arrow_accordion_item
+mode: default
+content:
+  field_daa_button_files:
+    type: entity_reference_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: false
+    third_party_settings: {  }
+    weight: 2
+    region: content
+hidden:
+  search_api_excerpt: true

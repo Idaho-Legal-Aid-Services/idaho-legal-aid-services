@@ -1,0 +1,18 @@
+uuid: 54fc6adb-955c-41c9-b810-0210aa8caca5
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.service_areas
+id: taxonomy_term.service_areas.publish_on
+field_name: publish_on
+entity_type: taxonomy_term
+bundle: service_areas
+label: 'Publish on'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

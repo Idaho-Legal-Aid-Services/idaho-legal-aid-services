@@ -14,14 +14,15 @@ props:
       examples:
         - Hero title text
     summary:
-      $ref: json-schema-definitions://experience_builder.module/textarea
       type: string
+      # @see https://json-schema.org/understanding-json-schema/reference/regular_expressions
+      pattern: '(.|\r?\n)*'
       title: Summary
       description: The optional summary text
       examples:
         - Hero summary is an optional field and can span multiple lines
     image:
-      $ref: json-schema-definitions://experience_builder.module/image
+      $ref: json-schema-definitions://canvas.module/image
       type: object
       title: Image
       description: "Image for the hero. Recommended size: 2:1 aspect ratio"

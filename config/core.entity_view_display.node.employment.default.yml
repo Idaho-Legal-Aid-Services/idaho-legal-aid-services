@@ -1,0 +1,64 @@
+uuid: 6ae7fb1a-3d3b-47bd-91c8-d530d0efc651
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.employment.field_application_form
+    - field.field.node.employment.field_benefits
+    - field.field.node.employment.field_job_listings
+    - field.field.node.employment.field_main_content
+    - field.field.node.employment.field_subheader
+    - node.type.employment
+  module:
+    - entity_reference_revisions
+    - text
+    - user
+    - webform
+id: node.employment.default
+targetEntityType: node
+bundle: employment
+mode: default
+content:
+  field_application_form:
+    type: webform_entity_reference_entity_view
+    label: hidden
+    settings:
+      source_entity: true
+      lazy: false
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_benefits:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_job_listings:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_main_content:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_subheader:
+    type: basic_string
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 1
+    region: content
+hidden:
+  langcode: true
+  links: true
+  search_api_excerpt: true

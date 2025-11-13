@@ -1,0 +1,18 @@
+uuid: da4f4e93-2dc7-4587-826f-8e07cf468828
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.legal_content
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+    bundle_settings:
+      untranslatable_fields_hide: '0'
+id: node.legal_content
+target_entity_type_id: node
+target_bundle: legal_content
+default_langcode: site_default
+language_alterable: true

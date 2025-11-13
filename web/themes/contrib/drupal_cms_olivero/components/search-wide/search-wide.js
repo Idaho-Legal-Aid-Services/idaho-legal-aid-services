@@ -4,8 +4,10 @@
  */
 
 ((Drupal, $) => {
-  const searchWideButtonSelector = '[data-drupal-selector="block-search-wide-button"]';
-  const searchWideWrapperSelector = '[data-drupal-selector="block-search-wide-wrapper"]';
+  const searchWideButtonSelector =
+    '[data-drupal-selector="block-search-wide-button"]';
+  const searchWideWrapperSelector =
+    '[data-drupal-selector="block-search-wide-wrapper"]';
   let searchWideButton;
   let searchWideWrapper;
 
@@ -83,7 +85,9 @@
    */
   function handleFocus() {
     if (searchIsVisible()) {
-      searchWideWrapper.querySelector('input:is([type="search"],[type="text"])').focus();
+      searchWideWrapper
+        .querySelector('input:is([type="search"],[type="text"])')
+        .focus();
     } else if (searchWideWrapper.contains(document.activeElement)) {
       // Return focus to button only if focus was inside of the search wrapper.
       searchWideButton.focus();
@@ -174,17 +178,19 @@
       // properly styled even when there's no DOM relation between the
       // autocomplete input and the dropdown.
       $('.block-search-wide :is([type="text"], [type="search"])').autocomplete({
-          open: function() {
-            document.querySelectorAll('.search-api-autocomplete-search').forEach(el => {
+        open() {
+          document
+            .querySelectorAll('.search-api-autocomplete-search')
+            .forEach((el) => {
               el.classList.add('search-wide-dropdown');
             });
-          },
-          close: function() {
-            document.querySelectorAll('.search-wide-dropdown').forEach(el => {
-              el.classList.remove('search-wide-dropdown');
-            });
-          }
-       });
+        },
+        close() {
+          document.querySelectorAll('.search-wide-dropdown').forEach((el) => {
+            el.classList.remove('search-wide-dropdown');
+          });
+        },
+      });
     },
   };
 })(Drupal, jQuery);

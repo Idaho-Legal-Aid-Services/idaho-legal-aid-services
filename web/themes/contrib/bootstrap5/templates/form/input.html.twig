@@ -11,12 +11,13 @@
  */
 #}
 
-{% if attributes.hasClass('button') and not attributes.hasClass('field-add-more-submit') and not attributes.hasClass('btn') %}
+{% if attributes.hasClass('button') and not attributes.hasClass('btn') %}
   {%
     set classes = [
       'btn',
       attributes.hasClass('button--danger') ? 'btn-danger' : '',
-      (not attributes.hasClass('media-library-item__remove') and not attributes.hasClass('button--danger')) ? 'btn-primary' : ''
+      attributes.hasClass('button--primary') ? 'btn-primary' : '',
+      (not attributes.hasClass('media-library-item__remove') and not attributes.hasClass('button--danger') and not attributes.hasClass('button--primary')) ? 'btn-secondary' : ''
     ]
   %}
   <input{{ attributes.addClass(classes) }} />

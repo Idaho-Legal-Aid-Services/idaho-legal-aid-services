@@ -1,0 +1,52 @@
+uuid: bffc5bfd-a091-4ae1-bdef-1b3c97873de9
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_external_resources
+    - node.type.resource
+    - paragraphs.paragraphs_type.external_resource
+  module:
+    - entity_reference_revisions
+id: node.resource.field_external_resources
+field_name: field_external_resources
+entity_type: node
+bundle: resource
+label: 'External Resources'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      external_resource: external_resource
+    negate: 0
+    target_bundles_drag_drop:
+      accordion_item:
+        weight: 9
+        enabled: false
+      accordion_section:
+        weight: 10
+        enabled: false
+      external_resource:
+        weight: 11
+        enabled: true
+      faq_item:
+        weight: 12
+        enabled: false
+      faq_smart_section:
+        weight: 13
+        enabled: false
+      impact_card:
+        weight: 14
+        enabled: false
+      topic_card:
+        weight: 15
+        enabled: false
+      two_column_info:
+        weight: 16
+        enabled: false
+field_type: entity_reference_revisions

@@ -1,0 +1,20 @@
+uuid: c2c00f35-b481-45b7-8257-255fb0eedfac
+langcode: en
+status: true
+dependencies:
+  config:
+    - media.type.image
+  module:
+    - options
+id: media.image.unpublish_state
+field_name: unpublish_state
+entity_type: media
+bundle: image
+label: 'Unpublish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

@@ -1,0 +1,22 @@
+uuid: 34b12085-c9ce-446a-a9c8-29262a33773d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_accordion_body
+    - paragraphs.paragraphs_type.accordion_item
+  module:
+    - text
+id: paragraph.accordion_item.field_accordion_body
+field_name: field_accordion_body
+entity_type: paragraph
+bundle: accordion_item
+label: 'Accordion Body'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

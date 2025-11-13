@@ -1,0 +1,22 @@
+uuid: 36c760e5-ab39-4c72-be6e-344a61b39a4c
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.faq_smart_section
+id: paragraph.faq_smart_section.status
+field_name: status
+entity_type: paragraph
+bundle: faq_smart_section
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

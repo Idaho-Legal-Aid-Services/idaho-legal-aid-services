@@ -1,0 +1,20 @@
+uuid: aae5bf42-3dd0-47b1-8122-4bd9c073bcf9
+langcode: en
+status: true
+dependencies:
+  config:
+    - media.type.svg_image
+  module:
+    - metatag
+id: media.svg_image.metatag
+field_name: metatag
+entity_type: media
+bundle: svg_image
+label: 'Metatags (Hidden field for JSON support)'
+description: 'The computed meta tags for the entity.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: metatag_computed

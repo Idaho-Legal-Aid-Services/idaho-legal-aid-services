@@ -1,0 +1,35 @@
+uuid: 6c982963-9092-41b9-9efe-bc95b7644deb
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_daa_button_files
+    - media.type.document
+    - media.type.image
+    - media.type.remote_video
+    - media.type.svg_image
+    - paragraphs.paragraphs_type.down_arrow_accordion_item
+id: paragraph.down_arrow_accordion_item.field_daa_button_files
+field_name: field_daa_button_files
+entity_type: paragraph
+bundle: down_arrow_accordion_item
+label: 'DAA Button Files'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:media'
+  handler_settings:
+    target_bundles:
+      document: document
+      image: image
+      remote_video: remote_video
+      svg_image: svg_image
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: document
+field_type: entity_reference

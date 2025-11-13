@@ -1,0 +1,51 @@
+reminder_days:
+  - 7
+  - 3
+  - 1
+default_capacity: 50
+registration_settings:
+  allow_waitlist: true
+  require_approval: false
+  confirmation_email: true
+  reminder_email: true
+event_types:
+  legal_clinic:
+    label: 'Legal Clinic'
+    color: '#28a745'
+    icon: fa-gavel
+  cle_training:
+    label: 'CLE Training'
+    color: '#17a2b8'
+    icon: fa-graduation-cap
+  volunteer_training:
+    label: 'Volunteer Training'
+    color: '#6f42c1'
+    icon: fa-hands-helping
+  fundraising:
+    label: 'Fundraising Event'
+    color: '#fd7e14'
+    icon: fa-donate
+  community_outreach:
+    label: 'Community Outreach'
+    color: '#20c997'
+    icon: fa-users
+  pro_bono_recruitment:
+    label: 'Pro Bono Recruitment'
+    color: '#6c757d'
+    icon: fa-briefcase
+email_templates:
+  registration_confirmation:
+    subject: 'Registration Confirmed: [event:title]'
+    enabled: true
+  event_reminder:
+    subject: 'Reminder: [event:title] is in [days] day(s)'
+    enabled: true
+  waitlist_confirmation:
+    subject: "You're off the waitlist! - [event:title]"
+    enabled: true
+  cancellation_notice:
+    subject: 'Registration Cancelled: [event:title]'
+    enabled: true
+  follow_up:
+    subject: 'Thank you for attending [event:title]'
+    enabled: true

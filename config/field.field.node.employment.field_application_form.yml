@@ -1,0 +1,25 @@
+uuid: 42534943-d7a9-46e6-841c-6f534a40492e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_application_form
+    - node.type.employment
+  module:
+    - webform
+id: node.employment.field_application_form
+field_name: field_application_form
+entity_type: node
+bundle: employment
+label: 'Application Form'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:webform'
+  handler_settings:
+    target_bundles: null
+    auto_create: false
+field_type: webform

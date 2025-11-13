@@ -1,0 +1,19 @@
+uuid: 66e95d9d-84a2-4951-a5ae-4df9d5a994c6
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_section_heading
+    - node.type.legal_content
+id: node.legal_content.field_section_heading
+field_name: field_section_heading
+entity_type: node
+bundle: legal_content
+label: 'Section Heading'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

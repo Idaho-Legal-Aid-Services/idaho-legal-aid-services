@@ -144,6 +144,23 @@ function _bootstrap5_attributes_class_string_to_array(&$variables) {
 }
 
 /**
+ * Implements hook_preprocess_HOOK() for form element.
+ */
+function bootstrap5_preprocess_form_element(&$variables) {
+  if (isset($variables['type'])) {
+    if (in_array($variables['type'], ['checkbox', 'radio'])) {
+      if (isset($variables['label'])) {
+        $variables['label']['#attributes']['class'][] = 'form-check-label';
+      }
+      $variables['attributes']['class'][] = 'form-check';
+    }
+    elseif (in_array($variables['type'], ['file', 'managed_file'])) {
+      $variables['label']['#attributes']['class'][] = 'form-label';
+    }
+  }
+}
+
+/**
  * Implements theme_preprocess_textarea().
  */
 function bootstrap5_preprocess_textarea(&$variables) {
@@ -176,9 +193,16 @@ function bootstrap5_preprocess_input(&$variables) {
     $variables['attributes']['class'][] = 'form-control';
   }
 
-  if (in_array($type_html, ['checkbox'])) {
+  if (in_array($type_html, ['checkbox', 'radio'])) {
     $variables['attributes']['class'][] = 'form-check-input';
   }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for file input.
+ */
+function bootstrap5_preprocess_input__file(&$variables) {
+  $variables['attributes']['class'][] = 'form-control';
 }
 
 /**

@@ -1,0 +1,22 @@
+uuid: 1d33499c-1628-4e15-98c6-78796faf8f94
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.service_areas
+id: taxonomy_term.service_areas.status
+field_name: status
+entity_type: taxonomy_term
+bundle: service_areas
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

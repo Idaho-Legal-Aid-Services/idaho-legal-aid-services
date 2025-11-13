@@ -1,0 +1,22 @@
+uuid: 53790f8d-8251-4b72-9946-8f4ab94faaa9
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_option_icon
+    - paragraphs.paragraphs_type.donation_questions
+  module:
+    - text
+id: paragraph.donation_questions.field_option_icon
+field_name: field_option_icon
+entity_type: paragraph
+bundle: donation_questions
+label: 'Option Icon'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text

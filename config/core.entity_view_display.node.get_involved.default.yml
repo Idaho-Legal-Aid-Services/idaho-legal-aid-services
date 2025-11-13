@@ -1,0 +1,53 @@
+uuid: 1f52fd7b-a56c-4907-889d-62cce4444258
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.get_involved.field_impact_quote
+    - field.field.node.get_involved.field_main_content
+    - field.field.node.get_involved.field_sections
+    - field.field.node.get_involved.field_subheader
+    - node.type.get_involved
+  module:
+    - entity_reference_revisions
+    - text
+    - user
+id: node.get_involved.default
+targetEntityType: node
+bundle: get_involved
+mode: default
+content:
+  field_impact_quote:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_main_content:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_sections:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_subheader:
+    type: basic_string
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 2
+    region: content
+hidden:
+  langcode: true
+  links: true
+  search_api_excerpt: true

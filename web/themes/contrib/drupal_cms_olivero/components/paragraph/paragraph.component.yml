@@ -12,7 +12,8 @@ props:
   properties:
     text:
       type: string
-      $ref: json-schema-definitions://experience_builder.module/textarea
+      # @see https://json-schema.org/understanding-json-schema/reference/regular_expressions
+      pattern: '(.|\r?\n)*'
       title: Text
       examples: ['A paragraph element for text content.']
     style:

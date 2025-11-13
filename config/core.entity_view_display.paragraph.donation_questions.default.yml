@@ -1,0 +1,47 @@
+uuid: cb380902-1997-4f5d-b8fc-be012ddd685f
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.donation_questions.field_option_content
+    - field.field.paragraph.donation_questions.field_option_description
+    - field.field.paragraph.donation_questions.field_option_icon
+    - field.field.paragraph.donation_questions.field_option_title
+    - paragraphs.paragraphs_type.donation_questions
+  module:
+    - text
+id: paragraph.donation_questions.default
+targetEntityType: paragraph
+bundle: donation_questions
+mode: default
+content:
+  field_option_content:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_option_description:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_option_icon:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_option_title:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+hidden:
+  search_api_excerpt: true

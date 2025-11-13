@@ -6,5 +6,7 @@
     "require": {
         "drupal/core": "^11"
     },
-    "version": "1.2.0"
+    "require-dev": {
+        "drupal/canvas": "@beta"
+    }
 }

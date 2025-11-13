@@ -1,0 +1,20 @@
+uuid: 1e35ef69-28a6-4a43-a01e-a6236bc9a42a
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.topics
+  module:
+    - options
+id: taxonomy_term.topics.publish_state
+field_name: publish_state
+entity_type: taxonomy_term
+bundle: topics
+label: 'Publish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

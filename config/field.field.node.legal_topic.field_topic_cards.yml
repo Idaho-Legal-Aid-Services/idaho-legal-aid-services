@@ -1,0 +1,52 @@
+uuid: c579fee4-e5a3-40ce-9ccf-67fce3b80674
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_topic_cards
+    - node.type.legal_topic
+    - paragraphs.paragraphs_type.topic_card
+  module:
+    - entity_reference_revisions
+id: node.legal_topic.field_topic_cards
+field_name: field_topic_cards
+entity_type: node
+bundle: legal_topic
+label: 'Topic Cards'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      topic_card: topic_card
+    negate: 0
+    target_bundles_drag_drop:
+      accordion_item:
+        weight: 6
+        enabled: false
+      accordion_section:
+        weight: 7
+        enabled: false
+      external_resource:
+        weight: 11
+        enabled: false
+      faq_item:
+        weight: 12
+        enabled: false
+      faq_smart_section:
+        weight: 13
+        enabled: false
+      impact_card:
+        weight: 8
+        enabled: false
+      topic_card:
+        weight: 4
+        enabled: true
+      two_column_info:
+        weight: 10
+        enabled: false
+field_type: entity_reference_revisions

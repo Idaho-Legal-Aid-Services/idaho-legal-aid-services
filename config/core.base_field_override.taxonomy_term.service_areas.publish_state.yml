@@ -1,0 +1,20 @@
+uuid: 05d0c1cf-62c1-4b5f-b935-89c889125504
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.service_areas
+  module:
+    - options
+id: taxonomy_term.service_areas.publish_state
+field_name: publish_state
+entity_type: taxonomy_term
+bundle: service_areas
+label: 'Publish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

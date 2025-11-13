@@ -1,0 +1,22 @@
+uuid: 0ba1c6c3-3283-4668-bd71-54d0a739f294
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_main_content
+    - node.type.donate
+  module:
+    - text
+id: node.donate.field_main_content
+field_name: field_main_content
+entity_type: node
+bundle: donate
+label: 'Main Content'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,18 @@
+uuid: f71d4b7d-6fd3-4982-88db-fde490066536
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.topic_card
+id: block_content.topic_card.info
+field_name: info
+entity_type: block_content
+bundle: topic_card
+label: 'Block description'
+description: 'A brief description of your block.'
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

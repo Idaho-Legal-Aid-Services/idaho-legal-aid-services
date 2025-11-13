@@ -1,0 +1,22 @@
+uuid: 903b3611-9e33-4137-bc36-f129810a5566
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_benefits
+    - node.type.employment
+  module:
+    - text
+id: node.employment.field_benefits
+field_name: field_benefits
+entity_type: node
+bundle: employment
+label: Benefits
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,22 @@
+uuid: 253ee718-a301-4e7e-8693-a36156e81e17
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_apply_legal_title
+    - node.type.apply_for_help
+  module:
+    - text
+id: node.apply_for_help.field_apply_legal_title
+field_name: field_apply_legal_title
+entity_type: node
+bundle: apply_for_help
+label: 'Apply Legal Title'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text

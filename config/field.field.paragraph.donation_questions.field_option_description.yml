@@ -1,0 +1,22 @@
+uuid: 83cccbf4-cdbb-4978-9046-13f6bc41a5d0
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_option_description
+    - paragraphs.paragraphs_type.donation_questions
+  module:
+    - text
+id: paragraph.donation_questions.field_option_description
+field_name: field_option_description
+entity_type: paragraph
+bundle: donation_questions
+label: 'Option Description'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text

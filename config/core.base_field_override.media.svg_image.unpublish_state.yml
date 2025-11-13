@@ -1,0 +1,20 @@
+uuid: 8dbb3e97-a0ff-46c6-83b0-630504803700
+langcode: en
+status: true
+dependencies:
+  config:
+    - media.type.svg_image
+  module:
+    - options
+id: media.svg_image.unpublish_state
+field_name: unpublish_state
+entity_type: media
+bundle: svg_image
+label: 'Unpublish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

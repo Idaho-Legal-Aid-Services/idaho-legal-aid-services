@@ -36,7 +36,7 @@ libraries-override:
       component:
         css/components/layout-field.css: false
 
-# Information added by Drupal.org packaging script on 2025-06-20
-version: '1.2.0'
+# Information added by Drupal.org packaging script on 2025-10-16
+version: '1.2.8'
 project: 'drupal_cms_olivero'
-datestamp: 1750429549
+datestamp: 1760626787

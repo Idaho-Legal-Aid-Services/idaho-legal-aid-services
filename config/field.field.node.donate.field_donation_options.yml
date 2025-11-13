@@ -1,0 +1,61 @@
+uuid: bd850579-9c6d-4d28-9613-cec0188e7140
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_donation_options
+    - node.type.donate
+    - paragraphs.paragraphs_type.donation_questions
+  module:
+    - entity_reference_revisions
+id: node.donate.field_donation_options
+field_name: field_donation_options
+entity_type: node
+bundle: donate
+label: 'Donation Options'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:paragraph'
+  handler_settings:
+    target_bundles:
+      donation_questions: donation_questions
+    negate: 0
+    target_bundles_drag_drop:
+      accordion_item:
+        weight: 11
+        enabled: false
+      accordion_section:
+        weight: 12
+        enabled: false
+      donation_questions:
+        weight: 12
+        enabled: true
+      down_arrow_accordion:
+        weight: 13
+        enabled: false
+      down_arrow_accordion_item:
+        weight: 14
+        enabled: false
+      external_resource:
+        weight: 15
+        enabled: false
+      faq_item:
+        weight: 16
+        enabled: false
+      faq_smart_section:
+        weight: 17
+        enabled: false
+      impact_card:
+        weight: 18
+        enabled: false
+      topic_card:
+        weight: 19
+        enabled: false
+      two_column_info:
+        weight: 20
+        enabled: false
+field_type: entity_reference_revisions

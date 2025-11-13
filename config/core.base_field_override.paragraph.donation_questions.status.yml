@@ -1,0 +1,22 @@
+uuid: 8377e51d-0f35-4c58-8e86-119c56a45db7
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.donation_questions
+id: paragraph.donation_questions.status
+field_name: status
+entity_type: paragraph
+bundle: donation_questions
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

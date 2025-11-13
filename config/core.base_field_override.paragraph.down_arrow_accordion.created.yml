@@ -1,0 +1,18 @@
+uuid: 2f887e81-53cf-4aa2-83b7-ef635b7d5e4e
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.down_arrow_accordion
+id: paragraph.down_arrow_accordion.created
+field_name: created
+entity_type: paragraph
+bundle: down_arrow_accordion
+label: 'Authored on'
+description: 'The time that the Paragraph was created.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: created

@@ -1,0 +1,22 @@
+uuid: 3a0e81b6-3d99-4522-99e1-3edcd351475f
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_legal_content_description
+    - node.type.legal_content
+  module:
+    - text
+id: node.legal_content.field_legal_content_description
+field_name: field_legal_content_description
+entity_type: node
+bundle: legal_content
+label: 'Legal Content Description'
+description: ''
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

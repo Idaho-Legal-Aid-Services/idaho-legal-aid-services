@@ -1,0 +1,18 @@
+uuid: 5cbdbb59-5670-45cb-84ae-0613876b7240
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.office_information
+id: node.office_information.title
+field_name: title
+entity_type: node
+bundle: office_information
+label: 'Office Name'
+description: ''
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

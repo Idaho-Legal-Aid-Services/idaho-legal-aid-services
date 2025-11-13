@@ -1,0 +1,22 @@
+uuid: 96daa689-26ab-4862-ba17-2a2fbf20296b
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.topic_card
+id: block_content.topic_card.status
+field_name: status
+entity_type: block_content
+bundle: topic_card
+label: Published
+description: ''
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

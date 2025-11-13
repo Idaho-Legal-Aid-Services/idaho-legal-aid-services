@@ -1,0 +1,21 @@
+uuid: 8f9c6f01-1980-469c-907b-e1a44caf19db
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.taxonomy_term.field_service_areas
+    - taxonomy.vocabulary.topics
+id: taxonomy_term.topics.field_service_areas
+field_name: field_service_areas
+entity_type: taxonomy_term
+bundle: topics
+label: 'Related Service Areas'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:taxonomy_term'
+  handler_settings: {  }
+field_type: entity_reference

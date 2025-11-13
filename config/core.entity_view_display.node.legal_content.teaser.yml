@@ -1,0 +1,113 @@
+uuid: 5864bc82-cea8-425a-a3ad-879ffb4b80a6
+langcode: en
+status: false
+dependencies:
+  config:
+    - core.entity_view_mode.node.teaser
+    - field.field.node.legal_content.field_legal_content_description
+    - field.field.node.legal_content.field_legal_content_files
+    - field.field.node.legal_content.field_legal_content_image
+    - field.field.node.legal_content.field_legal_content_link
+    - field.field.node.legal_content.field_legal_content_media
+    - field.field.node.legal_content.field_main_content
+    - field.field.node.legal_content.field_section_heading
+    - field.field.node.legal_content.field_sections
+    - field.field.node.legal_content.field_service_area
+    - node.type.legal_content
+  module:
+    - entity_reference_revisions
+    - file
+    - layout_builder
+    - link
+    - svg_image
+    - text
+    - user
+third_party_settings:
+  layout_builder:
+    enabled: false
+    allow_custom: false
+id: node.legal_content.teaser
+targetEntityType: node
+bundle: legal_content
+mode: teaser
+content:
+  field_legal_content_description:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_legal_content_files:
+    type: file_default
+    label: hidden
+    settings:
+      use_description_as_link_text: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_legal_content_image:
+    type: image
+    label: hidden
+    settings:
+      image_link: ''
+      image_style: ''
+      image_loading:
+        attribute: lazy
+      svg_attributes:
+        width: null
+        height: null
+      svg_render_as_image: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_legal_content_link:
+    type: link
+    label: hidden
+    settings:
+      trim_length: 80
+      url_only: false
+      url_plain: false
+      rel: ''
+      target: ''
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_legal_content_media:
+    type: entity_reference_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: false
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_main_content:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 50
+    region: content
+  field_section_heading:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_sections:
+    type: entity_reference_revisions_entity_view
+    label: above
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 50
+    region: content
+hidden:
+  field_service_area: true
+  langcode: true
+  links: true
+  search_api_excerpt: true

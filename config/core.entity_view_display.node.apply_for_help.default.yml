@@ -1,0 +1,69 @@
+uuid: daf7a83b-fd67-4913-9238-ef608323998e
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.apply_for_help.field_apply_legal_body
+    - field.field.node.apply_for_help.field_apply_legal_title
+    - field.field.node.apply_for_help.field_apply_schedule
+    - field.field.node.apply_for_help.field_body
+    - field.field.node.apply_for_help.field_subtitle
+    - field.field.node.apply_for_help.field_topic_cards
+    - node.type.apply_for_help
+  module:
+    - entity_reference_revisions
+    - text
+    - user
+id: node.apply_for_help.default
+targetEntityType: node
+bundle: apply_for_help
+mode: default
+content:
+  field_apply_legal_body:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+  field_apply_legal_title:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_apply_schedule:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_body:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_subtitle:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_topic_cards:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 2
+    region: content
+hidden:
+  langcode: true
+  links: true
+  search_api_excerpt: true

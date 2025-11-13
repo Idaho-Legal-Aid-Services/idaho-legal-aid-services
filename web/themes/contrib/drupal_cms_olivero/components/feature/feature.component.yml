@@ -16,8 +16,9 @@ props:
       examples:
         - Cool featured content
     summary:
-      $ref: json-schema-definitions://experience_builder.module/textarea
       type: string
+      # @see https://json-schema.org/understanding-json-schema/reference/regular_expressions
+      pattern: '(.|\r?\n)*'
       title: Summary
       description: The optional summary text
       examples:
@@ -38,7 +39,7 @@ props:
       examples:
         - https://example.com
     image:
-      $ref: json-schema-definitions://experience_builder.module/image
+      $ref: json-schema-definitions://canvas.module/image
       type: object
       title: Image
       description: "Image for the card. Recommended size: 4:3 aspect ratio"

@@ -105,9 +105,9 @@ user:
         weight: -10
 
 bootstrap5-js-latest:
-  version: '5.3.7'
+  version: '5.3.8'
   js:
-    dist/bootstrap/5.3.7/dist/js/bootstrap.bundle.js: {}
+    dist/bootstrap/5.3.8/dist/js/bootstrap.bundle.js: {}
 
 global-styling:
   css:
@@ -116,7 +116,7 @@ global-styling:
       dist/icons/1.11.0/font/bootstrap-icons.css: {}
 
 drupal.nav-tabs:
-  version: '5.3.7'
+  version: '5.3.8'
   js:
     js/nav-tabs.js: {}
   dependencies:
@@ -127,11 +127,11 @@ drupal.nav-tabs:
     - core/collapse
 
 style-guide:
-  version: '5.3.7'
+  version: '5.3.8'
   js:
-    dist/bootstrap/5.3.7/site/content/docs/5.3/examples/cheatsheet/cheatsheet.js: {}
+    dist/bootstrap/5.3.8/site/content/docs/5.3/examples/cheatsheet/cheatsheet.js: {}
   css:
     theme:
-      dist/bootstrap/5.3.7/site/content/docs/5.3/examples/cheatsheet/cheatsheet.css: {}
+      dist/bootstrap/5.3.8/site/content/docs/5.3/examples/cheatsheet/cheatsheet.css: {}
   dependencies:
     - bootstrap5/bootstrap5-js-latest

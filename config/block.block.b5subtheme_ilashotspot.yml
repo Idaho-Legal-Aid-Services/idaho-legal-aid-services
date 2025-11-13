@@ -1,0 +1,25 @@
+uuid: c565c7f6-de80-424c-9fd0-2236a18d0754
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_hotspot
+    - system
+  theme:
+    - b5subtheme
+id: b5subtheme_ilashotspot
+theme: b5subtheme
+region: content
+weight: 0
+provider: null
+plugin: ilas_hotspot_block
+settings:
+  id: ilas_hotspot_block
+  label: 'Impact Graphic'
+  label_display: '0'
+  provider: ilas_hotspot
+visibility:
+  request_path:
+    id: request_path
+    negate: false
+    pages: /our-impact

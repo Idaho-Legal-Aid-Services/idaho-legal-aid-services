@@ -8,7 +8,7 @@ props:
     - name
   properties:
     image:
-      $ref: json-schema-definitions://experience_builder.module/image
+      $ref: json-schema-definitions://canvas.module/image
       type: object
       title: Image
       examples:
@@ -17,8 +17,9 @@ props:
           width: 400
           height: 400
     content:
-      $ref: json-schema-definitions://experience_builder.module/textarea
       type: string
+      # @see https://json-schema.org/understanding-json-schema/reference/regular_expressions
+      pattern: '(.|\r?\n)*'
       title: Content
       description: The testimonial content
       examples:

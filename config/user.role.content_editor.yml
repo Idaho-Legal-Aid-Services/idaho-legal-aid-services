@@ -1,0 +1,83 @@
+uuid: e0a930ee-74a2-4b4c-abe4-2d342b66b5c5
+langcode: en
+status: true
+dependencies:
+  config:
+    - filter.format.basic_html
+    - filter.format.content_format
+    - filter.format.full_html
+    - media.type.document
+    - media.type.image
+    - media.type.remote_video
+    - media.type.svg_image
+    - node.type.event
+    - node.type.news
+    - workflows.workflow.basic_editorial
+  module:
+    - content_moderation
+    - contextual
+    - editoria11y
+    - file
+    - filter
+    - media
+    - node
+    - path
+    - redirect
+    - scheduler
+    - system
+    - toolbar
+    - trash
+_core:
+  default_config_hash: g-zSnaBXJnH7VoimReFb6KcLjIgHCU-hisiShtZ9hjQ
+id: content_editor
+label: 'Content editor'
+weight: 2
+is_admin: false
+permissions:
+  - 'access administration pages'
+  - 'access content overview'
+  - 'access contextual links'
+  - 'access media overview'
+  - 'access toolbar'
+  - 'access trash'
+  - 'administer menu'
+  - 'administer redirects'
+  - 'administer url aliases'
+  - 'create document media'
+  - 'create event content'
+  - 'create image media'
+  - 'create news content'
+  - 'create remote_video media'
+  - 'create svg_image media'
+  - 'create url aliases'
+  - 'delete any document media'
+  - 'delete any event content'
+  - 'delete any image media'
+  - 'delete any news content'
+  - 'delete any remote_video media'
+  - 'delete any svg_image media'
+  - 'delete event revisions'
+  - 'delete news revisions'
+  - 'delete own files'
+  - 'edit any document media'
+  - 'edit any event content'
+  - 'edit any image media'
+  - 'edit any news content'
+  - 'edit any remote_video media'
+  - 'edit any svg_image media'
+  - 'mark as hidden in editoria11y'
+  - 'revert all revisions'
+  - 'schedule publishing of nodes'
+  - 'use basic_editorial transition create_new_draft'
+  - 'use basic_editorial transition publish'
+  - 'use basic_editorial transition unpublish'
+  - 'use text format basic_html'
+  - 'use text format content_format'
+  - 'use text format full_html'
+  - 'view all revisions'
+  - 'view any unpublished content'
+  - 'view editoria11y checker'
+  - 'view own unpublished content'
+  - 'view own unpublished media'
+  - 'view scheduled content'
+  - 'view the administration theme'

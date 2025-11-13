@@ -1,0 +1,20 @@
+uuid: f920102e-0d1c-40c5-8e36-e0c116009105
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.topics
+  module:
+    - options
+id: taxonomy_term.topics.unpublish_state
+field_name: unpublish_state
+entity_type: taxonomy_term
+bundle: topics
+label: 'Unpublish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

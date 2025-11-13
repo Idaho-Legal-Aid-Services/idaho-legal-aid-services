@@ -24,7 +24,6 @@
         "civicrm/civicrm-drupal-8": "~5.75",
         "civicrm/civicrm-packages": "~5.75",
         "composer/installers": "^2.3",
-        "cweagans/composer-patches": "^1.7",
         "drupal/bootstrap5": "^4.0",
         "drupal/bootstrap_layout_builder": "^2.2",
         "drupal/bootstrap_styles": "^1.2",
@@ -70,11 +69,10 @@
             "drupal/core-composer-scaffold": true,
             "drupal/core-project-message": true,
             "php-http/discovery": true,
-            "civicrm/civicrm-core": true,
             "civicrm/composer-compile-plugin": true,
             "civicrm/composer-downloads-plugin": true,
-            "cweagans/composer-patches": true,
-            "civicrm/civicrm-asset-plugin": true
+            "civicrm/civicrm-asset-plugin": true,
+            "cweagans/composer-patches": true
         },
         "sort-packages": true,
         "optimize-autoloader": true,
@@ -84,7 +82,6 @@
     },
     "extra": {
         "compile-mode": "all",
-        "composer-exit-on-patch-failure": true,
         "drupal-scaffold": {
             "locations": {
                 "web-root": "web/"

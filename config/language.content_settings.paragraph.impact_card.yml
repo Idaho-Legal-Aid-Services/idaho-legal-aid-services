@@ -1,0 +1,18 @@
+uuid: 8f1f3136-d630-4752-aec2-1dcddc9093ce
+langcode: en
+status: true
+dependencies:
+  config:
+    - paragraphs.paragraphs_type.impact_card
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: false
+    bundle_settings:
+      untranslatable_fields_hide: '0'
+id: paragraph.impact_card
+target_entity_type_id: paragraph
+target_bundle: impact_card
+default_langcode: site_default
+language_alterable: false
