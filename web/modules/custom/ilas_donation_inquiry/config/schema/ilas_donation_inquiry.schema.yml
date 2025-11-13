@@ -1,0 +1,16 @@
+ilas_donation_inquiry.settings:
+  type: config_object
+  label: 'Donation inquiry settings'
+  mapping:
+    recipient_email:
+      type: email
+      label: 'Primary recipient email'
+    cc_email:
+      type: string
+      label: 'Optional CC email'
+    recaptcha_site_key:
+      type: string
+      label: 'reCAPTCHA site key'
+    recaptcha_secret_key:
+      type: string
+      label: 'reCAPTCHA secret key'

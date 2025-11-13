@@ -35,6 +35,19 @@ function b5subtheme_preprocess_node(&$variables) {
   $node = $variables['node'];
   $variables['content_type'] = $node->getType();
   $variables['view_mode'] = $variables['elements']['#view_mode'];
+
+  if ($variables['content_type'] === 'donate' && \Drupal::moduleHandler()->moduleExists('ilas_donation_inquiry')) {
+    $config = \Drupal::config('ilas_donation_inquiry.settings');
+    $variables['site_recaptcha_key'] = $config->get('recaptcha_site_key');
+    $variables['donation_inquiry_csrf'] = \Drupal::service('csrf_token')->get('donation_inquiry_form');
+    try {
+      $variables['donation_inquiry_endpoint'] = Url::fromRoute('ilas_donation_inquiry.submit')->toString();
+    }
+    catch (\Exception $e) {
+      // Fallback to the raw path; route should exist, but avoid fatals on cache clears.
+      $variables['donation_inquiry_endpoint'] = '/donation-inquiry/submit';
+    }
+  }
 }
 
 /**

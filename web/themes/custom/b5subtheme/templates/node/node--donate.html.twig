@@ -4,6 +4,10 @@
 {# node--donate.html.twig #}
 
 {{ attach_library('b5subtheme/donation-form') }}
+{{ attach_library('b5subtheme/donation-inquiry') }}
+{% if site_recaptcha_key|default('') %}
+  {{ attach_library('b5subtheme/recaptcha') }}
+{% endif %}
 
 <article{{ attributes.addClass('node', 'node--type-donate', 'donate-page') }}>
 
@@ -71,14 +75,36 @@
   {% endif %}
 
   {# Multi-step Donation Inquiry Form - Only show on donation questions page #}
-  {% if node.title.value == 'Donation Questions' or node.field_machine_name.value == 'donation-questions' or path('entity.node.canonical', {'node': node.id}) == '/donation-questions' %}
+  {% if node.title.value == 'Donation Questions' or node.field_machine_name.value == 'donation-questions' or path('entity.node.canonical', {'node': node.id}) == '/donate/questions' %}
+  
+  {# Progressive enhancement fallback for users without JavaScript #}
+  <noscript>
+    <div class="container">
+      <div class="alert alert-info" role="alert">
+        <h3>Alternative Contact Methods</h3>
+        <p>It looks like JavaScript is disabled in your browser. Please use one of these methods to contact us about donations:</p>
+        <ul>
+          <li><strong>Email:</strong> <a href="mailto:development@idaholegalaid.org">development@idaholegalaid.org</a></li>
+          <li><strong>Phone:</strong> <a href="tel:+12083453591">(208) 345-3591</a></li>
+          <li><strong>Mail:</strong> Idaho Legal Aid Services, 310 N 5th St, Boise, ID 83702</li>
+        </ul>
+      </div>
+    </div>
+  </noscript>
+  
   <section class="donation-inquiry-form">
     <div class="container">
-      <form id="ways-to-give-form" class="multi-step-form">
-        
+      <form id="ways-to-give-form" class="multi-step-form" action="{{ donation_inquiry_endpoint|default('/donation-inquiry/submit') }}" method="post" novalidate
+            autocomplete="off" role="form" aria-labelledby="donation-inquiry-title" aria-describedby="step-progress">
+        <input type="hidden" name="csrf_token" value="{{ donation_inquiry_csrf|default('') }}">
+        <input type="hidden" name="recaptcha_token" value="">
+        <input type="hidden" name="source_url" value="{{ url('<current>') }}">
+        <div style="position: absolute; left: -5000px;" aria-hidden="true">
+          <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
+        </div>
         {# Step 1: Initial Question #}
         <div class="form-step active" data-step="1">
-          <h2>Contact Idaho Legal Aid Services About Donating</h2>
+          <h2 id="donation-inquiry-title">Contact Us About Donation Questions</h2>
           <p class="form-instruction">I have an issue or question about (please select all that apply):</p>
           
           <div class="checkbox-group">
@@ -102,7 +128,7 @@
               <input type="checkbox" name="interests[]" value="program-info">
               <span class="checkbox-label">
                 <i class="fas fa-info-circle"></i>
-                Information About Your Programs and/or Finances
+                Financial Information
               </span>
             </label>
             
@@ -119,11 +145,11 @@
         </div>
         
         {# Step 2: Conditional Questions #}
-        <div class="form-step" data-step="2">
+        <div class="form-step" data-step="2" style="display: none;">
           <h2>Please provide more details</h2>
           
           {# Making A Donation Options #}
-          <div class="conditional-section" data-condition="making-donation">
+          <div class="conditional-section" data-condition="making-donation" style="display: none;">
             <h3>Making A Donation</h3>
             <div class="checkbox-group">
               <label>
@@ -146,7 +172,7 @@
           </div>
           
           {# Existing Donation Options #}
-          <div class="conditional-section" data-condition="existing-donation">
+          <div class="conditional-section" data-condition="existing-donation" style="display: none;">
             <h3>An Existing Donation</h3>
             <div class="checkbox-group">
               <label>
@@ -169,7 +195,7 @@
           </div>
           
           {# Program Information #}
-          <div class="conditional-section" data-condition="program-info">
+          <div class="conditional-section" data-condition="program-info" style="display: none;">
             <h3>Information About Your Programs and/or Finances</h3>
             <div class="form-group">
               <label for="program-info-details">I would like further financial or program information about Idaho Legal Aid Services, including:</label>
@@ -178,7 +204,7 @@
           </div>
           
           {# Other Ways to Donate Options #}
-          <div class="conditional-section" data-condition="other-ways">
+          <div class="conditional-section" data-condition="other-ways" style="display: none;">
             <h3>Other Ways to Donate</h3>
             <p>I would like information about other methods of donating to Idaho Legal Aid Services:</p>
             <div class="checkbox-group">
@@ -220,7 +246,7 @@
         </div>
         
         {# Step 3: Contact Information #}
-        <div class="form-step" data-step="3">
+        <div class="form-step" data-step="3" style="display: none;">
           <h2>Your Contact Information</h2>
           
           <div class="form-row">
@@ -250,8 +276,10 @@
             <input type="text" id="address" name="address" class="form-control">
           </div>
           
-          {# reCAPTCHA placeholder - needs site key #}
-          <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY"></div>
+          {# reCAPTCHA - configure site key in settings #}
+          {% if site_recaptcha_key|default('') %}
+            <div class="g-recaptcha" data-sitekey="{{ site_recaptcha_key|default('') }}"></div>
+          {% endif %}
           
           <div class="form-navigation">
             <button type="button" class="btn btn-secondary prev-step">Back</button>
@@ -260,9 +288,9 @@
         </div>
         
         {# Progress Bar #}
-        <div class="form-progress">
-          <div class="progress">
-            <div class="progress-bar" role="progressbar" style="width: 33%"></div>
+        <div class="form-progress" id="step-progress">
+          <div class="progress" aria-label="Form completion progress">
+            <div class="progress-bar" role="progressbar" style="width: 33%" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3"></div>
           </div>
           <p class="progress-text">Step <span class="current-step">1</span> of 3</p>
         </div>

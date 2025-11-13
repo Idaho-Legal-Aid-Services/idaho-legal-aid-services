@@ -1,0 +1,46 @@
+<?php
+
+/**
+ * @file
+ * Hooks and callbacks for the ILAS Donation Inquiry module.
+ */
+
+use Drupal\Core\Mail\MailFormatHelper;
+
+/**
+ * Implements hook_mail().
+ */
+function ilas_donation_inquiry_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'submission':
+      $message['subject'] = $params['subject'];
+      $body_lines = [];
+
+      if (!empty($params['intro'])) {
+        $body_lines[] = $params['intro'];
+        $body_lines[] = '';
+      }
+
+      if (!empty($params['sections']) && is_array($params['sections'])) {
+        foreach ($params['sections'] as $section_title => $section_content) {
+          $body_lines[] = strtoupper($section_title);
+          $body_lines[] = str_repeat('-', strlen($section_title));
+          $body_lines[] = $section_content;
+          $body_lines[] = '';
+        }
+      }
+
+      $body_lines[] = 'Submitted from: ' . ($params['source_url'] ?? 'Unknown');
+
+      $message['body'][] = MailFormatHelper::wrapMail(implode(PHP_EOL, $body_lines));
+
+      if (!empty($params['reply_to'])) {
+        $message['headers']['Reply-To'] = $params['reply_to'];
+      }
+
+      if (!empty($params['cc'])) {
+        $message['headers']['Cc'] = $params['cc'];
+      }
+      break;
+  }
+}

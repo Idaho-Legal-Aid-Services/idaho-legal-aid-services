@@ -1,0 +1,7 @@
+name: 'ILAS Donation Inquiry'
+type: module
+description: 'Provides a custom donation inquiry submission endpoint and email notifications.'
+core_version_requirement: ^10 || ^11
+package: 'Idaho Legal Aid'
+dependencies:
+  - drupal:system

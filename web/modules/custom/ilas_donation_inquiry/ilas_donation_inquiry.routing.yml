@@ -1,0 +1,8 @@
+ilas_donation_inquiry.submit:
+  path: '/donation-inquiry/submit'
+  defaults:
+    _controller: '\Drupal\ilas_donation_inquiry\Controller\DonationInquiryController::submit'
+    _title: 'Donation Inquiry Submission'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
