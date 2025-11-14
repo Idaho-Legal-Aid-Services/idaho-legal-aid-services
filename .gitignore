@@ -120,3 +120,4 @@ access_log
 /web/libraries/
 /web/private/scripts/quicksilver
 /recipes
+web/sites/default/files/
