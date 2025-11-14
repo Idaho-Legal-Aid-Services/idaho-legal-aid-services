@@ -7,9 +7,3 @@ definitions:
     weight: 0
     expanded: false
     enabled: false
-  ilas_events__list:
-    enabled: false
-    menu_name: main
-    parent: ''
-    expanded: false
-    weight: 20
