@@ -20,9 +20,6 @@
         }
     ],
     "require": {
-        "civicrm/civicrm-core": "~5.75",
-        "civicrm/civicrm-drupal-8": "~5.75",
-        "civicrm/civicrm-packages": "~5.75",
         "composer/installers": "^2.3",
         "drupal/bootstrap5": "^4.0",
         "drupal/bootstrap_layout_builder": "^2.2",
@@ -69,9 +66,6 @@
             "drupal/core-composer-scaffold": true,
             "drupal/core-project-message": true,
             "php-http/discovery": true,
-            "civicrm/composer-compile-plugin": true,
-            "civicrm/composer-downloads-plugin": true,
-            "civicrm/civicrm-asset-plugin": true,
             "cweagans/composer-patches": true
         },
         "sort-packages": true,
@@ -89,7 +83,7 @@
         },
         "installer-paths": {
             "web/core": ["type:drupal-core"],
-            "web/libraries/{$name}": ["type:drupal-library", "type:civicrm-ext"],
+            "web/libraries/{$name}": ["type:drupal-library"],
             "web/modules/contrib/{$name}": ["type:drupal-module"],
             "web/profiles/contrib/{$name}": ["type:drupal-profile"],
             "web/themes/contrib/{$name}": ["type:drupal-theme"],
@@ -98,9 +92,6 @@
             "web/profiles/custom/{$name}": ["type:drupal-custom-profile"],
             "recipes/{$name}": ["type:drupal-recipe"],
             "web/themes/custom/{$name}": ["type:drupal-custom-theme"],
-            "vendor/civicrm/civicrm-core": ["civicrm/civicrm-core"],
-            "vendor/civicrm/civicrm-packages": ["civicrm/civicrm-packages"],
-            "web/modules/contrib/civicrm": ["civicrm/civicrm-drupal-8"]
         },
         "drupal-core-project-message": {
             "include-keys": ["homepage", "support"],

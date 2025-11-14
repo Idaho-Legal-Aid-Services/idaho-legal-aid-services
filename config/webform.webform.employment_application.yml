@@ -13,18 +13,12 @@ title: 'Employment Application'
 description: ''
 categories: {  }
 elements: |-
-  intro:
-    '#type': webform_markup
-    '#markup': '<div class="application-intro"><h2>Employment Application</h2><p>Thank you for your interest in joining our team. Please complete all sections of this application form. All information will be kept confidential.</p></div>'
-  personal_information:
-    '#type': fieldset
+  page_1:
+    '#type': webform_wizard_page
     '#title': 'Personal Information'
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section">'
-    '#suffix': '</div>'
+    intro:
+      '#type': webform_markup
+      '#markup': '<div class="application-intro"><h2>Personal Information</h2><p>Let''s start with your basic information. We''ll use this to contact you about your application.</p></div>'
     full_name:
       '#type': textfield
       '#title': 'Full Name'
@@ -53,25 +47,23 @@ elements: |-
       '#type': webform_address
       '#title': Address
       '#required': true
-  position_information:
-    '#type': fieldset
-    '#title': 'Position Information'
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section">'
-    '#suffix': '</div>'
+  page_2:
+    '#type': webform_wizard_page
+    '#title': 'Position Details'
+    position_intro:
+      '#type': webform_markup
+      '#markup': '<div class="application-intro"><h2>Position Details</h2><p>Tell us about the position you''re interested in and your availability.</p></div>'
     position_applied:
       '#type': select
       '#title': 'Position Applied For'
-      '#options_display': buttons
       '#required': true
       '#options':
-        software_developer: 'Software Developer'
-        project_manager: 'Project Manager'
-        ux_designer: 'UX Designer'
-        content_specialist: 'Content Specialist'
+        managing_attorney: 'Managing Attorney'
+        staff_attorney: 'Staff Attorney'
+        paralegal: 'Paralegal'
+        legal_assistant: 'Legal Assistant'
+        administrative: 'Administrative Support'
+        outreach: 'Community Outreach'
         other: Other
       '#attributes':
         class:
@@ -99,109 +91,104 @@ elements: |-
         class:
           - form-control
           - custom-input
-  work_experience:
-    '#type': webform_multiple
-    '#title': 'Work Experience'
-    '#button_add_label': 'Add Another Work Experience'
-    '#add': 3
-    '#cardinality': 5
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section">'
-    '#suffix': '</div>'
-    '#element':
-      '#type': container
-      employer:
-        '#type': textfield
-        '#title': Employer
-        '#required': true
-        '#attributes':
-          class:
-            - form-control
-            - custom-input
-      job_title:
-        '#type': textfield
-        '#title': 'Job Title'
-        '#required': true
-        '#attributes':
-          class:
-            - form-control
-            - custom-input
-      start_date:
-        '#type': date
-        '#title': 'Start Date'
-        '#required': true
-        '#attributes':
-          class:
-            - form-control
-            - custom-date
-      end_date:
-        '#type': date
-        '#title': 'End Date'
-        '#attributes':
-          class:
-            - form-control
-            - custom-date
-      current_position:
-        '#type': checkbox
-        '#title': 'I currently work here'
-        '#attributes':
-          class:
-            - form-check-input
-            - custom-checkbox
-      responsibilities:
-        '#type': textarea
-        '#title': 'Key Responsibilities'
-        '#attributes':
-          class:
-            - form-control
-            - custom-textarea
-  education:
-    '#type': webform_multiple
-    '#title': Education
-    '#button_add_label': 'Add Another Education Entry'
-    '#add': 2
-    '#cardinality': 5
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section">'
-    '#suffix': '</div>'
-    '#element':
-      '#type': container
-      institution:
-        '#type': textfield
-        '#title': Institution
-        '#attributes':
-          class:
-            - form-control
-            - custom-input
-      degree:
-        '#type': textfield
-        '#title': Degree/Certificate
-        '#attributes':
-          class:
-            - form-control
-            - custom-input
-      graduation_date:
-        '#type': date
-        '#title': 'Graduation Date'
-        '#attributes':
-          class:
-            - form-control
-            - custom-date
-  file_uploads:
-    '#type': fieldset
-    '#title': 'Document Uploads'
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section file-upload-section">'
-    '#suffix': '</div>'
+  page_3:
+    '#type': webform_wizard_page
+    '#title': 'Experience & Education'
+    experience_intro:
+      '#type': webform_markup
+      '#markup': '<div class="application-intro"><h2>Experience & Education</h2><p>Share your background and qualifications with us.</p></div>'
+    work_experience:
+      '#type': webform_multiple
+      '#title': 'Work Experience'
+      '#button_add_label': 'Add Another Work Experience'
+      '#add': 2
+      '#cardinality': 5
+      '#sorting': false
+      '#operations': false
+      '#element':
+        '#type': container
+        employer:
+          '#type': textfield
+          '#title': Employer
+          '#required': true
+          '#attributes':
+            class:
+              - form-control
+              - custom-input
+        job_title:
+          '#type': textfield
+          '#title': 'Job Title'
+          '#required': true
+          '#attributes':
+            class:
+              - form-control
+              - custom-input
+        start_date:
+          '#type': date
+          '#title': 'Start Date'
+          '#required': true
+          '#attributes':
+            class:
+              - form-control
+              - custom-date
+        end_date:
+          '#type': date
+          '#title': 'End Date'
+          '#attributes':
+            class:
+              - form-control
+              - custom-date
+        current_position:
+          '#type': checkbox
+          '#title': 'I currently work here'
+          '#attributes':
+            class:
+              - form-check-input
+              - custom-checkbox
+        responsibilities:
+          '#type': textarea
+          '#title': 'Key Responsibilities'
+          '#attributes':
+            class:
+              - form-control
+              - custom-textarea
+    education:
+      '#type': webform_multiple
+      '#title': Education
+      '#button_add_label': 'Add Another Education Entry'
+      '#add': 2
+      '#cardinality': 5
+      '#sorting': false
+      '#operations': false
+      '#element':
+        '#type': container
+        institution:
+          '#type': textfield
+          '#title': Institution
+          '#attributes':
+            class:
+              - form-control
+              - custom-input
+        degree:
+          '#type': textfield
+          '#title': Degree/Certificate
+          '#attributes':
+            class:
+              - form-control
+              - custom-input
+        graduation_date:
+          '#type': date
+          '#title': 'Graduation Date'
+          '#attributes':
+            class:
+              - form-control
+              - custom-date
+  page_4:
+    '#type': webform_wizard_page
+    '#title': 'Documents'
+    files_intro:
+      '#type': webform_markup
+      '#markup': '<div class="application-intro"><h2>Documents</h2><p>Upload your resume and any additional documents that showcase your qualifications.</p></div>'
     resume:
       '#type': managed_file
       '#title': Resume
@@ -240,15 +227,12 @@ elements: |-
       '#attributes':
         class:
           - custom-file-upload
-  additional_information:
-    '#type': fieldset
+  page_5:
+    '#type': webform_wizard_page
     '#title': 'Additional Information'
-    '#attributes':
-      class:
-        - card
-        - mb-4
-    '#prefix': '<div class="application-section">'
-    '#suffix': '</div>'
+    additional_intro:
+      '#type': webform_markup
+      '#markup': '<div class="application-intro"><h2>Additional Information</h2><p>Tell us a bit more about yourself and how you heard about us.</p></div>'
     referral_source:
       '#type': select
       '#title': 'How did you hear about us?'
@@ -280,28 +264,18 @@ elements: |-
         class:
           - form-control
           - custom-textarea
-  agreement:
-    '#type': checkbox
-    '#title': 'I certify that the information provided in this application is true and complete to the best of my knowledge.'
-    '#required': true
-    '#required_error': 'You must agree to this statement to submit your application.'
-    '#attributes':
-      class:
-        - form-check-input
-        - consent-checkbox
-    '#wrapper_attributes':
-      class:
-        - application-agreement
-  actions:
-    '#type': webform_actions
-    '#title': 'Submit button(s)'
-    '#submit__label': 'Submit Application'
-    '#submit__attributes':
-      class:
-        - btn
-        - btn-primary
-        - btn-lg
-        - custom-submit
+    agreement:
+      '#type': checkbox
+      '#title': 'I certify that the information provided in this application is true and complete to the best of my knowledge.'
+      '#required': true
+      '#required_error': 'You must agree to this statement to submit your application.'
+      '#attributes':
+        class:
+          - form-check-input
+          - consent-checkbox
+      '#wrapper_attributes':
+        class:
+          - application-agreement
 css: ''
 javascript: ''
 settings:
@@ -372,10 +346,10 @@ settings:
   autofill_message: ''
   autofill_excluded_elements: {  }
   wizard_progress_bar: true
-  wizard_progress_pages: false
-  wizard_progress_percentage: false
-  wizard_progress_link: false
-  wizard_progress_states: false
+  wizard_progress_pages: true
+  wizard_progress_percentage: true
+  wizard_progress_link: true
+  wizard_progress_states: true
   wizard_start_label: ''
   wizard_preview_link: false
   wizard_confirmation: true
@@ -399,13 +373,13 @@ settings:
   preview_excluded_elements: {  }
   preview_exclude_empty: true
   preview_exclude_empty_checkbox: false
-  draft: none
+  draft: authenticated
   draft_multiple: false
-  draft_auto_save: false
-  draft_saved_message: ''
-  draft_loaded_message: ''
-  draft_pending_single_message: ''
-  draft_pending_multiple_message: ''
+  draft_auto_save: true
+  draft_saved_message: 'Your draft has been saved automatically.'
+  draft_loaded_message: 'Your previous draft has been loaded.'
+  draft_pending_single_message: 'You have a pending draft for this form.'
+  draft_pending_multiple_message: 'You have pending drafts for this form.'
   confirmation_type: page
   confirmation_url: ''
   confirmation_title: ''

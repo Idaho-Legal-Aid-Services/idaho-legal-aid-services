@@ -17,7 +17,6 @@ module:
   breakpoint: 0
   captcha: 0
   checklistapi: 0
-  civicrm: 0
   ckeditor5: 0
   ckeditor5_plugin_pack: 0
   ckeditor5_plugin_pack_link_attributes: 0
@@ -65,12 +64,7 @@ module:
   google_tag: 0
   honeypot: 0
   ilas_chatbot: 0
-  ilas_civicrm: 0
-  ilas_civicrm_sync: 0
-  ilas_events: 0
   ilas_hotspot: 0
-  ilas_payment: 0
-  ilas_reports: 0
   ilas_resources: 0
   image: 0
   imce: 0

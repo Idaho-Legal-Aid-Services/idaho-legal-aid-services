@@ -1,14 +1,15 @@
 /**
  * Premium Employment Application Wizard
- * Sets the standard for nonprofit employment applications
+ * Properly integrated with Drupal 11 webform system
+ * Maintains original step-by-step UX while using Drupal backend
  */
-(function ($, Drupal) {
+(function ($, Drupal, drupalSettings, once) {
   'use strict';
 
   // Configuration
   const CONFIG = {
-    STORAGE_KEY: 'employment_application_data',
-    AUTO_SAVE_INTERVAL: 2000, // 2 seconds
+    STORAGE_KEY: 'employment_application_draft',
+    AUTO_SAVE_INTERVAL: 30000, // 30 seconds - reasonable for server calls
     ANIMATION_DURATION: 300,
     
     SELECTORS: {
@@ -23,7 +24,9 @@
       FILE_INPUT: '.file-input',
       FILE_UPLOAD_AREA: '.file-upload-area',
       AUTO_SAVE_STATUS: '.auto-save-status',
-      SUCCESS_MODAL: '.application-success-modal'
+      SUCCESS_MODAL: '.application-success-modal',
+      FORM_TOKEN: '#form-token',
+      FORM_BUILD_ID: '#form-build-id'
     },
 
     VALIDATION: {
@@ -39,497 +42,532 @@
       INVALID_PHONE: 'Please enter a valid phone number',
       FILE_TOO_LARGE: 'File size must be less than 5MB',
       INVALID_FILE_TYPE: 'Only PDF, DOC, and DOCX files are allowed',
-      SAVE_SUCCESS: 'All changes saved',
-      SAVE_ERROR: 'Error saving progress'
+      SAVE_SUCCESS: 'Draft saved locally',
+      SAVE_ERROR: 'Error saving draft',
+      UPLOAD_ERROR: 'File selection failed'
     }
   };
 
-  // Main behavior
-  Drupal.behaviors.premiumApplicationWizard = {
-    attach: function (context, settings) {
-      try {
-        const $wizard = $(CONFIG.SELECTORS.WIZARD, context);
-        
-        if ($wizard.length) {
-          $wizard.each(function () {
-            if (!$(this).data('wizard-initialized')) {
-              $(this).data('wizard-initialized', true);
-              const wizard = new PremiumApplicationWizard($(this));
-              wizard.init();
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Premium application wizard initialization error:', error);
-      }
-    }
-  };
-
-  /**
-   * Premium Application Wizard Class
-   */
-  function PremiumApplicationWizard($container) {
-    this.$container = $container;
+  // Main wizard class
+  function EmploymentApplicationWizard($form) {
+    this.$form = $form;
     this.currentStep = 1;
     this.totalSteps = 5;
-    this.formData = {};
-    this.autoSaveTimer = null;
     this.uploadedFiles = {};
+    this.autoSaveTimeout = null;
+    this.formTokens = {
+      token: '',
+      buildId: ''
+    };
     
-    // Initialize form data from localStorage if available
-    this.loadSavedData();
+    this.init();
   }
 
-  PremiumApplicationWizard.prototype = {
-    /**
-     * Initialize the wizard
-     */
+  EmploymentApplicationWizard.prototype = {
     init: function() {
-      try {
-        this.setupEventListeners();
-        this.setupFileUploads();
-        this.setupAutoSave();
-        this.updateProgress();
-        this.validateCurrentStep();
-        this.initializeAccessibility();
-        
-        // Focus first input
-        this.focusFirstInput();
-        
-      } catch (error) {
-        console.error('Wizard initialization error:', error);
-      }
+      this.bindEvents();
+      this.initializeFormTokens();
+      this.setupAutoSave();
+      this.setupFileUploads();
+      this.setupMultipleFields();
+      this.setupConditionalFields();
+      this.loadDraft();
+      console.log('Employment Application Wizard initialized');
     },
 
-    /**
-     * Setup event listeners
-     */
-    setupEventListeners: function() {
+    // Get CSRF tokens from Drupal
+    initializeFormTokens: function() {
       const self = this;
       
+      // Get tokens via AJAX
+      $.ajax({
+        url: '/session/token',
+        type: 'GET',
+        success: function(token) {
+          self.formTokens.token = token;
+          $(self.SELECTORS.FORM_TOKEN).val(token);
+        }
+      });
 
-      // Navigation buttons
-      this.$container.on('click', CONFIG.SELECTORS.NAV_NEXT, function(e) {
+      // Generate build ID
+      this.formTokens.buildId = 'form-' + Math.random().toString(36).substr(2, 9);
+      $(CONFIG.SELECTORS.FORM_BUILD_ID).val(this.formTokens.buildId);
+    },
+
+    bindEvents: function() {
+      const self = this;
+      
+      // Navigation
+      this.$form.on('click', CONFIG.SELECTORS.NAV_NEXT, function(e) {
         e.preventDefault();
         self.nextStep();
       });
-
-      this.$container.on('click', CONFIG.SELECTORS.NAV_PREV, function(e) {
+      
+      this.$form.on('click', CONFIG.SELECTORS.NAV_PREV, function(e) {
         e.preventDefault();
         self.prevStep();
       });
-
-      this.$container.on('click', CONFIG.SELECTORS.NAV_SUBMIT, function(e) {
+      
+      // Step indicators
+      this.$form.on('click', '.step-button', function(e) {
         e.preventDefault();
-        self.submitApplication();
+        const targetStep = parseInt($(this).closest('.step').data('step'));
+        if (targetStep <= self.currentStep || self.validateSteps(1, targetStep - 1)) {
+          self.goToStep(targetStep);
+        }
       });
-
-      // Edit section buttons
-      this.$container.on('click', '.edit-section', function(e) {
+      
+      // Form submission
+      this.$form.on('submit', function(e) {
         e.preventDefault();
-        const targetStep = parseInt($(this).data('step'));
-        self.goToStep(targetStep);
+        self.submitForm();
+      });
+      
+      // Auto-save on input
+      this.$form.on('input change', 'input, select, textarea', function() {
+        self.scheduleAutoSave();
+      });
+      
+      // Validation on blur
+      this.$form.on('blur', 'input[required], select[required], textarea[required]', function() {
+        self.validateField($(this));
       });
 
-      // Form field changes
-      this.$container.on('input change', 'input, select, textarea', function() {
-        self.handleFieldChange($(this));
-      });
-
-      // Conditional fields
-      this.$container.on('change', '#position_interest', function() {
-        self.toggleConditionalFields();
-      });
-
-      // Auto-resize textareas
-      this.$container.on('input', '.auto-resize', function() {
-        self.autoResizeTextarea($(this));
-      });
-
-      // Keyboard navigation
-      $(document).on('keydown', function(e) {
-        if (e.key === 'Enter' && !$(e.target).is('textarea')) {
+      // Prevent Enter key from submitting form prematurely
+      this.$form.on('keydown', function(e) {
+        if (e.key === 'Enter' && !$(e.target).is('textarea, button, input[type="submit"]')) {
           e.preventDefault();
           self.nextStep();
         }
       });
     },
 
-    /**
-     * Setup file upload functionality
-     */
+    setupConditionalFields: function() {
+      const self = this;
+      
+      // Position "Other" field
+      this.$form.on('change', '#position_applied', function() {
+        const $otherField = $('.other-position');
+        if ($(this).val() === 'other') {
+          $otherField.show().attr('aria-hidden', 'false');
+          $otherField.find('input').focus();
+        } else {
+          $otherField.hide().attr('aria-hidden', 'true');
+          $otherField.find('input').val('');
+        }
+      });
+      
+      // Referral source details
+      this.$form.on('change', '#referral_source', function() {
+        const $detailsField = $('.referral-details');
+        if ($(this).val() && $(this).val() !== 'company_website') {
+          $detailsField.show();
+          $detailsField.find('input').focus();
+        } else {
+          $detailsField.hide();
+          $detailsField.find('input').val('');
+        }
+      });
+      
+      // Current position checkbox
+      this.$form.on('change', 'input[name*="current_position"]', function() {
+        const $container = $(this).closest('.multiple-item');
+        const $endDate = $container.find('input[name*="end_date"]');
+        
+        if ($(this).is(':checked')) {
+          $endDate.val('').prop('disabled', true);
+        } else {
+          $endDate.prop('disabled', false);
+        }
+      });
+    },
+
+    setupMultipleFields: function() {
+      const self = this;
+      
+      // Add work experience
+      this.$form.on('click', '#add-work-experience', function(e) {
+        e.preventDefault();
+        self.addMultipleItem('work-experience', 'Work Experience');
+      });
+      
+      // Add education
+      this.$form.on('click', '#add-education', function(e) {
+        e.preventDefault();
+        self.addMultipleItem('education', 'Education');
+      });
+      
+      // Remove items
+      this.$form.on('click', '.remove-item', function(e) {
+        e.preventDefault();
+        $(this).closest('.multiple-item').remove();
+        self.updateMultipleItemNumbers();
+      });
+    },
+
+    addMultipleItem: function(type, label) {
+      const $container = $(`#${type}-container`);
+      const itemCount = $container.find('.multiple-item').length;
+      const newIndex = itemCount;
+      
+      let template = '';
+      
+      if (type === 'work-experience') {
+        template = this.getWorkExperienceTemplate(newIndex);
+      } else if (type === 'education') {
+        template = this.getEducationTemplate(newIndex);
+      }
+      
+      const $newItem = $(template);
+      $container.append($newItem);
+      
+      // Show remove button for all items except the first
+      if (itemCount > 0) {
+        $container.find('.remove-item').show();
+      }
+      
+      // Focus first field
+      $newItem.find('input:first').focus();
+    },
+
+    getWorkExperienceTemplate: function(index) {
+      return `
+        <div class="multiple-item" data-item="${index}">
+          <div class="item-header">
+            <h4>Work Experience #${index + 1}</h4>
+            <button type="button" class="remove-item" aria-label="Remove this work experience">×</button>
+          </div>
+          <div class="item-content">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="work_experience_${index}_employer" class="form-label required">Employer</label>
+                <input type="text" 
+                       id="work_experience_${index}_employer" 
+                       name="work_experience[${index}][employer]" 
+                       class="form-control" 
+                       required
+                       aria-required="true">
+              </div>
+              <div class="form-group">
+                <label for="work_experience_${index}_job_title" class="form-label required">Job Title</label>
+                <input type="text" 
+                       id="work_experience_${index}_job_title" 
+                       name="work_experience[${index}][job_title]" 
+                       class="form-control" 
+                       required
+                       aria-required="true">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="work_experience_${index}_start_date" class="form-label required">Start Date</label>
+                <input type="date" 
+                       id="work_experience_${index}_start_date" 
+                       name="work_experience[${index}][start_date]" 
+                       class="form-control" 
+                       required
+                       aria-required="true">
+              </div>
+              <div class="form-group">
+                <label for="work_experience_${index}_end_date" class="form-label">End Date</label>
+                <input type="date" 
+                       id="work_experience_${index}_end_date" 
+                       name="work_experience[${index}][end_date]" 
+                       class="form-control">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" 
+                       id="work_experience_${index}_current_position" 
+                       name="work_experience[${index}][current_position]"
+                       value="1">
+                <span class="checkmark"></span>
+                I currently work here
+              </label>
+            </div>
+            <div class="form-group">
+              <label for="work_experience_${index}_responsibilities" class="form-label">Key Responsibilities</label>
+              <textarea id="work_experience_${index}_responsibilities" 
+                        name="work_experience[${index}][responsibilities]" 
+                        class="form-control auto-resize" 
+                        rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    getEducationTemplate: function(index) {
+      return `
+        <div class="multiple-item" data-item="${index}">
+          <div class="item-header">
+            <h4>Education #${index + 1}</h4>
+            <button type="button" class="remove-item" aria-label="Remove this education entry">×</button>
+          </div>
+          <div class="item-content">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="education_${index}_institution" class="form-label">Institution</label>
+                <input type="text" 
+                       id="education_${index}_institution" 
+                       name="education[${index}][institution]" 
+                       class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="education_${index}_degree" class="form-label">Degree/Certificate</label>
+                <input type="text" 
+                       id="education_${index}_degree" 
+                       name="education[${index}][degree]" 
+                       class="form-control">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="education_${index}_graduation_date" class="form-label">Graduation Date</label>
+              <input type="date" 
+                     id="education_${index}_graduation_date" 
+                     name="education[${index}][graduation_date]" 
+                     class="form-control">
+            </div>
+          </div>
+        </div>
+      `;
+    },
+
+    updateMultipleItemNumbers: function() {
+      // Update work experience numbering
+      $('#work-experience-container .multiple-item').each(function(index) {
+        $(this).attr('data-item', index);
+        $(this).find('.item-header h4').text(`Work Experience #${index + 1}`);
+      });
+      
+      // Update education numbering
+      $('#education-container .multiple-item').each(function(index) {
+        $(this).attr('data-item', index);
+        $(this).find('.item-header h4').text(`Education #${index + 1}`);
+      });
+    },
+
     setupFileUploads: function() {
       const self = this;
-
-      this.$container.find(CONFIG.SELECTORS.FILE_UPLOAD_AREA).each(function() {
-        const $area = $(this);
-        const $input = $area.find(CONFIG.SELECTORS.FILE_INPUT);
-
-        // Click to browse
-        $area.on('click', '.upload-placeholder', function() {
-          $input.click();
-        });
-
-        // File input change
-        $input.on('change', function(e) {
-          self.handleFileUpload($(this), e.target.files);
-        });
-
+      
+      this.$form.find(CONFIG.SELECTORS.FILE_INPUT).each(function() {
+        const $input = $(this);
+        const $area = $input.closest(CONFIG.SELECTORS.FILE_UPLOAD_AREA);
+        const fieldName = $area.data('field');
+        
         // Drag and drop
-        $area.on('dragover dragenter', function(e) {
+        $area.on('dragover', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          $area.addClass('drag-over');
+          $(this).addClass('dragging');
         });
-
-        $area.on('dragleave dragend', function(e) {
+        
+        $area.on('dragleave', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          $area.removeClass('drag-over');
+          $(this).removeClass('dragging');
         });
-
+        
         $area.on('drop', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          $area.removeClass('drag-over');
+          $(this).removeClass('dragging');
           
           const files = e.originalEvent.dataTransfer.files;
           if (files.length > 0) {
-            self.handleFileUpload($input, files);
+            $input[0].files = files;
+            self.handleFileUpload($input, files[0]);
           }
         });
-
+        
+        // Click to browse
+        $area.on('click', function(e) {
+          if (!$(e.target).hasClass('remove-file')) {
+            $input.click();
+          }
+        });
+        
+        // File input change
+        $input.on('change', function() {
+          if (this.files.length > 0) {
+            self.handleFileUpload($input, this.files[0]);
+          }
+        });
+        
         // Remove file
         $area.on('click', '.remove-file', function(e) {
           e.preventDefault();
-          self.removeFile($area);
+          e.stopPropagation();
+          self.removeFile($area, fieldName);
         });
       });
     },
 
-    /**
-     * Handle file upload
-     */
-    handleFileUpload: function($input, files) {
-      const self = this;
+    handleFileUpload: function($input, file) {
       const $area = $input.closest(CONFIG.SELECTORS.FILE_UPLOAD_AREA);
       const fieldName = $area.data('field');
       
-      if (files.length === 0) return;
-
-      const file = files[0];
-      
       // Validate file
-      if (!this.validateFile(file)) {
+      if (!this.validateFile(file, $area)) {
         return;
       }
-
-      // Show progress
+      
+      // Show upload progress
       this.showUploadProgress($area);
-
-      // Simulate upload progress (in real implementation, this would be actual upload)
+      
+      // Store file locally for form submission - no separate upload needed
+      // Files will be uploaded when the form is submitted to Drupal
       setTimeout(() => {
         this.showFilePreview($area, file);
         this.uploadedFiles[fieldName] = file;
-        this.saveFormData();
-        this.showAutoSaveStatus(true);
-      }, 1500);
+        this.showSaveStatus('File ready for upload', 'success');
+        this.scheduleAutoSave();
+      }, 800); // Shorter delay since we're not actually uploading
     },
 
-    /**
-     * Validate file
-     */
-    validateFile: function(file) {
-      // Check file size
-      if (file.size > CONFIG.VALIDATION.FILE_MAX_SIZE) {
-        this.showValidationError(CONFIG.MESSAGES.FILE_TOO_LARGE);
-        return false;
-      }
-
-      // Check file extension
+    validateFile: function(file, $area) {
       const extension = file.name.split('.').pop().toLowerCase();
+      
       if (!CONFIG.VALIDATION.ALLOWED_EXTENSIONS.includes(extension)) {
-        this.showValidationError(CONFIG.MESSAGES.INVALID_FILE_TYPE);
+        this.showFieldError($area, CONFIG.MESSAGES.INVALID_FILE_TYPE);
         return false;
       }
-
+      
+      if (file.size > CONFIG.VALIDATION.FILE_MAX_SIZE) {
+        this.showFieldError($area, CONFIG.MESSAGES.FILE_TOO_LARGE);
+        return false;
+      }
+      
+      this.clearFieldError($area);
       return true;
     },
 
-    /**
-     * Show upload progress
-     */
     showUploadProgress: function($area) {
+      $area.addClass('uploading');
       $area.find('.upload-placeholder').hide();
-      $area.find('.file-preview').hide();
-      
-      const $progress = $area.find('.upload-progress').show();
-      const $bar = $progress.find('.progress-bar');
+      $area.find('.upload-progress').show();
       
       // Animate progress bar
       let progress = 0;
-      const interval = setInterval(() => {
+      const interval = setInterval(function() {
         progress += Math.random() * 30;
-        if (progress >= 100) {
-          progress = 100;
+        if (progress >= 95) {
+          progress = 95;
           clearInterval(interval);
         }
-        $bar.css('width', progress + '%');
+        $area.find('.progress-bar').css('--progress', progress + '%');
       }, 100);
     },
 
-    /**
-     * Show file preview
-     */
     showFilePreview: function($area, file) {
+      $area.removeClass('uploading').addClass('has-file');
       $area.find('.upload-progress').hide();
+      $area.find('.upload-placeholder').hide();
       
-      const $preview = $area.find('.file-preview').show();
+      const $preview = $area.find('.file-preview');
       $preview.find('.file-name').text(file.name);
       $preview.find('.file-size').text(this.formatFileSize(file.size));
+      $preview.show();
     },
 
-    /**
-     * Remove file
-     */
-    removeFile: function($area) {
-      const fieldName = $area.data('field');
-      
+    removeFile: function($area, fieldName) {
+      $area.removeClass('has-file uploading');
       $area.find('.file-preview').hide();
+      $area.find('.upload-progress').hide();
       $area.find('.upload-placeholder').show();
-      $area.find(CONFIG.SELECTORS.FILE_INPUT).val('');
+      $area.find('input[type="file"]').val('');
       
       delete this.uploadedFiles[fieldName];
-      this.saveFormData();
+      this.scheduleAutoSave();
     },
 
-    /**
-     * Format file size
-     */
     formatFileSize: function(bytes) {
       if (bytes === 0) return '0 Bytes';
       const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const sizes = ['Bytes', 'KB', 'MB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
 
-    /**
-     * Setup auto-save functionality
-     */
-    setupAutoSave: function() {
-      const self = this;
-      
-      this.$container.on('input change', 'input, select, textarea', function() {
-        clearTimeout(self.autoSaveTimer);
-        self.autoSaveTimer = setTimeout(() => {
-          self.saveFormData();
-          self.showAutoSaveStatus(true);
-        }, CONFIG.AUTO_SAVE_INTERVAL);
-      });
-    },
-
-    /**
-     * Handle field changes
-     */
-    handleFieldChange: function($field) {
-      // Real-time validation
-      this.validateField($field);
-      
-      // Update form data
-      const name = $field.attr('name');
-      const value = $field.val();
-      this.formData[name] = value;
-
-      // Re-validate current step to update Next button state
-      this.validateCurrentStep();
-
-      // Update review section if on review step
-      if (this.currentStep === 5) {
-        this.updateReviewSection();
-      }
-    },
-
-    /**
-     * Validate individual field
-     */
-    validateField: function($field) {
-      const value = $field.val().trim();
-      const isRequired = $field.prop('required');
-      const type = $field.attr('type');
-      const fieldName = $field.attr('name') || $field.attr('id');
-      const $group = $field.closest('.form-group');
-      
-      
-      let isValid = true;
-      let message = '';
-
-      // Required validation
-      if (isRequired && !value) {
-        isValid = false;
-        message = CONFIG.MESSAGES.REQUIRED;
-      }
-      // Email validation
-      else if (type === 'email' && value && !CONFIG.VALIDATION.EMAIL_PATTERN.test(value)) {
-        isValid = false;
-        message = CONFIG.MESSAGES.INVALID_EMAIL;
-      }
-      // Phone validation
-      else if (type === 'tel' && value && !CONFIG.VALIDATION.PHONE_PATTERN.test(value)) {
-        isValid = false;
-        message = CONFIG.MESSAGES.INVALID_PHONE;
-      }
-
-      // Update UI
-      this.updateFieldValidation($group, isValid, message);
-      
-      return isValid;
-    },
-
-    /**
-     * Update field validation UI
-     */
-    updateFieldValidation: function($group, isValid, message) {
-      const $feedback = $group.find('.form-feedback');
-      
-      $group.removeClass('is-valid is-invalid');
-      
-      if (isValid) {
-        $group.addClass('is-valid');
-        $feedback.removeClass('invalid-feedback').addClass('valid-feedback').text('');
-      } else {
-        $group.addClass('is-invalid');
-        $feedback.removeClass('valid-feedback').addClass('invalid-feedback').text(message);
-      }
-    },
-
-    /**
-     * Validate current step
-     */
-    validateCurrentStep: function() {
-      const $currentStep = this.$container.find(CONFIG.SELECTORS.STEP + '[data-step="' + this.currentStep + '"]');
-      const $requiredFields = $currentStep.find('[required]');
-      let isValid = true;
-
-      $requiredFields.each((index, field) => {
-        const $field = $(field);
-        const fieldValid = this.validateField($field);
-        if (!fieldValid) {
-          isValid = false;
-        }
-      });
-
-      // Update next button state
-      const $nextBtn = this.$container.find(CONFIG.SELECTORS.NAV_NEXT);
-      $nextBtn.prop('disabled', !isValid);
-
-      return isValid;
-    },
-
-    /**
-     * Go to next step
-     */
+    // Navigation methods
     nextStep: function() {
-      const isValid = this.validateCurrentStep();
-      
-      if (!isValid) {
-        this.showValidationError('Please complete all required fields before continuing.');
-        return;
-      }
-
-      if (this.currentStep < this.totalSteps) {
-        this.goToStep(this.currentStep + 1);
-      } else {
+      if (this.validateCurrentStep()) {
+        if (this.currentStep < this.totalSteps) {
+          this.goToStep(this.currentStep + 1);
+        }
       }
     },
 
-    /**
-     * Go to previous step
-     */
     prevStep: function() {
       if (this.currentStep > 1) {
         this.goToStep(this.currentStep - 1);
       }
     },
 
-    /**
-     * Go to specific step
-     */
-    goToStep: function(stepNumber) {
-      if (stepNumber < 1 || stepNumber > this.totalSteps) return;
-
-      const $currentStepEl = this.$container.find(CONFIG.SELECTORS.STEP + '[data-step="' + this.currentStep + '"]');
-      const $targetStepEl = this.$container.find(CONFIG.SELECTORS.STEP + '[data-step="' + stepNumber + '"]');
-
-      // Animate step transition
-      $currentStepEl.fadeOut(CONFIG.ANIMATION_DURATION, () => {
-        $currentStepEl.removeClass('active');
-        $targetStepEl.addClass('active').fadeIn(CONFIG.ANIMATION_DURATION);
-        
-        // Focus first input in new step
-        this.focusFirstInput();
-      });
-
-      this.currentStep = stepNumber;
+    goToStep: function(step) {
+      if (step < 1 || step > this.totalSteps) return;
+      
+      // Hide current step
+      this.$form.find(`[data-step="${this.currentStep}"]`).removeClass('active').attr('hidden', '');
+      
+      // Show target step
+      this.$form.find(`[data-step="${step}"]`).addClass('active').removeAttr('hidden');
+      
+      // Update progress
+      this.currentStep = step;
       this.updateProgress();
       this.updateNavigation();
-
-      // Announce step change
-      const stepName = this.$container.find(CONFIG.SELECTORS.STEP + '[data-step="' + stepNumber + '"] .step-header h2').text();
-      this.announce(`Step ${stepNumber} of ${this.totalSteps}: ${stepName}`);
-
-      // Update review if on review step
-      if (stepNumber === 5) {
-        this.updateReviewSection();
-      }
-
-      // Save progress
-      this.saveFormData();
+      
+      // Scroll to top
+      this.$form.find('.wizard-content')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Focus first input in new step
+      setTimeout(() => {
+        this.$form.find(`[data-step="${step}"] input:visible:first`).focus();
+      }, CONFIG.ANIMATION_DURATION);
     },
 
-    /**
-     * Update progress indicator
-     */
     updateProgress: function() {
-      const progressPercent = ((this.currentStep - 1) / (this.totalSteps - 1)) * 100;
+      const progress = ((this.currentStep - 1) / (this.totalSteps - 1)) * 100;
       
       // Update progress bar
-      this.$container.find(CONFIG.SELECTORS.PROGRESS_BAR).css('width', progressPercent + '%');
+      this.$form.find(CONFIG.SELECTORS.PROGRESS_BAR).css('width', progress + '%').attr('data-progress', progress);
+      this.$form.find('.progress-bar-bg').attr('aria-valuenow', progress);
       
       // Update step indicators
-      this.$container.find(CONFIG.SELECTORS.PROGRESS_STEPS).each((index, step) => {
-        const $step = $(step);
-        const stepNum = parseInt($step.data('step'));
+      this.$form.find(CONFIG.SELECTORS.PROGRESS_STEPS).each((index, element) => {
+        const $step = $(element);
+        const stepNum = $step.data('step');
         
         $step.removeClass('active completed');
         
         if (stepNum === this.currentStep) {
-          $step.addClass('active');
+          $step.addClass('active').attr('aria-current', 'step');
         } else if (stepNum < this.currentStep) {
-          $step.addClass('completed');
+          $step.addClass('completed').removeAttr('aria-current');
+        } else {
+          $step.removeAttr('aria-current');
         }
       });
-
+      
       // Update step counter
-      this.$container.find(CONFIG.SELECTORS.CURRENT_STEP).text(this.currentStep);
+      this.$form.find(CONFIG.SELECTORS.CURRENT_STEP).text(this.currentStep);
     },
 
-    /**
-     * Update navigation buttons
-     */
     updateNavigation: function() {
-      const $prevBtn = this.$container.find(CONFIG.SELECTORS.NAV_PREV);
-      const $nextBtn = this.$container.find(CONFIG.SELECTORS.NAV_NEXT);
-      const $submitBtn = this.$container.find(CONFIG.SELECTORS.NAV_SUBMIT);
-
-      // Show/hide previous button
+      const $prevBtn = this.$form.find(CONFIG.SELECTORS.NAV_PREV);
+      const $nextBtn = this.$form.find(CONFIG.SELECTORS.NAV_NEXT);
+      const $submitBtn = this.$form.find(CONFIG.SELECTORS.NAV_SUBMIT);
+      
+      // Previous button
       if (this.currentStep === 1) {
         $prevBtn.hide();
       } else {
         $prevBtn.show();
       }
-
-      // Show/hide next/submit buttons
+      
+      // Next/Submit button
       if (this.currentStep === this.totalSteps) {
         $nextBtn.hide();
         $submitBtn.show();
@@ -539,143 +577,152 @@
       }
     },
 
-    /**
-     * Toggle conditional fields
-     */
-    toggleConditionalFields: function() {
-      const positionValue = this.$container.find('#position_interest').val();
-      const $otherField = this.$container.find('.other-position');
+    // Validation methods
+    validateCurrentStep: function() {
+      return this.validateStep(this.currentStep);
+    },
+
+    validateSteps: function(fromStep, toStep) {
+      for (let step = fromStep; step <= toStep; step++) {
+        if (!this.validateStep(step)) {
+          return false;
+        }
+      }
+      return true;
+    },
+
+    validateStep: function(stepNumber) {
+      const $step = this.$form.find(`[data-step="${stepNumber}"]`);
+      let isValid = true;
       
-      if (positionValue === 'other') {
-        $otherField.show().find('input').prop('required', true);
+      $step.find('input[required], select[required], textarea[required]').each((index, element) => {
+        if (!this.validateField($(element))) {
+          isValid = false;
+        }
+      });
+      
+      return isValid;
+    },
+
+    validateField: function($field) {
+      const value = $field.val().trim();
+      const fieldType = $field.attr('type') || $field.prop('tagName').toLowerCase();
+      let isValid = true;
+      let message = '';
+      
+      // Required validation
+      if ($field.prop('required') && !value) {
+        isValid = false;
+        message = CONFIG.MESSAGES.REQUIRED;
+      }
+      // Email validation
+      else if (fieldType === 'email' && value && !CONFIG.VALIDATION.EMAIL_PATTERN.test(value)) {
+        isValid = false;
+        message = CONFIG.MESSAGES.INVALID_EMAIL;
+      }
+      // Phone validation
+      else if (fieldType === 'tel' && value && !CONFIG.VALIDATION.PHONE_PATTERN.test(value.replace(/[\s\-\(\)]/g, ''))) {
+        isValid = false;
+        message = CONFIG.MESSAGES.INVALID_PHONE;
+      }
+      
+      // Show/clear error
+      if (isValid) {
+        this.clearFieldError($field);
       } else {
-        $otherField.hide().find('input').prop('required', false);
+        this.showFieldError($field, message);
+      }
+      
+      return isValid;
+    },
+
+    showFieldError: function($field, message) {
+      const $group = $field.closest('.form-group, .file-upload-area');
+      const $feedback = $group.find('.form-feedback');
+      
+      $group.addClass('error');
+      $field.addClass('is-invalid').attr('aria-invalid', 'true');
+      $feedback.text(message).show();
+    },
+
+    clearFieldError: function($field) {
+      const $group = $field.closest('.form-group, .file-upload-area');
+      const $feedback = $group.find('.form-feedback');
+      
+      $group.removeClass('error');
+      $field.removeClass('is-invalid').attr('aria-invalid', 'false');
+      $feedback.text('').hide();
+    },
+
+    // Auto-save functionality
+    setupAutoSave: function() {
+      if (drupalSettings.user && drupalSettings.user.uid > 0) {
+        this.scheduleAutoSave();
       }
     },
 
-    /**
-     * Auto-resize textarea
-     */
-    autoResizeTextarea: function($textarea) {
-      $textarea[0].style.height = 'auto';
-      $textarea[0].style.height = $textarea[0].scrollHeight + 'px';
-    },
-
-    /**
-     * Focus first input in current step
-     */
-    focusFirstInput: function() {
-      const $currentStep = this.$container.find(CONFIG.SELECTORS.STEP + '[data-step="' + this.currentStep + '"]');
-      const $firstInput = $currentStep.find('input, select, textarea').not(':hidden').first();
+    scheduleAutoSave: function() {
+      const self = this;
       
-      setTimeout(() => {
-        $firstInput.focus();
-      }, CONFIG.ANIMATION_DURATION);
-    },
-
-    /**
-     * Update review section
-     */
-    updateReviewSection: function() {
-      // Personal Information
-      this.updateReviewPersonal();
-      
-      // Position Details
-      this.updateReviewPosition();
-      
-      // Experience
-      this.updateReviewExperience();
-      
-      // Documents
-      this.updateReviewDocuments();
-    },
-
-    /**
-     * Update personal info review
-     */
-    updateReviewPersonal: function() {
-      const $review = this.$container.find('#review-personal');
-      const data = this.getFormData();
-      
-      const html = `
-        <div class="review-item"><strong>Name:</strong> ${data.first_name || ''} ${data.last_name || ''}</div>
-        <div class="review-item"><strong>Email:</strong> ${data.email || ''}</div>
-        <div class="review-item"><strong>Phone:</strong> ${data.phone || ''}</div>
-        <div class="review-item"><strong>Preferred Contact:</strong> ${data.preferred_contact || 'Not specified'}</div>
-      `;
-      
-      $review.html(html);
-    },
-
-    /**
-     * Update position review
-     */
-    updateReviewPosition: function() {
-      const $review = this.$container.find('#review-position');
-      const data = this.getFormData();
-      
-      const positionText = data.position_interest === 'other' ? data.position_other : data.position_interest;
-      
-      const html = `
-        <div class="review-item"><strong>Position:</strong> ${positionText || ''}</div>
-        <div class="review-item"><strong>Employment Type:</strong> ${data.employment_type || ''}</div>
-        <div class="review-item"><strong>Start Date:</strong> ${data.start_date || 'Flexible'}</div>
-        <div class="review-item"><strong>Salary Expectations:</strong> ${data.salary_type || ''} ${data.salary_amount || ''}</div>
-      `;
-      
-      $review.html(html);
-    },
-
-    /**
-     * Update experience review
-     */
-    updateReviewExperience: function() {
-      const $review = this.$container.find('#review-experience');
-      const data = this.getFormData();
-      
-      const html = `
-        <div class="review-item"><strong>Education:</strong> ${data.education || 'Not provided'}</div>
-        <div class="review-item"><strong>Experience:</strong> ${data.experience || 'Not provided'}</div>
-        <div class="review-item"><strong>Why Join Us:</strong> ${data.why_join || ''}</div>
-        <div class="review-item"><strong>Languages:</strong> ${data.languages || 'Not specified'}</div>
-        <div class="review-item"><strong>References:</strong> ${data.references_available || 'Yes, upon request'}</div>
-      `;
-      
-      $review.html(html);
-    },
-
-    /**
-     * Update documents review
-     */
-    updateReviewDocuments: function() {
-      const $review = this.$container.find('#review-documents');
-      
-      let html = '<div class="uploaded-files">';
-      
-      for (const [fieldName, file] of Object.entries(this.uploadedFiles)) {
-        const displayName = fieldName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-        html += `<div class="review-item"><strong>${displayName}:</strong> ${file.name} (${this.formatFileSize(file.size)})</div>`;
+      if (this.autoSaveTimeout) {
+        clearTimeout(this.autoSaveTimeout);
       }
       
-      if (Object.keys(this.uploadedFiles).length === 0) {
-        html += '<div class="review-item">No files uploaded</div>';
-      }
-      
-      html += '</div>';
-      
-      $review.html(html);
+      this.autoSaveTimeout = setTimeout(function() {
+        self.saveDraft();
+      }, CONFIG.AUTO_SAVE_INTERVAL);
     },
 
-    /**
-     * Get all form data
-     */
-    getFormData: function() {
+    saveDraft: function() {
+      // For now, always use localStorage until Drupal draft integration is implemented
+      // This is safer and works for both anonymous and authenticated users
+      this.saveDraftLocal();
+    },
+
+    saveDraftLocal: function() {
+      const formData = this.collectFormData();
+      formData.currentStep = this.currentStep;
+      formData.timestamp = Date.now();
+      
+      try {
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(formData));
+        this.showSaveStatus(CONFIG.MESSAGES.SAVE_SUCCESS, 'saved');
+      } catch (e) {
+        this.showSaveStatus(CONFIG.MESSAGES.SAVE_ERROR, 'error');
+      }
+    },
+
+    loadDraft: function() {
+      // Try localStorage first
+      const draftData = localStorage.getItem(CONFIG.STORAGE_KEY);
+      if (draftData) {
+        try {
+          const data = JSON.parse(draftData);
+          this.populateFormData(data);
+          if (data.currentStep && data.currentStep > 1) {
+            this.goToStep(data.currentStep);
+          }
+        } catch (e) {
+          console.log('Could not load draft:', e);
+        }
+      }
+    },
+
+    collectFormData: function() {
       const data = {};
       
-      this.$container.find('input, select, textarea').each(function() {
+      this.$form.find('input, select, textarea').each(function() {
         const $field = $(this);
         const name = $field.attr('name');
-        if (name && $field.attr('type') !== 'file') {
+        const type = $field.attr('type');
+        
+        if (!name || name === 'form_token' || name === 'form_build_id') return;
+        
+        if (type === 'checkbox') {
+          data[name] = $field.is(':checked') ? $field.val() : '';
+        } else if (type === 'file') {
+          // File fields handled separately
+        } else {
           data[name] = $field.val();
         }
       });
@@ -683,291 +730,156 @@
       return data;
     },
 
-    /**
-     * Save form data to localStorage
-     */
-    saveFormData: function() {
-      try {
-        const data = {
-          formData: this.getFormData(),
-          currentStep: this.currentStep,
-          uploadedFiles: Object.keys(this.uploadedFiles),
-          timestamp: Date.now()
-        };
-        
-        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
-      } catch (error) {
-        console.error('Error saving form data:', error);
-      }
-    },
-
-    /**
-     * Load saved data from localStorage
-     */
-    loadSavedData: function() {
-      try {
-        const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
-        if (saved) {
-          const data = JSON.parse(saved);
-          
-          // Only load if saved within last 24 hours
-          if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
-            this.formData = data.formData || {};
-            // Note: We can't restore uploaded files from localStorage
-            // In a real implementation, this would check server-side storage
+    populateFormData: function(data) {
+      Object.keys(data).forEach(name => {
+        const $field = this.$form.find(`[name="${name}"]`);
+        if ($field.length) {
+          if ($field.attr('type') === 'checkbox') {
+            $field.prop('checked', !!data[name]);
+          } else {
+            $field.val(data[name]);
           }
         }
-      } catch (error) {
-        console.error('Error loading saved data:', error);
+      });
+      
+      // Trigger change events for conditional fields
+      this.$form.find('#position_applied, #referral_source').trigger('change');
+    },
+
+    showSaveStatus: function(message, type) {
+      const $status = this.$form.find(CONFIG.SELECTORS.AUTO_SAVE_STATUS);
+      
+      $status.removeClass('visible saving saved error')
+        .addClass('visible ' + type)
+        .find('.save-text').text(message);
+      
+      // Hide after delay for success messages
+      if (type === 'saved') {
+        setTimeout(function() {
+          $status.removeClass('visible');
+        }, 3000);
       }
     },
 
-    /**
-     * Show auto-save status
-     */
-    showAutoSaveStatus: function(success) {
-      const $status = this.$container.find(CONFIG.SELECTORS.AUTO_SAVE_STATUS);
-      const $icon = $status.find('i');
-      const $text = $status.find('.save-text');
-      
-      if (success) {
-        $icon.removeClass('fa-exclamation-triangle').addClass('fa-check-circle');
-        $text.text(CONFIG.MESSAGES.SAVE_SUCCESS);
-        $status.removeClass('error').addClass('success');
-      } else {
-        $icon.removeClass('fa-check-circle').addClass('fa-exclamation-triangle');
-        $text.text(CONFIG.MESSAGES.SAVE_ERROR);
-        $status.removeClass('success').addClass('error');
-      }
-      
-      $status.fadeIn().delay(2000).fadeOut();
-    },
-
-    /**
-     * Show validation error
-     */
-    showValidationError: function(message) {
-      // In a real implementation, this would show a toast or alert
-      alert(message);
-    },
-
-    /**
-     * Submit application
-     */
-    submitApplication: function() {
-      
-      // Final validation
-      if (!this.validateFinalSubmission()) {
+    // Form submission
+    submitForm: function() {
+      if (!this.validateSteps(1, this.totalSteps)) {
+        this.showSaveStatus('Please correct the errors above', 'error');
         return;
       }
-
-
-      // Show loading state
-      const $submitBtn = this.$container.find(CONFIG.SELECTORS.NAV_SUBMIT);
-      const originalText = $submitBtn.html();
-      $submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Submitting...');
-
-      // Collect all form data
-      const applicationData = this.collectAllFormData();
       
-      // Submit to Drupal
-      this.submitToDrupal(applicationData)
-        .then(() => {
-          this.showSuccessModal();
-          
-          // Clear saved data
+      const self = this;
+      
+      // Prepare form data with all form inputs including files
+      const formData = new FormData(this.$form[0]);
+      
+      // Ensure uploaded files are properly included
+      Object.keys(this.uploadedFiles).forEach(fieldName => {
+        const $fileInput = this.$form.find(`input[name="${fieldName}"]`);
+        if ($fileInput.length && $fileInput[0].files.length > 0) {
+          // File input already has the file, FormData will pick it up
+          formData.set(fieldName, $fileInput[0].files[0]);
+        }
+      });
+      
+      this.showSaveStatus('Submitting application...', 'saving');
+      
+      // Submit directly to the form action URL
+      $.ajax({
+        url: this.$form.attr('action') || '/webform/employment_application',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+          self.showSuccessModal();
+          // Clear draft
           localStorage.removeItem(CONFIG.STORAGE_KEY);
-          
-          // Reset button
-          $submitBtn.prop('disabled', false).html(originalText);
-        })
-        .catch((error) => {
-          console.error('Submission failed:', error);
-          this.showValidationError('There was an error submitting your application. Please try again.');
-          
-          // Reset button
-          $submitBtn.prop('disabled', false).html(originalText);
-        });
-    },
-
-    /**
-     * Validate final submission
-     */
-    validateFinalSubmission: function() {
-      // Check required agreements
-      const requiredAgreements = ['accuracy_agreement'];
-      
-      for (const agreementId of requiredAgreements) {
-        if (!this.$container.find('#' + agreementId).is(':checked')) {
-          this.showValidationError('Please agree to the required terms before submitting.');
-          return false;
+        },
+        error: function(xhr, status, error) {
+          console.error('Submission error:', error);
+          const errorMessage = xhr.responseJSON && xhr.responseJSON.message 
+            ? xhr.responseJSON.message 
+            : 'Submission failed. Please try again.';
+          self.showSaveStatus(errorMessage, 'error');
         }
-      }
-
-      // Check required files
-      if (!this.uploadedFiles.resume) {
-        this.showValidationError('Please upload your resume before submitting.');
-        return false;
-      }
-
-      return true;
+      });
     },
 
-    /**
-     * Show success modal
-     */
     showSuccessModal: function() {
-      // Modal is outside the wizard container, so search in the entire document
-      const $modal = $(CONFIG.SELECTORS.SUCCESS_MODAL);
+      const $modal = this.$form.find(CONFIG.SELECTORS.SUCCESS_MODAL);
+      $modal.fadeIn(CONFIG.ANIMATION_DURATION);
       
-      $modal.fadeIn();
-
-      // Close modal when clicking outside
-      $modal.on('click', function(e) {
-        if (e.target === this) {
-          $modal.fadeOut();
+      // Focus management
+      $modal.find('h2').focus();
+      
+      // Trap focus in modal
+      $modal.on('keydown', function(e) {
+        if (e.key === 'Escape') {
+          window.location.href = '/employment';
         }
       });
-    },
-
-    /**
-     * Collect all form data including files
-     */
-    collectAllFormData: function() {
-      const formData = this.getFormData();
-      
-      // Add uploaded files info
-      formData.uploadedFiles = {};
-      for (const [fieldName, file] of Object.entries(this.uploadedFiles)) {
-        formData.uploadedFiles[fieldName] = {
-          name: file.name,
-          size: file.size,
-          type: file.type
-        };
-      }
-      
-      // Add metadata
-      formData._metadata = {
-        submittedAt: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        currentStep: this.currentStep
-      };
-      
-      return formData;
-    },
-
-    /**
-     * Submit application data to Drupal
-     */
-    submitToDrupal: function(applicationData) {
-      return new Promise((resolve, reject) => {
-        // Create FormData for file uploads
-        const formData = new FormData();
-        
-        // Add all form fields
-        for (const [key, value] of Object.entries(applicationData)) {
-          if (key !== 'uploadedFiles' && key !== '_metadata') {
-            formData.append(key, value || '');
-          }
-        }
-        
-        // Add uploaded files
-        for (const [fieldName, file] of Object.entries(this.uploadedFiles)) {
-          formData.append(`files[${fieldName}]`, file);
-        }
-        
-        // Add metadata
-        formData.append('_metadata', JSON.stringify(applicationData._metadata));
-        // Drupal handles CSRF tokens automatically in form submissions
-        
-        // Submit via AJAX
-        $.ajax({
-          url: '/employment-application/submit',
-          method: 'POST',
-          data: formData,
-          processData: false,
-          contentType: false,
-          timeout: 30000,
-          success: function(response) {
-            if (response.success) {
-              resolve(response);
-            } else {
-              reject(new Error(response.message || 'Submission failed'));
-            }
-          },
-          error: function(xhr, status, error) {
-            reject(new Error(`Submission failed: ${error}`));
-          }
-        });
-      });
-    },
-
-    /**
-     * Phone number formatter
-     */
-    formatPhoneNumber: function(value) {
-      const cleaned = value.replace(/\D/g, '');
-      const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-      if (match) {
-        return '(' + match[1] + ') ' + match[2] + '-' + match[3];
-      }
-      return value;
-    },
-
-    /**
-     * Initialize accessibility features
-     */
-    initializeAccessibility: function() {
-      // Add ARIA labels
-      this.$container.attr('role', 'application');
-      this.$container.attr('aria-label', 'Employment Application Form');
-      
-      // Add keyboard navigation
-      this.$container.on('keydown', (e) => {
-        if (e.altKey) {
-          switch(e.key) {
-            case 'n':
-            case 'N':
-              e.preventDefault();
-              this.nextStep();
-              break;
-            case 'p':
-            case 'P':
-              e.preventDefault();
-              this.prevStep();
-              break;
-          }
-        }
-      });
-      
-      // Announce step changes to screen readers
-      this.createLiveRegion();
-    },
-
-    /**
-     * Create ARIA live region for announcements
-     */
-    createLiveRegion: function() {
-      if (!$('#application-live-region').length) {
-        $('<div>')
-          .attr('id', 'application-live-region')
-          .attr('role', 'status')
-          .attr('aria-live', 'polite')
-          .attr('aria-atomic', 'true')
-          .addClass('sr-only')
-          .appendTo('body');
-      }
-    },
-
-    /**
-     * Announce to screen readers
-     */
-    announce: function(message) {
-      $('#application-live-region').text(message);
-      setTimeout(() => {
-        $('#application-live-region').text('');
-      }, 100);
     }
   };
 
-})(jQuery, Drupal);
+  // Initialize when ready - Drupal 11 behavior
+  Drupal.behaviors.premiumApplicationWizard = {
+    attach: function(context, settings) {
+      // Use Drupal 11's once() API to prevent duplicate initialization
+      const $wizards = $(once('premium-wizard', CONFIG.SELECTORS.WIZARD, context));
+      $wizards.each(function() {
+        new EmploymentApplicationWizard($(this));
+      });
+    },
+    
+    detach: function(context, settings, trigger) {
+      // Clean up when elements are removed
+      if (trigger === 'unload') {
+        $(once.remove('premium-wizard', CONFIG.SELECTORS.WIZARD, context));
+      }
+    }
+  };
+
+  // Phone number formatting behavior
+  Drupal.behaviors.phoneFormatter = {
+    attach: function(context, settings) {
+      const $phoneInputs = $(once('phone-format', 'input[type="tel"]', context));
+      $phoneInputs.on('input.phoneFormatter', function() {
+        let value = $(this).val().replace(/\D/g, '');
+        if (value.length >= 6) {
+          value = value.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+          $(this).val(value);
+        }
+      });
+    },
+    
+    detach: function(context, settings, trigger) {
+      if (trigger === 'unload') {
+        const $phoneInputs = $(once.remove('phone-format', 'input[type="tel"]', context));
+        $phoneInputs.off('input.phoneFormatter');
+      }
+    }
+  };
+
+  // Auto-resize textarea behavior
+  Drupal.behaviors.autoResizeTextarea = {
+    attach: function(context, settings) {
+      const $textareas = $(once('auto-resize', 'textarea.auto-resize', context));
+      $textareas.on('input.autoResize', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+      });
+      
+      // Trigger initial resize
+      $textareas.trigger('input');
+    },
+    
+    detach: function(context, settings, trigger) {
+      if (trigger === 'unload') {
+        const $textareas = $(once.remove('auto-resize', 'textarea.auto-resize', context));
+        $textareas.off('input.autoResize');
+      }
+    }
+  };
+
+})(jQuery, Drupal, drupalSettings, once);

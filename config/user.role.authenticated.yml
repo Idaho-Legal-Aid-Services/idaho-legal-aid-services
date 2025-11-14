@@ -8,7 +8,6 @@ dependencies:
     - search_api_autocomplete.search.content_autocomplete
   module:
     - captcha
-    - civicrm
     - coffee
     - dashboard
     - editoria11y
@@ -28,7 +27,6 @@ label: 'Authenticated user'
 weight: 1
 is_admin: false
 permissions:
-  - 'access CiviCRM'
   - 'access coffee'
   - 'access content'
   - 'access sitemap'

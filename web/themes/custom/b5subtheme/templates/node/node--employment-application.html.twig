@@ -3,6 +3,7 @@
  * @file
  * Premium Employment Application - Multi-Step Wizard
  * Accessible, secure, and user-friendly employment application
+ * Properly integrated with Drupal 11 webform system
  */
 #}
 
@@ -33,17 +34,21 @@
       </div>
     </header>
 
-    {# Application Form #}
+    {# Application Form - Proper Drupal Integration #}
     <form id="application-form" 
           class="application-wizard" 
-          action="/employment-application/submit" 
+          action="/webform/employment_application" 
           method="post" 
           enctype="multipart/form-data"
           novalidate
-          aria-label="Employment Application Form">
+          aria-label="Employment Application Form"
+          data-drupal-webform-id="employment_application">
       
-      {# CSRF Token - Drupal handles this automatically for forms #}
-      {# Token will be added by Drupal's form API when using proper form submission #}
+      {# CSRF Token - Will be populated by JavaScript #}
+      <input type="hidden" name="form_token" id="form-token" value="">
+      <input type="hidden" name="form_id" value="webform_submission_employment_application_form">
+      <input type="hidden" name="form_build_id" id="form-build-id" value="">
+      <input type="hidden" name="op" value="Submit">
       
       <div class="container">
         
@@ -101,38 +106,23 @@
             <div class="step-content">
               <div class="form-grid">
                 <div class="form-group">
-                  <label for="first_name" class="form-label required">
-                    First Name
+                  <label for="full_name" class="form-label required">
+                    Full Name
                     <span class="visually-hidden">(required)</span>
                   </label>
                   <input type="text" 
-                         id="first_name" 
-                         name="first_name" 
+                         id="full_name" 
+                         name="full_name" 
                          class="form-control" 
                          required
                          aria-required="true"
-                         aria-describedby="first_name_error"
-                         data-validate="minLength:2,maxLength:50">
-                  <div class="form-feedback" id="first_name_error" role="alert" aria-live="polite"></div>
+                         aria-describedby="full_name_error"
+                         data-validate="minLength:2,maxLength:100"
+                         autocomplete="name">
+                  <div class="form-feedback" id="full_name_error" role="alert" aria-live="polite"></div>
                 </div>
                 
                 <div class="form-group">
-                  <label for="last_name" class="form-label required">
-                    Last Name
-                    <span class="visually-hidden">(required)</span>
-                  </label>
-                  <input type="text" 
-                         id="last_name" 
-                         name="last_name" 
-                         class="form-control" 
-                         required
-                         aria-required="true"
-                         aria-describedby="last_name_error"
-                         data-validate="minLength:2,maxLength:50">
-                  <div class="form-feedback" id="last_name_error" role="alert" aria-live="polite"></div>
-                </div>
-                
-                <div class="form-group full-width">
                   <label for="email" class="form-label required">
                     Email Address
                     <span class="visually-hidden">(required)</span>
@@ -168,18 +158,50 @@
                   <div class="form-feedback" id="phone_error" role="alert" aria-live="polite"></div>
                 </div>
                 
-                <div class="form-group">
-                  <label for="preferred_contact" class="form-label">Preferred Contact Method</label>
-                  <select id="preferred_contact" 
-                          name="preferred_contact" 
-                          class="form-control"
-                          aria-describedby="preferred_contact_help">
-                    <option value="">Select preference</option>
-                    <option value="email">Email</option>
-                    <option value="phone">Phone</option>
-                    <option value="either">Either</option>
-                  </select>
-                  <small id="preferred_contact_help" class="form-help visually-hidden">Choose how you'd like us to contact you</small>
+                <div class="form-group full-width">
+                  <fieldset>
+                    <legend class="form-label required">Address</legend>
+                    <div class="address-grid">
+                      <div class="form-group">
+                        <label for="address_address" class="form-label">Street Address</label>
+                        <input type="text" 
+                               id="address_address" 
+                               name="address[address]" 
+                               class="form-control"
+                               autocomplete="street-address">
+                      </div>
+                      <div class="form-group">
+                        <label for="address_city" class="form-label">City</label>
+                        <input type="text" 
+                               id="address_city" 
+                               name="address[city]" 
+                               class="form-control"
+                               autocomplete="address-level2">
+                      </div>
+                      <div class="form-group">
+                        <label for="address_state_province" class="form-label">State</label>
+                        <select id="address_state_province" 
+                                name="address[state_province]" 
+                                class="form-control"
+                                autocomplete="address-level1">
+                          <option value="">Select State</option>
+                          <option value="ID">Idaho</option>
+                          <option value="WA">Washington</option>
+                          <option value="OR">Oregon</option>
+                          <option value="MT">Montana</option>
+                          <option value="UT">Utah</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label for="address_postal_code" class="form-label">ZIP Code</label>
+                        <input type="text" 
+                               id="address_postal_code" 
+                               name="address[postal_code]" 
+                               class="form-control"
+                               autocomplete="postal-code">
+                      </div>
+                    </div>
+                  </fieldset>
                 </div>
               </div>
             </div>
@@ -195,31 +217,26 @@
             <div class="step-content">
               <div class="form-grid">
                 <div class="form-group full-width">
-                  <label for="position_interest" class="form-label required">
-                    Position of Interest
+                  <label for="position_applied" class="form-label required">
+                    Position Applied For
                     <span class="visually-hidden">(required)</span>
                   </label>
-                  <select id="position_interest" 
-                          name="position_interest" 
+                  <select id="position_applied" 
+                          name="position_applied" 
                           class="form-control" 
                           required
                           aria-required="true"
-                          aria-describedby="position_interest_error">
+                          aria-describedby="position_applied_error">
                     <option value="">Select a position</option>
-                    {% if content.field_available_positions is defined %}
-                      {% for item in content.field_available_positions %}
-                        <option value="{{ item['#value'] }}">{{ item['#title'] }}</option>
-                      {% endfor %}
-                    {% else %}
-                      <option value="attorney">Attorney</option>
-                      <option value="paralegal">Paralegal</option>
-                      <option value="legal_assistant">Legal Assistant</option>
-                      <option value="administrative">Administrative Support</option>
-                      <option value="outreach">Community Outreach</option>
-                      <option value="other">Other (please specify)</option>
-                    {% endif %}
+                    <option value="managing_attorney">Managing Attorney</option>
+                    <option value="staff_attorney">Staff Attorney</option>
+                    <option value="paralegal">Paralegal</option>
+                    <option value="legal_assistant">Legal Assistant</option>
+                    <option value="administrative">Administrative Support</option>
+                    <option value="outreach">Community Outreach</option>
+                    <option value="other">Other (please specify)</option>
                   </select>
-                  <div class="form-feedback" id="position_interest_error" role="alert" aria-live="polite"></div>
+                  <div class="form-feedback" id="position_applied_error" role="alert" aria-live="polite"></div>
                 </div>
                 
                 <div class="form-group other-position" style="display: none;" aria-hidden="true">
@@ -233,63 +250,35 @@
                 </div>
                 
                 <div class="form-group">
-                  <label for="employment_type" class="form-label required">
-                    Employment Type
+                  <label for="available_start_date" class="form-label required">
+                    Earliest Available Start Date
                     <span class="visually-hidden">(required)</span>
                   </label>
-                  <select id="employment_type" 
-                          name="employment_type" 
-                          class="form-control" 
-                          required
-                          aria-required="true"
-                          aria-describedby="employment_type_error">
-                    <option value="">Select type</option>
-                    <option value="full_time">Full-time</option>
-                    <option value="part_time">Part-time</option>
-                    <option value="contract">Contract/Temporary</option>
-                    <option value="volunteer">Volunteer</option>
-                  </select>
-                  <div class="form-feedback" id="employment_type_error" role="alert" aria-live="polite"></div>
+                  <input type="date" 
+                         id="available_start_date" 
+                         name="available_start_date" 
+                         class="form-control"
+                         required
+                         aria-required="true"
+                         aria-describedby="available_start_date_error"
+                         min="{{ 'now'|date('Y-m-d') }}">
+                  <div class="form-feedback" id="available_start_date_error" role="alert" aria-live="polite"></div>
                 </div>
                 
                 <div class="form-group">
-                  <label for="start_date" class="form-label">Available Start Date</label>
-                  <input type="date" 
-                         id="start_date" 
-                         name="start_date" 
+                  <label for="salary_requirements" class="form-label">Salary Requirements</label>
+                  <input type="text" 
+                         id="salary_requirements" 
+                         name="salary_requirements" 
                          class="form-control"
-                         aria-describedby="start_date_help"
-                         min="{{ 'now'|date('Y-m-d') }}">
-                  <small id="start_date_help" class="form-help">Leave blank if flexible</small>
-                </div>
-                
-                <div class="form-group full-width">
-                  <fieldset>
-                    <legend class="form-label">Salary Expectations</legend>
-                    <div class="salary-input-group">
-                      <select id="salary_type" 
-                              name="salary_type" 
-                              class="form-control salary-type"
-                              aria-label="Salary type">
-                        <option value="hourly">Hourly</option>
-                        <option value="annual">Annual</option>
-                        <option value="negotiable">Negotiable</option>
-                      </select>
-                      <input type="text" 
-                             id="salary_amount" 
-                             name="salary_amount" 
-                             class="form-control salary-amount" 
-                             placeholder="Amount"
-                             aria-label="Salary amount">
-                    </div>
-                    <small class="form-help">Optional - We believe in fair compensation for all positions</small>
-                  </fieldset>
+                         placeholder="e.g., $50,000 - $60,000 annually">
+                  <small class="form-help">Optional - We believe in fair compensation for all positions</small>
                 </div>
               </div>
             </div>
           </fieldset>
 
-          {# Step 3: Experience & Qualifications #}
+          {# Step 3: Experience & Education #}
           <fieldset class="wizard-step" data-step="3" role="group" aria-labelledby="step3-heading" hidden>
             <div class="step-header">
               <h2 id="step3-heading">Share your experience and qualifications</h2>
@@ -298,64 +287,123 @@
             
             <div class="step-content">
               <div class="form-grid">
+                
+                {# Work Experience Section #}
                 <div class="form-group full-width">
-                  <label for="education" class="form-label">Education</label>
-                  <textarea id="education" 
-                            name="education" 
-                            class="form-control auto-resize" 
-                            rows="3"
-                            aria-describedby="education_help"
-                            placeholder="Degree(s), certifications, relevant coursework..."></textarea>
-                  <small id="education_help" class="form-help">Include degrees, certifications, and relevant training</small>
+                  <fieldset class="multiple-items-section">
+                    <legend class="form-label">Work Experience</legend>
+                    <div id="work-experience-container" class="multiple-items-container">
+                      <div class="multiple-item" data-item="0">
+                        <div class="item-header">
+                          <h4>Work Experience #1</h4>
+                          <button type="button" class="remove-item" aria-label="Remove this work experience" style="display: none;">×</button>
+                        </div>
+                        <div class="item-content">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label for="work_experience_0_employer" class="form-label required">Employer</label>
+                              <input type="text" 
+                                     id="work_experience_0_employer" 
+                                     name="work_experience[0][employer]" 
+                                     class="form-control" 
+                                     required
+                                     aria-required="true">
+                            </div>
+                            <div class="form-group">
+                              <label for="work_experience_0_job_title" class="form-label required">Job Title</label>
+                              <input type="text" 
+                                     id="work_experience_0_job_title" 
+                                     name="work_experience[0][job_title]" 
+                                     class="form-control" 
+                                     required
+                                     aria-required="true">
+                            </div>
+                          </div>
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label for="work_experience_0_start_date" class="form-label required">Start Date</label>
+                              <input type="date" 
+                                     id="work_experience_0_start_date" 
+                                     name="work_experience[0][start_date]" 
+                                     class="form-control" 
+                                     required
+                                     aria-required="true">
+                            </div>
+                            <div class="form-group">
+                              <label for="work_experience_0_end_date" class="form-label">End Date</label>
+                              <input type="date" 
+                                     id="work_experience_0_end_date" 
+                                     name="work_experience[0][end_date]" 
+                                     class="form-control">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label class="checkbox-label">
+                              <input type="checkbox" 
+                                     id="work_experience_0_current_position" 
+                                     name="work_experience[0][current_position]"
+                                     value="1">
+                              <span class="checkmark"></span>
+                              I currently work here
+                            </label>
+                          </div>
+                          <div class="form-group">
+                            <label for="work_experience_0_responsibilities" class="form-label">Key Responsibilities</label>
+                            <textarea id="work_experience_0_responsibilities" 
+                                      name="work_experience[0][responsibilities]" 
+                                      class="form-control auto-resize" 
+                                      rows="3"></textarea>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button type="button" id="add-work-experience" class="btn btn-outline-primary">
+                      <i class="fas fa-plus" aria-hidden="true"></i> Add Another Work Experience
+                    </button>
+                  </fieldset>
                 </div>
-                
+
+                {# Education Section #}
                 <div class="form-group full-width">
-                  <label for="experience" class="form-label">Relevant Experience</label>
-                  <textarea id="experience" 
-                            name="experience" 
-                            class="form-control auto-resize" 
-                            rows="4"
-                            aria-describedby="experience_help"
-                            placeholder="Previous legal experience, volunteer work, related skills..."></textarea>
-                  <small id="experience_help" class="form-help">Describe your relevant work experience and skills</small>
-                </div>
-                
-                <div class="form-group full-width">
-                  <label for="why_join" class="form-label required">
-                    Why do you want to join our organization?
-                    <span class="visually-hidden">(required)</span>
-                  </label>
-                  <textarea id="why_join" 
-                            name="why_join" 
-                            class="form-control auto-resize" 
-                            rows="4" 
-                            required
-                            aria-required="true"
-                            aria-describedby="why_join_error"
-                            data-validate="minLength:50"
-                            placeholder="Share what motivates you about our mission and how you'd like to contribute..."></textarea>
-                  <div class="form-feedback" id="why_join_error" role="alert" aria-live="polite"></div>
-                </div>
-                
-                <div class="form-group">
-                  <label for="languages" class="form-label">Languages Spoken</label>
-                  <input type="text" 
-                         id="languages" 
-                         name="languages" 
-                         class="form-control"
-                         aria-describedby="languages_help"
-                         placeholder="e.g., Spanish (fluent), ASL (conversational)">
-                  <small id="languages_help" class="form-help">Helpful for serving our diverse community</small>
-                </div>
-                
-                <div class="form-group">
-                  <label for="references_available" class="form-label">References Available</label>
-                  <select id="references_available" 
-                          name="references_available" 
-                          class="form-control">
-                    <option value="yes">Yes, upon request</option>
-                    <option value="no">Not at this time</option>
-                  </select>
+                  <fieldset class="multiple-items-section">
+                    <legend class="form-label">Education</legend>
+                    <div id="education-container" class="multiple-items-container">
+                      <div class="multiple-item" data-item="0">
+                        <div class="item-header">
+                          <h4>Education #1</h4>
+                          <button type="button" class="remove-item" aria-label="Remove this education entry" style="display: none;">×</button>
+                        </div>
+                        <div class="item-content">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label for="education_0_institution" class="form-label">Institution</label>
+                              <input type="text" 
+                                     id="education_0_institution" 
+                                     name="education[0][institution]" 
+                                     class="form-control">
+                            </div>
+                            <div class="form-group">
+                              <label for="education_0_degree" class="form-label">Degree/Certificate</label>
+                              <input type="text" 
+                                     id="education_0_degree" 
+                                     name="education[0][degree]" 
+                                     class="form-control">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="education_0_graduation_date" class="form-label">Graduation Date</label>
+                            <input type="date" 
+                                   id="education_0_graduation_date" 
+                                   name="education[0][graduation_date]" 
+                                   class="form-control">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button type="button" id="add-education" class="btn btn-outline-primary">
+                      <i class="fas fa-plus" aria-hidden="true"></i> Add Another Education Entry
+                    </button>
+                  </fieldset>
                 </div>
               </div>
             </div>
@@ -441,20 +489,20 @@
                 </div>
 
                 <div class="upload-group">
-                  <label class="upload-label" for="additional_docs">Additional Documents</label>
-                  <div class="file-upload-area" data-field="additional_docs" role="region" aria-label="Additional documents upload area">
+                  <label class="upload-label" for="additional_documents">Additional Documents</label>
+                  <div class="file-upload-area" data-field="additional_documents" role="region" aria-label="Additional documents upload area">
                     <div class="upload-placeholder">
                       <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
                       <h4>Drop additional documents here or click to browse</h4>
                       <p>Certifications, writing samples, portfolio • PDF, DOC, DOCX • Max 5MB each</p>
                     </div>
                     <input type="file" 
-                           id="additional_docs" 
-                           name="additional_docs[]" 
+                           id="additional_documents" 
+                           name="additional_documents[]" 
                            accept=".pdf,.doc,.docx" 
                            class="file-input" 
                            multiple
-                           aria-describedby="additional_docs_help">
+                           aria-describedby="additional_documents_help">
                     <div class="upload-progress" style="display: none;" role="status" aria-live="polite">
                       <div class="progress-bar"></div>
                       <span class="progress-text">Uploading...</span>
@@ -469,7 +517,7 @@
                         <i class="fas fa-times" aria-hidden="true"></i>
                       </button>
                     </div>
-                    <small id="additional_docs_help" class="form-help">Upload any additional supporting documents</small>
+                    <small id="additional_documents_help" class="form-help">Upload any additional supporting documents</small>
                   </div>
                 </div>
 
@@ -477,39 +525,46 @@
             </div>
           </fieldset>
 
-          {# Step 5: Review & Submit #}
+          {# Step 5: Additional Information & Review #}
           <fieldset class="wizard-step" data-step="5" role="group" aria-labelledby="step5-heading" hidden>
             <div class="step-header">
-              <h2 id="step5-heading">Review your application</h2>
-              <p>Please review all information before submitting your application</p>
+              <h2 id="step5-heading">Additional Information & Review</h2>
+              <p>Final details and review of your application</p>
             </div>
             
             <div class="step-content">
-              <div class="application-review">
+              <div class="form-grid">
                 
-                <section class="review-section" aria-labelledby="review-personal-heading">
-                  <h3 id="review-personal-heading">Personal Information</h3>
-                  <div class="review-content" id="review-personal"></div>
-                  <button type="button" class="edit-section" data-step="1" aria-label="Edit personal information">Edit</button>
-                </section>
-
-                <section class="review-section" aria-labelledby="review-position-heading">
-                  <h3 id="review-position-heading">Position Details</h3>
-                  <div class="review-content" id="review-position"></div>
-                  <button type="button" class="edit-section" data-step="2" aria-label="Edit position details">Edit</button>
-                </section>
-
-                <section class="review-section" aria-labelledby="review-experience-heading">
-                  <h3 id="review-experience-heading">Experience & Qualifications</h3>
-                  <div class="review-content" id="review-experience"></div>
-                  <button type="button" class="edit-section" data-step="3" aria-label="Edit experience">Edit</button>
-                </section>
-
-                <section class="review-section" aria-labelledby="review-documents-heading">
-                  <h3 id="review-documents-heading">Documents</h3>
-                  <div class="review-content" id="review-documents"></div>
-                  <button type="button" class="edit-section" data-step="4" aria-label="Edit documents">Edit</button>
-                </section>
+                <div class="form-group">
+                  <label for="referral_source" class="form-label">How did you hear about us?</label>
+                  <select id="referral_source" 
+                          name="referral_source" 
+                          class="form-control">
+                    <option value="">Please select</option>
+                    <option value="company_website">Company Website</option>
+                    <option value="job_board">Job Board</option>
+                    <option value="social_media">Social Media</option>
+                    <option value="employee_referral">Employee Referral</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div class="form-group referral-details" style="display: none;">
+                  <label for="referral_details" class="form-label">Please provide details</label>
+                  <input type="text" 
+                         id="referral_details" 
+                         name="referral_details" 
+                         class="form-control">
+                </div>
+                
+                <div class="form-group full-width">
+                  <label for="additional_comments" class="form-label">Additional Comments</label>
+                  <textarea id="additional_comments" 
+                            name="additional_comments" 
+                            class="form-control auto-resize" 
+                            rows="4"
+                            placeholder="Share anything else you'd like us to know about your application..."></textarea>
+                </div>
 
                 <fieldset class="application-agreements" role="group" aria-labelledby="agreements-heading">
                   <legend id="agreements-heading" class="visually-hidden">Application Agreements</legend>
@@ -517,35 +572,16 @@
                   <div class="agreement-item">
                     <label class="checkbox-label">
                       <input type="checkbox" 
-                             id="accuracy_agreement" 
-                             name="accuracy_agreement" 
+                             id="agreement" 
+                             name="agreement" 
                              required
                              aria-required="true"
-                             aria-describedby="accuracy_error">
+                             aria-describedby="agreement_error"
+                             value="1">
                       <span class="checkmark"></span>
-                      I certify that all information provided is accurate and complete
+                      I certify that the information provided in this application is true and complete to the best of my knowledge.
                     </label>
-                    <div class="form-feedback" id="accuracy_error" role="alert" aria-live="polite"></div>
-                  </div>
-                  
-                  <div class="agreement-item">
-                    <label class="checkbox-label">
-                      <input type="checkbox" 
-                             id="background_agreement" 
-                             name="background_agreement">
-                      <span class="checkmark"></span>
-                      I consent to a background check if required for this position
-                    </label>
-                  </div>
-
-                  <div class="agreement-item">
-                    <label class="checkbox-label">
-                      <input type="checkbox" 
-                             id="communication_agreement" 
-                             name="communication_agreement">
-                      <span class="checkmark"></span>
-                      I agree to receive communications about my application and future opportunities
-                    </label>
+                    <div class="form-feedback" id="agreement_error" role="alert" aria-live="polite"></div>
                   </div>
                 </fieldset>
 

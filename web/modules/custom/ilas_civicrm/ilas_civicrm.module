@@ -12,8 +12,21 @@ use Drupal\webform\WebformSubmissionInterface;
  * Implements hook_webform_submission_insert().
  */
 function ilas_civicrm_webform_submission_insert(WebformSubmissionInterface $webform_submission) {
+  // CiviCRM integration temporarily disabled
+  // Forms will function normally but without CiviCRM data storage
   $webform_id = $webform_submission->getWebform()->id();
   
+  // Log that submission was received but not processed by CiviCRM
+  \Drupal::logger('ilas_civicrm')->notice(
+    'Webform submission @id received for @form but CiviCRM integration is disabled',
+    [
+      '@id' => $webform_submission->id(),
+      '@form' => $webform_id,
+    ]
+  );
+  
+  // Temporarily commented out CiviCRM processing
+  /*
   switch ($webform_id) {
     case 'contact_form':
       ilas_civicrm_process_contact_form($webform_submission);
@@ -23,6 +36,7 @@ function ilas_civicrm_webform_submission_insert(WebformSubmissionInterface $webf
       ilas_civicrm_process_employment_application($webform_submission);
       break;
   }
+  */
 }
 
 /**
