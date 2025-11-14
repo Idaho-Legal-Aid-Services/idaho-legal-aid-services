@@ -1,9 +1,0 @@
-uuid: bb6a9909-c8a5-4a20-ac73-45e077bd430d
-langcode: en
-status: true
-dependencies: {  }
-name: 'Service Areas'
-vid: service_areas
-description: null
-weight: 0
-new_revision: false

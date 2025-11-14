@@ -1,9 +1,0 @@
-uuid: 495f76c7-4426-43aa-848a-370b4ed0e65e
-langcode: en
-status: true
-dependencies: {  }
-name: Topics
-vid: topics
-description: null
-weight: 0
-new_revision: false

@@ -121,3 +121,5 @@ access_log
 /web/private/scripts/quicksilver
 /recipes
 web/sites/default/files/
+web/sites/default/files_dev/
+web/sites/default/files_live/

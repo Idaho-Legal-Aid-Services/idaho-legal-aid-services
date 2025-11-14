@@ -1,8 +1,0 @@
-uuid: b6f6a333-ed66-4134-bec1-97cec8788619
-langcode: en
-status: true
-dependencies: {  }
-id: topic_card
-label: 'Topic Card'
-revision: false
-description: null
