@@ -1,13 +1,12 @@
 {# paragraph--impact-card.html.twig #}
 
 {#
-  IMPORTANT: This impact card paragraph type is using topic card fields.
-  The actual fields available are:
-  - field_topic_title (not field_impact_title)
-  - field_topic_description (not field_impact_number/text)
-  - field_topic_color (not field_impact_color)
-  - field_back_detail (not field_impact_back_detail)
-  - field_topic_link (if needed)
+  Impact card paragraph type fields:
+  - field_impact_title
+  - field_impact_number
+  - field_impact_text  
+  - field_impact_color
+  - field_impact_back_detail
 #}
 
 {# Get the color value from field_topic_color #}
@@ -35,15 +34,7 @@
             {{ content.field_topic_title }}
           </h3>
           <div class="impact-card__description">
-            {# Parse the description to extract number and text if they're combined #}
-            {% set description = content.field_topic_description|render|striptags|trim %}
-            {% set parts = description|split(' ', 2) %}
-            {% if parts[0] matches '/^\\d+$/' %}
-              <span class="impact-number">{{ parts[0] }}</span>
-              <div class="impact-text">{{ parts[1]|default('') }}</div>
-            {% else %}
-              <div class="impact-text">{{ content.field_topic_description }}</div>
-            {% endif %}
+            {{ content.field_topic_description }}
           </div>
         </div>
       </div>

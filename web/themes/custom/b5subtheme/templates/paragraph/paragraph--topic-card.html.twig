@@ -1,7 +1,18 @@
 {# paragraph--topic-card.html.twig #}
 
+{# Attach the topic cards JavaScript library #}
+{{ attach_library('b5subtheme/topic-cards') }}
+
 {# Normalize the raw field value into a safe, lowercase class name #}
 {% set color = content.field_topic_color[0]['#markup']|clean_class %}
+
+{# Extract values for accessibility #}
+{% set topic_title = content.field_topic_title[0]['#context']['value'] %}
+{% set topic_description = content.field_topic_description[0]['#text'] %}
+{% set topic_url = content.field_topic_link[0]['#url'] %}
+
+{# Create accessible label combining title and description #}
+{% set aria_label = topic_title ~ ': ' ~ topic_description|striptags|trim ~ '. Click to learn more.' %}
 
 {# Build our classes array using the normalized color #}
 {% set classes = [
@@ -9,17 +20,35 @@
   'topic-card--' ~ color
 ] %}
 
-<div{{ attributes.addClass(classes) }} role="button" tabindex="0">
-  {% if content.field_topic_link|render %}
-    <a href="{{ content.field_topic_link[0]['#url'] }}" class="topic-card__link">
-      <div class="topic-card__content">
-        <h2 class="topic-card__title">
-          {{ content.field_topic_title }}
-        </h2>
-        <div class="topic-card__description">
-          {{ content.field_topic_description }}
-        </div>
-      </div>
-    </a>
-  {% endif %}
-</div>
+{# Generate unique IDs for ARIA relationships #}
+{% set card_id = 'topic-card-' ~ paragraph.id() %}
+{% set title_id = card_id ~ '-title' %}
+{% set desc_id = card_id ~ '-description' %}
+{% set cta_id = card_id ~ '-cta' %}
+
+<article{{ attributes.addClass(classes) }} 
+         role="link" 
+         tabindex="0" 
+         data-href="{{ topic_url }}"
+         aria-label="{{ aria_label }}"
+         aria-labelledby="{{ title_id }}"
+         aria-describedby="{{ desc_id }} {{ cta_id }}">
+  
+  <div class="topic-card__content">
+    <h2 class="topic-card__title" id="{{ title_id }}">
+      {{ content.field_topic_title }}
+    </h2>
+    <div class="topic-card__description" id="{{ desc_id }}">
+      {{ content.field_topic_description }}
+    </div>
+  </div>
+  
+  {# Screen reader content #}
+  <span class="sr-only" id="{{ cta_id }}">
+    Click to learn more about {{ topic_title|lower }} legal services
+  </span>
+  
+  {# Visual CTA indicator hidden from screen readers #}
+  <span class="topic-card__cta" aria-hidden="true">Learn More →</span>
+  
+</article>

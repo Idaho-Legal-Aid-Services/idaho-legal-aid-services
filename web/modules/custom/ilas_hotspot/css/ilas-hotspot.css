@@ -349,14 +349,14 @@
     height: auto;
   }
   
-  /* Make buttons smaller on tablet */
+  /* Use standard button sizing on tablet */
   .annual-report-content .btn,
   .annual-report-content button,
   .annual-report-content a.btn {
-    font-size: 0.7rem;
-    padding: 0.25rem 0.5rem;
-    min-height: auto;
-    line-height: 1.2;
+    font-size: 1rem;
+    padding: 0.75rem 1.25rem;
+    min-height: 48px;
+    line-height: 1.5;
   }
 }
 
@@ -364,6 +364,54 @@
 @media (max-width: 576px) {
   .ilas-impact-wrapper {
     padding: 0.25rem;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+  
+  .ilas-impact-table {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+  
+  .hotspot-cell {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 0 auto 1rem auto !important;
+    padding: 0 !important;
+  }
+  
+  .ilas-hotspot-container {
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    position: relative !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+  
+  .hotspot-background {
+    margin: 0 auto !important;
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  
+  .annual-report-cell {
+    margin-top: 1rem;
+    padding: 0 !important;
   }
   
   .annual-report-content {
@@ -381,17 +429,14 @@
     max-width: 240px;
   }
   
-  .annual-report-cell {
-    margin-top: 1rem;
-  }
-  
-  /* Make buttons smaller on mobile */
+  /* Use standard mobile button sizing */
   .annual-report-content .btn,
   .annual-report-content button,
   .annual-report-content a.btn {
-    font-size: 0.6rem;
-    padding: 0.2rem 0.4rem;
-    min-height: auto;
-    line-height: 1.1;
+    font-size: 1rem;
+    padding: 0.75rem 1.25rem;
+    min-height: 48px;
+    line-height: 1.5;
+    width: 100%;
   }
 }

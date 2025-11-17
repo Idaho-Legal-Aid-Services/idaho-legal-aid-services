@@ -1,6 +1,19 @@
 @import 'variables_theme';
 @import 'mixins';
 
+// Screen reader utility class
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 /***********************************************
  * Topic Cards Component (Refactored with CSS Grid)
  ***********************************************/
@@ -18,7 +31,10 @@
   z-index: 3;
 
   @include mobile {
+    grid-template-columns: 1fr;
+    justify-items: center;
     padding: 0 0.75rem;
+    gap: 1rem;
   }
 
   .field__item {
@@ -39,8 +55,10 @@
 
     @include mobile {
       border-width: 3px;
-      max-width: 350px;
-      min-height: 160px;
+      width: 300px;
+      height: 120px;
+      min-height: 120px;
+      max-height: 120px;
     }
 
     // --- Variants ---
@@ -53,9 +71,11 @@
         color: $color-white;
       }
 
-      &:hover {
-        border-color: $color-primary;
-        box-shadow: 0 0 10px 3px rgba(18, 99, 160, 0.4);
+      @media (min-width: #{$break-md}) {
+        &:hover {
+          border-color: $color-primary;
+          box-shadow: 0 0 10px 3px rgba(18, 99, 160, 0.4);
+        }
       }
     }
 
@@ -69,51 +89,77 @@
         color: $color-primary;
       }
 
-      &:hover {
-        box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+      @media (min-width: #{$break-md}) {
+        &:hover {
+          box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+        }
       }
     }
 
-    // --- Shared Hover State ---
-    &:hover {
-      // Lift the card to a new layer on hover, so its growth doesn't affect its neighbors
-      z-index: 10;
-      background-color: $color-white;
+    // --- Shared Hover State - Disabled on mobile to prevent overflow ---
+    @media (min-width: #{$break-md}) {
+      &[role="link"]:hover {
+        // Lift the card to a new layer on hover, so its growth doesn't affect its neighbors
+        z-index: 10;
+        background-color: $color-white;
 
-      .topic-card__link {
-        align-items: flex-start;
-      }
+        .topic-card__content {
+          align-items: flex-start;
+        }
 
-      .topic-card__title {
-        color: $color-primary;
-        margin-bottom: 0.75rem;
-        font-size: $font-size-mobile-subheader;
-      }
+        .topic-card__title {
+          color: $color-primary;
+          margin-bottom: 0.75rem;
+          font-size: $font-size-mobile-subheader;
+        }
 
-      .topic-card__description {
-        max-height: 999px;
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        margin-top: 0.5rem;
-        color: $color-black;
+        .topic-card__description {
+          max-height: 999px;
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+          margin-top: 0.5rem;
+          color: $color-black;
+        }
+        
+        .topic-card__cta {
+          opacity: 1;
+          transform: translateX(0);
+        }
       }
     }
 
     // --- Card Internals ---
-    &__link {
-      display: flex;
-      align-items: stretch;
-      width: 100%;
-      min-height: 180px;
-      color: inherit;
-      text-decoration: none;
+    // Remove old __link styles - now using article as clickable element
+    
+    // New accessible structure styling
+    &[role="link"] {
+      cursor: pointer;
+      transition: all 0.3s ease;
       padding: 2rem;
       position: relative;
-
+      display: flex;
+      align-items: stretch;
+      min-height: 220px; // Increased to accommodate all content consistently
+      height: 100%; // Ensure cards fill their container height
+      
       @include mobile {
         min-height: 120px;
+        height: 120px; // Fixed height on mobile
+        max-height: 120px;
         padding: 0.75rem;
+      }
+      
+      // Focus styles for accessibility
+      &:focus {
+        outline: 3px solid $color-primary;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
+      }
+      
+      // Remove pointer events from child elements to prevent bubbling
+      * {
+        pointer-events: none;
       }
     }
 
@@ -143,6 +189,22 @@
       pointer-events: none;
       font-size: 1.2rem;
       transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+    }
+    
+    &__cta {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: $color-primary; // Always use primary color for visibility
+      opacity: 0;
+      transform: translateX(10px);
+      transition: all 0.3s ease;
+      
+      @include mobile {
+        display: none; // Hide on mobile where hover doesn't work well
+      }
     }
   }
 }

@@ -169,7 +169,7 @@
       }
       
       /* Show underline under impact number on hover */
-      .impact-number {
+      .impact-card__description p:first-child {
         &::after {
           width: 100%;
         }
@@ -221,7 +221,7 @@
       }
       
       /* Show underline under impact number on hover */
-      .impact-number {
+      .impact-card__description p:first-child {
         &::after {
           width: 80%;
         }
@@ -375,6 +375,63 @@
     @include mobile {
       font-size: 0.85rem;
       line-height: 1.3;
+    }
+    
+    // Override clearfix and ensure proper alignment
+    .field.clearfix {
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+    
+    // Style the first paragraph as the impact number
+    p:first-child {
+      margin: 0 !important;
+      font-size: 54px !important;
+      font-weight: 700 !important;
+      line-height: 1.1 !important;
+      transition: transform .3s ease, color .3s ease;
+      position: relative;
+      text-align: left !important;
+      align-self: flex-start !important;
+      
+      /* Underline on hover (desktop only) */
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: -8px;
+        width: 0;
+        height: 3px;
+        background: currentColor;
+        transition: width 0.3s ease;
+        
+        @include mobile {
+          display: none;
+        }
+      }
+      
+      @include mobile {
+        font-size: 32px !important;
+        line-height: 1.0 !important;
+      }
+    }
+    
+    // Style subsequent paragraphs as the impact text
+    p:not(:first-child) {
+      margin: 0.75rem 0 0 0 !important;
+      align-self: flex-start !important;
+      text-align: left !important;
+      width: 100% !important;
+      font-size: 30px !important;
+      transition: color .3s ease;
+      
+      @include mobile {
+        font-size: 18px !important;
+        margin-top: 0.5rem !important;
+      }
     }
   }
 

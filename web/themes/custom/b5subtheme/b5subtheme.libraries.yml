@@ -152,3 +152,14 @@ language-switcher:
   dependencies:
     - core/drupal
     - b5subtheme/fontawesome
+
+topic-cards:
+  version: 1.0
+  js:
+    js/topic-cards.js: {}
+  css:
+    theme:
+      css/style.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
