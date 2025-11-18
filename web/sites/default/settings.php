@@ -17,6 +17,14 @@ $settings['container_yamls'][] = __DIR__ . '/services.yml';
 include __DIR__ . "/settings.pantheon.php";
 
 /**
+ * Google Analytics (GA4) tracking ID for Google tag (gtag.js).
+ * Only enable this on the live Pantheon environment.
+ */
+if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'live') {
+  $settings['google_tag_id'] = 'G-QYT2ZNY442';
+}
+
+/**
  * Skipping permissions hardening will make scaffolding
  * work better, but will also raise a warning when you
  * install Drupal.
