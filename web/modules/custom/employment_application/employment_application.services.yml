@@ -1,0 +1,4 @@
+services:
+  employment_application.controller:
+    class: Drupal\employment_application\Controller\EmploymentApplicationController
+    arguments: ['@file_system', '@plugin.manager.mail', '@csrf_token', '@symfony_mailer_lite.mailer']

@@ -56,6 +56,7 @@
     this.uploadedFiles = {};
     this.autoSaveTimeout = null;
     this.isSubmitted = false; // Flag to prevent auto-save after submission
+    this.isPopulating = false; // Flag to prevent auto-save during form population
     this.formTokens = {
       token: '',
       buildId: ''
@@ -123,7 +124,9 @@
       
       // Auto-save on input
       this.$form.on('input change', 'input, select, textarea', function() {
-        self.scheduleAutoSave();
+        if (!self.isPopulating) {
+          self.scheduleAutoSave();
+        }
       });
       
       // Validation on blur
@@ -400,8 +403,11 @@
         
         // Click to browse
         $area.on('click', function(e) {
-          if (!$(e.target).hasClass('remove-file')) {
-            $input.click();
+          // Prevent recursive clicks and only trigger if clicking the upload area, not the input
+          if (!$(e.target).hasClass('remove-file') && !$(e.target).is('input[type="file"]') && !$(e.target).closest('input[type="file"]').length) {
+            e.preventDefault();
+            e.stopPropagation();
+            $input[0].click(); // Use native click to avoid jQuery event recursion
           }
         });
         
@@ -758,6 +764,8 @@
     },
 
     populateFormData: function(data) {
+      this.isPopulating = true; // Prevent auto-save during population
+      
       Object.keys(data).forEach(name => {
         const $field = this.$form.find(`[name="${name}"]`);
         if ($field.length) {
@@ -771,6 +779,8 @@
       
       // Trigger change events for conditional fields
       this.$form.find('#position_applied, #referral_source').trigger('change');
+      
+      this.isPopulating = false; // Re-enable auto-save
     },
 
     showSaveStatus: function(message, type) {
