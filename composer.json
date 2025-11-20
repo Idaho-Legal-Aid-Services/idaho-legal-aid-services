@@ -41,10 +41,13 @@
         "drupal/drupal_cms_project": "~1.1.0",
         "drupal/drupal_cms_seo_tools": "~1.1.0",
         "drupal/drupal_cms_starter": "~1.1.0",
+        "drupal/entity_print": "^2.18",
         "drupal/google_analytics": "^4.0",
         "drupal/google_tag": "^2.0",
+        "drupal/google_translator": "^2.3",
         "drupal/imce": "^3.1",
         "drupal/layout_paragraphs": "^2.1",
+        "drupal/mailsystem": "^4.5",
         "drupal/paragraphs": "^1.19",
         "drupal/project_browser": "@beta",
         "drupal/recipe_installer_kit": "^1-alpha3@alpha",
@@ -55,7 +58,9 @@
         "drupal/webform": "@beta",
         "drush/drush": "^13.6",
         "pantheon-systems/drupal-integrations": "^11",
-        "pantheon-upstreams/upstream-configuration": "dev-main"
+        "pantheon-upstreams/upstream-configuration": "dev-main",
+        "setasign/fpdf": "^1.8",
+        "setasign/fpdi": "^2.6"
     },
     "conflict": {
         "drupal/drupal": "*"

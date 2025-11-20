@@ -240,13 +240,9 @@ $warning-yellow: #ed8936;
       .step-circle {
         background-color: $success-green;
         
+        // Remove the checkmark - just solid green circle
         &::after {
-          content: '✓';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font-size: 1.2rem;
+          display: none;
         }
       }
     }
@@ -295,12 +291,17 @@ $warning-yellow: #ed8936;
   }
 }
 
-// Wizard Content
+// Wizard Content - Match FAQ box border style
 .wizard-content {
   background-color: $color-white;
-  border: 1px solid $color-gray-border;
+  border: 6px solid $color-primary;
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  
+  @include mobile {
+    border: 3px solid $color-primary;
+  }
 }
 
 // Wizard Steps
@@ -372,6 +373,64 @@ $warning-yellow: #ed8936;
   
   .full-width {
     grid-column: 1 / -1;
+  }
+}
+
+// Address Grid Layout
+.address-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  
+  // Street Address - Full width first row
+  .address-street {
+    grid-column: 1 / -1;
+  }
+  
+  // City, State, ZIP - Equal width second row  
+  .address-city {
+    grid-column: 1;
+  }
+  
+  .address-state {
+    grid-column: 2;
+  }
+  
+  .address-zip {
+    grid-column: 3;
+  }
+  
+  // Mobile layout - stack all fields vertically
+  @include mobile {
+    grid-template-columns: 1fr;
+    
+    .address-street,
+    .address-city,
+    .address-state,
+    .address-zip {
+      grid-column: 1;
+    }
+  }
+  
+  // Tablet layout - keep street full width, but stack city/state/zip
+  @include tablet {
+    grid-template-columns: repeat(2, 1fr);
+    
+    .address-street {
+      grid-column: 1 / -1;
+    }
+    
+    .address-city {
+      grid-column: 1 / -1;
+    }
+    
+    .address-state {
+      grid-column: 1;
+    }
+    
+    .address-zip {
+      grid-column: 2;
+    }
   }
 }
 
@@ -505,6 +564,105 @@ $warning-yellow: #ed8936;
       border-left: 2px solid $color-gray-bg;
     }
   }
+}
+
+// Multiple Items Section (Work Experience & Education)
+.multiple-items-section {
+  // Only target the main section legend, not individual field labels
+  > legend.form-label {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $color-primary;
+    margin-bottom: 1rem;
+  }
+}
+
+.multiple-item {
+  border: 1px solid $color-gray-bg;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background-color: $color-white;
+  
+  .item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid $color-gray-bg;
+    
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: $color-primary;
+      margin: 0;
+    }
+    
+    .remove-item {
+      background: none;
+      border: none;
+      color: $error-red;
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0.25rem;
+      transition: all $transition-speed;
+      
+      &:hover {
+        color: darken($error-red, 10%);
+        transform: scale(1.1);
+      }
+    }
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    
+    @include mobile {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // Checkbox under field styling
+  .checkbox-under-field {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+    
+    .checkbox-label {
+      font-size: 0.95rem;
+      margin: 0;
+    }
+  }
+}
+
+// Separator line after Add Work Experience button
+#add-work-experience {
+  margin-bottom: 2rem;
+  
+  // Position separator relative to wizard content, not button
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1rem;
+    left: -2.5rem; // Extend to wizard content edges
+    right: -2.5rem; // Extend to wizard content edges
+    height: 4px;
+    background-color: $color-primary;
+    border-radius: 2px;
+    
+    @include mobile {
+      left: -1.5rem;
+      right: -1.5rem;
+    }
+  }
+}
+
+// Ensure the fieldset has relative positioning for absolute separator
+.wizard-step[data-step="3"] {
+  position: relative;
 }
 
 // File Upload Section
@@ -846,6 +1004,10 @@ $warning-yellow: #ed8936;
     flex: 1;
   }
   
+  .nav-left {
+    text-align: left;
+  }
+  
   .nav-center {
     text-align: center;
     
@@ -882,6 +1044,38 @@ $warning-yellow: #ed8936;
     // Icon adjustments
     i {
       font-size: 0.875rem;
+    }
+    
+    // Fix focus state persistence issue for navigation buttons
+    &.btn-primary {
+      // When focused but not hovered, maintain normal appearance
+      &:focus:not(:hover) {
+        background-color: $color-primary !important;
+        border-color: $color-primary !important;
+        color: $color-white !important;
+        transform: none !important;
+        box-shadow: none !important;
+        
+        // Ensure text remains visible
+        &,
+        * {
+          color: $color-white !important;
+        }
+      }
+      
+      // Normal focus+hover behavior
+      &:focus:hover {
+        background-color: $color-white !important;
+        border-color: $color-primary !important;
+        color: $color-primary !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+        
+        &,
+        * {
+          color: $color-primary !important;
+        }
+      }
     }
   }
 }

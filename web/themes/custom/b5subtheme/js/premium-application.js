@@ -55,6 +55,7 @@
     this.totalSteps = 5;
     this.uploadedFiles = {};
     this.autoSaveTimeout = null;
+    this.isSubmitted = false; // Flag to prevent auto-save after submission
     this.formTokens = {
       token: '',
       buildId: ''
@@ -81,17 +82,14 @@
       
       // Get tokens via AJAX
       $.ajax({
-        url: '/session/token',
+        url: '/employment-application/token',
         type: 'GET',
-        success: function(token) {
-          self.formTokens.token = token;
-          $(self.SELECTORS.FORM_TOKEN).val(token);
+        success: function(response) {
+          self.formTokens.token = response.token;
+          $(CONFIG.SELECTORS.FORM_TOKEN).val(response.token);
+          $(CONFIG.SELECTORS.FORM_BUILD_ID).val(response.build_id);
         }
       });
-
-      // Generate build ID
-      this.formTokens.buildId = 'form-' + Math.random().toString(36).substr(2, 9);
-      $(CONFIG.SELECTORS.FORM_BUILD_ID).val(this.formTokens.buildId);
     },
 
     bindEvents: function() {
@@ -274,17 +272,17 @@
                        id="work_experience_${index}_end_date" 
                        name="work_experience[${index}][end_date]" 
                        class="form-control">
+                <div class="form-group checkbox-under-field">
+                  <label class="checkbox-label">
+                    <input type="checkbox" 
+                           id="work_experience_${index}_current_position" 
+                           name="work_experience[${index}][current_position]"
+                           value="1">
+                    <span class="checkmark"></span>
+                    I Currently Work Here
+                  </label>
+                </div>
               </div>
-            </div>
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input type="checkbox" 
-                       id="work_experience_${index}_current_position" 
-                       name="work_experience[${index}][current_position]"
-                       value="1">
-                <span class="checkmark"></span>
-                I currently work here
-              </label>
             </div>
             <div class="form-group">
               <label for="work_experience_${index}_responsibilities" class="form-label">Key Responsibilities</label>
@@ -322,12 +320,31 @@
                        class="form-control">
               </div>
             </div>
-            <div class="form-group">
-              <label for="education_${index}_graduation_date" class="form-label">Graduation Date</label>
-              <input type="date" 
-                     id="education_${index}_graduation_date" 
-                     name="education[${index}][graduation_date]" 
-                     class="form-control">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="education_${index}_start_date" class="form-label">Start Date</label>
+                <input type="date" 
+                       id="education_${index}_start_date" 
+                       name="education[${index}][start_date]" 
+                       class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="education_${index}_end_date" class="form-label">End Date</label>
+                <input type="date" 
+                       id="education_${index}_end_date" 
+                       name="education[${index}][end_date]" 
+                       class="form-control">
+                <div class="form-group checkbox-under-field">
+                  <label class="checkbox-label">
+                    <input type="checkbox" 
+                           id="education_${index}_still_enrolled" 
+                           name="education[${index}][still_enrolled]"
+                           value="1">
+                    <span class="checkmark"></span>
+                    Still Enrolled
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -508,11 +525,11 @@
     goToStep: function(step) {
       if (step < 1 || step > this.totalSteps) return;
       
-      // Hide current step
-      this.$form.find(`[data-step="${this.currentStep}"]`).removeClass('active').attr('hidden', '');
+      // Hide current wizard step content (not progress indicators)
+      this.$form.find(`.wizard-step[data-step="${this.currentStep}"]`).removeClass('active').attr('hidden', '');
       
-      // Show target step
-      this.$form.find(`[data-step="${step}"]`).addClass('active').removeAttr('hidden');
+      // Show target wizard step content
+      this.$form.find(`.wizard-step[data-step="${step}"]`).addClass('active').removeAttr('hidden');
       
       // Update progress
       this.currentStep = step;
@@ -524,7 +541,7 @@
       
       // Focus first input in new step
       setTimeout(() => {
-        this.$form.find(`[data-step="${step}"] input:visible:first`).focus();
+        this.$form.find(`.wizard-step[data-step="${step}"] input:visible:first`).focus();
       }, CONFIG.ANIMATION_DURATION);
     },
 
@@ -592,7 +609,7 @@
     },
 
     validateStep: function(stepNumber) {
-      const $step = this.$form.find(`[data-step="${stepNumber}"]`);
+      const $step = this.$form.find(`.wizard-step[data-step="${stepNumber}"]`);
       let isValid = true;
       
       $step.find('input[required], select[required], textarea[required]').each((index, element) => {
@@ -662,6 +679,11 @@
     },
 
     scheduleAutoSave: function() {
+      // Don't schedule auto-save after form has been submitted
+      if (this.isSubmitted) {
+        return;
+      }
+      
       const self = this;
       
       if (this.autoSaveTimeout) {
@@ -680,6 +702,11 @@
     },
 
     saveDraftLocal: function() {
+      // Don't save drafts after form has been successfully submitted
+      if (this.isSubmitted) {
+        return;
+      }
+      
       const formData = this.collectFormData();
       formData.currentStep = this.currentStep;
       formData.timestamp = Date.now();
@@ -763,47 +790,221 @@
 
     // Form submission
     submitForm: function() {
+      // Temporarily disable validation to test submission
+      console.log('Attempting form submission...');
+      /*
       if (!this.validateSteps(1, this.totalSteps)) {
         this.showSaveStatus('Please correct the errors above', 'error');
         return;
       }
+      */
       
       const self = this;
       
-      // Prepare form data with all form inputs including files
-      const formData = new FormData(this.$form[0]);
+      // Stop auto-save during submission
+      if (this.autoSaveTimeout) {
+        clearTimeout(this.autoSaveTimeout);
+        this.autoSaveTimeout = null;
+      }
       
-      // Ensure uploaded files are properly included
-      Object.keys(this.uploadedFiles).forEach(fieldName => {
-        const $fileInput = this.$form.find(`input[name="${fieldName}"]`);
-        if ($fileInput.length && $fileInput[0].files.length > 0) {
-          // File input already has the file, FormData will pick it up
-          formData.set(fieldName, $fileInput[0].files[0]);
-        }
-      });
+      // Serialize form data 
+      const formDataObj = this.serializeFormToJSON();
+      console.log('Serialized form data:', formDataObj);
       
       this.showSaveStatus('Submitting application...', 'saving');
       
-      // Submit directly to the form action URL
-      $.ajax({
-        url: this.$form.attr('action') || '/webform/employment_application',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        success: function(response) {
+      // Check if we have files
+      const hasFiles = formDataObj._files_ && Object.keys(formDataObj._files_).length > 0;
+      
+      let ajaxConfig;
+      if (hasFiles) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        
+        // Add all form fields
+        Object.keys(formDataObj).forEach(key => {
+          if (key !== '_files_') {
+            if (typeof formDataObj[key] === 'object' && formDataObj[key] !== null) {
+              formData.append(key, JSON.stringify(formDataObj[key]));
+            } else {
+              formData.append(key, formDataObj[key] || '');
+            }
+          }
+        });
+        
+        // Add files
+        Object.keys(formDataObj._files_).forEach(fieldName => {
+          const file = formDataObj._files_[fieldName];
+          formData.append(fieldName, file);
+        });
+        
+        ajaxConfig = {
+          url: '/employment-application/submit',
+          type: 'POST',
+          data: formData,
+          contentType: false,
+          processData: false,
+        };
+      } else {
+        // Use JSON for submissions without files
+        ajaxConfig = {
+          url: '/employment-application/submit',
+          type: 'POST',
+          data: JSON.stringify(formDataObj),
+          contentType: 'application/json',
+          processData: false,
+        };
+      }
+      
+      // Add success and error handlers
+      ajaxConfig.success = function(response) {
+        console.log('AJAX Success callback triggered:', response);
+        console.log('Response success:', response.success);
+        console.log('Response message:', response.message);
+        
+        if (response.success) {
+          // Mark form as submitted to prevent further auto-save
+          self.isSubmitted = true;
+          
+          // Show success message before modal
+          self.showSaveStatus('Application submitted successfully!', 'saved');
+          
+          // Show success modal immediately - no delay needed
           self.showSuccessModal();
+          
           // Clear draft
           localStorage.removeItem(CONFIG.STORAGE_KEY);
-        },
-        error: function(xhr, status, error) {
-          console.error('Submission error:', error);
-          const errorMessage = xhr.responseJSON && xhr.responseJSON.message 
-            ? xhr.responseJSON.message 
-            : 'Submission failed. Please try again.';
-          self.showSaveStatus(errorMessage, 'error');
+        } else {
+          // Handle server-side validation errors
+          self.showSaveStatus(response.message || 'Submission failed. Please try again.', 'error');
+        }
+      };
+      
+      ajaxConfig.error = function(xhr, status, error) {
+        console.error('Submission error:', error);
+        let errorMessage = 'Submission failed. Please try again.';
+        
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          errorMessage = xhr.responseJSON.message;
+        } else if (xhr.responseText) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response.message) {
+              errorMessage = response.message;
+            }
+          } catch (e) {
+            // Use default error message
+          }
+        }
+        
+        self.showSaveStatus(errorMessage, 'error');
+      };
+      
+      ajaxConfig.complete = function(xhr, status) {
+        console.log('AJAX Complete - Status:', status, 'HTTP Status:', xhr.status);
+      };
+      
+      // Submit the form
+      $.ajax(ajaxConfig);
+    },
+
+    // Serialize form to JSON with proper structure handling
+    serializeFormToJSON: function() {
+      const formData = {};
+      const $inputs = this.$form.find('input, select, textarea');
+      const self = this;
+      
+      $inputs.each(function() {
+        const $input = $(this);
+        const name = $input.attr('name');
+        const type = $input.attr('type');
+        
+        if (!name || name === 'form_token' || name === 'form_build_id' || name === 'op') {
+          return; // Skip system fields
+        }
+        
+        let value = null;
+        
+        // Handle different input types
+        if (type === 'checkbox') {
+          value = $input.is(':checked') ? ($input.val() || '1') : '';
+        } else if (type === 'radio') {
+          if ($input.is(':checked')) {
+            value = $input.val();
+          } else {
+            return; // Skip unchecked radios
+          }
+        } else if (type === 'file') {
+          // Handle files - we'll process these separately
+          if ($input[0].files && $input[0].files[0]) {
+            // Store file reference for processing
+            formData['_files_'] = formData['_files_'] || {};
+            formData['_files_'][name] = $input[0].files[0];
+            // Don't include file in regular JSON data
+            return;
+          }
+        } else {
+          value = $input.val();
+        }
+        
+        if (value !== null) {
+          // Handle nested field names like address[city] or work_experience[0][employer]
+          // Include empty values too - server will validate required fields
+          self.setNestedValue(formData, name, value);
         }
       });
+      
+      // Add CSRF token
+      formData.form_token = this.formTokens.token;
+      
+      return formData;
+    },
+
+    // Helper function to set nested values from field names like address[city]
+    setNestedValue: function(obj, path, value) {
+      // Handle patterns like "address[city]" or "work_experience[0][employer]"
+      const matches = path.match(/^([^[]+)(?:\[([^\]]+)\])*(.*)$/);
+      
+      if (!matches) {
+        obj[path] = value;
+        return;
+      }
+      
+      const baseName = matches[1];
+      const restOfPath = path.substring(baseName.length);
+      
+      if (!restOfPath) {
+        obj[baseName] = value;
+        return;
+      }
+      
+      // Initialize nested object/array if needed
+      if (!obj[baseName]) {
+        // Determine if this should be an array (numeric index) or object
+        const firstIndex = restOfPath.match(/^\[(\d+)\]/);
+        obj[baseName] = firstIndex ? [] : {};
+      }
+      
+      // Parse nested structure
+      let current = obj[baseName];
+      const segments = restOfPath.match(/\[([^\]]+)\]/g) || [];
+      
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i].slice(1, -1); // Remove [ and ]
+        const isLast = i === segments.length - 1;
+        
+        if (isLast) {
+          current[segment] = value;
+        } else {
+          if (!current[segment]) {
+            // Check if next segment is numeric to determine array vs object
+            const nextSegment = segments[i + 1];
+            const isNextNumeric = nextSegment && /^\[\d+\]$/.test(nextSegment);
+            current[segment] = isNextNumeric ? [] : {};
+          }
+          current = current[segment];
+        }
+      }
     },
 
     showSuccessModal: function() {

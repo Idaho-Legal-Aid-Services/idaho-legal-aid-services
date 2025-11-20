@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Employment Application module hooks.
+ */
+
+/**
+ * Implements hook_mail().
+ */
+function employment_application_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'admin_notification':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['message'];
+      
+      // Add PDF attachment if provided
+      if (!empty($params['pdf_content']) && !empty($params['application_id'])) {
+        $filename = 'employment-application-' . preg_replace('/[^a-zA-Z0-9-_]/', '_', $params['application_id']) . '.pdf';
+        
+        // Add attachment to message
+        $message['attachments'][] = [
+          'filename' => $filename,
+          'filemime' => 'application/pdf',
+          'content' => $params['pdf_content'],
+        ];
+      }
+      break;
+      
+    case 'confirmation':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['message'];
+      break;
+  }
+}

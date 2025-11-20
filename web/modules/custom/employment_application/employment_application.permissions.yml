@@ -1,0 +1,4 @@
+administer employment applications:
+  title: 'Administer Employment Applications'
+  description: 'View, download, and manage employment application submissions.'
+  restrict access: true

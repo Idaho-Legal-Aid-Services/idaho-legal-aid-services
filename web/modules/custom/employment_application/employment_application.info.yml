@@ -1,0 +1,9 @@
+name: Employment Application Handler
+description: Handles employment application form submissions
+type: module
+core_version_requirement: ^10 || ^11
+package: Custom
+dependencies:
+  - drupal:file
+  - drupal:user
+  - drupal:system

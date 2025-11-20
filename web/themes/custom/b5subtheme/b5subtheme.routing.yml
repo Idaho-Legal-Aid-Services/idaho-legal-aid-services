@@ -1,0 +1,22 @@
+employment_application.submit:
+  path: '/employment-application/submit'
+  defaults:
+    _controller: '\Drupal\b5subtheme\Controller\EmploymentApplicationController::submitApplication'
+  requirements:
+    _permission: 'access content'
+    _method: 'POST'
+    _csrf_token: 'TRUE'
+  options:
+    _admin_route: FALSE
+    no_cache: TRUE
+
+employment_application.token:
+  path: '/employment-application/token'
+  defaults:
+    _controller: '\Drupal\b5subtheme\Controller\EmploymentApplicationController::getToken'
+  requirements:
+    _permission: 'access content'
+    _method: 'GET'
+  options:
+    _admin_route: FALSE
+    no_cache: TRUE

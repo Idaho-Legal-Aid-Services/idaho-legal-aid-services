@@ -37,7 +37,7 @@
     {# Application Form - Proper Drupal Integration #}
     <form id="application-form" 
           class="application-wizard" 
-          action="/webform/employment_application" 
+          action="/employment-application/submit" 
           method="post" 
           enctype="multipart/form-data"
           novalidate
@@ -100,7 +100,6 @@
           <fieldset class="wizard-step active" data-step="1" role="group" aria-labelledby="step1-heading">
             <div class="step-header">
               <h2 id="step1-heading">Let's start with your basic information</h2>
-              <p>We'll use this to contact you about your application</p>
             </div>
             
             <div class="step-content">
@@ -137,7 +136,7 @@
                          data-validate="email"
                          autocomplete="email">
                   <div class="form-feedback" id="email_error" role="alert" aria-live="polite"></div>
-                  <small id="email_help" class="form-help">We'll send updates about your application to this email</small>
+                  <small id="email_help" class="form-help">We'll send updates to this email address</small>
                 </div>
                 
                 <div class="form-group">
@@ -159,49 +158,95 @@
                 </div>
                 
                 <div class="form-group full-width">
-                  <fieldset>
-                    <legend class="form-label required">Address</legend>
-                    <div class="address-grid">
-                      <div class="form-group">
-                        <label for="address_address" class="form-label">Street Address</label>
-                        <input type="text" 
-                               id="address_address" 
-                               name="address[address]" 
-                               class="form-control"
-                               autocomplete="street-address">
-                      </div>
-                      <div class="form-group">
-                        <label for="address_city" class="form-label">City</label>
-                        <input type="text" 
-                               id="address_city" 
-                               name="address[city]" 
-                               class="form-control"
-                               autocomplete="address-level2">
-                      </div>
-                      <div class="form-group">
-                        <label for="address_state_province" class="form-label">State</label>
-                        <select id="address_state_province" 
-                                name="address[state_province]" 
-                                class="form-control"
-                                autocomplete="address-level1">
-                          <option value="">Select State</option>
-                          <option value="ID">Idaho</option>
-                          <option value="WA">Washington</option>
-                          <option value="OR">Oregon</option>
-                          <option value="MT">Montana</option>
-                          <option value="UT">Utah</option>
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label for="address_postal_code" class="form-label">ZIP Code</label>
-                        <input type="text" 
-                               id="address_postal_code" 
-                               name="address[postal_code]" 
-                               class="form-control"
-                               autocomplete="postal-code">
-                      </div>
+                  <div class="address-grid">
+                    <!-- Street Address - Full Width First Row -->
+                    <div class="form-group address-street">
+                      <label for="address_address" class="form-label required">Street Address</label>
+                      <input type="text" 
+                             id="address_address" 
+                             name="address[address]" 
+                             class="form-control"
+                             autocomplete="street-address">
                     </div>
-                  </fieldset>
+                    
+                    <!-- City, State, ZIP - Second Row, Equal Width -->
+                    <div class="form-group address-city">
+                      <label for="address_city" class="form-label required">City</label>
+                      <input type="text" 
+                             id="address_city" 
+                             name="address[city]" 
+                             class="form-control"
+                             autocomplete="address-level2">
+                    </div>
+                    <div class="form-group address-state">
+                      <label for="address_state_province" class="form-label required">State</label>
+                      <select id="address_state_province" 
+                              name="address[state_province]" 
+                              class="form-control"
+                              autocomplete="address-level1">
+                        <option value="">Select State</option>
+                        <option value="AL">Alabama</option>
+                        <option value="AK">Alaska</option>
+                        <option value="AZ">Arizona</option>
+                        <option value="AR">Arkansas</option>
+                        <option value="CA">California</option>
+                        <option value="CO">Colorado</option>
+                        <option value="CT">Connecticut</option>
+                        <option value="DE">Delaware</option>
+                        <option value="DC">District of Columbia</option>
+                        <option value="FL">Florida</option>
+                        <option value="GA">Georgia</option>
+                        <option value="HI">Hawaii</option>
+                        <option value="ID">Idaho</option>
+                        <option value="IL">Illinois</option>
+                        <option value="IN">Indiana</option>
+                        <option value="IA">Iowa</option>
+                        <option value="KS">Kansas</option>
+                        <option value="KY">Kentucky</option>
+                        <option value="LA">Louisiana</option>
+                        <option value="ME">Maine</option>
+                        <option value="MD">Maryland</option>
+                        <option value="MA">Massachusetts</option>
+                        <option value="MI">Michigan</option>
+                        <option value="MN">Minnesota</option>
+                        <option value="MS">Mississippi</option>
+                        <option value="MO">Missouri</option>
+                        <option value="MT">Montana</option>
+                        <option value="NE">Nebraska</option>
+                        <option value="NV">Nevada</option>
+                        <option value="NH">New Hampshire</option>
+                        <option value="NJ">New Jersey</option>
+                        <option value="NM">New Mexico</option>
+                        <option value="NY">New York</option>
+                        <option value="NC">North Carolina</option>
+                        <option value="ND">North Dakota</option>
+                        <option value="OH">Ohio</option>
+                        <option value="OK">Oklahoma</option>
+                        <option value="OR">Oregon</option>
+                        <option value="PA">Pennsylvania</option>
+                        <option value="RI">Rhode Island</option>
+                        <option value="SC">South Carolina</option>
+                        <option value="SD">South Dakota</option>
+                        <option value="TN">Tennessee</option>
+                        <option value="TX">Texas</option>
+                        <option value="UT">Utah</option>
+                        <option value="VT">Vermont</option>
+                        <option value="VA">Virginia</option>
+                        <option value="WA">Washington</option>
+                        <option value="WV">West Virginia</option>
+                        <option value="WI">Wisconsin</option>
+                        <option value="WY">Wyoming</option>
+                      </select>
+                    </div>
+                    <div class="form-group address-zip">
+                      <label for="address_postal_code" class="form-label required">ZIP Code</label>
+                      <input type="text" 
+                             id="address_postal_code" 
+                             name="address[postal_code]" 
+                             class="form-control"
+                             autocomplete="postal-code">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,14 +256,13 @@
           <fieldset class="wizard-step" data-step="2" role="group" aria-labelledby="step2-heading" hidden>
             <div class="step-header">
               <h2 id="step2-heading">Tell us about the position you're interested in</h2>
-              <p>Help us understand your career goals and availability</p>
             </div>
             
             <div class="step-content">
               <div class="form-grid">
                 <div class="form-group full-width">
                   <label for="position_applied" class="form-label required">
-                    Position Applied For
+                    Position Applying For
                     <span class="visually-hidden">(required)</span>
                   </label>
                   <select id="position_applied" 
@@ -272,7 +316,7 @@
                          name="salary_requirements" 
                          class="form-control"
                          placeholder="e.g., $50,000 - $60,000 annually">
-                  <small class="form-help">Optional - We believe in fair compensation for all positions</small>
+                  <small class="form-help">Optional</small>
                 </div>
               </div>
             </div>
@@ -282,7 +326,6 @@
           <fieldset class="wizard-step" data-step="3" role="group" aria-labelledby="step3-heading" hidden>
             <div class="step-header">
               <h2 id="step3-heading">Share your experience and qualifications</h2>
-              <p>Tell us about your background and what you bring to our team</p>
             </div>
             
             <div class="step-content">
@@ -335,17 +378,17 @@
                                      id="work_experience_0_end_date" 
                                      name="work_experience[0][end_date]" 
                                      class="form-control">
+                              <div class="form-group checkbox-under-field">
+                                <label class="checkbox-label">
+                                  <input type="checkbox" 
+                                         id="work_experience_0_current_position" 
+                                         name="work_experience[0][current_position]"
+                                         value="1">
+                                  <span class="checkmark"></span>
+                                  I Currently Work Here
+                                </label>
+                              </div>
                             </div>
-                          </div>
-                          <div class="form-group">
-                            <label class="checkbox-label">
-                              <input type="checkbox" 
-                                     id="work_experience_0_current_position" 
-                                     name="work_experience[0][current_position]"
-                                     value="1">
-                              <span class="checkmark"></span>
-                              I currently work here
-                            </label>
                           </div>
                           <div class="form-group">
                             <label for="work_experience_0_responsibilities" class="form-label">Key Responsibilities</label>
@@ -357,7 +400,7 @@
                         </div>
                       </div>
                     </div>
-                    <button type="button" id="add-work-experience" class="btn btn-outline-primary">
+                    <button type="button" id="add-work-experience" class="btn btn-primary">
                       <i class="fas fa-plus" aria-hidden="true"></i> Add Another Work Experience
                     </button>
                   </fieldset>
@@ -390,17 +433,36 @@
                                      class="form-control">
                             </div>
                           </div>
-                          <div class="form-group">
-                            <label for="education_0_graduation_date" class="form-label">Graduation Date</label>
-                            <input type="date" 
-                                   id="education_0_graduation_date" 
-                                   name="education[0][graduation_date]" 
-                                   class="form-control">
+                          <div class="form-row">
+                            <div class="form-group">
+                              <label for="education_0_start_date" class="form-label">Start Date</label>
+                              <input type="date" 
+                                     id="education_0_start_date" 
+                                     name="education[0][start_date]" 
+                                     class="form-control">
+                            </div>
+                            <div class="form-group">
+                              <label for="education_0_end_date" class="form-label">End Date</label>
+                              <input type="date" 
+                                     id="education_0_end_date" 
+                                     name="education[0][end_date]" 
+                                     class="form-control">
+                              <div class="form-group checkbox-under-field">
+                                <label class="checkbox-label">
+                                  <input type="checkbox" 
+                                         id="education_0_still_enrolled" 
+                                         name="education[0][still_enrolled]"
+                                         value="1">
+                                  <span class="checkmark"></span>
+                                  Still Enrolled
+                                </label>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <button type="button" id="add-education" class="btn btn-outline-primary">
+                    <button type="button" id="add-education" class="btn btn-primary">
                       <i class="fas fa-plus" aria-hidden="true"></i> Add Another Education Entry
                     </button>
                   </fieldset>

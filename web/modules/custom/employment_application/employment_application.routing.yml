@@ -1,0 +1,47 @@
+employment_application.submit:
+  path: '/employment-application/submit'
+  defaults:
+    _controller: '\Drupal\employment_application\Controller\EmploymentApplicationController::submitApplication'
+  requirements:
+    _access: 'TRUE'
+    _method: 'POST'
+  options:
+    _admin_route: FALSE
+    no_cache: TRUE
+    parameters:
+      _disable_route_normalizers: TRUE
+    _disable_search_api_indexing: TRUE
+
+employment_application.token:
+  path: '/employment-application/token'
+  defaults:
+    _controller: '\Drupal\employment_application\Controller\EmploymentApplicationController::getToken'
+  requirements:
+    _permission: 'access content'
+    _method: 'GET'
+  options:
+    _admin_route: FALSE
+    no_cache: TRUE
+    parameters:
+      _disable_route_normalizers: TRUE
+    _disable_search_api_indexing: TRUE
+
+employment_application.admin:
+  path: '/admin/employment-applications'
+  defaults:
+    _controller: '\Drupal\employment_application\Controller\EmploymentApplicationController::adminList'
+    _title: 'Employment Applications'
+  requirements:
+    _permission: 'administer employment applications'
+  options:
+    _admin_route: TRUE
+
+employment_application.download:
+  path: '/admin/employment-applications/download/{fid}'
+  defaults:
+    _controller: '\Drupal\employment_application\Controller\EmploymentApplicationController::downloadFile'
+  requirements:
+    _permission: 'administer employment applications'
+    fid: \d+
+  options:
+    _admin_route: TRUE
