@@ -28172,7 +28172,7 @@ mark.search-highlight, .search-highlight.mark {
   justify-content: center;
   gap: 1.5rem;
   font-size: 0.9rem;
-  color: #868e96;
+  color: #1263a0;
 }
 @media (max-width: 767.98px) {
   .application-header .application-meta {
@@ -28209,30 +28209,6 @@ mark.search-highlight, .search-highlight.mark {
 .wizard-progress .progress-container {
   position: relative;
 }
-.wizard-progress .progress-bar-bg {
-  height: 4px;
-  background-color: #f0f2f5;
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 2rem;
-}
-.wizard-progress .progress-bar-fill {
-  height: 100%;
-  background-color: #1263a0;
-  border-radius: 2px;
-  transition: width 0.3s ease-out;
-  position: relative;
-}
-.wizard-progress .progress-bar-fill::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: shimmer 1.5s infinite;
-}
 .wizard-progress .progress-steps {
   display: flex;
   justify-content: space-between;
@@ -28241,6 +28217,37 @@ mark.search-highlight, .search-highlight.mark {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+.wizard-progress .progress-steps::before {
+  content: "";
+  position: absolute;
+  top: calc(20px);
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: #f0f2f5;
+  z-index: 0;
+}
+@media (max-width: 767.98px) {
+  .wizard-progress .progress-steps::before {
+    top: calc(16px);
+  }
+}
+.wizard-progress .progress-steps::after {
+  content: "";
+  position: absolute;
+  top: calc(20px);
+  left: 0;
+  height: 4px;
+  background-color: #38a169;
+  z-index: 1;
+  transition: width 0.3s ease-out;
+  width: var(--progress-width, 0%);
+}
+@media (max-width: 767.98px) {
+  .wizard-progress .progress-steps::after {
+    top: calc(16px);
+  }
 }
 @media (max-width: 767.98px) {
   .wizard-progress .progress-steps {
@@ -28290,21 +28297,6 @@ mark.search-highlight, .search-highlight.mark {
   cursor: not-allowed;
   opacity: 0.6;
 }
-.wizard-progress .step:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  width: 100%;
-  height: 1px;
-  background-color: #f0f2f5;
-  z-index: -1;
-}
-@media (max-width: 767.98px) {
-  .wizard-progress .step:not(:last-child)::after {
-    display: none;
-  }
-}
 .wizard-progress .step.active .step-circle, .wizard-progress .step.completed .step-circle {
   background-color: #1263a0;
   color: #ffffff;
@@ -28328,15 +28320,17 @@ mark.search-highlight, .search-highlight.mark {
   min-width: 40px;
   min-height: 40px;
   border-radius: 50%;
-  background-color: #f0f2f5;
+  background-color: #ffffff;
   color: #868e96;
+  border: 3px solid #f0f2f5;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 0.5rem;
   font-weight: 600;
   position: relative;
-  transition: background-color 0.3s, color 0.3s;
+  z-index: 2;
+  transition: all 0.3s;
 }
 @media (max-width: 767.98px) {
   .wizard-progress .step-circle {
@@ -28389,6 +28383,7 @@ mark.search-highlight, .search-highlight.mark {
 .step-header {
   padding: 2.5rem 2.5rem 1.5rem;
   border-bottom: 1px solid #f0f2f5;
+  background-color: #f0f2f5;
 }
 @media (max-width: 767.98px) {
   .step-header {
@@ -28606,95 +28601,83 @@ mark.search-highlight, .search-highlight.mark {
   }
 }
 
-.multiple-items-section > legend.form-label {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1263a0;
-  margin-bottom: 1rem;
-}
-
-.multiple-item {
-  border: 1px solid #f0f2f5;
-  border-radius: 6px;
+.attorney-specific-section {
+  margin-bottom: 2rem;
   padding: 1.5rem;
+  background-color: rgba(18, 99, 160, 0.02);
+  border: 1px solid rgba(18, 99, 160, 0.1);
+  border-radius: 6px;
+}
+.attorney-specific-section .form-group {
   margin-bottom: 1.5rem;
-  background-color: #ffffff;
 }
-.multiple-item .item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f0f2f5;
-}
-.multiple-item .item-header h4, .multiple-item .item-header .h4 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1263a0;
-  margin: 0;
-}
-.multiple-item .item-header .remove-item {
-  background: none;
-  border: none;
-  color: #e53e3e;
-  font-size: 1.25rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  transition: all 0.3s;
-}
-.multiple-item .item-header .remove-item:hover {
-  color: rgb(211.5068493151, 28.4931506849, 28.4931506849);
-  transform: scale(1.1);
-}
-.multiple-item .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-@media (max-width: 767.98px) {
-  .multiple-item .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-.multiple-item .checkbox-under-field {
-  margin-top: 0.5rem;
+.attorney-specific-section .form-group:last-child {
   margin-bottom: 0;
 }
-.multiple-item .checkbox-under-field .checkbox-label {
-  font-size: 0.95rem;
-  margin: 0;
+
+.universal-questions-section .form-group {
+  margin-bottom: 1.5rem;
 }
 
-#add-work-experience {
-  margin-bottom: 2rem;
+.sensitive-questions-section {
+  padding: 1.5rem;
+  background-color: rgba(18, 99, 160, 0.02);
+  border: 1px solid rgba(18, 99, 160, 0.1);
+  border-radius: 6px;
 }
-#add-work-experience::after {
-  content: "";
-  position: absolute;
-  bottom: -1rem;
-  left: -2.5rem;
-  right: -2.5rem;
-  height: 4px;
-  background-color: #1263a0;
-  border-radius: 2px;
+.sensitive-questions-section .sensitive-questions-intro {
+  font-weight: 600;
+  color: #1263a0;
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
 }
-@media (max-width: 767.98px) {
-  #add-work-experience::after {
-    left: -1.5rem;
-    right: -1.5rem;
-  }
+.sensitive-questions-section .form-group {
+  margin-bottom: 1.5rem;
+}
+.sensitive-questions-section .form-group:last-child {
+  margin-bottom: 0;
 }
 
-.wizard-step[data-step="3"] {
-  position: relative;
+.wizard-step[data-step="3"] .attorney-specific-section[aria-hidden=true] + .universal-questions-section {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.wizard-step[data-step="3"] .attorney-specific-section[aria-hidden=true] + .universal-questions-section .sensitive-questions-section {
+  max-width: 800px;
+  width: 100%;
+}
+.wizard-step[data-step="3"].non-attorney-position .form-grid {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.wizard-step[data-step="3"].non-attorney-position .universal-questions-section {
+  max-width: 800px;
+  width: 100%;
 }
 
 .document-upload-section {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.upload-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  width: 100%;
+}
+@media (max-width: 767.98px) {
+  .upload-row {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+.upload-row .upload-group {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .upload-group.required-doc .upload-label::after {
@@ -28713,7 +28696,7 @@ mark.search-highlight, .search-highlight.mark {
 .file-upload-area {
   position: relative;
   min-height: 180px;
-  border: 2px dashed #f0f2f5;
+  border: 2px solid #1263a0;
   border-radius: 8px;
   background-color: #f0f2f5;
   transition: all 0.3s;
@@ -28721,13 +28704,14 @@ mark.search-highlight, .search-highlight.mark {
   overflow: hidden;
 }
 .file-upload-area:hover {
-  border-color: #1263a0;
+  border-color: rgb(12.8426966292, 70.6348314607, 114.1573033708);
   background-color: rgba(18, 99, 160, 0.02);
 }
 .file-upload-area:hover .upload-placeholder {
   transform: scale(1.02);
 }
 .file-upload-area.dragging {
+  border-style: dashed;
   border-color: #1263a0;
   background-color: rgba(18, 99, 160, 0.05);
 }
@@ -28740,6 +28724,7 @@ mark.search-highlight, .search-highlight.mark {
   border-color: #38a169;
 }
 .file-upload-area.error {
+  border-style: solid;
   border-color: #e53e3e;
   background-color: rgba(229, 62, 62, 0.05);
 }
@@ -28751,6 +28736,10 @@ mark.search-highlight, .search-highlight.mark {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+.file-upload-area.has-file .file-input {
+  pointer-events: none;
+  z-index: -1;
 }
 .file-upload-area .upload-placeholder {
   display: flex;
@@ -28808,23 +28797,31 @@ mark.search-highlight, .search-highlight.mark {
 }
 .file-upload-area .file-preview {
   padding: 1.5rem;
-  height: 180px;
+  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 .file-upload-area .file-preview .file-info {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1;
+  min-width: 0;
 }
 .file-upload-area .file-preview .file-info i {
   font-size: 2.5rem;
   color: #38a169;
+  flex-shrink: 0;
 }
 .file-upload-area .file-preview .file-info .file-name {
   font-weight: 600;
   color: #868e96;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .file-upload-area .file-preview .file-info .file-size {
   font-size: 0.875rem;
@@ -28839,10 +28836,81 @@ mark.search-highlight, .search-highlight.mark {
   cursor: pointer;
   padding: 0.5rem;
   transition: all 0.3s;
+  position: relative;
+  z-index: 10;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
 }
 .file-upload-area .file-preview .remove-file:hover {
   color: #e53e3e;
   transform: scale(1.1);
+  background-color: rgba(229, 62, 62, 0.1);
+  border-radius: 50%;
+}
+.file-upload-area .file-preview .remove-file i {
+  pointer-events: none;
+}
+.file-upload-area .multiple-files-preview {
+  padding: 1rem;
+}
+.file-upload-area .multiple-files-preview .file-preview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #f0f2f5;
+  border-radius: 4px;
+  background-color: rgba(56, 161, 105, 0.02);
+}
+.file-upload-area .multiple-files-preview .file-preview-item:last-child {
+  margin-bottom: 0;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .file-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .file-info i {
+  font-size: 1.5rem;
+  color: #38a169;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .file-info .file-name {
+  font-weight: 600;
+  color: #868e96;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .file-info .file-size {
+  font-size: 0.875rem;
+  color: #868e96;
+  margin-left: 0.5rem;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .remove-file {
+  background: none;
+  border: none;
+  color: #868e96;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: all 0.3s;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .remove-file:hover {
+  color: #e53e3e;
+  transform: scale(1.2);
+  background-color: rgba(229, 62, 62, 0.1);
+  border-radius: 50%;
+}
+.file-upload-area .multiple-files-preview .file-preview-item .remove-file i {
+  pointer-events: none;
 }
 
 .application-review .review-section {
@@ -29324,6 +29392,101 @@ mark.search-highlight, .search-highlight.mark {
 *:focus-visible {
   outline: 2px solid #1263a0;
   outline-offset: 2px;
+}
+
+.submission-success-page {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+.submission-success-page .success-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.submission-success-page .success-icon {
+  font-size: 4rem;
+  color: #38a169;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 767.98px) {
+  .submission-success-page .success-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+}
+.submission-success-page h1, .submission-success-page .h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1263a0;
+  margin-bottom: 1rem;
+}
+@media (max-width: 767.98px) {
+  .submission-success-page h1, .submission-success-page .h1 {
+    font-size: 2rem;
+  }
+}
+.submission-success-page .success-message {
+  font-size: 1.1rem;
+  color: #868e96;
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
+}
+@media (max-width: 767.98px) {
+  .submission-success-page .success-message {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+}
+.submission-success-page .next-steps {
+  padding: 1rem 0;
+  margin-bottom: 2.5rem;
+  text-align: left;
+}
+@media (max-width: 767.98px) {
+  .submission-success-page .next-steps {
+    margin-bottom: 2rem;
+  }
+}
+.submission-success-page .next-steps h3, .submission-success-page .next-steps .h3 {
+  color: #1263a0;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.submission-success-page .next-steps ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.submission-success-page .next-steps ul li {
+  padding: 0.5rem 0;
+  color: #868e96;
+  position: relative;
+  padding-left: 1.5rem;
+  font-size: 1rem;
+}
+.submission-success-page .next-steps ul li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #38a169;
+  font-weight: bold;
+}
+.submission-success-page .success-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 767.98px) {
+  .submission-success-page .success-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  .submission-success-page .success-actions .btn, .submission-success-page .success-actions .resource-full .sidebar-card .card-footer .sidebar-btn, .resource-full .sidebar-card .card-footer .submission-success-page .success-actions .sidebar-btn, .submission-success-page .success-actions .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .submission-success-page .success-actions .amount-btn, .submission-success-page .success-actions .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .submission-success-page .success-actions .frequency-btn, .submission-success-page .success-actions .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .submission-success-page .success-actions .donate-button {
+    width: 100%;
+    max-width: 300px;
+  }
 }
 
 @media print {

@@ -67,6 +67,7 @@
 
   EmploymentApplicationWizard.prototype = {
     init: function() {
+      this.checkSubmissionStatus();
       this.bindEvents();
       this.initializeFormTokens();
       this.setupAutoSave();
@@ -75,6 +76,52 @@
       this.setupConditionalFields();
       this.loadDraft();
       console.log('Employment Application Wizard initialized');
+    },
+
+    // Check if we just submitted and show success message
+    checkSubmissionStatus: function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('submitted') === 'success') {
+        // Replace the entire page content with success message
+        this.showSubmissionSuccessPage();
+        
+        // Clean up the URL to remove the parameter
+        const cleanURL = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanURL);
+      }
+    },
+
+    // Show full page success message
+    showSubmissionSuccessPage: function() {
+      // Find the application header and everything after it and replace it
+      const $article = this.$form.closest('article');
+      
+      const successHTML = `
+        <div class="submission-success-page">
+          <div class="success-content">
+            <div class="success-icon">
+              <i class="fas fa-check-circle" aria-hidden="true"></i>
+            </div>
+            <h1>Application Submitted Successfully!</h1>
+            <p class="success-message">Thank you for your interest in joining our team. We've received your application and will review it carefully.</p>
+            
+            <div class="next-steps">
+              <h3>What happens next?</h3>
+              <ul>
+                <li>Our team will review your qualifications</li>
+                <li>If you're a good fit, we'll contact you within 1-2 weeks for next steps</li>
+              </ul>
+            </div>
+            
+            <div class="success-actions">
+              <a href="/employment" class="btn btn-primary">View Other Positions</a>
+              <a href="/" class="btn btn-primary">Return Home</a>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      $article.html(successHTML);
     },
 
     // Get CSRF tokens from Drupal
@@ -149,12 +196,31 @@
       // Position "Other" field
       this.$form.on('change', '#position_applied', function() {
         const $otherField = $('.other-position');
-        if ($(this).val() === 'other') {
+        const $attorneyQuestions = $('#attorney-questions');
+        const selectedPosition = $(this).val();
+        
+        if (selectedPosition === 'other') {
           $otherField.show().attr('aria-hidden', 'false');
           $otherField.find('input').focus();
         } else {
           $otherField.hide().attr('aria-hidden', 'true');
           $otherField.find('input').val('');
+        }
+        
+        // Show/hide attorney-specific questions
+        const $step3 = self.$form.find('.wizard-step[data-step="3"]');
+        if (selectedPosition === 'managing_attorney' || selectedPosition === 'staff_attorney') {
+          $attorneyQuestions.show().attr('aria-hidden', 'false');
+          // Make attorney questions required
+          $attorneyQuestions.find('select').prop('required', true).attr('aria-required', 'true');
+          // Remove non-attorney class
+          $step3.removeClass('non-attorney-position');
+        } else {
+          $attorneyQuestions.hide().attr('aria-hidden', 'true');
+          // Remove required from attorney questions and clear values
+          $attorneyQuestions.find('select').prop('required', false).attr('aria-required', 'false').val('');
+          // Add non-attorney class to center sensitive questions
+          $step3.addClass('non-attorney-position');
         }
       });
       
@@ -170,203 +236,12 @@
         }
       });
       
-      // Current position checkbox
-      this.$form.on('change', 'input[name*="current_position"]', function() {
-        const $container = $(this).closest('.multiple-item');
-        const $endDate = $container.find('input[name*="end_date"]');
-        
-        if ($(this).is(':checked')) {
-          $endDate.val('').prop('disabled', true);
-        } else {
-          $endDate.prop('disabled', false);
-        }
-      });
     },
 
     setupMultipleFields: function() {
-      const self = this;
-      
-      // Add work experience
-      this.$form.on('click', '#add-work-experience', function(e) {
-        e.preventDefault();
-        self.addMultipleItem('work-experience', 'Work Experience');
-      });
-      
-      // Add education
-      this.$form.on('click', '#add-education', function(e) {
-        e.preventDefault();
-        self.addMultipleItem('education', 'Education');
-      });
-      
-      // Remove items
-      this.$form.on('click', '.remove-item', function(e) {
-        e.preventDefault();
-        $(this).closest('.multiple-item').remove();
-        self.updateMultipleItemNumbers();
-      });
+      // No longer needed - work experience and education sections removed
     },
 
-    addMultipleItem: function(type, label) {
-      const $container = $(`#${type}-container`);
-      const itemCount = $container.find('.multiple-item').length;
-      const newIndex = itemCount;
-      
-      let template = '';
-      
-      if (type === 'work-experience') {
-        template = this.getWorkExperienceTemplate(newIndex);
-      } else if (type === 'education') {
-        template = this.getEducationTemplate(newIndex);
-      }
-      
-      const $newItem = $(template);
-      $container.append($newItem);
-      
-      // Show remove button for all items except the first
-      if (itemCount > 0) {
-        $container.find('.remove-item').show();
-      }
-      
-      // Focus first field
-      $newItem.find('input:first').focus();
-    },
-
-    getWorkExperienceTemplate: function(index) {
-      return `
-        <div class="multiple-item" data-item="${index}">
-          <div class="item-header">
-            <h4>Work Experience #${index + 1}</h4>
-            <button type="button" class="remove-item" aria-label="Remove this work experience">×</button>
-          </div>
-          <div class="item-content">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="work_experience_${index}_employer" class="form-label required">Employer</label>
-                <input type="text" 
-                       id="work_experience_${index}_employer" 
-                       name="work_experience[${index}][employer]" 
-                       class="form-control" 
-                       required
-                       aria-required="true">
-              </div>
-              <div class="form-group">
-                <label for="work_experience_${index}_job_title" class="form-label required">Job Title</label>
-                <input type="text" 
-                       id="work_experience_${index}_job_title" 
-                       name="work_experience[${index}][job_title]" 
-                       class="form-control" 
-                       required
-                       aria-required="true">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="work_experience_${index}_start_date" class="form-label required">Start Date</label>
-                <input type="date" 
-                       id="work_experience_${index}_start_date" 
-                       name="work_experience[${index}][start_date]" 
-                       class="form-control" 
-                       required
-                       aria-required="true">
-              </div>
-              <div class="form-group">
-                <label for="work_experience_${index}_end_date" class="form-label">End Date</label>
-                <input type="date" 
-                       id="work_experience_${index}_end_date" 
-                       name="work_experience[${index}][end_date]" 
-                       class="form-control">
-                <div class="form-group checkbox-under-field">
-                  <label class="checkbox-label">
-                    <input type="checkbox" 
-                           id="work_experience_${index}_current_position" 
-                           name="work_experience[${index}][current_position]"
-                           value="1">
-                    <span class="checkmark"></span>
-                    I Currently Work Here
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="work_experience_${index}_responsibilities" class="form-label">Key Responsibilities</label>
-              <textarea id="work_experience_${index}_responsibilities" 
-                        name="work_experience[${index}][responsibilities]" 
-                        class="form-control auto-resize" 
-                        rows="3"></textarea>
-            </div>
-          </div>
-        </div>
-      `;
-    },
-
-    getEducationTemplate: function(index) {
-      return `
-        <div class="multiple-item" data-item="${index}">
-          <div class="item-header">
-            <h4>Education #${index + 1}</h4>
-            <button type="button" class="remove-item" aria-label="Remove this education entry">×</button>
-          </div>
-          <div class="item-content">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="education_${index}_institution" class="form-label">Institution</label>
-                <input type="text" 
-                       id="education_${index}_institution" 
-                       name="education[${index}][institution]" 
-                       class="form-control">
-              </div>
-              <div class="form-group">
-                <label for="education_${index}_degree" class="form-label">Degree/Certificate</label>
-                <input type="text" 
-                       id="education_${index}_degree" 
-                       name="education[${index}][degree]" 
-                       class="form-control">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="education_${index}_start_date" class="form-label">Start Date</label>
-                <input type="date" 
-                       id="education_${index}_start_date" 
-                       name="education[${index}][start_date]" 
-                       class="form-control">
-              </div>
-              <div class="form-group">
-                <label for="education_${index}_end_date" class="form-label">End Date</label>
-                <input type="date" 
-                       id="education_${index}_end_date" 
-                       name="education[${index}][end_date]" 
-                       class="form-control">
-                <div class="form-group checkbox-under-field">
-                  <label class="checkbox-label">
-                    <input type="checkbox" 
-                           id="education_${index}_still_enrolled" 
-                           name="education[${index}][still_enrolled]"
-                           value="1">
-                    <span class="checkmark"></span>
-                    Still Enrolled
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    },
-
-    updateMultipleItemNumbers: function() {
-      // Update work experience numbering
-      $('#work-experience-container .multiple-item').each(function(index) {
-        $(this).attr('data-item', index);
-        $(this).find('.item-header h4').text(`Work Experience #${index + 1}`);
-      });
-      
-      // Update education numbering
-      $('#education-container .multiple-item').each(function(index) {
-        $(this).attr('data-item', index);
-        $(this).find('.item-header h4').text(`Education #${index + 1}`);
-      });
-    },
 
     setupFileUploads: function() {
       const self = this;
@@ -397,14 +272,26 @@
           const files = e.originalEvent.dataTransfer.files;
           if (files.length > 0) {
             $input[0].files = files;
-            self.handleFileUpload($input, files[0]);
+            if (fieldName === 'additional_documents') {
+              // Handle multiple files for additional documents
+              self.handleMultipleFileUpload($input, files);
+            } else {
+              // Handle single file for other fields
+              self.handleFileUpload($input, files[0]);
+            }
           }
         });
         
         // Click to browse
         $area.on('click', function(e) {
-          // Prevent recursive clicks and only trigger if clicking the upload area, not the input
-          if (!$(e.target).hasClass('remove-file') && !$(e.target).is('input[type="file"]') && !$(e.target).closest('input[type="file"]').length) {
+          // Prevent recursive clicks and only trigger if clicking the upload area, not the input or remove button
+          if (!$(e.target).hasClass('remove-file') && 
+              !$(e.target).closest('.remove-file').length && 
+              !$(e.target).hasClass('fa-times') &&  // Don't trigger on X icon
+              !$(e.target).is('input[type="file"]') && 
+              !$(e.target).closest('input[type="file"]').length &&
+              !$(e.target).closest('.file-preview').length &&
+              !$(e.target).closest('.multiple-files-preview').length) {
             e.preventDefault();
             e.stopPropagation();
             $input[0].click(); // Use native click to avoid jQuery event recursion
@@ -414,15 +301,42 @@
         // File input change
         $input.on('change', function() {
           if (this.files.length > 0) {
-            self.handleFileUpload($input, this.files[0]);
+            if (fieldName === 'additional_documents') {
+              // Handle multiple files for additional documents (even if only one is selected)
+              self.handleMultipleFileUpload($input, this.files);
+            } else {
+              // Handle single file for other fields
+              self.handleFileUpload($input, this.files[0]);
+            }
           }
         });
         
-        // Remove file
-        $area.on('click', '.remove-file', function(e) {
+        // Remove file - use event delegation to ensure proper handling
+        // Handle both button and icon clicks
+        $area.on('click', '.remove-file, .remove-file i', function(e) {
           e.preventDefault();
           e.stopPropagation();
-          self.removeFile($area, fieldName);
+          e.stopImmediatePropagation(); // Prevent any other handlers from running
+          
+          const $button = $(e.target).closest('.remove-file');
+          const fileIndex = $button.data('file-index');
+          const $fileItem = $button.closest('.file-preview-item');
+          const itemIndex = $fileItem.data('file-index');
+          
+          // Try to get index from either the button or the parent item
+          const indexToRemove = fileIndex !== undefined ? fileIndex : itemIndex;
+          
+          if (indexToRemove !== undefined && fieldName === 'additional_documents') {
+            // Remove specific file from multiple files
+            self.removeSpecificFile($area, fieldName, indexToRemove);
+          } else if (indexToRemove !== undefined) {
+            // Remove specific file from multiple files for any field
+            self.removeSpecificFile($area, fieldName, indexToRemove);
+          } else {
+            // Remove single file (fallback)
+            self.removeFile($area, fieldName);
+          }
+          return false; // Extra safety to prevent bubbling
         });
       });
     },
@@ -447,6 +361,38 @@
         this.showSaveStatus('File ready for upload', 'success');
         this.scheduleAutoSave();
       }, 800); // Shorter delay since we're not actually uploading
+    },
+
+    handleMultipleFileUpload: function($input, files) {
+      const $area = $input.closest(CONFIG.SELECTORS.FILE_UPLOAD_AREA);
+      const fieldName = $area.data('field');
+      const validFiles = [];
+      
+      // Validate all files first
+      for (let i = 0; i < files.length; i++) {
+        if (this.validateFile(files[i], $area)) {
+          validFiles.push(files[i]);
+        }
+      }
+      
+      if (validFiles.length === 0) {
+        return;
+      }
+      
+      // Show upload progress
+      this.showUploadProgress($area);
+      
+      // Store files and show preview
+      setTimeout(() => {
+        // Get existing files and combine with new ones
+        const existingFiles = this.uploadedFiles[fieldName] || [];
+        const combinedFiles = [...existingFiles, ...validFiles];
+        
+        this.showMultipleFilePreview($area, combinedFiles);
+        this.uploadedFiles[fieldName] = combinedFiles;
+        this.showSaveStatus(`${combinedFiles.length} file(s) ready for upload`, 'success');
+        this.scheduleAutoSave();
+      }, 800);
     },
 
     validateFile: function(file, $area) {
@@ -494,15 +440,76 @@
       $preview.show();
     },
 
+    showMultipleFilePreview: function($area, files) {
+      $area.removeClass('uploading').addClass('has-file');
+      $area.find('.upload-progress').hide();
+      $area.find('.upload-placeholder').hide();
+      
+      // Clear existing preview and create multiple file previews
+      const $existingPreview = $area.find('.file-preview');
+      $existingPreview.hide();
+      
+      // Remove any existing multiple preview container
+      $area.find('.multiple-files-preview').remove();
+      
+      // Create container for multiple files
+      const $multiplePreview = $('<div class="multiple-files-preview"></div>');
+      
+      files.forEach((file, index) => {
+        const $filePreview = $(`
+          <div class="file-preview-item" data-file-index="${index}">
+            <div class="file-info">
+              <i class="fas fa-file-alt" aria-hidden="true"></i>
+              <span class="file-name">${file.name}</span>
+              <span class="file-size">${this.formatFileSize(file.size)}</span>
+            </div>
+            <button type="button" class="remove-file" aria-label="Remove ${file.name}" data-file-index="${index}">
+              <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+        `);
+        $multiplePreview.append($filePreview);
+      });
+      
+      $area.append($multiplePreview);
+    },
+
     removeFile: function($area, fieldName) {
       $area.removeClass('has-file uploading');
       $area.find('.file-preview').hide();
+      $area.find('.multiple-files-preview').remove();
       $area.find('.upload-progress').hide();
       $area.find('.upload-placeholder').show();
       $area.find('input[type="file"]').val('');
       
       delete this.uploadedFiles[fieldName];
       this.scheduleAutoSave();
+    },
+
+    removeSpecificFile: function($area, fieldName, fileIndex) {
+      const files = this.uploadedFiles[fieldName];
+      
+      if (!files || !Array.isArray(files)) {
+        this.removeFile($area, fieldName);
+        return;
+      }
+      
+      if (fileIndex < 0 || fileIndex >= files.length) {
+        return;
+      }
+      
+      // Remove the specific file from the array
+      files.splice(fileIndex, 1);
+      
+      if (files.length === 0) {
+        // No more files, reset the upload area
+        this.removeFile($area, fieldName);
+      } else {
+        // Update the array and refresh preview
+        this.uploadedFiles[fieldName] = files;
+        this.showMultipleFilePreview($area, files);
+        this.scheduleAutoSave();
+      }
     },
 
     formatFileSize: function(bytes) {
@@ -554,9 +561,8 @@
     updateProgress: function() {
       const progress = ((this.currentStep - 1) / (this.totalSteps - 1)) * 100;
       
-      // Update progress bar
-      this.$form.find(CONFIG.SELECTORS.PROGRESS_BAR).css('width', progress + '%').attr('data-progress', progress);
-      this.$form.find('.progress-bar-bg').attr('aria-valuenow', progress);
+      // Update integrated progress bar
+      this.$form.find('.progress-steps').css('--progress-width', progress + '%');
       
       // Update step indicators
       this.$form.find(CONFIG.SELECTORS.PROGRESS_STEPS).each((index, element) => {
@@ -844,8 +850,16 @@
         
         // Add files
         Object.keys(formDataObj._files_).forEach(fieldName => {
-          const file = formDataObj._files_[fieldName];
-          formData.append(fieldName, file);
+          const files = formDataObj._files_[fieldName];
+          if (Array.isArray(files)) {
+            // Handle multiple files
+            files.forEach((file, index) => {
+              formData.append(fieldName, file);
+            });
+          } else {
+            // Handle single file
+            formData.append(fieldName, files);
+          }
         });
         
         ajaxConfig = {
@@ -868,22 +882,15 @@
       
       // Add success and error handlers
       ajaxConfig.success = function(response) {
-        console.log('AJAX Success callback triggered:', response);
-        console.log('Response success:', response.success);
-        console.log('Response message:', response.message);
-        
         if (response.success) {
           // Mark form as submitted to prevent further auto-save
           self.isSubmitted = true;
           
-          // Show success message before modal
-          self.showSaveStatus('Application submitted successfully!', 'saved');
-          
-          // Show success modal immediately - no delay needed
-          self.showSuccessModal();
-          
           // Clear draft
           localStorage.removeItem(CONFIG.STORAGE_KEY);
+          
+          // Refresh the page with a success parameter
+          window.location.href = window.location.pathname + '?submitted=success';
         } else {
           // Handle server-side validation errors
           self.showSaveStatus(response.message || 'Submission failed. Please try again.', 'error');
@@ -946,10 +953,20 @@
           }
         } else if (type === 'file') {
           // Handle files - we'll process these separately
-          if ($input[0].files && $input[0].files[0]) {
-            // Store file reference for processing
+          if ($input[0].files && $input[0].files.length > 0) {
             formData['_files_'] = formData['_files_'] || {};
-            formData['_files_'][name] = $input[0].files[0];
+            // Check if this field supports multiple files
+            if (name === 'additional_documents[]' || $input.prop('multiple')) {
+              // Store all files for multiple file fields
+              const fileArray = [];
+              for (let i = 0; i < $input[0].files.length; i++) {
+                fileArray.push($input[0].files[i]);
+              }
+              formData['_files_'][name] = fileArray;
+            } else {
+              // Store single file
+              formData['_files_'][name] = $input[0].files[0];
+            }
             // Don't include file in regular JSON data
             return;
           }

@@ -210,6 +210,9 @@ class EmploymentApplicationController extends ControllerBase {
       'phone' => 'Phone number',
       'position_applied' => 'Position applied for',
       'available_start_date' => 'Available start date',
+      'criminal_conviction' => 'Criminal conviction disclosure',
+      'protection_order' => 'Protection order disclosure',
+      'sexual_harassment' => 'Sexual harassment disclosure',
       'agreement' => 'Terms agreement',
     ];
 
@@ -246,31 +249,22 @@ class EmploymentApplicationController extends ControllerBase {
       }
     }
 
-    // Handle work experience arrays - check if it's JSON string from FormData
-    $workExperience = $request->request->get('work_experience');
-    if (!empty($workExperience)) {
-      if (is_string($workExperience)) {
-        // Decode JSON string from FormData
-        $workArray = json_decode($workExperience, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($workArray)) {
-          $data['work_experience'] = $this->sanitizeInput($workArray);
+    // Handle attorney-specific fields if position is attorney
+    $positionApplied = $data['position_applied'] ?? '';
+    if ($positionApplied === 'managing_attorney' || $positionApplied === 'staff_attorney') {
+      $attorneyFields = [
+        'idaho_bar_licensed' => 'Idaho bar license status',
+        'aba_law_school' => 'ABA law school graduation',
+        'bar_discipline' => 'Bar discipline history',
+      ];
+      
+      foreach ($attorneyFields as $field => $label) {
+        $value = $request->request->get($field);
+        if (empty($value)) {
+          $errors[] = "$label is required for attorney positions.";
+          continue;
         }
-      } elseif (is_array($workExperience)) {
-        $data['work_experience'] = $this->sanitizeInput($workExperience);
-      }
-    }
-
-    // Handle education arrays - check if it's JSON string from FormData
-    $education = $request->request->get('education');
-    if (!empty($education)) {
-      if (is_string($education)) {
-        // Decode JSON string from FormData
-        $eduArray = json_decode($education, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($eduArray)) {
-          $data['education'] = $this->sanitizeInput($eduArray);
-        }
-      } elseif (is_array($education)) {
-        $data['education'] = $this->sanitizeInput($education);
+        $data[$field] = $this->sanitizeInput($value);
       }
     }
 
@@ -308,6 +302,9 @@ class EmploymentApplicationController extends ControllerBase {
       'phone' => 'Phone number',
       'position_applied' => 'Position applied for',
       'available_start_date' => 'Available start date',
+      'criminal_conviction' => 'Criminal conviction disclosure',
+      'protection_order' => 'Protection order disclosure',
+      'sexual_harassment' => 'Sexual harassment disclosure',
       'agreement' => 'Terms agreement',
     ];
 
@@ -335,14 +332,23 @@ class EmploymentApplicationController extends ControllerBase {
       $data['address'] = $this->sanitizeInput($jsonData['address']);
     }
 
-    // Handle work experience arrays
-    if (!empty($jsonData['work_experience']) && is_array($jsonData['work_experience'])) {
-      $data['work_experience'] = $this->sanitizeInput($jsonData['work_experience']);
-    }
-
-    // Handle education arrays
-    if (!empty($jsonData['education']) && is_array($jsonData['education'])) {
-      $data['education'] = $this->sanitizeInput($jsonData['education']);
+    // Handle attorney-specific fields if position is attorney
+    $positionApplied = $data['position_applied'] ?? '';
+    if ($positionApplied === 'managing_attorney' || $positionApplied === 'staff_attorney') {
+      $attorneyFields = [
+        'idaho_bar_licensed' => 'Idaho bar license status',
+        'aba_law_school' => 'ABA law school graduation',
+        'bar_discipline' => 'Bar discipline history',
+      ];
+      
+      foreach ($attorneyFields as $field => $label) {
+        $value = $jsonData[$field] ?? '';
+        if (empty($value)) {
+          $errors[] = "$label is required for attorney positions.";
+          continue;
+        }
+        $data[$field] = $this->sanitizeInput($value);
+      }
     }
 
     // Other optional scalar fields
@@ -927,56 +933,54 @@ class EmploymentApplicationController extends ControllerBase {
     
     $html .= '</table></div>';
     
-    // Work Experience
-    if (!empty($data['work_experience'])) {
-        $html .= '<div class="section">
-            <div class="section-title">Work Experience</div>';
+    // Qualifications & Background
+    $html .= '<div class="section">
+        <div class="section-title">Qualifications & Background</div>
+        <table>';
+    
+    // Attorney-specific questions
+    $positionApplied = $data['position_applied'] ?? '';
+    if ($positionApplied === 'managing_attorney' || $positionApplied === 'staff_attorney') {
+        $html .= '<tr><td colspan="2" style="background: #e3f2fd; font-weight: bold; padding: 8px;">Attorney Qualifications</td></tr>';
         
-        foreach ($data['work_experience'] as $i => $exp) {
-            if (empty($exp['employer']) && empty($exp['job_title'])) continue;
-            
-            $html .= '<div class="work-experience">
-                <div class="experience-title">Experience #' . ($i + 1) . '</div>
-                <table>
-                    <tr><td class="label-col">Employer</td><td class="value-col">' . htmlspecialchars($exp['employer'] ?? '') . '</td></tr>
-                    <tr><td class="label-col">Job Title</td><td class="value-col">' . htmlspecialchars($exp['job_title'] ?? '') . '</td></tr>
-                    <tr><td class="label-col">Start Date</td><td class="value-col">' . htmlspecialchars($exp['start_date'] ?? '') . '</td></tr>';
-            
-            if (!empty($exp['current_position'])) {
-                $html .= '<tr><td class="label-col">End Date</td><td class="value-col">Current Position</td></tr>';
-            } else {
-                $html .= '<tr><td class="label-col">End Date</td><td class="value-col">' . htmlspecialchars($exp['end_date'] ?? '') . '</td></tr>';
-            }
-            
-            if (!empty($exp['responsibilities'])) {
-                $html .= '<tr><td class="label-col">Responsibilities</td><td class="value-col">' . nl2br(htmlspecialchars($exp['responsibilities'])) . '</td></tr>';
-            }
-            
-            $html .= '</table></div>';
+        if (!empty($data['idaho_bar_licensed'])) {
+            $barStatus = $this->formatYesNoOption($data['idaho_bar_licensed']);
+            $html .= '<tr><td class="label-col">Licensed to practice law in Idaho?</td><td class="value-col">' . htmlspecialchars($barStatus) . '</td></tr>';
         }
         
-        $html .= '</div>';
+        if (!empty($data['aba_law_school'])) {
+            $abaGrad = $this->formatYesNoOption($data['aba_law_school']);
+            $html .= '<tr><td class="label-col">Graduated from ABA-accredited law school?</td><td class="value-col">' . htmlspecialchars($abaGrad) . '</td></tr>';
+        }
+        
+        if (!empty($data['bar_discipline'])) {
+            $discipline = $this->formatYesNoOption($data['bar_discipline']);
+            $html .= '<tr><td class="label-col">Ever subject to bar discipline?</td><td class="value-col">' . htmlspecialchars($discipline) . '</td></tr>';
+        }
+        
+        $html .= '<tr><td colspan="2" style="height: 10px;"></td></tr>';
     }
     
-    // Education
-    if (!empty($data['education'])) {
-        $html .= '<div class="section">
-            <div class="section-title">Education</div>';
-        
-        foreach ($data['education'] as $i => $edu) {
-            if (empty($edu['institution']) && empty($edu['degree'])) continue;
-            
-            $html .= '<div class="education">
-                <div class="experience-title">Education #' . ($i + 1) . '</div>
-                <table>
-                    <tr><td class="label-col">Institution</td><td class="value-col">' . htmlspecialchars($edu['institution'] ?? '') . '</td></tr>
-                    <tr><td class="label-col">Degree/Certificate</td><td class="value-col">' . htmlspecialchars($edu['degree'] ?? '') . '</td></tr>
-                    <tr><td class="label-col">Graduation Date</td><td class="value-col">' . htmlspecialchars($edu['graduation_date'] ?? '') . '</td></tr>
-                </table></div>';
-        }
-        
-        $html .= '</div>';
+    
+    // Sensitive background questions
+    $html .= '<tr><td colspan="2" style="background: #fff3cd; font-weight: bold; padding: 8px;">Background Screening</td></tr>';
+    
+    if (!empty($data['criminal_conviction'])) {
+        $criminal = $this->formatYesNoOption($data['criminal_conviction']);
+        $html .= '<tr><td class="label-col">Ever charged/convicted of domestic violence or violent crime?</td><td class="value-col">' . htmlspecialchars($criminal) . '</td></tr>';
     }
+    
+    if (!empty($data['protection_order'])) {
+        $protection = $this->formatYesNoOption($data['protection_order']);
+        $html .= '<tr><td class="label-col">Ever subject to protection order/restraining order?</td><td class="value-col">' . htmlspecialchars($protection) . '</td></tr>';
+    }
+    
+    if (!empty($data['sexual_harassment'])) {
+        $harassment = $this->formatYesNoOption($data['sexual_harassment']);
+        $html .= '<tr><td class="label-col">Ever found to have engaged in sexual harassment?</td><td class="value-col">' . htmlspecialchars($harassment) . '</td></tr>';
+    }
+    
+    $html .= '</table></div>';
     
     // Additional Information
     $html .= '<div class="section">
@@ -1085,6 +1089,22 @@ class EmploymentApplicationController extends ControllerBase {
         '@error' => $e->getMessage(),
       ]);
       // Don't fail the whole process if email fails
+    }
+  }
+
+  /**
+   * Formats Yes/No/Other options for display.
+   */
+  private function formatYesNoOption(string $value): string {
+    switch (strtolower($value)) {
+      case 'yes':
+        return 'Yes';
+      case 'no':
+        return 'No';
+      case 'licensed_other_state':
+        return 'Licensed in Another State';
+      default:
+        return ucfirst(str_replace('_', ' ', $value));
     }
   }
 
