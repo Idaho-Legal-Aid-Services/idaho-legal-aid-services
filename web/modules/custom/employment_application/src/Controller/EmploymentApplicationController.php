@@ -472,7 +472,7 @@ class EmploymentApplicationController extends ControllerBase {
     }
 
     // Check file extension
-    if (!in_array($extension, self::ALLOWED_EXTENSIONS)) {
+    if (!in_array($extension, self::ALLOWED_EXTENSIONS, TRUE)) {
       \Drupal::logger('employment_application')->error('Invalid extension: @ext, allowed: @allowed', [
         '@ext' => $extension,
         '@allowed' => implode(', ', self::ALLOWED_EXTENSIONS),
@@ -483,19 +483,38 @@ class EmploymentApplicationController extends ControllerBase {
       ];
     }
 
-    // Check MIME type - be flexible with PDF detection
-    $allowedMimeTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // MIME types we consider acceptable per extension.
+    // Pantheon can report doc/docx as application/octet-stream, so we allow that too.
+    $allowedMimeTypesByExtension = [
+      'pdf' => [
+        'application/pdf',
+        'application/octet-stream',
+      ],
+      'doc' => [
+        'application/msword',
+        'application/octet-stream',
+      ],
+      'docx' => [
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/octet-stream',
+      ],
     ];
-    
-    // Some PDFs are detected as application/octet-stream, so check extension too
-    $isValidPdf = ($extension === 'pdf' && ($mimeType === 'application/pdf' || $mimeType === 'application/octet-stream'));
-    $isValidDoc = ($extension === 'doc' && $mimeType === 'application/msword');
-    $isValidDocx = ($extension === 'docx' && $mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    
-    if (!($isValidPdf || $isValidDoc || $isValidDocx)) {
+
+    // Normalize extension key just in case
+    $extKey = strtolower($extension);
+
+    if (!isset($allowedMimeTypesByExtension[$extKey])) {
+      // Should not happen because we already checked extension, but be safe.
+      \Drupal::logger('employment_application')->error('No MIME rules defined for extension: @ext', [
+        '@ext' => $extKey,
+      ]);
+      return [
+        'valid' => FALSE,
+        'error' => 'Invalid file type.',
+      ];
+    }
+
+    if (!in_array($mimeType, $allowedMimeTypesByExtension[$extKey], TRUE)) {
       \Drupal::logger('employment_application')->error('Invalid MIME type: @mime for extension @ext', [
         '@mime' => $mimeType,
         '@ext' => $extension,
@@ -508,6 +527,7 @@ class EmploymentApplicationController extends ControllerBase {
 
     return ['valid' => TRUE];
   }
+
 
   /**
    * Saves uploaded file securely.
@@ -605,6 +625,10 @@ class EmploymentApplicationController extends ControllerBase {
     
     // Generate human-readable application ID: LastName, FirstName - Position (DateSubmitted)
     $applicationId = $this->generateHumanReadableApplicationId($data);
+
+    if (strlen($applicationId) > 191) {
+      $applicationId = substr($applicationId, 0, 191);
+    }
     
     // Prepare file references
     $fileData = [];
@@ -657,7 +681,7 @@ class EmploymentApplicationController extends ControllerBase {
           ],
           'application_id' => [
             'type' => 'varchar',
-            'length' => 50,
+            'length' => 191,
             'not null' => TRUE,
           ],
           'submitted' => [
