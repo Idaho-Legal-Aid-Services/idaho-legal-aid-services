@@ -18,10 +18,12 @@ settings:
       - numberedList
       - bulletedList
       - alignment
+      - insertTable
       - sourceEditing
       - codeBlock
       - link
       - code
+      - drupalInsertImage
       - imce_image
       - drupalMedia
       - imce_link
@@ -84,6 +86,8 @@ settings:
         - heading4
         - heading5
         - heading6
+    ckeditor5_imageResize:
+      allow_resize: true
     ckeditor5_list:
       properties:
         reversed: true
@@ -98,8 +102,6 @@ settings:
       allowed_tags:
         - '<script>'
         - '<iframe>'
-    linkit_extension:
-      linkit_enabled: false
     media_media:
       allow_view_mode_override: false
 image_upload:

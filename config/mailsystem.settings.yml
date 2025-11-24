@@ -23,3 +23,7 @@ modules:
     none:
       sender: symfony_mailer_lite
       formatter: symfony_mailer_lite
+  employment_application:
+    none:
+      sender: symfony_mailer_lite
+      formatter: symfony_mailer_lite

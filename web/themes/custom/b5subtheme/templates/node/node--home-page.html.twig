@@ -16,6 +16,8 @@
   {# --------------------------------------------------------- #}
   {# 2) WHITE HERO CONTENT SECTION - Subtitle, CTA, Image     #}
   {# --------------------------------------------------------- #}
+  {% set accessible_label = content.field_hero_subtitle|render|striptags|trim %}
+  
   <section class="hero-content-section">
     <div class="container">
       <div class="row align-items-center justify-content-center">
@@ -24,7 +26,9 @@
             {{ content.field_hero_subtitle }}
           </div>
           <div class="hero-button-group">
-            <a href="{{ content.field_cta_link.0['#url'] }}" class="btn btn-primary btn-hero">
+            <a href="{{ content.field_cta_link.0['#url'] }}" 
+              class="btn btn-primary btn-hero"
+              aria-label="{% if content.field_cta_button_text|render %} {{ content.field_cta_button_text.0 }}{% else %}Learn more about {{ accessible_label|default('our services') }}{% endif %}">
               {% if content.field_cta_button_text|render %}
                 {{ content.field_cta_button_text.0 }}
               {% else %}
