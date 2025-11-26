@@ -1,0 +1,7 @@
+uuid: 1ac82fa1-54fa-4e72-a80d-a8aad91b9551
+langcode: en
+status: true
+dependencies: {  }
+formId: user_login_form
+captchaType: turnstile/Turnstile
+label: user_login_form
