@@ -1,6 +1,29 @@
 <?php
 
 /**
+ * SECURITY: Early Exit for Spam & Scrapers (Added Nov 30, 2025)
+ * Prevents database exhaustion from facet spam and known bot patterns.
+ * Placed at the top to exit before bootstrapping Drupal.
+ */
+if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/search') !== false) {
+
+  // 1. Block Deep Facet Stacking (The "Kill Switch")
+  // Legitimate users rarely filter by 6+ categories (f[5]).
+  // We check QUERY_STRING directly to avoid overhead.
+  if (isset($_SERVER['QUERY_STRING']) && (strpos($_SERVER['QUERY_STRING'], 'f[5]') !== false || strpos($_SERVER['QUERY_STRING'], 'f%5B5%5D') !== false)) {
+      header('HTTP/1.1 429 Too Many Requests');
+      die('Error: Search filter limit exceeded. Please refine your search with fewer parameters.');
+  }
+
+  // 2. Block Suspicious User Agents
+  // Blocks the specific fake Chrome agent seen in logs.
+  if (isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'Chrome/139.0.0.0') !== false) {
+      header('HTTP/1.1 403 Forbidden');
+      die('Access Denied.');
+  }
+}
+
+/**
  * Load services definition file.
  */
 $settings['container_yamls'][] = __DIR__ . '/services.yml';
@@ -9,10 +32,10 @@ $settings['container_yamls'][] = __DIR__ . '/services.yml';
  * Include the Pantheon-specific settings file.
  *
  * n.b. The settings.pantheon.php file makes some changes
- *      that affect all environments that this site
- *      exists in.  Always include this file, even in
- *      a local development environment, to ensure that
- *      the site settings remain consistent.
+ * that affect all environments that this site
+ * exists in.  Always include this file, even in
+ * a local development environment, to ensure that
+ * the site settings remain consistent.
  */
 include __DIR__ . "/settings.pantheon.php";
 

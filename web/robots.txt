@@ -51,7 +51,11 @@ Disallow: /admin/
 Disallow: /comment/reply/
 Disallow: /filter/tips
 Disallow: /node/add/
+# SECURITY UPDATE: Block Facet Spam & Search
+Disallow: /search
 Disallow: /search/
+Disallow: /search?*f[*
+Disallow: /search?*f%5B*
 Disallow: /user/register
 Disallow: /user/password
 Disallow: /user/login
