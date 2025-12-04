@@ -5,7 +5,11 @@
  * Prevents database exhaustion from facet spam and known bot patterns.
  * Placed at the top to exit before bootstrapping Drupal.
  */
-if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/search') !== false) {
+if (isset($_SERVER['REQUEST_URI']) && 
+    strpos($_SERVER['REQUEST_URI'], '/admin/') === false && 
+    (strpos($_SERVER['REQUEST_URI'], '/search') === 0 || 
+     strpos($_SERVER['REQUEST_URI'], '/search?') === 0 || 
+     preg_match('#^/[^/]+/search($|\?)#', $_SERVER['REQUEST_URI']))) {
 
   // 1. Block Deep Facet Stacking (The "Kill Switch")
   // Legitimate users rarely filter by 6+ categories (f[5]).
