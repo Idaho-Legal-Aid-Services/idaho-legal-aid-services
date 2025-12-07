@@ -1,0 +1,17 @@
+{
+    "_hash": "e49610908c1e00d7bfdaf5cca084b51334e2b3ff27ed0bf0a47c38daa6a0a5d8",
+    "patches": {
+        "drupal/core": [
+            {
+                "package": "drupal/core",
+                "description": "BigPipe undefined array key fix (https://www.drupal.org/project/drupal/issues/3194462)",
+                "url": "patches/bigpipe-undefined-array-key-3194462.patch",
+                "sha256": "fb86aba2e2ddeaa19939cb49687b372fe22d73928e305a0a7f90655f87bb9942",
+                "depth": 2,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}

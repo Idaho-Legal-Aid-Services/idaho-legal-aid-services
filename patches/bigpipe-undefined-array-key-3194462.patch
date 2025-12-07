@@ -1,0 +1,12 @@
+diff --git a/core/modules/big_pipe/src/Render/BigPipe.php b/core/modules/big_pipe/src/Render/BigPipe.php
+--- a/core/modules/big_pipe/src/Render/BigPipe.php
++++ b/core/modules/big_pipe/src/Render/BigPipe.php
+@@ -281,7 +281,7 @@ protected function sendPreBody($pre_body, array $no_js_placeholders, AttachedAss
+     // Extract the scripts_bottom markup: the no-JS BigPipe placeholders that we
+     // will render may attach additional asset libraries, and if so, it will be
+     // necessary to re-render scripts_bottom.
+-    [$pre_scripts_bottom, $scripts_bottom, $post_scripts_bottom] = explode('<drupal-big-pipe-scripts-bottom-marker>', $pre_body, 3);
++    [$pre_scripts_bottom, $scripts_bottom, $post_scripts_bottom] = array_pad(explode('<drupal-big-pipe-scripts-bottom-marker>', $pre_body, 3), 3, '');
+     $cumulative_assets_initial = clone $cumulative_assets;
+
+     $this->sendNoJsPlaceholders($pre_scripts_bottom . $post_scripts_bottom, $no_js_placeholders, $cumulative_assets);

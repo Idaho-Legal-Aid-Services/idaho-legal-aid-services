@@ -21,6 +21,7 @@
     ],
     "require": {
         "composer/installers": "^2.3",
+        "cweagans/composer-patches": "^2.0",
         "drupal/antibot": "^2.0",
         "drupal/bootstrap5": "^4.0",
         "drupal/bootstrap_layout_builder": "^2.2",
@@ -85,6 +86,11 @@
         }
     },
     "extra": {
+        "patches": {
+            "drupal/core": {
+                "BigPipe undefined array key fix (https://www.drupal.org/project/drupal/issues/3194462)": "patches/bigpipe-undefined-array-key-3194462.patch"
+            }
+        },
         "compile-mode": "all",
         "drupal-scaffold": {
             "locations": {
