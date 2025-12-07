@@ -6,8 +6,8 @@ _core:
   default_config_hash: mtHeuWVbubnMes-4rhJlAepwGRtO7rE3jXdl6QwnojI
 id: ga
 label: 'Google Analytics'
-description: 'Tracks online visits of the website as a service.'
-default: false
+description: 'Tracks website visits to help improve our legal aid services.'
+default: true
 purposes:
   - analytics
 cookies:
@@ -20,7 +20,7 @@ cookies:
     path: ''
     domain: ''
   -
-    regex: ^IDE
+    regex: ^_gat
     path: ''
     domain: ''
 required: false
@@ -28,12 +28,37 @@ opt_out: false
 only_once: false
 contextual_consent_only: null
 contextual_consent_text: null
-info_url: 'https://marketingplatform.google.com/intl/de/about/analytics/'
+info_url: 'https://support.google.com/analytics/answer/12159447'
 privacy_policy_url: 'https://policies.google.com/privacy'
-javascripts:
-  - analytics.js
-callback_code: ''
+javascripts: {  }
+callback_code: |
+  // Google Consent Mode v2 integration
+  // Guard: ensure gtag exists before calling
+  if (typeof gtag !== 'function') {
+    return;
+  }
+  if (consent) {
+    gtag('consent', 'update', {
+      'analytics_storage': 'granted',
+      'ad_storage': 'granted',
+      'ad_user_data': 'granted',
+      'ad_personalization': 'granted'
+    });
+  } else {
+    gtag('consent', 'update', {
+      'analytics_storage': 'denied',
+      'ad_storage': 'denied',
+      'ad_user_data': 'denied',
+      'ad_personalization': 'denied'
+    });
+    // Clear existing GA cookies when user revokes consent
+    document.cookie.split(';').forEach(function(c) {
+      var name = c.trim().split('=')[0];
+      if (name.match(/^_ga/) || name.match(/^_gid/)) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      }
+    });
+  }
 wrapper_identifier: {  }
-attachments:
-  - ga4_google_analytics
+attachments: {  }
 weight: 1
