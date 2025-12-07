@@ -49,7 +49,20 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', '{{ google_tag_id }}');
+        
+        gtag('config', '{{ google_tag_id }}', {
+          'anonymize_ip': true,
+          'allow_google_signals': true,
+          'allow_ad_personalization_signals': true
+        });
+        
+        // Track content type for legal service optimization
+        {% if node_type %}
+        gtag('event', 'page_view', {
+          'content_type': '{{ node_type }}',
+          'page_title': '{{ head_title|safe_join(" | ")|striptags }}'
+        });
+        {% endif %}
       </script>
     {% endif %}
     

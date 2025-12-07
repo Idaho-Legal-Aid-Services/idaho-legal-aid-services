@@ -7,8 +7,9 @@ dependencies:
 name: google
 label: Google
 description: 'Google Translator service.'
-auto_accept: null
+auto_accept: true
 weight: null
 plugin: google
-settings: {  }
+settings:
+  api_key: ***REDACTED***
 remote_languages_mappings: {  }

@@ -1,0 +1,8 @@
+settings:
+  allowed_values:
+    -
+      label: Azul
+    -
+      label: Gris
+    -
+      label: Blanco

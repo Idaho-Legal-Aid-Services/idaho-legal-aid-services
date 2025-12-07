@@ -16,7 +16,7 @@ bundle: down_arrow_accordion_item
 label: 'DAA Button Files'
 description: ''
 required: false
-translatable: false
+translatable: true
 default_value: {  }
 default_value_callback: ''
 settings:

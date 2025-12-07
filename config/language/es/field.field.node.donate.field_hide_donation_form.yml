@@ -1,0 +1,5 @@
+label: 'Ocultar formulario de donación'
+description: 'Marque esta casilla para ocultar el formulario de donación estándar en esta página.'
+settings:
+  on_label: En
+  off_label: Apagado

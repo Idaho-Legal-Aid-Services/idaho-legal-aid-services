@@ -1,0 +1,12 @@
+settings:
+  allowed_values:
+    -
+      label: Abogado
+    -
+      label: 'Asistente legal'
+    -
+      label: 'Asistente legal'
+    -
+      label: 'Ayudante Administrativo'
+    -
+      label: Otro

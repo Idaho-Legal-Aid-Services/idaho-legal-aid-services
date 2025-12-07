@@ -1,0 +1,11 @@
+uuid: d59ad383-b5e9-4159-a58d-1bbba0138054
+langcode: nl
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: lBXDpdDPXQtrfTJQhr6MjRJJEEyYSoRJ0acdvHLsWeA
+id: nl
+label: Dutch
+direction: ltr
+weight: 3
+locked: false

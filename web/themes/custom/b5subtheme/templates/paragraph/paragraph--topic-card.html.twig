@@ -7,12 +7,12 @@
 {% set color = content.field_topic_color[0]['#markup']|clean_class %}
 
 {# Extract values for accessibility #}
-{% set topic_title = content.field_topic_title[0]['#context']['value'] %}
-{% set topic_description = content.field_topic_description[0]['#text'] %}
+{% set topic_title = content.field_topic_title|render|striptags|trim %}
+{% set topic_description = content.field_topic_description|render|striptags|trim %}
 {% set topic_url = content.field_topic_link[0]['#url'] %}
 
 {# Create accessible label combining title and description #}
-{% set aria_label = topic_title ~ ': ' ~ topic_description|striptags|trim ~ '. Click to learn more.' %}
+{% set aria_label = topic_title ~ ': ' ~ topic_description ~ '. Click to learn more.' %}
 
 {# Build our classes array using the normalized color #}
 {% set classes = [

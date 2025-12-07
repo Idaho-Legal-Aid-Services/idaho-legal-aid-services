@@ -12,7 +12,7 @@ bundle: down_arrow_accordion
 label: 'DAA Heading'
 description: ''
 required: false
-translatable: false
+translatable: true
 default_value: {  }
 default_value_callback: ''
 settings: {  }

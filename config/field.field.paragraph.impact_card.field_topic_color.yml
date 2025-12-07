@@ -14,7 +14,7 @@ bundle: impact_card
 label: 'Topic Color'
 description: ''
 required: true
-translatable: false
+translatable: true
 default_value: {  }
 default_value_callback: ''
 settings: {  }
