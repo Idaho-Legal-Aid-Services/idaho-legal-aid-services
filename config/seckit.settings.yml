@@ -8,16 +8,16 @@ seckit_xss:
       webkit: false
     report-only: false
     default-src: "'self'"
-    script-src: "'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://googleads.g.doubleclick.net https://*.g.doubleclick.net https://js.stripe.com https://donorbox.org https://challenges.cloudflare.com https://cdnjs.cloudflare.com"
+    script-src: "'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://googleads.g.doubleclick.net https://*.g.doubleclick.net https://js.stripe.com https://donorbox.org https://challenges.cloudflare.com https://cdnjs.cloudflare.com https://www.googleadservices.com https://pagead2.googlesyndication.com https://tagmanager.google.com"
     object-src: "'none'"
-    style-src: "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com"
-    img-src: "'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://*.g.doubleclick.net https://*.doubleclick.net https://charitynavigator.org https://*.charitynavigator.org https://widgets.guidestar.org"
+    style-src: "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://tagmanager.google.com"
+    img-src: "'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://*.g.doubleclick.net https://*.doubleclick.net https://charitynavigator.org https://*.charitynavigator.org https://widgets.guidestar.org https://www.google.com https://ssl.gstatic.com https://www.gstatic.com https://www.googleadservices.com https://pagead2.googlesyndication.com"
     media-src: "'self'"
-    frame-src: "'self' https://js.stripe.com https://donorbox.org https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com"
+    frame-src: "'self' https://js.stripe.com https://donorbox.org https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com https://www.googletagmanager.com"
     frame-ancestors: "'self'"
     child-src: "'self'"
-    font-src: "'self' https://fonts.gstatic.com"
-    connect-src: "'self' https://api.stripe.com https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://*.g.doubleclick.net https://*.doubleclick.net https://*.googlesyndication.com https://analytics.google.com https://stats.g.doubleclick.net"
+    font-src: "'self' https://fonts.gstatic.com data:"
+    connect-src: "'self' https://api.stripe.com https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://*.g.doubleclick.net https://*.doubleclick.net https://*.googlesyndication.com https://analytics.google.com https://stats.g.doubleclick.net https://www.google.com https://www.googleadservices.com https://pagead2.googlesyndication.com"
     report-uri: /report-csp-violation
     upgrade-req: true
     policy-uri: ''
