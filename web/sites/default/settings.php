@@ -19,12 +19,6 @@ if (isset($_SERVER['REQUEST_URI']) &&
       die('Error: Search filter limit exceeded. Please refine your search with fewer parameters.');
   }
 
-  // 2. Block Suspicious User Agents
-  // Blocks the specific fake Chrome agent seen in logs.
-  if (isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'Chrome/139.0.0.0') !== false) {
-      header('HTTP/1.1 403 Forbidden');
-      die('Access Denied.');
-  }
 }
 
 /**
