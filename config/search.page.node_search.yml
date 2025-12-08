@@ -1,0 +1,14 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: node_search
+label: Content
+path: node
+weight: -10
+plugin: node_search
+configuration:
+  rankings: {  }
+_core:
+  default_config_hash: M4U4mU1sVE9rJx6YYXBjK6bRTsaxfOqLhbEiL-Qk-cA

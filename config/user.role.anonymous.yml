@@ -7,6 +7,7 @@ dependencies:
   module:
     - klaro
     - media
+    - search
     - search_api_autocomplete
     - search_api_page
     - sitemap
@@ -20,6 +21,7 @@ is_admin: false
 permissions:
   - 'access content'
   - 'access sitemap'
+  - 'search content'
   - 'use klaro'
   - 'use search_api_autocomplete for content_autocomplete'
   - 'view media'

@@ -1,0 +1,9 @@
+and_or_limit: 7
+default_page: node_search
+index:
+  cron_limit: 100
+  overlap_cjk: true
+  minimum_word_size: 3
+logging: false
+_core:
+  default_config_hash: hvVxL2KM407AIeV3rhOxuSKOSiSNOSD8RfbhkSNhkrE
