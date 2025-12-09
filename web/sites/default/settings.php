@@ -42,7 +42,7 @@ include __DIR__ . "/settings.pantheon.php";
  * Fixes "fetch failed" console errors for GA4 attribution reporting.
  */
 if (PHP_SAPI !== 'cli') {
-  header('Permissions-Policy: attribution-reporting=(self "https://www.google-analytics.com" "https://www.google.com" "https://www.googletagmanager.com")');
+  header('Permissions-Policy: attribution-reporting=(self "https://www.google-analytics.com" "https://analytics.google.com" "https://www.googletagmanager.com" "https://www.google.com" "https://www.googleadservices.com" "https://googleads.g.doubleclick.net")');
 }
 
 /**

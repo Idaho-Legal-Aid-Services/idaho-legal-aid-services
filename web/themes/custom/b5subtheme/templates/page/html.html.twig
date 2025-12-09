@@ -68,6 +68,7 @@
         gtag('config', '{{ google_tag_id }}', {
           'send_page_view': true,
           'allow_google_signals': true,
+          'transport_type': 'beacon',
           'content_group': '{{ node_type|default("general") }}',
           'page_type': '{{ node_type|default("page") }}'
         });
