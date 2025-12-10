@@ -52,6 +52,7 @@
         "drupal/paragraphs": "^1.19",
         "drupal/project_browser": "@beta",
         "drupal/recipe_installer_kit": "^1-alpha3@alpha",
+        "drupal/schema_metatag": "^3.0",
         "drupal/search_api_page": "^1.1",
         "drupal/seckit": "^2.0",
         "drupal/tmgmt": "^1.17",
