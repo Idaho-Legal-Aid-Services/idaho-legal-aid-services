@@ -14,22 +14,27 @@
 {% set search_placeholder = content.field_search_placeholder[0]['#context']['value'] ?? 'Search FAQs and resources...' %}
 
 {# Add FAQ Schema markup for SEO #}
+{# Build FAQ items array first to avoid trailing comma issues #}
+{% set faq_items = [] %}
+{% for item in content.field_faq_items %}
+  {% if item['#paragraph'] is defined %}
+    {% set faq_items = faq_items|merge([item['#paragraph']]) %}
+  {% endif %}
+{% endfor %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    {% for item in content.field_faq_items %}
-      {% if item['#paragraph'] is defined %}
+    {% for faq in faq_items %}
         {
           "@type": "Question",
-          "name": {{ item['#paragraph'].field_faq_question.value|json_encode|raw }},
+          "name": {{ faq.field_faq_question.value|json_encode|raw }},
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": {{ item['#paragraph'].field_faq_answer.value|json_encode|raw }}
+            "text": {{ faq.field_faq_answer.value|json_encode|raw }}
           }
         }{% if not loop.last %},{% endif %}
-      {% endif %}
     {% endfor %}
   ]
 }
