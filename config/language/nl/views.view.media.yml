@@ -2,11 +2,9 @@ display:
   default:
     display_options:
       fields:
-        node_bulk_form:
+        media_bulk_form:
           action_title: Actie
-        title:
-          label: Titel
       filters:
-        title:
+        status:
           expose:
-            label: Titel
+            label: Waar

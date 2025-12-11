@@ -7,11 +7,12 @@ _core:
 id: global
 label: Global
 tags:
-  referrer: unsafe-url
-  title: '[current-page:title] | [site:name]'
   canonical_url: '[current-page:url:absolute]'
-  shortlink: '[current-page:url:unaliased]'
-  rights: 'Copyright ©[date:html_year] All rights reserved.'
-  og_url: '[current-page:url:absolute]'
+  description: 'Idaho Legal Aid Services provides free civil legal help to eligible low-income Idahoans. We help people across the state with issues like housing and evictions, family safety and stability, protection orders, public benefits, consumer problems, and support for older adults. Our team offers legal advice, brief services, and representation, and we work with community partners to improve access to justice. If you’re facing a civil legal problem and can’t afford an attorney, we’re here to help.'
   og_site_name: '[site:name]'
+  og_url: '[current-page:url:absolute]'
+  referrer: unsafe-url
+  rights: 'Copyright ©[date:html_year] All rights reserved.'
+  shortlink: '[current-page:url:unaliased]'
+  title: '[current-page:title] | [site:name]'
   twitter_cards_type: summary

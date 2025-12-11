@@ -21,6 +21,7 @@ module:
   ckeditor5: 0
   ckeditor5_plugin_pack: 0
   ckeditor5_plugin_pack_link_attributes: 0
+  ckeditor_link_styles: 0
   coffee: 0
   config: 0
   config_translation: 0
@@ -112,6 +113,7 @@ module:
   sam: 0
   scheduler: 0
   scheduler_content_moderation_integration: 0
+  schema_metatag: 0
   search_api: 0
   search_api_autocomplete: 0
   search_api_db: 0

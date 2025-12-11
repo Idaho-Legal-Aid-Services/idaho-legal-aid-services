@@ -1,0 +1,6 @@
+display:
+  default:
+    display_options:
+      fields:
+        taxonomy_term_bulk_form:
+          action_title: Actie
