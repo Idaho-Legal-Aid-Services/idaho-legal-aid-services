@@ -48,6 +48,7 @@ module:
   eca_ui: 0
   eca_user: 0
   editor: 0
+  editor_advanced_link: 0
   editoria11y: 0
   employment_application: 0
   entity_print: 0
@@ -65,8 +66,10 @@ module:
   geocoder_geofield: 0
   geofield: 0
   gin_toolbar: 0
+  google_cse: 0
   google_translator: 0
   honeypot: 0
+  hreflang: 0
   ilas_chatbot: 0
   ilas_donation_inquiry: 0
   ilas_hotspot: 0
@@ -113,7 +116,18 @@ module:
   sam: 0
   scheduler: 0
   scheduler_content_moderation_integration: 0
+  schema_article: 0
+  schema_event: 0
+  schema_how_to: 0
+  schema_job_posting: 0
   schema_metatag: 0
+  schema_organization: 0
+  schema_place: 0
+  schema_qa_page: 0
+  schema_service: 0
+  schema_web_page: 0
+  schema_web_site: 0
+  search: 0
   search_api: 0
   search_api_autocomplete: 0
   search_api_db: 0
