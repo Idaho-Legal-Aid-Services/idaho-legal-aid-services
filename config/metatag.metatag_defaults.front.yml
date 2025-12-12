@@ -23,6 +23,13 @@ tags:
   og_url: '[current-page:url:absolute]'
   referrer: unsafe-url
   rights: 'Copyright ©[date:html_year] All rights reserved.'
+  schema_organization_additional_type: Organization
+  schema_organization_description: '[node:field_hero_subtitle]'
+  schema_organization_name: '[site:name]'
+  schema_organization_type: NGO
+  schema_web_site_name: '[site:name]'
+  schema_web_site_type: WebSite
+  schema_web_site_url: '[site:url]'
   shortlink: '[site:url]'
   title: '[node:field_seo_title|node:title] | [site:name]'
   twitter_cards_description: '[node:field_seo_description|node:field_description]'

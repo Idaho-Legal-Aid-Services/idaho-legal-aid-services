@@ -1,0 +1,22 @@
+uuid: 3fcf6d77-7b13-4465-8fa4-99d862b86042
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: legal_content
+label: 'Legal Content'
+type: 'canonical_entities:node'
+pattern: '/legal-help/[node:field_service_area:entity:name]/[node:title]'
+selection_criteria:
+  7f724706-102e-497b-8440-e2321e5e7114:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: 7f724706-102e-497b-8440-e2321e5e7114
+    context_mapping:
+      node: node
+    bundles:
+      legal_content: legal_content
+selection_logic: and
+weight: -5
+relationships: {  }

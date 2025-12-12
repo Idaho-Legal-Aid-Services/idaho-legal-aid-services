@@ -1,0 +1,1698 @@
+[02-Dec-2025 09:36:12] NOTICE: [pool www] child 269 exited with code 0 after 3763.158349 seconds from start
+[02-Dec-2025 09:36:12] NOTICE: [pool www] child 298 started
+[02-Dec-2025 10:52:44] NOTICE: [pool www] child 297 exited with code 0 after 5331.641581 seconds from start
+[02-Dec-2025 10:52:44] NOTICE: [pool www] child 352 started
+[02-Dec-2025 10:57:20] NOTICE: [pool www] child 296 exited with code 0 after 5626.779590 seconds from start
+[02-Dec-2025 10:57:20] NOTICE: [pool www] child 353 started
+[02-Dec-2025 11:06:01] NOTICE: [pool www] child 298 exited with code 0 after 5388.834705 seconds from start
+[02-Dec-2025 11:06:01] NOTICE: [pool www] child 354 started
+[02-Dec-2025 11:35:52] NOTICE: [pool www] child 353 exited with code 0 after 2312.087534 seconds from start
+[02-Dec-2025 11:35:52] NOTICE: [pool www] child 356 started
+[02-Dec-2025 11:36:31] NOTICE: [pool www] child 354 exited with code 0 after 1829.546309 seconds from start
+[02-Dec-2025 11:36:31] NOTICE: [pool www] child 357 started
+[02-Dec-2025 11:50:49] NOTICE: [pool www] child 355 exited with code 0 after 2576.106956 seconds from start
+[02-Dec-2025 11:50:49] NOTICE: [pool www] child 384 started
+[02-Dec-2025 13:05:44] NOTICE: [pool www] child 356 exited with code 0 after 5392.425270 seconds from start
+[02-Dec-2025 13:05:44] NOTICE: [pool www] child 411 started
+[02-Dec-2025 13:07:18] NOTICE: [pool www] child 357 exited with code 0 after 5447.192678 seconds from start
+[02-Dec-2025 13:07:18] NOTICE: [pool www] child 412 started
+[02-Dec-2025 13:08:56] NOTICE: [pool www] child 384 exited with code 0 after 4686.492084 seconds from start
+[02-Dec-2025 13:08:56] NOTICE: [pool www] child 413 started
+[02-Dec-2025 14:05:09] NOTICE: [pool www] child 411 exited with code 0 after 3564.797704 seconds from start
+[02-Dec-2025 14:05:09] NOTICE: [pool www] child 441 started
+[02-Dec-2025 14:05:10] NOTICE: [pool www] child 412 exited with code 0 after 3472.613706 seconds from start
+[02-Dec-2025 14:05:10] NOTICE: [pool www] child 442 started
+[02-Dec-2025 14:05:36] NOTICE: [pool www] child 413 exited with code 0 after 3399.880427 seconds from start
+[02-Dec-2025 14:05:36] NOTICE: [pool www] child 443 started
+[02-Dec-2025 14:49:53] NOTICE: [pool www] child 442 exited with code 0 after 2683.124203 seconds from start
+[02-Dec-2025 14:49:54] NOTICE: [pool www] child 471 started
+[02-Dec-2025 14:51:21] NOTICE: [pool www] child 441 exited with code 0 after 2771.744992 seconds from start
+[02-Dec-2025 14:51:21] NOTICE: [pool www] child 472 started
+[02-Dec-2025 14:52:41] NOTICE: [pool www] child 443 exited with code 0 after 2824.949226 seconds from start
+[02-Dec-2025 14:52:41] NOTICE: [pool www] child 473 started
+[02-Dec-2025 15:55:15] NOTICE: [pool www] child 471 exited with code 0 after 3921.075366 seconds from start
+[02-Dec-2025 15:55:15] NOTICE: [pool www] child 500 started
+[02-Dec-2025 15:56:40] NOTICE: [pool www] child 472 exited with code 0 after 3919.032909 seconds from start
+[02-Dec-2025 15:56:40] NOTICE: [pool www] child 501 started
+[02-Dec-2025 16:02:21] NOTICE: [pool www] child 473 exited with code 0 after 4180.361252 seconds from start
+[02-Dec-2025 16:02:21] NOTICE: [pool www] child 502 started
+[02-Dec-2025 16:54:36] NOTICE: [pool www] child 501 exited with code 0 after 3475.616166 seconds from start
+[02-Dec-2025 16:54:36] NOTICE: [pool www] child 531 started
+[02-Dec-2025 17:00:27] NOTICE: [pool www] child 502 exited with code 0 after 3486.152482 seconds from start
+[02-Dec-2025 17:00:27] NOTICE: [pool www] child 532 started
+[02-Dec-2025 18:01:53] NOTICE: [pool www] child 531 exited with code 0 after 4037.024698 seconds from start
+[02-Dec-2025 18:01:53] NOTICE: [pool www] child 562 started
+[02-Dec-2025 18:12:48] NOTICE: [pool www] child 532 exited with code 0 after 4340.575156 seconds from start
+[02-Dec-2025 18:12:48] NOTICE: [pool www] child 563 started
+[02-Dec-2025 18:31:44] NOTICE: [pool www] child 533 exited with code 0 after 3921.959654 seconds from start
+[02-Dec-2025 18:31:44] NOTICE: [pool www] child 564 started
+[02-Dec-2025 18:43:27] NOTICE: [pool www] child 562 exited with code 0 after 2494.804696 seconds from start
+[02-Dec-2025 18:43:27] NOTICE: [pool www] child 565 started
+[02-Dec-2025 19:04:24] NOTICE: [pool www] child 563 exited with code 0 after 3096.232431 seconds from start
+[02-Dec-2025 19:04:24] NOTICE: [pool www] child 592 started
+[02-Dec-2025 19:37:00] NOTICE: [pool www] child 565 exited with code 0 after 3212.656192 seconds from start
+[02-Dec-2025 19:37:00] NOTICE: [pool www] child 594 started
+[02-Dec-2025 19:51:02] NOTICE: [pool www] child 592 exited with code 0 after 2797.530570 seconds from start
+[02-Dec-2025 19:51:02] NOTICE: [pool www] child 621 started
+[02-Dec-2025 19:52:58] NOTICE: [pool www] child 593 exited with code 0 after 2456.593358 seconds from start
+[02-Dec-2025 19:52:58] NOTICE: [pool www] child 622 started
+[02-Dec-2025 19:57:28] NOTICE: [pool www] child 594 exited with code 0 after 1227.840532 seconds from start
+[02-Dec-2025 19:57:28] NOTICE: [pool www] child 623 started
+[02-Dec-2025 20:15:56] NOTICE: [pool www] child 621 exited with code 0 after 1494.380507 seconds from start
+[02-Dec-2025 20:15:56] NOTICE: [pool www] child 624 started
+[02-Dec-2025 20:33:16] NOTICE: [pool www] child 622 exited with code 0 after 2417.644385 seconds from start
+[02-Dec-2025 20:33:16] NOTICE: [pool www] child 625 started
+[02-Dec-2025 20:55:26] NOTICE: [pool www] child 623 exited with code 0 after 3478.433324 seconds from start
+[02-Dec-2025 20:55:26] NOTICE: [pool www] child 652 started
+[02-Dec-2025 21:20:15] NOTICE: [pool www] child 624 exited with code 0 after 3858.767848 seconds from start
+[02-Dec-2025 21:20:15] NOTICE: [pool www] child 653 started
+[02-Dec-2025 21:42:27] NOTICE: [pool www] child 625 exited with code 0 after 4151.396381 seconds from start
+[02-Dec-2025 21:42:27] NOTICE: [pool www] child 654 started
+[02-Dec-2025 21:57:58] NOTICE: [pool www] child 652 exited with code 0 after 3752.162607 seconds from start
+[02-Dec-2025 21:57:58] NOTICE: [pool www] child 682 started
+[02-Dec-2025 22:02:52] NOTICE: [pool www] child 653 exited with code 0 after 2557.613743 seconds from start
+[02-Dec-2025 22:02:52] NOTICE: [pool www] child 683 started
+[02-Dec-2025 22:24:45] NOTICE: [pool www] child 654 exited with code 0 after 2537.564778 seconds from start
+[02-Dec-2025 22:24:45] NOTICE: [pool www] child 684 started
+[02-Dec-2025 23:17:54] NOTICE: [pool www] child 683 exited with code 0 after 4501.355032 seconds from start
+[02-Dec-2025 23:17:54] NOTICE: [pool www] child 713 started
+[02-Dec-2025 23:29:23] NOTICE: [pool www] child 685 exited with code 0 after 3845.253757 seconds from start
+[02-Dec-2025 23:29:23] NOTICE: [pool www] child 714 started
+[03-Dec-2025 00:17:57] NOTICE: [pool www] child 713 exited with code 0 after 3603.251986 seconds from start
+[03-Dec-2025 00:17:57] NOTICE: [pool www] child 743 started
+[03-Dec-2025 00:33:03] NOTICE: [pool www] child 715 exited with code 0 after 3820.647147 seconds from start
+[03-Dec-2025 00:33:03] NOTICE: [pool www] child 744 started
+[03-Dec-2025 00:34:15] NOTICE: [pool www] child 714 exited with code 0 after 3891.979971 seconds from start
+[03-Dec-2025 00:34:15] NOTICE: [pool www] child 745 started
+[03-Dec-2025 01:10:21] NOTICE: [pool www] child 743 exited with code 0 after 3143.717576 seconds from start
+[03-Dec-2025 01:10:21] NOTICE: [pool www] child 775 started
+[03-Dec-2025 01:16:24] NOTICE: [pool www] child 744 exited with code 0 after 2600.801697 seconds from start
+[03-Dec-2025 01:16:24] NOTICE: [pool www] child 776 started
+[03-Dec-2025 01:21:13] NOTICE: [pool www] child 745 exited with code 0 after 2818.641283 seconds from start
+[03-Dec-2025 01:21:13] NOTICE: [pool www] child 777 started
+[03-Dec-2025 01:42:19] NOTICE: [pool www] child 775 exited with code 0 after 1918.110846 seconds from start
+[03-Dec-2025 01:42:19] NOTICE: [pool www] child 778 started
+[03-Dec-2025 01:44:23] NOTICE: [pool www] child 776 exited with code 0 after 1678.928520 seconds from start
+[03-Dec-2025 01:44:23] NOTICE: [pool www] child 806 started
+[03-Dec-2025 01:45:04] NOTICE: [pool www] child 777 exited with code 0 after 1430.826367 seconds from start
+[03-Dec-2025 01:45:04] NOTICE: [pool www] child 807 started
+[03-Dec-2025 02:46:05] NOTICE: [pool www] child 778 exited with code 0 after 3825.614990 seconds from start
+[03-Dec-2025 02:46:05] NOTICE: [pool www] child 834 started
+[03-Dec-2025 02:59:33] NOTICE: [pool www] child 806 exited with code 0 after 4509.586616 seconds from start
+[03-Dec-2025 02:59:33] NOTICE: [pool www] child 835 started
+[03-Dec-2025 03:04:40] NOTICE: [pool www] child 807 exited with code 0 after 4775.739718 seconds from start
+[03-Dec-2025 03:04:40] NOTICE: [pool www] child 836 started
+[03-Dec-2025 03:33:23] NOTICE: [pool www] child 834 exited with code 0 after 2838.782300 seconds from start
+[03-Dec-2025 03:33:23] NOTICE: [pool www] child 838 started
+[03-Dec-2025 03:55:46] NOTICE: [pool www] child 836 exited with code 0 after 3066.041640 seconds from start
+[03-Dec-2025 03:55:46] NOTICE: [pool www] child 865 started
+[03-Dec-2025 04:42:11] NOTICE: [pool www] child 838 exited with code 0 after 4127.734769 seconds from start
+[03-Dec-2025 04:42:11] NOTICE: [pool www] child 867 started
+[03-Dec-2025 04:48:58] NOTICE: Finishing ...
+[03-Dec-2025 04:48:58] NOTICE: exiting, bye-bye!
+[03-Dec-2025 04:59:31] NOTICE: fpm is running, pid 1
+[03-Dec-2025 04:59:31] NOTICE: ready to handle connections
+[03-Dec-2025 04:59:31] NOTICE: systemd monitor disabled
+[03-Dec-2025 05:30:41] NOTICE: [pool www] child 8 exited with code 0 after 1869.048270 seconds from start
+[03-Dec-2025 05:30:41] NOTICE: [pool www] child 9 started
+[03-Dec-2025 05:30:42] NOTICE: [pool www] child 7 exited with code 0 after 1871.878896 seconds from start
+[03-Dec-2025 05:30:42] NOTICE: [pool www] child 10 started
+[03-Dec-2025 06:42:21] NOTICE: [pool www] child 10 exited with code 0 after 4298.654290 seconds from start
+[03-Dec-2025 06:42:21] NOTICE: [pool www] child 65 started
+[03-Dec-2025 06:43:25] NOTICE: [pool www] child 9 exited with code 0 after 4364.706827 seconds from start
+[03-Dec-2025 06:43:25] NOTICE: [pool www] child 66 started
+[03-Dec-2025 07:11:52] NOTICE: [pool www] child 65 exited with code 0 after 1771.185102 seconds from start
+[03-Dec-2025 07:11:52] NOTICE: [pool www] child 67 started
+[03-Dec-2025 07:17:07] NOTICE: [pool www] child 66 exited with code 0 after 2021.279374 seconds from start
+[03-Dec-2025 07:17:07] NOTICE: [pool www] child 68 started
+[03-Dec-2025 08:03:57] NOTICE: [pool www] child 67 exited with code 0 after 3124.755699 seconds from start
+[03-Dec-2025 08:03:57] NOTICE: [pool www] child 97 started
+[03-Dec-2025 08:07:01] NOTICE: [pool www] child 68 exited with code 0 after 2994.208207 seconds from start
+[03-Dec-2025 08:07:01] NOTICE: [pool www] child 124 started
+[03-Dec-2025 08:59:34] NOTICE: [pool www] child 69 exited with code 0 after 5097.100185 seconds from start
+[03-Dec-2025 08:59:34] NOTICE: [pool www] child 151 started
+[03-Dec-2025 09:29:42] NOTICE: [pool www] child 124 exited with code 0 after 4961.635233 seconds from start
+[03-Dec-2025 09:29:42] NOTICE: [pool www] child 153 started
+[03-Dec-2025 10:20:22] NOTICE: [pool www] child 151 exited with code 0 after 4848.132666 seconds from start
+[03-Dec-2025 10:20:22] NOTICE: [pool www] child 181 started
+[03-Dec-2025 10:49:03] NOTICE: [pool www] child 152 exited with code 0 after 5384.470005 seconds from start
+[03-Dec-2025 10:49:03] NOTICE: [pool www] child 208 started
+[03-Dec-2025 10:59:04] NOTICE: [pool www] child 153 exited with code 0 after 5361.390896 seconds from start
+[03-Dec-2025 10:59:04] NOTICE: [pool www] child 209 started
+[03-Dec-2025 11:35:17] NOTICE: [pool www] child 208 exited with code 0 after 2773.982131 seconds from start
+[03-Dec-2025 11:35:17] NOTICE: [pool www] child 211 started
+[03-Dec-2025 11:47:37] NOTICE: [pool www] child 209 exited with code 0 after 2913.550703 seconds from start
+[03-Dec-2025 11:47:37] NOTICE: [pool www] child 238 started
+[03-Dec-2025 11:57:53] NOTICE: [pool www] child 210 exited with code 0 after 2961.625089 seconds from start
+[03-Dec-2025 11:57:53] NOTICE: [pool www] child 239 started
+[03-Dec-2025 12:22:49] NOTICE: [pool www] child 211 exited with code 0 after 2851.455199 seconds from start
+[03-Dec-2025 12:22:49] NOTICE: [pool www] child 240 started
+[03-Dec-2025 12:24:00] NOTICE: [pool www] child 238 exited with code 0 after 2183.016959 seconds from start
+[03-Dec-2025 12:24:00] NOTICE: [pool www] child 241 started
+[03-Dec-2025 12:28:06] NOTICE: [pool www] child 239 exited with code 0 after 1812.905973 seconds from start
+[03-Dec-2025 12:28:06] NOTICE: [pool www] child 242 started
+[03-Dec-2025 12:49:10] NOTICE: [pool www] child 240 exited with code 0 after 1581.071408 seconds from start
+[03-Dec-2025 12:49:10] NOTICE: [pool www] child 271 started
+[03-Dec-2025 13:06:06] NOTICE: [pool www] child 241 exited with code 0 after 2526.038987 seconds from start
+[03-Dec-2025 13:06:06] NOTICE: [pool www] child 272 started
+[03-Dec-2025 13:27:08] NOTICE: [pool www] child 242 exited with code 0 after 3542.434552 seconds from start
+[03-Dec-2025 13:27:08] NOTICE: [pool www] child 273 started
+[03-Dec-2025 13:54:29] NOTICE: [pool www] child 271 exited with code 0 after 3919.653856 seconds from start
+[03-Dec-2025 13:54:29] NOTICE: [pool www] child 301 started
+[03-Dec-2025 14:09:39] NOTICE: [pool www] child 272 exited with code 0 after 3812.613314 seconds from start
+[03-Dec-2025 14:09:39] NOTICE: [pool www] child 302 started
+[03-Dec-2025 14:19:54] NOTICE: [pool www] child 273 exited with code 0 after 3165.402424 seconds from start
+[03-Dec-2025 14:19:54] NOTICE: [pool www] child 303 started
+[03-Dec-2025 14:51:27] NOTICE: [pool www] child 301 exited with code 0 after 3417.387526 seconds from start
+[03-Dec-2025 14:51:27] NOTICE: [pool www] child 330 started
+[03-Dec-2025 15:03:57] NOTICE: [pool www] child 302 exited with code 0 after 3258.058984 seconds from start
+[03-Dec-2025 15:03:57] NOTICE: [pool www] child 331 started
+[03-Dec-2025 15:17:24] NOTICE: [pool www] child 303 exited with code 0 after 3450.379940 seconds from start
+[03-Dec-2025 15:17:24] NOTICE: [pool www] child 332 started
+[03-Dec-2025 15:43:41] NOTICE: [pool www] child 330 exited with code 0 after 3134.212762 seconds from start
+[03-Dec-2025 15:43:41] NOTICE: [pool www] child 333 started
+[03-Dec-2025 16:03:12] NOTICE: [pool www] child 331 exited with code 0 after 3555.045575 seconds from start
+[03-Dec-2025 16:03:12] NOTICE: [pool www] child 361 started
+[03-Dec-2025 16:17:28] NOTICE: [pool www] child 332 exited with code 0 after 3604.406052 seconds from start
+[03-Dec-2025 16:17:28] NOTICE: [pool www] child 362 started
+[03-Dec-2025 17:12:22] NOTICE: [pool www] child 361 exited with code 0 after 4149.510867 seconds from start
+[03-Dec-2025 17:12:22] NOTICE: [pool www] child 390 started
+[03-Dec-2025 17:21:29] NOTICE: [pool www] child 362 exited with code 0 after 3840.965726 seconds from start
+[03-Dec-2025 17:21:29] NOTICE: [pool www] child 391 started
+[03-Dec-2025 17:29:40] NOTICE: [pool www] child 363 exited with code 0 after 3350.535687 seconds from start
+[03-Dec-2025 17:29:40] NOTICE: [pool www] child 392 started
+[03-Dec-2025 17:59:51] NOTICE: [pool www] child 390 exited with code 0 after 2848.842573 seconds from start
+[03-Dec-2025 17:59:51] NOTICE: [pool www] child 419 started
+[03-Dec-2025 18:09:33] NOTICE: [pool www] child 391 exited with code 0 after 2883.249006 seconds from start
+[03-Dec-2025 18:09:33] NOTICE: [pool www] child 420 started
+[03-Dec-2025 18:17:32] NOTICE: [pool www] child 392 exited with code 0 after 2871.272539 seconds from start
+[03-Dec-2025 18:17:32] NOTICE: [pool www] child 421 started
+[03-Dec-2025 18:53:58] NOTICE: [pool www] child 420 exited with code 0 after 2664.869042 seconds from start
+[03-Dec-2025 18:53:58] NOTICE: [pool www] child 450 started
+[03-Dec-2025 19:05:23] NOTICE: [pool www] child 421 exited with code 0 after 2871.397671 seconds from start
+[03-Dec-2025 19:05:23] NOTICE: [pool www] child 451 started
+[03-Dec-2025 19:06:14] NOTICE: [pool www] child 422 exited with code 0 after 2874.811372 seconds from start
+[03-Dec-2025 19:06:14] NOTICE: [pool www] child 452 started
+[03-Dec-2025 20:02:45] NOTICE: [pool www] child 451 exited with code 0 after 3442.452397 seconds from start
+[03-Dec-2025 20:02:45] NOTICE: [pool www] child 482 started
+[03-Dec-2025 20:08:54] NOTICE: [pool www] child 452 exited with code 0 after 3760.181599 seconds from start
+[03-Dec-2025 20:08:54] NOTICE: [pool www] child 483 started
+[03-Dec-2025 20:41:45] NOTICE: [pool www] child 481 exited with code 0 after 3132.523544 seconds from start
+[03-Dec-2025 20:41:45] NOTICE: [pool www] child 484 started
+[03-Dec-2025 21:00:54] NOTICE: [pool www] child 483 exited with code 0 after 3119.886415 seconds from start
+[03-Dec-2025 21:00:54] NOTICE: [pool www] child 513 started
+[03-Dec-2025 21:42:10] NOTICE: [pool www] child 484 exited with code 0 after 3625.816029 seconds from start
+[03-Dec-2025 21:42:10] NOTICE: [pool www] child 540 started
+[03-Dec-2025 21:42:50] NOTICE: [pool www] child 485 exited with code 0 after 3621.372419 seconds from start
+[03-Dec-2025 21:42:50] NOTICE: [pool www] child 541 started
+[03-Dec-2025 22:04:22] NOTICE: [pool www] child 513 exited with code 0 after 3807.820451 seconds from start
+[03-Dec-2025 22:04:22] NOTICE: [pool www] child 542 started
+[03-Dec-2025 22:44:06] NOTICE: [pool www] child 541 exited with code 0 after 3675.578862 seconds from start
+[03-Dec-2025 22:44:06] NOTICE: [pool www] child 544 started
+[03-Dec-2025 22:56:19] NOTICE: [pool www] child 542 exited with code 0 after 3116.525580 seconds from start
+[03-Dec-2025 22:56:19] NOTICE: [pool www] child 572 started
+[03-Dec-2025 23:27:47] NOTICE: [pool www] child 543 exited with code 0 after 3182.690373 seconds from start
+[03-Dec-2025 23:27:47] NOTICE: [pool www] child 573 started
+[03-Dec-2025 23:30:30] NOTICE: [pool www] child 544 exited with code 0 after 2784.521652 seconds from start
+[03-Dec-2025 23:30:30] NOTICE: [pool www] child 574 started
+[03-Dec-2025 23:34:09] NOTICE: [pool www] child 572 exited with code 0 after 2270.143284 seconds from start
+[03-Dec-2025 23:34:09] NOTICE: [pool www] child 575 started
+[03-Dec-2025 23:49:10] NOTICE: [pool www] child 573 exited with code 0 after 1282.809503 seconds from start
+[03-Dec-2025 23:49:10] NOTICE: [pool www] child 602 started
+[03-Dec-2025 23:49:37] NOTICE: [pool www] child 574 exited with code 0 after 1146.873041 seconds from start
+[03-Dec-2025 23:49:37] NOTICE: [pool www] child 603 started
+[03-Dec-2025 23:55:33] NOTICE: [pool www] child 575 exited with code 0 after 1284.402515 seconds from start
+[03-Dec-2025 23:55:33] NOTICE: [pool www] child 604 started
+[04-Dec-2025 00:05:26] NOTICE: [pool www] child 602 exited with code 0 after 976.207300 seconds from start
+[04-Dec-2025 00:05:26] NOTICE: [pool www] child 605 started
+[04-Dec-2025 00:06:09] NOTICE: [pool www] child 603 exited with code 0 after 991.581123 seconds from start
+[04-Dec-2025 00:06:09] NOTICE: [pool www] child 606 started
+[04-Dec-2025 00:10:17] NOTICE: [pool www] child 604 exited with code 0 after 883.549732 seconds from start
+[04-Dec-2025 00:10:17] NOTICE: [pool www] child 607 started
+[04-Dec-2025 00:20:12] NOTICE: [pool www] child 605 exited with code 0 after 886.120879 seconds from start
+[04-Dec-2025 00:20:12] NOTICE: [pool www] child 608 started
+[04-Dec-2025 00:20:28] NOTICE: [pool www] child 606 exited with code 0 after 859.336305 seconds from start
+[04-Dec-2025 00:20:28] NOTICE: [pool www] child 609 started
+[04-Dec-2025 00:22:35] NOTICE: [pool www] child 607 exited with code 0 after 738.114517 seconds from start
+[04-Dec-2025 00:22:35] NOTICE: [pool www] child 610 started
+[04-Dec-2025 00:32:44] NOTICE: [pool www] child 608 exited with code 0 after 752.026870 seconds from start
+[04-Dec-2025 00:32:44] NOTICE: [pool www] child 611 started
+[04-Dec-2025 00:33:18] NOTICE: [pool www] child 609 exited with code 0 after 770.122591 seconds from start
+[04-Dec-2025 00:33:18] NOTICE: [pool www] child 612 started
+[04-Dec-2025 00:36:08] NOTICE: [pool www] child 610 exited with code 0 after 813.730036 seconds from start
+[04-Dec-2025 00:36:08] NOTICE: [pool www] child 613 started
+[04-Dec-2025 00:44:54] NOTICE: [pool www] child 611 exited with code 0 after 729.853305 seconds from start
+[04-Dec-2025 00:44:54] NOTICE: [pool www] child 614 started
+[04-Dec-2025 00:45:50] NOTICE: [pool www] child 612 exited with code 0 after 752.284000 seconds from start
+[04-Dec-2025 00:45:50] NOTICE: [pool www] child 615 started
+[04-Dec-2025 00:47:38] NOTICE: [pool www] child 613 exited with code 0 after 689.043976 seconds from start
+[04-Dec-2025 00:47:38] NOTICE: [pool www] child 642 started
+[04-Dec-2025 00:55:24] NOTICE: [pool www] child 615 exited with code 0 after 573.108872 seconds from start
+[04-Dec-2025 00:55:24] NOTICE: [pool www] child 644 started
+[04-Dec-2025 00:57:19] NOTICE: [pool www] child 642 exited with code 0 after 581.260183 seconds from start
+[04-Dec-2025 00:57:19] NOTICE: [pool www] child 645 started
+[04-Dec-2025 01:01:00] NOTICE: [pool www] child 643 exited with code 0 after 581.550204 seconds from start
+[04-Dec-2025 01:01:00] NOTICE: [pool www] child 646 started
+[04-Dec-2025 01:07:47] NOTICE: [pool www] child 644 exited with code 0 after 743.830117 seconds from start
+[04-Dec-2025 01:07:47] NOTICE: [pool www] child 647 started
+[04-Dec-2025 01:09:40] NOTICE: [pool www] child 645 exited with code 0 after 741.209147 seconds from start
+[04-Dec-2025 01:09:40] NOTICE: [pool www] child 648 started
+[04-Dec-2025 01:13:00] NOTICE: [pool www] child 646 exited with code 0 after 719.705792 seconds from start
+[04-Dec-2025 01:13:00] NOTICE: [pool www] child 649 started
+[04-Dec-2025 01:16:14] NOTICE: [pool www] child 647 exited with code 0 after 506.158761 seconds from start
+[04-Dec-2025 01:16:14] NOTICE: [pool www] child 650 started
+[04-Dec-2025 01:17:39] NOTICE: [pool www] child 648 exited with code 0 after 479.262858 seconds from start
+[04-Dec-2025 01:17:39] NOTICE: [pool www] child 651 started
+[04-Dec-2025 01:23:20] NOTICE: [pool www] child 649 exited with code 0 after 620.329565 seconds from start
+[04-Dec-2025 01:23:20] NOTICE: [pool www] child 652 started
+[04-Dec-2025 01:28:26] NOTICE: [pool www] child 650 exited with code 0 after 732.148520 seconds from start
+[04-Dec-2025 01:28:26] NOTICE: [pool www] child 653 started
+[04-Dec-2025 01:29:38] NOTICE: [pool www] child 651 exited with code 0 after 718.960983 seconds from start
+[04-Dec-2025 01:29:38] NOTICE: [pool www] child 654 started
+[04-Dec-2025 01:33:48] NOTICE: [pool www] child 652 exited with code 0 after 627.614928 seconds from start
+[04-Dec-2025 01:33:48] NOTICE: [pool www] child 655 started
+[04-Dec-2025 01:37:20] NOTICE: [pool www] child 653 exited with code 0 after 534.164903 seconds from start
+[04-Dec-2025 01:37:20] NOTICE: [pool www] child 656 started
+[04-Dec-2025 01:38:05] NOTICE: [pool www] child 654 exited with code 0 after 506.599290 seconds from start
+[04-Dec-2025 01:38:05] NOTICE: [pool www] child 657 started
+[04-Dec-2025 01:42:39] NOTICE: [pool www] child 655 exited with code 0 after 531.499079 seconds from start
+[04-Dec-2025 01:42:39] NOTICE: [pool www] child 658 started
+[04-Dec-2025 01:47:56] NOTICE: [pool www] child 656 exited with code 0 after 635.621982 seconds from start
+[04-Dec-2025 01:47:56] NOTICE: [pool www] child 685 started
+[04-Dec-2025 01:48:24] NOTICE: [pool www] child 657 exited with code 0 after 619.651772 seconds from start
+[04-Dec-2025 01:48:24] NOTICE: [pool www] child 686 started
+[04-Dec-2025 01:52:49] NOTICE: [pool www] child 658 exited with code 0 after 609.831925 seconds from start
+[04-Dec-2025 01:52:49] NOTICE: [pool www] child 687 started
+[04-Dec-2025 01:58:12] NOTICE: [pool www] child 685 exited with code 0 after 616.509378 seconds from start
+[04-Dec-2025 01:58:12] NOTICE: [pool www] child 688 started
+[04-Dec-2025 01:58:53] NOTICE: [pool www] child 686 exited with code 0 after 628.993550 seconds from start
+[04-Dec-2025 01:58:53] NOTICE: [pool www] child 689 started
+[04-Dec-2025 02:03:09] NOTICE: [pool www] child 687 exited with code 0 after 619.695298 seconds from start
+[04-Dec-2025 02:03:09] NOTICE: [pool www] child 690 started
+[04-Dec-2025 02:07:19] NOTICE: [pool www] child 688 exited with code 0 after 546.836306 seconds from start
+[04-Dec-2025 02:07:19] NOTICE: [pool www] child 691 started
+[04-Dec-2025 02:07:52] NOTICE: [pool www] child 689 exited with code 0 after 538.649283 seconds from start
+[04-Dec-2025 02:07:52] NOTICE: [pool www] child 692 started
+[04-Dec-2025 02:11:51] NOTICE: [pool www] child 690 exited with code 0 after 522.503417 seconds from start
+[04-Dec-2025 02:11:51] NOTICE: [pool www] child 693 started
+[04-Dec-2025 02:16:30] NOTICE: [pool www] child 691 exited with code 0 after 551.340283 seconds from start
+[04-Dec-2025 02:16:30] NOTICE: [pool www] child 694 started
+[04-Dec-2025 02:17:34] NOTICE: [pool www] child 692 exited with code 0 after 582.123377 seconds from start
+[04-Dec-2025 02:17:34] NOTICE: [pool www] child 695 started
+[04-Dec-2025 02:21:13] NOTICE: [pool www] child 693 exited with code 0 after 561.358692 seconds from start
+[04-Dec-2025 02:21:13] NOTICE: [pool www] child 696 started
+[04-Dec-2025 02:27:52] NOTICE: [pool www] child 694 exited with code 0 after 682.024856 seconds from start
+[04-Dec-2025 02:27:52] NOTICE: [pool www] child 697 started
+[04-Dec-2025 02:28:51] NOTICE: [pool www] child 695 exited with code 0 after 676.384633 seconds from start
+[04-Dec-2025 02:28:51] NOTICE: [pool www] child 698 started
+[04-Dec-2025 02:33:03] NOTICE: [pool www] child 696 exited with code 0 after 710.658009 seconds from start
+[04-Dec-2025 02:33:03] NOTICE: [pool www] child 699 started
+[04-Dec-2025 02:40:53] NOTICE: [pool www] child 697 exited with code 0 after 780.333728 seconds from start
+[04-Dec-2025 02:40:53] NOTICE: [pool www] child 700 started
+[04-Dec-2025 02:41:42] NOTICE: [pool www] child 698 exited with code 0 after 771.185989 seconds from start
+[04-Dec-2025 02:41:42] NOTICE: [pool www] child 712 started
+[04-Dec-2025 02:46:54] NOTICE: [pool www] child 699 exited with code 0 after 830.573379 seconds from start
+[04-Dec-2025 02:46:54] NOTICE: [pool www] child 731 started
+[04-Dec-2025 02:54:54] NOTICE: [pool www] child 700 exited with code 0 after 841.082736 seconds from start
+[04-Dec-2025 02:54:54] NOTICE: [pool www] child 732 started
+[04-Dec-2025 02:55:30] NOTICE: [pool www] child 712 exited with code 0 after 828.275704 seconds from start
+[04-Dec-2025 02:55:30] NOTICE: [pool www] child 733 started
+[04-Dec-2025 03:03:18] NOTICE: [pool www] child 731 exited with code 0 after 983.653301 seconds from start
+[04-Dec-2025 03:03:18] NOTICE: [pool www] child 734 started
+[04-Dec-2025 03:13:01] NOTICE: [pool www] child 732 exited with code 0 after 1087.257312 seconds from start
+[04-Dec-2025 03:13:01] NOTICE: [pool www] child 735 started
+[04-Dec-2025 03:13:20] NOTICE: [pool www] child 733 exited with code 0 after 1070.034700 seconds from start
+[04-Dec-2025 03:13:20] NOTICE: [pool www] child 736 started
+[04-Dec-2025 03:19:01] NOTICE: [pool www] child 734 exited with code 0 after 943.475072 seconds from start
+[04-Dec-2025 03:19:01] NOTICE: [pool www] child 737 started
+[04-Dec-2025 03:30:25] NOTICE: [pool www] child 735 exited with code 0 after 1043.584640 seconds from start
+[04-Dec-2025 03:30:25] NOTICE: [pool www] child 738 started
+[04-Dec-2025 03:30:28] NOTICE: [pool www] child 736 exited with code 0 after 1028.091781 seconds from start
+[04-Dec-2025 03:30:28] NOTICE: [pool www] child 739 started
+[04-Dec-2025 03:37:18] NOTICE: [pool www] child 737 exited with code 0 after 1097.303347 seconds from start
+[04-Dec-2025 03:37:18] NOTICE: [pool www] child 740 started
+[04-Dec-2025 03:55:46] NOTICE: [pool www] child 738 exited with code 0 after 1521.505935 seconds from start
+[04-Dec-2025 03:55:46] NOTICE: [pool www] child 767 started
+[04-Dec-2025 03:55:59] NOTICE: [pool www] child 739 exited with code 0 after 1530.636137 seconds from start
+[04-Dec-2025 03:55:59] NOTICE: [pool www] child 768 started
+[04-Dec-2025 04:13:43] NOTICE: [pool www] child 740 exited with code 0 after 2185.031294 seconds from start
+[04-Dec-2025 04:13:43] NOTICE: [pool www] child 769 started
+[04-Dec-2025 04:36:06] NOTICE: [pool www] child 768 exited with code 0 after 2407.575427 seconds from start
+[04-Dec-2025 04:36:06] NOTICE: [pool www] child 770 started
+[04-Dec-2025 04:36:39] NOTICE: [pool www] child 767 exited with code 0 after 2452.598209 seconds from start
+[04-Dec-2025 04:36:39] NOTICE: [pool www] child 771 started
+[04-Dec-2025 04:57:34] NOTICE: [pool www] child 769 exited with code 0 after 2631.030686 seconds from start
+[04-Dec-2025 04:57:34] NOTICE: [pool www] child 798 started
+[04-Dec-2025 05:15:23] NOTICE: [pool www] child 771 exited with code 0 after 2323.927124 seconds from start
+[04-Dec-2025 05:15:23] NOTICE: [pool www] child 799 started
+[04-Dec-2025 05:19:16] NOTICE: [pool www] child 770 exited with code 0 after 2589.671185 seconds from start
+[04-Dec-2025 05:19:16] NOTICE: [pool www] child 800 started
+[04-Dec-2025 05:39:09] NOTICE: [pool www] child 798 exited with code 0 after 2495.110000 seconds from start
+[04-Dec-2025 05:39:09] NOTICE: [pool www] child 801 started
+[04-Dec-2025 05:53:09] NOTICE: [pool www] child 799 exited with code 0 after 2266.793223 seconds from start
+[04-Dec-2025 05:53:09] NOTICE: [pool www] child 828 started
+[04-Dec-2025 05:53:39] NOTICE: [pool www] child 800 exited with code 0 after 2062.933306 seconds from start
+[04-Dec-2025 05:53:39] NOTICE: [pool www] child 829 started
+[04-Dec-2025 06:01:54] NOTICE: [pool www] child 801 exited with code 0 after 1364.934739 seconds from start
+[04-Dec-2025 06:01:54] NOTICE: [pool www] child 830 started
+[04-Dec-2025 06:12:26] NOTICE: [pool www] child 828 exited with code 0 after 1156.231152 seconds from start
+[04-Dec-2025 06:12:26] NOTICE: [pool www] child 831 started
+[04-Dec-2025 06:12:32] NOTICE: [pool www] child 829 exited with code 0 after 1132.959377 seconds from start
+[04-Dec-2025 06:12:32] NOTICE: [pool www] child 832 started
+[04-Dec-2025 06:36:18] NOTICE: [pool www] child 832 exited with code 0 after 1426.400855 seconds from start
+[04-Dec-2025 06:36:18] NOTICE: [pool www] child 834 started
+[04-Dec-2025 06:36:20] NOTICE: [pool www] child 831 exited with code 0 after 1434.038757 seconds from start
+[04-Dec-2025 06:36:20] NOTICE: [pool www] child 835 started
+[04-Dec-2025 06:39:02] NOTICE: [pool www] child 833 exited with code 0 after 1523.970342 seconds from start
+[04-Dec-2025 06:39:02] NOTICE: [pool www] child 836 started
+[04-Dec-2025 07:05:08] NOTICE: [pool www] child 834 exited with code 0 after 1729.095213 seconds from start
+[04-Dec-2025 07:05:08] NOTICE: [pool www] child 863 started
+[04-Dec-2025 07:10:05] NOTICE: [pool www] child 836 exited with code 0 after 1862.647913 seconds from start
+[04-Dec-2025 07:10:05] NOTICE: [pool www] child 864 started
+[04-Dec-2025 07:10:06] NOTICE: [pool www] child 835 exited with code 0 after 2026.832193 seconds from start
+[04-Dec-2025 07:10:06] NOTICE: [pool www] child 865 started
+[04-Dec-2025 07:37:25] NOTICE: [pool www] child 863 exited with code 0 after 1937.354467 seconds from start
+[04-Dec-2025 07:37:25] NOTICE: [pool www] child 866 started
+[04-Dec-2025 07:42:03] NOTICE: [pool www] child 864 exited with code 0 after 1918.150942 seconds from start
+[04-Dec-2025 07:42:03] NOTICE: [pool www] child 867 started
+[04-Dec-2025 07:42:04] NOTICE: [pool www] child 865 exited with code 0 after 1917.537420 seconds from start
+[04-Dec-2025 07:42:04] NOTICE: [pool www] child 868 started
+[04-Dec-2025 08:06:14] NOTICE: [pool www] child 866 exited with code 0 after 1728.698314 seconds from start
+[04-Dec-2025 08:06:14] NOTICE: [pool www] child 895 started
+[04-Dec-2025 08:08:38] NOTICE: [pool www] child 867 exited with code 0 after 1595.344468 seconds from start
+[04-Dec-2025 08:08:38] NOTICE: [pool www] child 896 started
+[04-Dec-2025 08:09:54] NOTICE: [pool www] child 868 exited with code 0 after 1670.098763 seconds from start
+[04-Dec-2025 08:09:54] NOTICE: [pool www] child 897 started
+[04-Dec-2025 08:32:43] NOTICE: [pool www] child 895 exited with code 0 after 1589.086280 seconds from start
+[04-Dec-2025 08:32:43] NOTICE: [pool www] child 898 started
+[04-Dec-2025 08:35:15] NOTICE: [pool www] child 897 exited with code 0 after 1521.301720 seconds from start
+[04-Dec-2025 08:35:15] NOTICE: [pool www] child 899 started
+[04-Dec-2025 08:36:17] NOTICE: [pool www] child 896 exited with code 0 after 1659.182869 seconds from start
+[04-Dec-2025 08:36:17] NOTICE: [pool www] child 900 started
+[04-Dec-2025 09:03:38] NOTICE: [pool www] child 898 exited with code 0 after 1855.456205 seconds from start
+[04-Dec-2025 09:03:38] NOTICE: [pool www] child 928 started
+[04-Dec-2025 09:09:47] NOTICE: [pool www] child 900 exited with code 0 after 2009.817983 seconds from start
+[04-Dec-2025 09:09:47] NOTICE: [pool www] child 929 started
+[04-Dec-2025 09:10:28] NOTICE: [pool www] child 899 exited with code 0 after 2112.105681 seconds from start
+[04-Dec-2025 09:10:28] NOTICE: [pool www] child 930 started
+[04-Dec-2025 09:22:49] NOTICE: Finishing ...
+[04-Dec-2025 09:22:49] NOTICE: exiting, bye-bye!
+[04-Dec-2025 09:32:54] NOTICE: fpm is running, pid 1
+[04-Dec-2025 09:32:54] NOTICE: ready to handle connections
+[04-Dec-2025 09:32:54] NOTICE: systemd monitor disabled
+[04-Dec-2025 10:02:58] NOTICE: [pool www] child 7 exited with code 0 after 1803.521019 seconds from start
+[04-Dec-2025 10:02:58] NOTICE: [pool www] child 36 started
+[04-Dec-2025 10:05:04] NOTICE: [pool www] child 8 exited with code 0 after 1928.292003 seconds from start
+[04-Dec-2025 10:05:04] NOTICE: [pool www] child 37 started
+[04-Dec-2025 10:49:37] NOTICE: [pool www] child 35 exited with code 0 after 2798.631714 seconds from start
+[04-Dec-2025 10:49:37] NOTICE: [pool www] child 65 started
+[04-Dec-2025 10:49:47] NOTICE: [pool www] child 36 exited with code 0 after 2808.870585 seconds from start
+[04-Dec-2025 10:49:47] NOTICE: [pool www] child 66 started
+[04-Dec-2025 10:54:39] NOTICE: [pool www] child 37 exited with code 0 after 2975.076444 seconds from start
+[04-Dec-2025 10:54:39] NOTICE: [pool www] child 67 started
+[04-Dec-2025 11:36:35] NOTICE: [pool www] child 65 exited with code 0 after 2818.242634 seconds from start
+[04-Dec-2025 11:36:35] NOTICE: [pool www] child 68 started
+[04-Dec-2025 11:36:38] NOTICE: [pool www] child 66 exited with code 0 after 2811.013828 seconds from start
+[04-Dec-2025 11:36:38] NOTICE: [pool www] child 69 started
+[04-Dec-2025 11:40:19] NOTICE: [pool www] child 67 exited with code 0 after 2739.775044 seconds from start
+[04-Dec-2025 11:40:19] NOTICE: [pool www] child 70 started
+[04-Dec-2025 12:26:55] NOTICE: [pool www] child 69 exited with code 0 after 3017.131966 seconds from start
+[04-Dec-2025 12:26:55] NOTICE: [pool www] child 98 started
+[04-Dec-2025 12:31:00] NOTICE: [pool www] child 68 exited with code 0 after 3265.105010 seconds from start
+[04-Dec-2025 12:31:00] NOTICE: [pool www] child 99 started
+[04-Dec-2025 12:36:58] NOTICE: [pool www] child 70 exited with code 0 after 3399.127323 seconds from start
+[04-Dec-2025 12:36:58] NOTICE: [pool www] child 100 started
+[04-Dec-2025 12:56:47] NOTICE: [pool www] child 98 exited with code 0 after 1792.275356 seconds from start
+[04-Dec-2025 12:56:47] NOTICE: [pool www] child 127 started
+[04-Dec-2025 12:57:14] NOTICE: [pool www] child 99 exited with code 0 after 1574.253377 seconds from start
+[04-Dec-2025 12:57:14] NOTICE: [pool www] child 128 started
+[04-Dec-2025 13:04:15] NOTICE: [pool www] child 100 exited with code 0 after 1637.136259 seconds from start
+[04-Dec-2025 13:04:15] NOTICE: [pool www] child 155 started
+[04-Dec-2025 13:46:19] NOTICE: [pool www] child 128 exited with code 0 after 2944.932729 seconds from start
+[04-Dec-2025 13:46:19] NOTICE: [pool www] child 182 started
+[04-Dec-2025 13:46:22] NOTICE: [pool www] child 127 exited with code 0 after 2974.906253 seconds from start
+[04-Dec-2025 13:46:22] NOTICE: [pool www] child 183 started
+[04-Dec-2025 13:49:48] NOTICE: [pool www] child 155 exited with code 0 after 2733.224727 seconds from start
+[04-Dec-2025 13:49:48] NOTICE: [pool www] child 184 started
+[04-Dec-2025 14:24:47] NOTICE: [pool www] child 182 exited with code 0 after 2308.291409 seconds from start
+[04-Dec-2025 14:24:47] NOTICE: [pool www] child 185 started
+[04-Dec-2025 14:25:04] NOTICE: [pool www] child 183 exited with code 0 after 2321.367255 seconds from start
+[04-Dec-2025 14:25:04] NOTICE: [pool www] child 186 started
+[04-Dec-2025 14:29:17] NOTICE: [pool www] child 184 exited with code 0 after 2369.021024 seconds from start
+[04-Dec-2025 14:29:17] NOTICE: [pool www] child 187 started
+[04-Dec-2025 15:18:05] NOTICE: [pool www] child 185 exited with code 0 after 3197.697633 seconds from start
+[04-Dec-2025 15:18:05] NOTICE: [pool www] child 215 started
+[04-Dec-2025 15:19:44] NOTICE: [pool www] child 186 exited with code 0 after 3280.699178 seconds from start
+[04-Dec-2025 15:19:44] NOTICE: [pool www] child 216 started
+[04-Dec-2025 15:23:26] NOTICE: [pool www] child 187 exited with code 0 after 3249.329938 seconds from start
+[04-Dec-2025 15:23:26] NOTICE: [pool www] child 217 started
+[04-Dec-2025 16:08:02] NOTICE: [pool www] child 216 exited with code 0 after 2897.261609 seconds from start
+[04-Dec-2025 16:08:02] NOTICE: [pool www] child 247 started
+[04-Dec-2025 16:08:03] NOTICE: [pool www] child 215 exited with code 0 after 2997.598026 seconds from start
+[04-Dec-2025 16:08:03] NOTICE: [pool www] child 248 started
+[04-Dec-2025 16:49:06] NOTICE: [pool www] child 247 exited with code 0 after 2464.084016 seconds from start
+[04-Dec-2025 16:49:06] NOTICE: [pool www] child 277 started
+[04-Dec-2025 16:49:10] NOTICE: [pool www] child 248 exited with code 0 after 2467.600183 seconds from start
+[04-Dec-2025 16:49:10] NOTICE: [pool www] child 278 started
+[04-Dec-2025 16:53:57] NOTICE: [pool www] child 249 exited with code 0 after 2608.835101 seconds from start
+[04-Dec-2025 16:53:57] NOTICE: [pool www] child 279 started
+[04-Dec-2025 17:35:52] NOTICE: [pool www] child 278 exited with code 0 after 2801.215412 seconds from start
+[04-Dec-2025 17:35:52] NOTICE: [pool www] child 280 started
+[04-Dec-2025 17:37:08] NOTICE: [pool www] child 277 exited with code 0 after 2882.415334 seconds from start
+[04-Dec-2025 17:37:08] NOTICE: [pool www] child 281 started
+[04-Dec-2025 17:39:20] NOTICE: [pool www] child 279 exited with code 0 after 2722.994875 seconds from start
+[04-Dec-2025 17:39:20] NOTICE: [pool www] child 282 started
+[04-Dec-2025 18:20:15] NOTICE: [pool www] child 280 exited with code 0 after 2663.294191 seconds from start
+[04-Dec-2025 18:20:15] NOTICE: [pool www] child 309 started
+[04-Dec-2025 18:20:20] NOTICE: [pool www] child 281 exited with code 0 after 2592.254842 seconds from start
+[04-Dec-2025 18:20:20] NOTICE: [pool www] child 310 started
+[04-Dec-2025 18:23:59] NOTICE: [pool www] child 282 exited with code 0 after 2679.070352 seconds from start
+[04-Dec-2025 18:23:59] NOTICE: [pool www] child 311 started
+[04-Dec-2025 18:57:42] NOTICE: [pool www] child 310 exited with code 0 after 2241.609923 seconds from start
+[04-Dec-2025 18:57:42] NOTICE: [pool www] child 338 started
+[04-Dec-2025 18:58:29] NOTICE: [pool www] child 309 exited with code 0 after 2294.154999 seconds from start
+[04-Dec-2025 18:58:29] NOTICE: [pool www] child 339 started
+[04-Dec-2025 19:02:53] NOTICE: [pool www] child 311 exited with code 0 after 2333.967907 seconds from start
+[04-Dec-2025 19:02:53] NOTICE: [pool www] child 340 started
+[04-Dec-2025 19:44:03] NOTICE: [pool www] child 339 exited with code 0 after 2734.074077 seconds from start
+[04-Dec-2025 19:44:03] NOTICE: [pool www] child 342 started
+[04-Dec-2025 20:13:22] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[04-Dec-2025 20:13:22] NOTICE: [pool www] child 341 exited with code 0 after 1807.617784 seconds from start
+[04-Dec-2025 20:13:22] NOTICE: [pool www] child 371 started
+[04-Dec-2025 20:26:03] NOTICE: [pool www] child 369 exited with code 0 after 2397.283631 seconds from start
+[04-Dec-2025 20:26:03] NOTICE: [pool www] child 372 started
+[04-Dec-2025 21:33:29] NOTICE: [pool www] child 402 exited with code 0 after 2664.377835 seconds from start
+[04-Dec-2025 21:33:29] NOTICE: [pool www] child 433 started
+[04-Dec-2025 21:41:00] NOTICE: Finishing ...
+[04-Dec-2025 21:41:00] NOTICE: exiting, bye-bye!
+[04-Dec-2025 21:41:06] NOTICE: fpm is running, pid 1
+[04-Dec-2025 21:41:06] NOTICE: ready to handle connections
+[04-Dec-2025 21:41:06] NOTICE: systemd monitor disabled
+[04-Dec-2025 21:41:25] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[04-Dec-2025 22:21:26] NOTICE: [pool www] child 74 exited with code 0 after 2151.109491 seconds from start
+[04-Dec-2025 22:21:26] NOTICE: [pool www] child 85 started
+[04-Dec-2025 22:33:39] NOTICE: [pool www] child 75 exited with code 0 after 2858.645241 seconds from start
+[04-Dec-2025 22:33:39] NOTICE: [pool www] child 86 started
+[04-Dec-2025 22:46:08] NOTICE: [pool www] child 76 exited with code 0 after 3341.035668 seconds from start
+[04-Dec-2025 22:46:08] NOTICE: [pool www] child 114 started
+[04-Dec-2025 23:28:03] NOTICE: [pool www] child 86 exited with code 0 after 3263.980585 seconds from start
+[04-Dec-2025 23:28:03] NOTICE: [pool www] child 115 started
+[04-Dec-2025 23:40:19] NOTICE: Finishing ...
+[04-Dec-2025 23:40:19] NOTICE: exiting, bye-bye!
+[04-Dec-2025 23:40:26] NOTICE: fpm is running, pid 1
+[04-Dec-2025 23:40:26] NOTICE: ready to handle connections
+[04-Dec-2025 23:40:26] NOTICE: systemd monitor disabled
+[04-Dec-2025 23:57:58] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[05-Dec-2025 00:04:43] NOTICE: [pool www] child 96 exited with code 0 after 681.691819 seconds from start
+[05-Dec-2025 00:04:43] NOTICE: [pool www] child 99 started
+[05-Dec-2025 00:20:07] NOTICE: [pool www] child 97 exited with code 0 after 1528.217918 seconds from start
+[05-Dec-2025 00:20:07] NOTICE: [pool www] child 100 started
+[05-Dec-2025 00:23:25] NOTICE: [pool www] child 98 exited with code 0 after 1528.164872 seconds from start
+[05-Dec-2025 00:23:25] NOTICE: [pool www] child 101 started
+[05-Dec-2025 00:41:59] NOTICE: [pool www] child 99 exited with code 0 after 2235.178281 seconds from start
+[05-Dec-2025 00:41:59] NOTICE: [pool www] child 102 started
+[05-Dec-2025 00:56:52] NOTICE: [pool www] child 100 exited with code 0 after 2204.529926 seconds from start
+[05-Dec-2025 00:56:52] NOTICE: [pool www] child 129 started
+[05-Dec-2025 00:57:24] NOTICE: [pool www] child 101 exited with code 0 after 2039.053001 seconds from start
+[05-Dec-2025 00:57:24] NOTICE: [pool www] child 130 started
+[05-Dec-2025 01:30:01] NOTICE: [pool www] child 129 exited with code 0 after 1989.085058 seconds from start
+[05-Dec-2025 01:30:01] NOTICE: [pool www] child 132 started
+[05-Dec-2025 01:30:33] NOTICE: [pool www] child 130 exited with code 0 after 1988.568775 seconds from start
+[05-Dec-2025 01:30:33] NOTICE: [pool www] child 133 started
+[05-Dec-2025 01:47:53] NOTICE: [pool www] child 131 exited with code 0 after 2213.583640 seconds from start
+[05-Dec-2025 01:47:53] NOTICE: [pool www] child 160 started
+[05-Dec-2025 02:00:35] NOTICE: [pool www] child 132 exited with code 0 after 1834.135664 seconds from start
+[05-Dec-2025 02:00:35] NOTICE: [pool www] child 161 started
+[05-Dec-2025 02:00:47] NOTICE: [pool www] child 133 exited with code 0 after 1814.548494 seconds from start
+[05-Dec-2025 02:00:47] NOTICE: [pool www] child 162 started
+[05-Dec-2025 02:25:44] NOTICE: [pool www] child 160 exited with code 0 after 2271.169712 seconds from start
+[05-Dec-2025 02:25:44] NOTICE: [pool www] child 163 started
+[05-Dec-2025 02:42:49] NOTICE: [pool www] child 161 exited with code 0 after 2534.256201 seconds from start
+[05-Dec-2025 02:42:49] NOTICE: [pool www] child 190 started
+[05-Dec-2025 02:42:50] NOTICE: [pool www] child 162 exited with code 0 after 2522.429666 seconds from start
+[05-Dec-2025 02:42:50] NOTICE: [pool www] child 191 started
+[05-Dec-2025 03:06:49] NOTICE: [pool www] child 191 exited with code 0 after 1439.252848 seconds from start
+[05-Dec-2025 03:06:49] NOTICE: [pool www] child 194 started
+[05-Dec-2025 03:06:58] NOTICE: [pool www] child 192 exited with code 0 after 1207.696185 seconds from start
+[05-Dec-2025 03:06:58] NOTICE: [pool www] child 195 started
+[05-Dec-2025 03:07:10] NOTICE: [pool www] child 193 exited with code 0 after 1183.339666 seconds from start
+[05-Dec-2025 03:07:10] NOTICE: [pool www] child 196 started
+[05-Dec-2025 03:25:46] NOTICE: [pool www] child 195 exited with code 0 after 1127.949858 seconds from start
+[05-Dec-2025 03:25:46] NOTICE: [pool www] child 197 started
+[05-Dec-2025 03:28:57] NOTICE: [pool www] child 194 exited with code 0 after 1328.463366 seconds from start
+[05-Dec-2025 03:28:57] NOTICE: [pool www] child 198 started
+[05-Dec-2025 03:30:17] NOTICE: [pool www] child 196 exited with code 0 after 1386.829771 seconds from start
+[05-Dec-2025 03:30:17] NOTICE: [pool www] child 199 started
+[05-Dec-2025 03:51:25] NOTICE: [pool www] child 198 exited with code 0 after 1347.216489 seconds from start
+[05-Dec-2025 03:51:25] NOTICE: [pool www] child 227 started
+[05-Dec-2025 03:54:45] NOTICE: [pool www] child 199 exited with code 0 after 1468.647732 seconds from start
+[05-Dec-2025 03:54:45] NOTICE: [pool www] child 228 started
+[05-Dec-2025 04:40:48] NOTICE: [pool www] child 227 exited with code 0 after 2963.791851 seconds from start
+[05-Dec-2025 04:40:48] NOTICE: [pool www] child 230 started
+[05-Dec-2025 04:56:37] NOTICE: [pool www] child 228 exited with code 0 after 3711.395131 seconds from start
+[05-Dec-2025 04:56:37] NOTICE: [pool www] child 257 started
+[05-Dec-2025 05:03:15] NOTICE: [pool www] child 229 exited with code 0 after 3500.405109 seconds from start
+[05-Dec-2025 05:03:15] NOTICE: [pool www] child 258 started
+[05-Dec-2025 05:50:32] NOTICE: [pool www] child 230 exited with code 0 after 4183.211593 seconds from start
+[05-Dec-2025 05:50:32] NOTICE: [pool www] child 286 started
+[05-Dec-2025 06:17:06] NOTICE: [pool www] child 257 exited with code 0 after 4829.177107 seconds from start
+[05-Dec-2025 06:17:06] NOTICE: [pool www] child 287 started
+[05-Dec-2025 06:21:53] NOTICE: [pool www] child 258 exited with code 0 after 4718.420711 seconds from start
+[05-Dec-2025 06:21:53] NOTICE: [pool www] child 288 started
+[05-Dec-2025 06:58:41] NOTICE: [pool www] child 286 exited with code 0 after 4089.792112 seconds from start
+[05-Dec-2025 06:58:41] NOTICE: [pool www] child 315 started
+[05-Dec-2025 07:04:38] NOTICE: [pool www] child 287 exited with code 0 after 2852.001836 seconds from start
+[05-Dec-2025 07:04:38] NOTICE: [pool www] child 316 started
+[05-Dec-2025 07:59:41] NOTICE: [pool www] child 315 exited with code 0 after 3659.136832 seconds from start
+[05-Dec-2025 07:59:41] NOTICE: [pool www] child 344 started
+[05-Dec-2025 08:15:33] NOTICE: [pool www] child 316 exited with code 0 after 4255.478332 seconds from start
+[05-Dec-2025 08:15:33] NOTICE: [pool www] child 345 started
+[05-Dec-2025 08:19:49] NOTICE: [pool www] child 317 exited with code 0 after 4302.988726 seconds from start
+[05-Dec-2025 08:19:49] NOTICE: [pool www] child 346 started
+[05-Dec-2025 08:57:59] NOTICE: [pool www] child 344 exited with code 0 after 3498.459526 seconds from start
+[05-Dec-2025 08:57:59] NOTICE: [pool www] child 373 started
+[05-Dec-2025 09:34:48] NOTICE: [pool www] child 345 exited with code 0 after 4754.568220 seconds from start
+[05-Dec-2025 09:34:48] NOTICE: [pool www] child 374 started
+[05-Dec-2025 09:37:19] NOTICE: [pool www] child 346 exited with code 0 after 4650.762774 seconds from start
+[05-Dec-2025 09:37:19] NOTICE: [pool www] child 375 started
+[05-Dec-2025 10:42:49] NOTICE: [pool www] child 373 exited with code 0 after 6289.917334 seconds from start
+[05-Dec-2025 10:42:49] NOTICE: [pool www] child 429 started
+[05-Dec-2025 11:12:38] NOTICE: [pool www] child 374 exited with code 0 after 5870.168412 seconds from start
+[05-Dec-2025 11:12:38] NOTICE: [pool www] child 430 started
+[05-Dec-2025 11:16:48] NOTICE: [pool www] child 375 exited with code 0 after 5968.344190 seconds from start
+[05-Dec-2025 11:16:48] NOTICE: [pool www] child 431 started
+[05-Dec-2025 12:23:36] NOTICE: [pool www] child 429 exited with code 0 after 6046.625362 seconds from start
+[05-Dec-2025 12:23:36] NOTICE: [pool www] child 459 started
+[05-Dec-2025 12:52:25] NOTICE: [pool www] child 430 exited with code 0 after 5986.526726 seconds from start
+[05-Dec-2025 12:52:25] NOTICE: [pool www] child 487 started
+[05-Dec-2025 12:53:17] NOTICE: [pool www] child 431 exited with code 0 after 5788.970523 seconds from start
+[05-Dec-2025 12:53:17] NOTICE: [pool www] child 488 started
+[05-Dec-2025 13:06:20] NOTICE: [pool www] child 459 exited with code 0 after 2564.802792 seconds from start
+[05-Dec-2025 13:06:20] NOTICE: [pool www] child 489 started
+[05-Dec-2025 13:18:46] NOTICE: [pool www] child 487 exited with code 0 after 1580.897140 seconds from start
+[05-Dec-2025 13:18:46] NOTICE: [pool www] child 490 started
+[05-Dec-2025 13:34:37] NOTICE: [pool www] child 488 exited with code 0 after 2480.068026 seconds from start
+[05-Dec-2025 13:34:37] NOTICE: [pool www] child 491 started
+[05-Dec-2025 13:57:59] NOTICE: [pool www] child 489 exited with code 0 after 3098.942201 seconds from start
+[05-Dec-2025 13:57:59] NOTICE: [pool www] child 518 started
+[05-Dec-2025 14:29:52] NOTICE: [pool www] child 490 exited with code 0 after 4266.588329 seconds from start
+[05-Dec-2025 14:29:52] NOTICE: [pool www] child 519 started
+[05-Dec-2025 14:30:29] NOTICE: [pool www] child 491 exited with code 0 after 3352.048339 seconds from start
+[05-Dec-2025 14:30:29] NOTICE: [pool www] child 520 started
+[05-Dec-2025 15:01:15] NOTICE: [pool www] child 518 exited with code 0 after 3795.208446 seconds from start
+[05-Dec-2025 15:01:15] NOTICE: [pool www] child 547 started
+[05-Dec-2025 15:10:42] NOTICE: [pool www] child 520 exited with code 0 after 2413.625218 seconds from start
+[05-Dec-2025 15:10:42] NOTICE: [pool www] child 549 started
+[05-Dec-2025 15:26:29] NOTICE: [pool www] child 548 exited with code 0 after 1048.025867 seconds from start
+[05-Dec-2025 15:26:29] NOTICE: [pool www] child 551 started
+[05-Dec-2025 15:36:10] NOTICE: [pool www] child 549 exited with code 0 after 1527.751358 seconds from start
+[05-Dec-2025 15:36:10] NOTICE: [pool www] child 552 started
+[05-Dec-2025 15:54:06] NOTICE: [pool www] child 550 exited with code 0 after 2455.705972 seconds from start
+[05-Dec-2025 15:54:06] NOTICE: [pool www] child 579 started
+[05-Dec-2025 16:14:53] NOTICE: [pool www] child 579 exited with code 0 after 1247.236901 seconds from start
+[05-Dec-2025 16:14:53] NOTICE: [pool www] child 582 started
+[05-Dec-2025 16:23:21] NOTICE: [pool www] child 580 exited with code 0 after 1632.388374 seconds from start
+[05-Dec-2025 16:23:21] NOTICE: [pool www] child 583 started
+[05-Dec-2025 16:24:44] NOTICE: [pool www] child 581 exited with code 0 after 1349.016380 seconds from start
+[05-Dec-2025 16:24:44] NOTICE: [pool www] child 584 started
+[05-Dec-2025 16:52:19] NOTICE: [pool www] child 582 exited with code 0 after 2245.797075 seconds from start
+[05-Dec-2025 16:52:19] NOTICE: [pool www] child 614 started
+[05-Dec-2025 17:13:57] NOTICE: [pool www] child 584 exited with code 0 after 2953.440544 seconds from start
+[05-Dec-2025 17:13:57] NOTICE: [pool www] child 616 started
+[05-Dec-2025 17:51:06] NOTICE: [pool www] child 626 exited with code 0 after 654.238376 seconds from start
+[05-Dec-2025 17:51:06] NOTICE: [pool www] child 655 started
+[05-Dec-2025 17:52:02] NOTICE: [pool www] child 653 exited with code 0 after 498.001365 seconds from start
+[05-Dec-2025 17:52:02] NOTICE: [pool www] child 656 started
+[05-Dec-2025 17:59:14] NOTICE: [pool www] child 654 exited with code 0 after 914.166637 seconds from start
+[05-Dec-2025 17:59:14] NOTICE: [pool www] child 657 started
+[05-Dec-2025 18:10:20] NOTICE: [pool www] child 656 exited with code 0 after 1098.294389 seconds from start
+[05-Dec-2025 18:10:20] NOTICE: [pool www] child 659 started
+[05-Dec-2025 18:22:16] NOTICE: [pool www] child 657 exited with code 0 after 1381.873158 seconds from start
+[05-Dec-2025 18:22:16] NOTICE: [pool www] child 660 started
+[05-Dec-2025 18:30:35] NOTICE: [pool www] child 658 exited with code 0 after 1508.512933 seconds from start
+[05-Dec-2025 18:30:35] NOTICE: [pool www] child 661 started
+[05-Dec-2025 18:35:32] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[05-Dec-2025 18:54:00] NOTICE: [pool www] child 662 exited with code 0 after 1200.014277 seconds from start
+[05-Dec-2025 18:54:00] NOTICE: [pool www] child 692 started
+[05-Dec-2025 18:54:39] NOTICE: [pool www] child 663 exited with code 0 after 1148.614014 seconds from start
+[05-Dec-2025 18:54:39] NOTICE: [pool www] child 693 started
+[05-Dec-2025 19:17:00] NOTICE: [pool www] child 693 exited with code 0 after 1340.393729 seconds from start
+[05-Dec-2025 19:17:00] NOTICE: [pool www] child 696 started
+[05-Dec-2025 19:28:25] NOTICE: [pool www] child 694 exited with code 0 after 1713.373806 seconds from start
+[05-Dec-2025 19:28:25] NOTICE: [pool www] child 697 started
+[05-Dec-2025 19:33:50] NOTICE: [pool www] child 695 exited with code 0 after 1045.762408 seconds from start
+[05-Dec-2025 19:33:50] NOTICE: [pool www] child 698 started
+[05-Dec-2025 19:33:58] NOTICE: [pool www] child 696 exited with code 0 after 1018.231771 seconds from start
+[05-Dec-2025 19:33:58] NOTICE: [pool www] child 699 started
+[05-Dec-2025 19:49:38] NOTICE: [pool www] child 700 exited with code 0 after 935.502928 seconds from start
+[05-Dec-2025 19:49:38] NOTICE: [pool www] child 728 started
+[05-Dec-2025 19:49:38] NOTICE: [pool www] child 699 exited with code 0 after 940.357591 seconds from start
+[05-Dec-2025 19:49:38] NOTICE: [pool www] child 729 started
+[05-Dec-2025 20:11:53] NOTICE: [pool www] child 728 exited with code 0 after 1334.648850 seconds from start
+[05-Dec-2025 20:11:53] NOTICE: [pool www] child 731 started
+[05-Dec-2025 20:12:14] NOTICE: [pool www] child 729 exited with code 0 after 1355.528631 seconds from start
+[05-Dec-2025 20:12:14] NOTICE: [pool www] child 732 started
+[05-Dec-2025 20:25:28] NOTICE: [pool www] child 735 exited with code 0 after 457.082195 seconds from start
+[05-Dec-2025 20:25:28] NOTICE: [pool www] child 738 started
+[05-Dec-2025 20:25:49] NOTICE: [pool www] child 736 exited with code 0 after 448.152922 seconds from start
+[05-Dec-2025 20:25:49] NOTICE: [pool www] child 739 started
+[05-Dec-2025 20:26:12] NOTICE: [pool www] child 737 exited with code 0 after 397.799638 seconds from start
+[05-Dec-2025 20:26:12] NOTICE: [pool www] child 740 started
+[05-Dec-2025 20:34:31] NOTICE: [pool www] child 739 exited with code 0 after 521.483681 seconds from start
+[05-Dec-2025 20:34:31] NOTICE: [pool www] child 742 started
+[05-Dec-2025 20:36:15] NOTICE: [pool www] child 740 exited with code 0 after 603.483770 seconds from start
+[05-Dec-2025 20:36:15] NOTICE: [pool www] child 743 started
+[05-Dec-2025 20:38:08] NOTICE: [pool www] child 741 exited with code 0 after 515.468799 seconds from start
+[05-Dec-2025 20:38:08] NOTICE: [pool www] child 745 started
+[05-Dec-2025 21:17:07] NOTICE: [pool www] child 745 exited with code 0 after 2338.936039 seconds from start
+[05-Dec-2025 21:17:07] NOTICE: [pool www] child 775 started
+[05-Dec-2025 21:26:29] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[05-Dec-2025 21:49:03] NOTICE: [pool www] child 778 exited with code 0 after 1355.005420 seconds from start
+[05-Dec-2025 21:49:03] NOTICE: [pool www] child 807 started
+[05-Dec-2025 22:21:31] NOTICE: [pool www] child 808 exited with code 0 after 1243.170167 seconds from start
+[05-Dec-2025 22:21:31] NOTICE: [pool www] child 811 started
+[05-Dec-2025 22:21:41] NOTICE: [pool www] child 809 exited with code 0 after 1179.750757 seconds from start
+[05-Dec-2025 22:21:41] NOTICE: [pool www] child 812 started
+[05-Dec-2025 22:21:57] NOTICE: [pool www] child 810 exited with code 0 after 765.376928 seconds from start
+[05-Dec-2025 22:21:57] NOTICE: [pool www] child 813 started
+[05-Dec-2025 22:48:44] NOTICE: [pool www] child 812 exited with code 0 after 1623.252405 seconds from start
+[05-Dec-2025 22:48:44] NOTICE: [pool www] child 849 started
+[05-Dec-2025 22:51:18] NOTICE: [pool www] child 813 exited with code 0 after 1760.430732 seconds from start
+[05-Dec-2025 22:51:18] NOTICE: [pool www] child 850 started
+[05-Dec-2025 23:12:45] NOTICE: [pool www] child 814 exited with code 0 after 2502.146689 seconds from start
+[05-Dec-2025 23:12:45] NOTICE: [pool www] child 851 started
+[05-Dec-2025 23:31:55] NOTICE: [pool www] child 849 exited with code 0 after 2590.409377 seconds from start
+[05-Dec-2025 23:31:55] NOTICE: [pool www] child 852 started
+[05-Dec-2025 23:43:02] NOTICE: [pool www] child 850 exited with code 0 after 3104.777647 seconds from start
+[05-Dec-2025 23:43:02] NOTICE: [pool www] child 879 started
+[05-Dec-2025 23:55:52] NOTICE: [pool www] child 851 exited with code 0 after 2587.089432 seconds from start
+[05-Dec-2025 23:55:52] NOTICE: [pool www] child 880 started
+[06-Dec-2025 00:50:15] NOTICE: [pool www] child 879 exited with code 0 after 4032.301316 seconds from start
+[06-Dec-2025 00:50:15] NOTICE: [pool www] child 908 started
+[06-Dec-2025 00:53:24] NOTICE: [pool www] child 880 exited with code 0 after 3451.455728 seconds from start
+[06-Dec-2025 00:53:24] NOTICE: [pool www] child 909 started
+[06-Dec-2025 01:10:43] NOTICE: [pool www] child 908 exited with code 0 after 1228.636027 seconds from start
+[06-Dec-2025 01:10:43] NOTICE: [pool www] child 911 started
+[06-Dec-2025 01:12:31] NOTICE: [pool www] child 909 exited with code 0 after 1147.759468 seconds from start
+[06-Dec-2025 01:12:31] NOTICE: [pool www] child 912 started
+[06-Dec-2025 01:14:08] NOTICE: [pool www] child 910 exited with code 0 after 698.975531 seconds from start
+[06-Dec-2025 01:14:08] NOTICE: [pool www] child 913 started
+[06-Dec-2025 01:17:09] NOTICE: [pool www] child 911 exited with code 0 after 385.405269 seconds from start
+[06-Dec-2025 01:17:09] NOTICE: [pool www] child 914 started
+[06-Dec-2025 01:17:27] NOTICE: [pool www] child 912 exited with code 0 after 295.217556 seconds from start
+[06-Dec-2025 01:17:27] NOTICE: [pool www] child 915 started
+[06-Dec-2025 01:22:51] NOTICE: [pool www] child 913 exited with code 0 after 522.669686 seconds from start
+[06-Dec-2025 01:22:51] NOTICE: [pool www] child 916 started
+[06-Dec-2025 01:55:56] NOTICE: [pool www] child 915 exited with code 0 after 2309.493333 seconds from start
+[06-Dec-2025 01:55:56] NOTICE: [pool www] child 944 started
+[06-Dec-2025 02:11:03] NOTICE: [pool www] child 916 exited with code 0 after 2891.540323 seconds from start
+[06-Dec-2025 02:11:03] NOTICE: [pool www] child 945 started
+[06-Dec-2025 02:23:16] NOTICE: [pool www] child 943 exited with code 0 after 2045.462921 seconds from start
+[06-Dec-2025 02:23:16] NOTICE: [pool www] child 946 started
+[06-Dec-2025 02:47:50] NOTICE: [pool www] child 945 exited with code 0 after 2206.844835 seconds from start
+[06-Dec-2025 02:47:50] NOTICE: [pool www] child 974 started
+[06-Dec-2025 03:10:48] NOTICE: [pool www] child 946 exited with code 0 after 2851.369578 seconds from start
+[06-Dec-2025 03:10:48] NOTICE: [pool www] child 975 started
+[06-Dec-2025 03:13:28] NOTICE: [pool www] child 947 exited with code 0 after 2621.718432 seconds from start
+[06-Dec-2025 03:13:28] NOTICE: [pool www] child 976 started
+[06-Dec-2025 04:05:09] NOTICE: [pool www] child 974 exited with code 0 after 4639.785655 seconds from start
+[06-Dec-2025 04:05:09] NOTICE: [pool www] child 1003 started
+[06-Dec-2025 04:15:03] NOTICE: [pool www] child 975 exited with code 0 after 3855.165348 seconds from start
+[06-Dec-2025 04:15:03] NOTICE: [pool www] child 1004 started
+[06-Dec-2025 04:17:44] NOTICE: [pool www] child 976 exited with code 0 after 3855.948376 seconds from start
+[06-Dec-2025 04:17:44] NOTICE: [pool www] child 1005 started
+[06-Dec-2025 04:46:25] NOTICE: Finishing ...
+[06-Dec-2025 04:46:25] NOTICE: exiting, bye-bye!
+[06-Dec-2025 04:46:33] NOTICE: fpm is running, pid 1
+[06-Dec-2025 04:46:33] NOTICE: ready to handle connections
+[06-Dec-2025 04:46:33] NOTICE: systemd monitor disabled
+[06-Dec-2025 05:30:52] NOTICE: [pool www] child 8 exited with code 0 after 2658.970380 seconds from start
+[06-Dec-2025 05:30:52] NOTICE: [pool www] child 38 started
+[06-Dec-2025 05:32:56] NOTICE: [pool www] child 9 exited with code 0 after 2695.601330 seconds from start
+[06-Dec-2025 05:32:56] NOTICE: [pool www] child 39 started
+[06-Dec-2025 06:23:40] WARNING: [pool www] child 70, script '/code/web//index.php' (request: "GET /index.php") executing too slow (6.263895 sec), logging
+[06-Dec-2025 06:23:40] NOTICE: child 70 stopped for tracing
+[06-Dec-2025 06:23:40] NOTICE: about to trace 70
+[06-Dec-2025 06:23:40] NOTICE: finished trace of 70
+[06-Dec-2025 06:34:02] NOTICE: [pool www] child 70 exited with code 0 after 2708.162107 seconds from start
+[06-Dec-2025 06:34:02] NOTICE: [pool www] child 73 started
+[06-Dec-2025 06:40:11] NOTICE: [pool www] child 71 exited with code 0 after 2507.058399 seconds from start
+[06-Dec-2025 06:40:11] NOTICE: [pool www] child 74 started
+[06-Dec-2025 07:00:58] NOTICE: [pool www] child 72 exited with code 0 after 3084.440396 seconds from start
+[06-Dec-2025 07:00:58] NOTICE: [pool www] child 101 started
+[06-Dec-2025 07:58:55] NOTICE: [pool www] child 73 exited with code 0 after 5092.572821 seconds from start
+[06-Dec-2025 07:58:55] NOTICE: [pool www] child 128 started
+[06-Dec-2025 07:59:57] NOTICE: [pool www] child 74 exited with code 0 after 4785.075067 seconds from start
+[06-Dec-2025 07:59:57] NOTICE: [pool www] child 129 started
+[06-Dec-2025 08:42:33] NOTICE: [pool www] child 101 exited with code 0 after 6094.157688 seconds from start
+[06-Dec-2025 08:42:33] NOTICE: [pool www] child 158 started
+[06-Dec-2025 09:58:10] NOTICE: [pool www] child 129 exited with code 0 after 7093.046595 seconds from start
+[06-Dec-2025 09:58:10] NOTICE: [pool www] child 185 started
+[06-Dec-2025 09:58:12] NOTICE: [pool www] child 128 exited with code 0 after 7157.713656 seconds from start
+[06-Dec-2025 09:58:12] NOTICE: [pool www] child 186 started
+[06-Dec-2025 10:38:14] NOTICE: [pool www] child 158 exited with code 0 after 6941.314401 seconds from start
+[06-Dec-2025 10:38:14] NOTICE: [pool www] child 187 started
+[06-Dec-2025 11:15:51] NOTICE: [pool www] child 185 exited with code 0 after 4661.485959 seconds from start
+[06-Dec-2025 11:15:51] NOTICE: [pool www] child 214 started
+[06-Dec-2025 11:21:36] NOTICE: [pool www] child 186 exited with code 0 after 5003.449892 seconds from start
+[06-Dec-2025 11:21:36] NOTICE: [pool www] child 215 started
+[06-Dec-2025 12:17:49] WARNING: [pool www] child 214, script '/code/web//index.php' (request: "GET /index.php") executing too slow (5.285669 sec), logging
+[06-Dec-2025 12:18:02] NOTICE: [pool www] child 187 exited with code 0 after 5987.722650 seconds from start
+[06-Dec-2025 12:18:02] NOTICE: [pool www] child 244 started
+[06-Dec-2025 12:18:37] NOTICE: child 214 stopped for tracing
+[06-Dec-2025 12:18:37] NOTICE: about to trace 214
+[06-Dec-2025 12:18:37] NOTICE: finished trace of 214
+[06-Dec-2025 12:25:47] WARNING: [pool www] child 215, script '/code/web//index.php' (request: "GET /index.php") executing too slow (5.458819 sec), logging
+[06-Dec-2025 12:25:55] NOTICE: child 215 stopped for tracing
+[06-Dec-2025 12:25:55] NOTICE: about to trace 215
+[06-Dec-2025 12:25:55] NOTICE: finished trace of 215
+[06-Dec-2025 13:38:46] NOTICE: [pool www] child 215 exited with code 0 after 8230.478710 seconds from start
+[06-Dec-2025 13:38:46] NOTICE: [pool www] child 271 started
+[06-Dec-2025 13:38:46] NOTICE: [pool www] child 214 exited with code 0 after 8575.230961 seconds from start
+[06-Dec-2025 13:38:46] NOTICE: [pool www] child 272 started
+[06-Dec-2025 13:46:13] NOTICE: [pool www] child 244 exited with code 0 after 5291.521915 seconds from start
+[06-Dec-2025 13:46:13] NOTICE: [pool www] child 301 started
+[06-Dec-2025 13:56:46] NOTICE: [pool www] child 271 exited with code 0 after 1079.316465 seconds from start
+[06-Dec-2025 13:56:46] NOTICE: [pool www] child 302 started
+[06-Dec-2025 14:00:34] NOTICE: [pool www] child 272 exited with code 0 after 1307.506123 seconds from start
+[06-Dec-2025 14:00:34] NOTICE: [pool www] child 303 started
+[06-Dec-2025 16:05:15] NOTICE: [pool www] child 302 exited with code 0 after 7708.984845 seconds from start
+[06-Dec-2025 16:05:15] NOTICE: [pool www] child 357 started
+[06-Dec-2025 16:07:53] NOTICE: [pool www] child 303 exited with code 0 after 7639.040502 seconds from start
+[06-Dec-2025 16:07:53] NOTICE: [pool www] child 358 started
+[06-Dec-2025 16:17:18] NOTICE: [pool www] child 330 exited with code 0 after 5683.223527 seconds from start
+[06-Dec-2025 16:17:18] NOTICE: [pool www] child 359 started
+[06-Dec-2025 16:37:59] NOTICE: [pool www] child 357 exited with code 0 after 1963.915335 seconds from start
+[06-Dec-2025 16:37:59] NOTICE: [pool www] child 360 started
+[06-Dec-2025 16:43:06] NOTICE: [pool www] child 358 exited with code 0 after 2113.349024 seconds from start
+[06-Dec-2025 16:43:06] NOTICE: [pool www] child 387 started
+[06-Dec-2025 16:55:54] NOTICE: [pool www] child 359 exited with code 0 after 2315.902413 seconds from start
+[06-Dec-2025 16:55:54] NOTICE: [pool www] child 388 started
+[06-Dec-2025 17:39:29] NOTICE: [pool www] child 360 exited with code 0 after 3690.839460 seconds from start
+[06-Dec-2025 17:39:29] NOTICE: [pool www] child 389 started
+[06-Dec-2025 17:39:44] NOTICE: [pool www] child 387 exited with code 0 after 3398.088704 seconds from start
+[06-Dec-2025 17:39:44] NOTICE: [pool www] child 390 started
+[06-Dec-2025 18:01:38] NOTICE: [pool www] child 388 exited with code 0 after 3943.864153 seconds from start
+[06-Dec-2025 18:01:38] NOTICE: [pool www] child 419 started
+[06-Dec-2025 18:18:31] NOTICE: [pool www] child 389 exited with code 0 after 2341.222845 seconds from start
+[06-Dec-2025 18:18:31] NOTICE: [pool www] child 420 started
+[06-Dec-2025 18:18:44] NOTICE: [pool www] child 390 exited with code 0 after 2339.313031 seconds from start
+[06-Dec-2025 18:18:44] NOTICE: [pool www] child 421 started
+[06-Dec-2025 18:21:10] NOTICE: [pool www] child 419 exited with code 0 after 1171.874064 seconds from start
+[06-Dec-2025 18:21:10] NOTICE: [pool www] child 422 started
+[06-Dec-2025 18:45:56] NOTICE: [pool www] child 420 exited with code 0 after 1645.553924 seconds from start
+[06-Dec-2025 18:45:56] NOTICE: [pool www] child 451 started
+[06-Dec-2025 18:46:21] NOTICE: [pool www] child 421 exited with code 0 after 1657.675808 seconds from start
+[06-Dec-2025 18:46:21] NOTICE: [pool www] child 452 started
+[06-Dec-2025 19:09:03] NOTICE: [pool www] child 422 exited with code 0 after 2872.908271 seconds from start
+[06-Dec-2025 19:09:03] NOTICE: [pool www] child 453 started
+[06-Dec-2025 19:17:03] NOTICE: [pool www] child 452 exited with code 0 after 1841.621432 seconds from start
+[06-Dec-2025 19:17:03] NOTICE: [pool www] child 454 started
+[06-Dec-2025 19:18:50] NOTICE: [pool www] child 451 exited with code 0 after 1974.232937 seconds from start
+[06-Dec-2025 19:18:50] NOTICE: [pool www] child 455 started
+[06-Dec-2025 19:27:51] NOTICE: [pool www] child 453 exited with code 0 after 1128.839125 seconds from start
+[06-Dec-2025 19:27:51] NOTICE: [pool www] child 456 started
+[06-Dec-2025 19:58:14] NOTICE: [pool www] child 456 exited with code 0 after 1822.838998 seconds from start
+[06-Dec-2025 19:58:14] NOTICE: [pool www] child 485 started
+[06-Dec-2025 20:05:54] NOTICE: [pool www] child 457 exited with code 0 after 2089.942312 seconds from start
+[06-Dec-2025 20:05:54] NOTICE: [pool www] child 486 started
+[06-Dec-2025 20:08:08] NOTICE: [pool www] child 484 exited with code 0 after 1378.378157 seconds from start
+[06-Dec-2025 20:08:08] NOTICE: [pool www] child 488 started
+[06-Dec-2025 20:20:23] NOTICE: [pool www] child 486 exited with code 0 after 868.336776 seconds from start
+[06-Dec-2025 20:20:23] NOTICE: [pool www] child 489 started
+[06-Dec-2025 20:30:36] NOTICE: [pool www] child 487 exited with code 0 after 1347.508645 seconds from start
+[06-Dec-2025 20:30:36] NOTICE: [pool www] child 490 started
+[06-Dec-2025 20:40:24] NOTICE: [pool www] child 488 exited with code 0 after 1935.179775 seconds from start
+[06-Dec-2025 20:40:24] NOTICE: [pool www] child 491 started
+[06-Dec-2025 21:03:21] NOTICE: [pool www] child 489 exited with code 0 after 2578.552546 seconds from start
+[06-Dec-2025 21:03:21] NOTICE: [pool www] child 518 started
+[06-Dec-2025 21:28:54] NOTICE: [pool www] child 490 exited with code 0 after 3497.907614 seconds from start
+[06-Dec-2025 21:28:54] NOTICE: [pool www] child 519 started
+[06-Dec-2025 21:28:55] NOTICE: [pool www] child 491 exited with code 0 after 2911.016773 seconds from start
+[06-Dec-2025 21:28:55] NOTICE: [pool www] child 520 started
+[06-Dec-2025 21:56:05] NOTICE: [pool www] child 518 exited with code 0 after 3164.142570 seconds from start
+[06-Dec-2025 21:56:05] NOTICE: [pool www] child 547 started
+[06-Dec-2025 22:02:36] NOTICE: [pool www] child 520 exited with code 0 after 2021.590052 seconds from start
+[06-Dec-2025 22:02:36] NOTICE: [pool www] child 548 started
+[06-Dec-2025 22:03:32] NOTICE: [pool www] child 519 exited with code 0 after 2078.178308 seconds from start
+[06-Dec-2025 22:03:32] NOTICE: [pool www] child 549 started
+[06-Dec-2025 22:49:29] NOTICE: [pool www] child 547 exited with code 0 after 3203.356314 seconds from start
+[06-Dec-2025 22:49:29] NOTICE: [pool www] child 576 started
+[06-Dec-2025 22:56:59] NOTICE: [pool www] child 548 exited with code 0 after 3262.403600 seconds from start
+[06-Dec-2025 22:56:59] NOTICE: [pool www] child 577 started
+[06-Dec-2025 22:57:47] NOTICE: [pool www] child 549 exited with code 0 after 3254.929269 seconds from start
+[06-Dec-2025 22:57:47] NOTICE: [pool www] child 578 started
+[06-Dec-2025 23:56:45] NOTICE: [pool www] child 576 exited with code 0 after 4036.734153 seconds from start
+[06-Dec-2025 23:56:45] NOTICE: [pool www] child 606 started
+[07-Dec-2025 00:16:26] NOTICE: [pool www] child 577 exited with code 0 after 4767.754555 seconds from start
+[07-Dec-2025 00:16:26] NOTICE: [pool www] child 607 started
+[07-Dec-2025 00:19:52] NOTICE: [pool www] child 578 exited with code 0 after 4925.518064 seconds from start
+[07-Dec-2025 00:19:52] NOTICE: [pool www] child 608 started
+[07-Dec-2025 01:22:36] NOTICE: [pool www] child 606 exited with code 0 after 5150.415111 seconds from start
+[07-Dec-2025 01:22:36] NOTICE: [pool www] child 637 started
+[07-Dec-2025 01:28:32] NOTICE: [pool www] child 608 exited with code 0 after 4120.106808 seconds from start
+[07-Dec-2025 01:28:32] NOTICE: [pool www] child 638 started
+[07-Dec-2025 01:28:58] NOTICE: [pool www] child 607 exited with code 0 after 4352.038078 seconds from start
+[07-Dec-2025 01:28:58] NOTICE: [pool www] child 639 started
+[07-Dec-2025 01:38:34] NOTICE: [pool www] child 638 exited with code 0 after 601.561372 seconds from start
+[07-Dec-2025 01:38:34] NOTICE: [pool www] child 667 started
+[07-Dec-2025 01:38:44] NOTICE: [pool www] child 640 exited with code 0 after 585.845311 seconds from start
+[07-Dec-2025 01:38:44] NOTICE: [pool www] child 668 started
+[07-Dec-2025 01:38:49] NOTICE: [pool www] child 639 exited with code 0 after 590.800008 seconds from start
+[07-Dec-2025 01:38:49] NOTICE: [pool www] child 669 started
+[07-Dec-2025 02:21:47] NOTICE: [pool www] child 667 exited with code 0 after 2593.009512 seconds from start
+[07-Dec-2025 02:21:47] NOTICE: [pool www] child 670 started
+[07-Dec-2025 02:28:59] NOTICE: [pool www] child 669 exited with code 0 after 3010.020800 seconds from start
+[07-Dec-2025 02:28:59] NOTICE: [pool www] child 671 started
+[07-Dec-2025 02:33:35] NOTICE: [pool www] child 668 exited with code 0 after 3290.595098 seconds from start
+[07-Dec-2025 02:33:35] NOTICE: [pool www] child 672 started
+[07-Dec-2025 02:56:59] NOTICE: [pool www] child 671 exited with code 0 after 1679.326910 seconds from start
+[07-Dec-2025 02:56:59] NOTICE: [pool www] child 700 started
+[07-Dec-2025 02:56:59] NOTICE: [pool www] child 672 exited with code 0 after 1403.796472 seconds from start
+[07-Dec-2025 02:56:59] NOTICE: [pool www] child 701 started
+[07-Dec-2025 04:09:13] NOTICE: Finishing ...
+[07-Dec-2025 04:09:13] NOTICE: exiting, bye-bye!
+[07-Dec-2025 04:09:20] NOTICE: fpm is running, pid 1
+[07-Dec-2025 04:09:20] NOTICE: ready to handle connections
+[07-Dec-2025 04:09:20] NOTICE: systemd monitor disabled
+[07-Dec-2025 04:18:39] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[07-Dec-2025 04:24:01] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[07-Dec-2025 04:46:22] NOTICE: Finishing ...
+[07-Dec-2025 04:46:22] NOTICE: exiting, bye-bye!
+[07-Dec-2025 04:46:29] NOTICE: fpm is running, pid 1
+[07-Dec-2025 04:46:29] NOTICE: ready to handle connections
+[07-Dec-2025 04:46:29] NOTICE: systemd monitor disabled
+[07-Dec-2025 04:47:39] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[07-Dec-2025 04:56:36] NOTICE: [pool www] child 50 exited with code 0 after 487.962251 seconds from start
+[07-Dec-2025 04:56:36] NOTICE: [pool www] child 53 started
+[07-Dec-2025 05:37:52] NOTICE: [pool www] child 51 exited with code 0 after 2728.233227 seconds from start
+[07-Dec-2025 05:37:52] NOTICE: [pool www] child 114 started
+[07-Dec-2025 05:53:06] NOTICE: [pool www] child 52 exited with code 0 after 3586.232547 seconds from start
+[07-Dec-2025 05:53:06] NOTICE: [pool www] child 141 started
+[07-Dec-2025 06:41:08] NOTICE: [pool www] child 53 exited with code 0 after 6271.989246 seconds from start
+[07-Dec-2025 06:41:08] NOTICE: [pool www] child 142 started
+[07-Dec-2025 07:46:16] NOTICE: [pool www] child 114 exited with code 0 after 7704.873274 seconds from start
+[07-Dec-2025 07:46:16] NOTICE: [pool www] child 196 started
+[07-Dec-2025 08:05:55] NOTICE: [pool www] child 141 exited with code 0 after 7969.590589 seconds from start
+[07-Dec-2025 08:05:55] NOTICE: [pool www] child 197 started
+[07-Dec-2025 08:27:12] NOTICE: [pool www] child 142 exited with code 0 after 6363.974285 seconds from start
+[07-Dec-2025 08:27:12] NOTICE: [pool www] child 198 started
+[07-Dec-2025 08:42:32] NOTICE: [pool www] child 196 exited with code 0 after 3375.918021 seconds from start
+[07-Dec-2025 08:42:32] NOTICE: [pool www] child 225 started
+[07-Dec-2025 08:43:03] NOTICE: [pool www] child 197 exited with code 0 after 2227.835177 seconds from start
+[07-Dec-2025 08:43:03] NOTICE: [pool www] child 226 started
+[07-Dec-2025 09:43:55] NOTICE: [pool www] child 198 exited with code 0 after 4602.704079 seconds from start
+[07-Dec-2025 09:43:55] NOTICE: [pool www] child 253 started
+[07-Dec-2025 11:20:13] NOTICE: [pool www] child 225 exited with code 0 after 9460.248584 seconds from start
+[07-Dec-2025 11:20:13] NOTICE: [pool www] child 280 started
+[07-Dec-2025 11:34:40] NOTICE: [pool www] child 226 exited with code 0 after 10296.907698 seconds from start
+[07-Dec-2025 11:34:40] NOTICE: [pool www] child 281 started
+[07-Dec-2025 13:14:52] NOTICE: [pool www] child 281 exited with code 0 after 6011.937747 seconds from start
+[07-Dec-2025 13:14:52] NOTICE: [pool www] child 335 started
+[07-Dec-2025 13:15:01] NOTICE: [pool www] child 280 exited with code 0 after 6888.436953 seconds from start
+[07-Dec-2025 13:15:01] NOTICE: [pool www] child 336 started
+[07-Dec-2025 13:57:39] NOTICE: [pool www] child 308 exited with code 0 after 4569.112137 seconds from start
+[07-Dec-2025 13:57:39] NOTICE: [pool www] child 365 started
+[07-Dec-2025 14:59:29] NOTICE: [pool www] child 336 exited with code 0 after 6267.594639 seconds from start
+[07-Dec-2025 14:59:29] NOTICE: [pool www] child 393 started
+[07-Dec-2025 15:13:37] NOTICE: [pool www] child 365 exited with code 0 after 4557.797173 seconds from start
+[07-Dec-2025 15:13:37] NOTICE: [pool www] child 394 started
+[07-Dec-2025 15:52:44] NOTICE: [pool www] child 392 exited with code 0 after 3440.965622 seconds from start
+[07-Dec-2025 15:52:44] NOTICE: [pool www] child 421 started
+[07-Dec-2025 15:55:17] NOTICE: [pool www] child 393 exited with code 0 after 3348.311547 seconds from start
+[07-Dec-2025 15:55:17] NOTICE: [pool www] child 422 started
+[07-Dec-2025 15:59:37] NOTICE: [pool www] child 394 exited with code 0 after 2760.195630 seconds from start
+[07-Dec-2025 15:59:37] NOTICE: [pool www] child 423 started
+[07-Dec-2025 16:03:29] NOTICE: [pool www] child 421 exited with code 0 after 645.767744 seconds from start
+[07-Dec-2025 16:03:29] NOTICE: [pool www] child 424 started
+[07-Dec-2025 16:05:48] NOTICE: [pool www] child 422 exited with code 0 after 631.319777 seconds from start
+[07-Dec-2025 16:05:48] NOTICE: [pool www] child 425 started
+[07-Dec-2025 16:08:57] NOTICE: [pool www] child 423 exited with code 0 after 559.969020 seconds from start
+[07-Dec-2025 16:08:57] NOTICE: [pool www] child 426 started
+[07-Dec-2025 16:12:33] NOTICE: [pool www] child 424 exited with code 0 after 543.934837 seconds from start
+[07-Dec-2025 16:12:33] NOTICE: [pool www] child 427 started
+[07-Dec-2025 16:13:58] NOTICE: [pool www] child 425 exited with code 0 after 489.661403 seconds from start
+[07-Dec-2025 16:13:58] NOTICE: [pool www] child 428 started
+[07-Dec-2025 16:17:10] NOTICE: [pool www] child 426 exited with code 0 after 493.401878 seconds from start
+[07-Dec-2025 16:17:10] NOTICE: [pool www] child 429 started
+[07-Dec-2025 16:20:47] NOTICE: [pool www] child 427 exited with code 0 after 493.941188 seconds from start
+[07-Dec-2025 16:20:47] NOTICE: [pool www] child 430 started
+[07-Dec-2025 16:23:02] NOTICE: [pool www] child 428 exited with code 0 after 544.242798 seconds from start
+[07-Dec-2025 16:23:02] NOTICE: [pool www] child 431 started
+[07-Dec-2025 16:26:40] NOTICE: [pool www] child 429 exited with code 0 after 569.603374 seconds from start
+[07-Dec-2025 16:26:40] NOTICE: [pool www] child 432 started
+[07-Dec-2025 16:30:31] NOTICE: [pool www] child 430 exited with code 0 after 584.069589 seconds from start
+[07-Dec-2025 16:30:31] NOTICE: [pool www] child 433 started
+[07-Dec-2025 16:32:57] NOTICE: [pool www] child 431 exited with code 0 after 595.281790 seconds from start
+[07-Dec-2025 16:32:57] NOTICE: [pool www] child 434 started
+[07-Dec-2025 16:36:31] NOTICE: [pool www] child 432 exited with code 0 after 591.301607 seconds from start
+[07-Dec-2025 16:36:31] NOTICE: [pool www] child 435 started
+[07-Dec-2025 16:40:13] NOTICE: [pool www] child 433 exited with code 0 after 581.338237 seconds from start
+[07-Dec-2025 16:40:13] NOTICE: [pool www] child 463 started
+[07-Dec-2025 16:42:34] NOTICE: [pool www] child 434 exited with code 0 after 576.959727 seconds from start
+[07-Dec-2025 16:42:34] NOTICE: [pool www] child 464 started
+[07-Dec-2025 16:45:53] NOTICE: [pool www] child 435 exited with code 0 after 561.577652 seconds from start
+[07-Dec-2025 16:45:53] NOTICE: [pool www] child 465 started
+[07-Dec-2025 16:49:16] NOTICE: [pool www] child 463 exited with code 0 after 543.402269 seconds from start
+[07-Dec-2025 16:49:16] NOTICE: [pool www] child 466 started
+[07-Dec-2025 16:54:41] NOTICE: [pool www] child 464 exited with code 0 after 727.003713 seconds from start
+[07-Dec-2025 16:54:41] NOTICE: [pool www] child 467 started
+[07-Dec-2025 17:02:11] NOTICE: [pool www] child 465 exited with code 0 after 978.045654 seconds from start
+[07-Dec-2025 17:02:11] NOTICE: [pool www] child 468 started
+[07-Dec-2025 17:08:59] NOTICE: [pool www] child 466 exited with code 0 after 1182.846643 seconds from start
+[07-Dec-2025 17:08:59] NOTICE: [pool www] child 469 started
+[07-Dec-2025 17:12:26] NOTICE: [pool www] child 467 exited with code 0 after 1064.211662 seconds from start
+[07-Dec-2025 17:12:26] NOTICE: [pool www] child 470 started
+[07-Dec-2025 17:18:02] NOTICE: [pool www] child 468 exited with code 0 after 950.926723 seconds from start
+[07-Dec-2025 17:18:02] NOTICE: [pool www] child 471 started
+[07-Dec-2025 17:23:06] NOTICE: Finishing ...
+[07-Dec-2025 17:23:06] NOTICE: exiting, bye-bye!
+[07-Dec-2025 17:23:13] NOTICE: fpm is running, pid 1
+[07-Dec-2025 17:23:13] NOTICE: ready to handle connections
+[07-Dec-2025 17:23:13] NOTICE: systemd monitor disabled
+[07-Dec-2025 17:46:55] NOTICE: [pool www] child 7 exited with code 0 after 1421.247502 seconds from start
+[07-Dec-2025 17:46:55] NOTICE: [pool www] child 98 started
+[07-Dec-2025 17:46:56] NOTICE: [pool www] child 8 exited with code 0 after 1420.708858 seconds from start
+[07-Dec-2025 17:46:56] NOTICE: [pool www] child 99 started
+[07-Dec-2025 17:49:20] NOTICE: [pool www] child 46 exited with code 0 after 1545.388419 seconds from start
+[07-Dec-2025 17:49:20] NOTICE: [pool www] child 100 started
+[07-Dec-2025 18:08:25] NOTICE: [pool www] child 99 exited with code 0 after 1288.637003 seconds from start
+[07-Dec-2025 18:08:25] NOTICE: [pool www] child 101 started
+[07-Dec-2025 18:08:43] NOTICE: [pool www] child 98 exited with code 0 after 1308.195241 seconds from start
+[07-Dec-2025 18:08:43] NOTICE: [pool www] child 102 started
+[07-Dec-2025 18:10:50] NOTICE: [pool www] child 100 exited with code 0 after 1289.696641 seconds from start
+[07-Dec-2025 18:10:50] NOTICE: [pool www] child 103 started
+[07-Dec-2025 18:13:19] WARNING: [pool www] child 102, script '/code/web//index.php' (request: "GET /index.php") executing too slow (6.525467 sec), logging
+[07-Dec-2025 18:13:19] NOTICE: child 102 stopped for tracing
+[07-Dec-2025 18:13:19] NOTICE: about to trace 102
+[07-Dec-2025 18:13:19] NOTICE: finished trace of 102
+[07-Dec-2025 18:19:52] NOTICE: [pool www] child 101 exited with code 0 after 687.499929 seconds from start
+[07-Dec-2025 18:19:52] NOTICE: [pool www] child 105 started
+[07-Dec-2025 18:19:52] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[07-Dec-2025 18:21:55] NOTICE: [pool www] child 103 exited with code 0 after 665.754628 seconds from start
+[07-Dec-2025 18:21:55] NOTICE: [pool www] child 106 started
+[07-Dec-2025 18:26:50] NOTICE: [pool www] child 104 exited with code 0 after 735.922677 seconds from start
+[07-Dec-2025 18:26:50] NOTICE: [pool www] child 107 started
+[07-Dec-2025 18:46:59] NOTICE: [pool www] child 105 exited with code 0 after 1626.600806 seconds from start
+[07-Dec-2025 18:46:59] NOTICE: [pool www] child 134 started
+[07-Dec-2025 18:52:03] NOTICE: [pool www] child 106 exited with code 0 after 1808.049873 seconds from start
+[07-Dec-2025 18:52:03] NOTICE: [pool www] child 135 started
+[07-Dec-2025 18:54:40] NOTICE: Finishing ...
+[07-Dec-2025 18:54:45] NOTICE: exiting, bye-bye!
+[07-Dec-2025 18:54:52] NOTICE: fpm is running, pid 1
+[07-Dec-2025 18:54:52] NOTICE: ready to handle connections
+[07-Dec-2025 18:54:52] NOTICE: systemd monitor disabled
+[07-Dec-2025 19:43:09] NOTICE: [pool www] child 80 exited with code 0 after 2210.896836 seconds from start
+[07-Dec-2025 19:43:09] NOTICE: [pool www] child 125 started
+[07-Dec-2025 19:58:17] NOTICE: [pool www] child 81 exited with code 0 after 2732.177070 seconds from start
+[07-Dec-2025 19:58:17] NOTICE: [pool www] child 126 started
+[07-Dec-2025 20:02:15] NOTICE: [pool www] child 82 exited with code 0 after 2869.533005 seconds from start
+[07-Dec-2025 20:02:15] NOTICE: [pool www] child 127 started
+[07-Dec-2025 21:08:45] NOTICE: [pool www] child 125 exited with code 0 after 5135.678812 seconds from start
+[07-Dec-2025 21:08:45] NOTICE: [pool www] child 156 started
+[07-Dec-2025 21:30:22] NOTICE: [pool www] child 126 exited with code 0 after 5524.915200 seconds from start
+[07-Dec-2025 21:30:22] NOTICE: [pool www] child 157 started
+[07-Dec-2025 22:02:24] NOTICE: [pool www] child 127 exited with code 0 after 7208.453201 seconds from start
+[07-Dec-2025 22:02:24] NOTICE: [pool www] child 184 started
+[07-Dec-2025 22:59:35] NOTICE: [pool www] child 156 exited with code 0 after 6649.802372 seconds from start
+[07-Dec-2025 22:59:35] NOTICE: [pool www] child 211 started
+[07-Dec-2025 23:02:55] NOTICE: [pool www] child 157 exited with code 0 after 5553.290377 seconds from start
+[07-Dec-2025 23:02:55] NOTICE: [pool www] child 212 started
+[07-Dec-2025 23:03:22] NOTICE: [pool www] child 184 exited with code 0 after 3658.300489 seconds from start
+[07-Dec-2025 23:03:22] NOTICE: [pool www] child 213 started
+[07-Dec-2025 23:44:37] NOTICE: [pool www] child 211 exited with code 0 after 2701.869715 seconds from start
+[07-Dec-2025 23:44:37] NOTICE: [pool www] child 241 started
+[08-Dec-2025 00:30:55] NOTICE: [pool www] child 212 exited with code 0 after 5280.166062 seconds from start
+[08-Dec-2025 00:30:55] NOTICE: [pool www] child 242 started
+[08-Dec-2025 00:57:26] NOTICE: Finishing ...
+[08-Dec-2025 00:57:26] NOTICE: exiting, bye-bye!
+[08-Dec-2025 00:57:33] NOTICE: fpm is running, pid 1
+[08-Dec-2025 00:57:33] NOTICE: ready to handle connections
+[08-Dec-2025 00:57:33] NOTICE: systemd monitor disabled
+[08-Dec-2025 00:58:37] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[08-Dec-2025 02:08:18] NOTICE: [pool www] child 45 exited with code 0 after 4181.499728 seconds from start
+[08-Dec-2025 02:08:18] NOTICE: [pool www] child 127 started
+[08-Dec-2025 02:21:32] NOTICE: [pool www] child 46 exited with code 0 after 4908.364985 seconds from start
+[08-Dec-2025 02:21:32] NOTICE: [pool www] child 128 started
+[08-Dec-2025 02:22:06] NOTICE: Finishing ...
+[08-Dec-2025 02:22:06] NOTICE: exiting, bye-bye!
+[08-Dec-2025 02:22:13] NOTICE: fpm is running, pid 1
+[08-Dec-2025 02:22:13] NOTICE: ready to handle connections
+[08-Dec-2025 02:22:13] NOTICE: systemd monitor disabled
+[08-Dec-2025 02:25:00] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[08-Dec-2025 03:26:13] NOTICE: [pool www] child 47 exited with code 0 after 3674.321274 seconds from start
+[08-Dec-2025 03:26:13] NOTICE: [pool www] child 76 started
+[08-Dec-2025 03:28:44] NOTICE: Finishing ...
+[08-Dec-2025 03:28:50] NOTICE: exiting, bye-bye!
+[08-Dec-2025 03:28:50] NOTICE: fpm is running, pid 1
+[08-Dec-2025 03:28:50] NOTICE: ready to handle connections
+[08-Dec-2025 03:28:50] NOTICE: systemd monitor disabled
+[08-Dec-2025 05:36:48] NOTICE: [pool www] child 7 exited with code 0 after 7677.524849 seconds from start
+[08-Dec-2025 05:36:48] NOTICE: [pool www] child 62 started
+[08-Dec-2025 05:42:56] NOTICE: [pool www] child 8 exited with code 0 after 8026.333555 seconds from start
+[08-Dec-2025 05:42:56] NOTICE: [pool www] child 89 started
+[08-Dec-2025 05:43:29] NOTICE: [pool www] child 9 exited with code 0 after 7623.534738 seconds from start
+[08-Dec-2025 05:43:29] NOTICE: [pool www] child 90 started
+[08-Dec-2025 07:23:45] NOTICE: [pool www] child 62 exited with code 0 after 6417.072364 seconds from start
+[08-Dec-2025 07:23:45] NOTICE: [pool www] child 117 started
+[08-Dec-2025 07:35:46] NOTICE: [pool www] child 90 exited with code 0 after 6736.686879 seconds from start
+[08-Dec-2025 07:35:46] NOTICE: [pool www] child 118 started
+[08-Dec-2025 07:36:02] NOTICE: [pool www] child 89 exited with code 0 after 6786.647888 seconds from start
+[08-Dec-2025 07:36:02] NOTICE: [pool www] child 119 started
+[08-Dec-2025 09:06:46] NOTICE: [pool www] child 117 exited with code 0 after 6181.369394 seconds from start
+[08-Dec-2025 09:06:46] NOTICE: [pool www] child 173 started
+[08-Dec-2025 09:14:59] NOTICE: [pool www] child 119 exited with code 0 after 5936.656013 seconds from start
+[08-Dec-2025 09:14:59] NOTICE: [pool www] child 174 started
+[08-Dec-2025 09:17:39] NOTICE: [pool www] child 118 exited with code 0 after 6113.315756 seconds from start
+[08-Dec-2025 09:17:39] NOTICE: [pool www] child 175 started
+[08-Dec-2025 10:59:58] NOTICE: [pool www] child 173 exited with code 0 after 6791.778648 seconds from start
+[08-Dec-2025 10:59:58] NOTICE: [pool www] child 229 started
+[08-Dec-2025 11:00:06] NOTICE: [pool www] child 174 exited with code 0 after 6306.633311 seconds from start
+[08-Dec-2025 11:00:06] NOTICE: [pool www] child 230 started
+[08-Dec-2025 11:00:11] NOTICE: [pool www] child 175 exited with code 0 after 6151.613478 seconds from start
+[08-Dec-2025 11:00:11] NOTICE: [pool www] child 231 started
+[08-Dec-2025 12:55:25] NOTICE: [pool www] child 230 exited with code 0 after 6919.130589 seconds from start
+[08-Dec-2025 12:55:25] NOTICE: [pool www] child 284 started
+[08-Dec-2025 13:05:58] NOTICE: [pool www] child 231 exited with code 0 after 7547.096464 seconds from start
+[08-Dec-2025 13:05:58] NOTICE: [pool www] child 286 started
+[08-Dec-2025 14:02:05] NOTICE: [pool www] child 284 exited with code 0 after 4000.006928 seconds from start
+[08-Dec-2025 14:02:05] NOTICE: [pool www] child 313 started
+[08-Dec-2025 14:07:51] NOTICE: [pool www] child 286 exited with code 0 after 3713.136224 seconds from start
+[08-Dec-2025 14:07:51] NOTICE: [pool www] child 314 started
+[08-Dec-2025 14:07:51] NOTICE: [pool www] child 285 exited with code 0 after 3996.067988 seconds from start
+[08-Dec-2025 14:07:51] NOTICE: [pool www] child 315 started
+[08-Dec-2025 15:15:34] NOTICE: [pool www] child 313 exited with code 0 after 4409.184952 seconds from start
+[08-Dec-2025 15:15:34] NOTICE: [pool www] child 342 started
+[08-Dec-2025 15:15:39] NOTICE: [pool www] child 315 exited with code 0 after 4067.750903 seconds from start
+[08-Dec-2025 15:15:39] NOTICE: [pool www] child 344 started
+[08-Dec-2025 15:49:11] NOTICE: [pool www] child 350 exited with code 0 after 1957.316464 seconds from start
+[08-Dec-2025 15:49:11] NOTICE: [pool www] child 381 started
+[08-Dec-2025 15:52:11] NOTICE: [pool www] child 351 exited with code 0 after 2130.439686 seconds from start
+[08-Dec-2025 15:52:11] NOTICE: [pool www] child 382 started
+[08-Dec-2025 16:54:52] NOTICE: [pool www] child 381 exited with code 0 after 3940.969944 seconds from start
+[08-Dec-2025 16:54:52] NOTICE: [pool www] child 412 started
+[08-Dec-2025 16:55:58] NOTICE: [pool www] child 382 exited with code 0 after 3827.308022 seconds from start
+[08-Dec-2025 16:55:58] NOTICE: [pool www] child 413 started
+[08-Dec-2025 16:57:35] NOTICE: [pool www] child 383 exited with code 0 after 3326.413196 seconds from start
+[08-Dec-2025 16:57:35] NOTICE: [pool www] child 414 started
+[08-Dec-2025 17:47:40] NOTICE: [pool www] child 413 exited with code 0 after 3102.075597 seconds from start
+[08-Dec-2025 17:47:40] NOTICE: [pool www] child 442 started
+[08-Dec-2025 17:48:36] NOTICE: [pool www] child 412 exited with code 0 after 3224.097849 seconds from start
+[08-Dec-2025 17:48:36] NOTICE: [pool www] child 443 started
+[08-Dec-2025 17:50:10] NOTICE: [pool www] child 414 exited with code 0 after 3154.839708 seconds from start
+[08-Dec-2025 17:50:10] NOTICE: [pool www] child 444 started
+[08-Dec-2025 18:36:19] NOTICE: [pool www] child 443 exited with code 0 after 2863.528122 seconds from start
+[08-Dec-2025 18:36:19] NOTICE: [pool www] child 445 started
+[08-Dec-2025 18:36:33] NOTICE: [pool www] child 442 exited with code 0 after 2932.783798 seconds from start
+[08-Dec-2025 18:36:33] NOTICE: [pool www] child 446 started
+[08-Dec-2025 18:38:23] NOTICE: [pool www] child 444 exited with code 0 after 2892.735160 seconds from start
+[08-Dec-2025 18:38:23] NOTICE: [pool www] child 447 started
+[08-Dec-2025 19:31:48] NOTICE: [pool www] child 477 exited with code 0 after 2106.900461 seconds from start
+[08-Dec-2025 19:31:48] NOTICE: [pool www] child 480 started
+[08-Dec-2025 19:45:36] NOTICE: [pool www] child 478 exited with code 0 after 2240.708874 seconds from start
+[08-Dec-2025 19:45:36] NOTICE: [pool www] child 481 started
+[08-Dec-2025 19:54:26] NOTICE: [pool www] child 479 exited with code 0 after 2265.907111 seconds from start
+[08-Dec-2025 19:54:26] NOTICE: [pool www] child 508 started
+[08-Dec-2025 20:02:42] NOTICE: [pool www] child 480 exited with code 0 after 1853.998225 seconds from start
+[08-Dec-2025 20:02:42] NOTICE: [pool www] child 509 started
+[08-Dec-2025 20:10:18] NOTICE: [pool www] child 481 exited with code 0 after 1482.105228 seconds from start
+[08-Dec-2025 20:10:18] NOTICE: [pool www] child 510 started
+[08-Dec-2025 20:16:03] NOTICE: [pool www] child 508 exited with code 0 after 1297.239061 seconds from start
+[08-Dec-2025 20:16:03] NOTICE: [pool www] child 511 started
+[08-Dec-2025 20:36:10] NOTICE: [pool www] child 510 exited with code 0 after 1551.547158 seconds from start
+[08-Dec-2025 20:36:10] NOTICE: [pool www] child 513 started
+[08-Dec-2025 20:45:37] NOTICE: [pool www] child 511 exited with code 0 after 1773.941790 seconds from start
+[08-Dec-2025 20:45:37] NOTICE: [pool www] child 540 started
+[08-Dec-2025 20:57:58] NOTICE: Finishing ...
+[08-Dec-2025 20:57:58] NOTICE: exiting, bye-bye!
+[08-Dec-2025 20:58:05] NOTICE: fpm is running, pid 1
+[08-Dec-2025 20:58:05] NOTICE: ready to handle connections
+[08-Dec-2025 20:58:05] NOTICE: systemd monitor disabled
+[08-Dec-2025 21:52:01] NOTICE: [pool www] child 71 exited with code 0 after 2947.460312 seconds from start
+[08-Dec-2025 21:52:01] NOTICE: [pool www] child 100 started
+[08-Dec-2025 21:54:14] NOTICE: Finishing ...
+[08-Dec-2025 21:54:14] NOTICE: exiting, bye-bye!
+[08-Dec-2025 21:54:22] NOTICE: fpm is running, pid 1
+[08-Dec-2025 21:54:22] NOTICE: ready to handle connections
+[08-Dec-2025 21:54:22] NOTICE: systemd monitor disabled
+[08-Dec-2025 22:24:17] NOTICE: [pool www] child 77 exited with code 0 after 1370.497367 seconds from start
+[08-Dec-2025 22:24:17] NOTICE: [pool www] child 80 started
+[08-Dec-2025 22:25:35] NOTICE: Finishing ...
+[08-Dec-2025 22:25:35] NOTICE: exiting, bye-bye!
+[08-Dec-2025 22:25:42] NOTICE: fpm is running, pid 1
+[08-Dec-2025 22:25:42] NOTICE: ready to handle connections
+[08-Dec-2025 22:25:42] NOTICE: systemd monitor disabled
+[08-Dec-2025 23:16:15] NOTICE: [pool www] child 102 exited with code 0 after 1209.460856 seconds from start
+[08-Dec-2025 23:16:15] NOTICE: [pool www] child 112 started
+[08-Dec-2025 23:18:57] NOTICE: [pool www] child 110 exited with code 0 after 1361.099951 seconds from start
+[08-Dec-2025 23:18:57] NOTICE: [pool www] child 113 started
+[08-Dec-2025 23:20:56] NOTICE: [pool www] child 111 exited with code 0 after 1442.914485 seconds from start
+[08-Dec-2025 23:20:56] NOTICE: [pool www] child 114 started
+[08-Dec-2025 23:59:49] NOTICE: [pool www] child 113 exited with code 0 after 2451.916591 seconds from start
+[08-Dec-2025 23:59:49] NOTICE: [pool www] child 143 started
+[09-Dec-2025 00:00:30] NOTICE: [pool www] child 114 exited with code 0 after 2373.750849 seconds from start
+[09-Dec-2025 00:00:30] NOTICE: [pool www] child 144 started
+[09-Dec-2025 00:10:00] NOTICE: [pool www] child 115 exited with code 0 after 2212.496549 seconds from start
+[09-Dec-2025 00:10:00] NOTICE: [pool www] child 145 started
+[09-Dec-2025 00:57:14] NOTICE: [pool www] child 143 exited with code 0 after 3444.647221 seconds from start
+[09-Dec-2025 00:57:14] NOTICE: [pool www] child 173 started
+[09-Dec-2025 00:57:14] NOTICE: [pool www] child 144 exited with code 0 after 3404.706138 seconds from start
+[09-Dec-2025 00:57:14] NOTICE: [pool www] child 174 started
+[09-Dec-2025 01:46:21] NOTICE: [pool www] child 173 exited with code 0 after 2947.662512 seconds from start
+[09-Dec-2025 01:46:21] NOTICE: [pool www] child 201 started
+[09-Dec-2025 01:49:40] NOTICE: [pool www] child 172 exited with code 0 after 3146.794844 seconds from start
+[09-Dec-2025 01:49:40] NOTICE: [pool www] child 202 started
+[09-Dec-2025 01:50:02] NOTICE: [pool www] child 174 exited with code 0 after 3167.737327 seconds from start
+[09-Dec-2025 01:50:02] NOTICE: [pool www] child 203 started
+[09-Dec-2025 02:57:30] NOTICE: [pool www] child 203 exited with code 0 after 4047.576858 seconds from start
+[09-Dec-2025 02:57:30] NOTICE: [pool www] child 231 started
+[09-Dec-2025 02:57:55] NOTICE: [pool www] child 202 exited with code 0 after 4095.438754 seconds from start
+[09-Dec-2025 02:57:55] NOTICE: [pool www] child 232 started
+[09-Dec-2025 03:08:39] NOTICE: [pool www] child 204 exited with code 0 after 4067.641053 seconds from start
+[09-Dec-2025 03:08:39] NOTICE: [pool www] child 233 started
+[09-Dec-2025 03:53:47] NOTICE: [pool www] child 232 exited with code 0 after 3351.539879 seconds from start
+[09-Dec-2025 03:53:47] NOTICE: [pool www] child 261 started
+[09-Dec-2025 04:06:04] NOTICE: [pool www] child 233 exited with code 0 after 3444.884572 seconds from start
+[09-Dec-2025 04:06:04] NOTICE: [pool www] child 262 started
+[09-Dec-2025 04:36:09] NOTICE: [pool www] child 234 exited with code 0 after 4306.633559 seconds from start
+[09-Dec-2025 04:36:09] NOTICE: [pool www] child 263 started
+[09-Dec-2025 05:30:39] NOTICE: [pool www] child 261 exited with code 0 after 5811.725704 seconds from start
+[09-Dec-2025 05:30:39] NOTICE: [pool www] child 290 started
+[09-Dec-2025 05:34:12] NOTICE: [pool www] child 262 exited with code 0 after 5288.481344 seconds from start
+[09-Dec-2025 05:34:12] NOTICE: [pool www] child 291 started
+[09-Dec-2025 05:40:12] NOTICE: [pool www] child 263 exited with code 0 after 3843.301437 seconds from start
+[09-Dec-2025 05:40:12] NOTICE: [pool www] child 292 started
+[09-Dec-2025 06:12:24] NOTICE: [pool www] child 290 exited with code 0 after 2505.321331 seconds from start
+[09-Dec-2025 06:12:24] NOTICE: [pool www] child 320 started
+[09-Dec-2025 06:48:12] NOTICE: [pool www] child 292 exited with code 0 after 4080.030041 seconds from start
+[09-Dec-2025 06:48:12] NOTICE: [pool www] child 349 started
+[09-Dec-2025 07:40:16] NOTICE: [pool www] child 320 exited with code 0 after 5271.733609 seconds from start
+[09-Dec-2025 07:40:16] NOTICE: [pool www] child 350 started
+[09-Dec-2025 07:49:58] NOTICE: [pool www] child 321 exited with code 0 after 5854.438855 seconds from start
+[09-Dec-2025 07:49:58] NOTICE: [pool www] child 377 started
+[09-Dec-2025 09:13:26] NOTICE: [pool www] child 377 exited with code 0 after 5007.666456 seconds from start
+[09-Dec-2025 09:13:26] NOTICE: [pool www] child 406 started
+[09-Dec-2025 10:35:30] NOTICE: [pool www] child 406 exited with code 0 after 4924.053393 seconds from start
+[09-Dec-2025 10:35:30] NOTICE: [pool www] child 435 started
+[09-Dec-2025 10:35:40] NOTICE: [pool www] child 407 exited with code 0 after 4918.408863 seconds from start
+[09-Dec-2025 10:35:40] NOTICE: [pool www] child 436 started
+[09-Dec-2025 11:06:42] NOTICE: [pool www] child 408 exited with code 0 after 6367.180442 seconds from start
+[09-Dec-2025 11:06:42] NOTICE: [pool www] child 465 started
+[09-Dec-2025 12:09:23] NOTICE: [pool www] child 436 exited with code 0 after 5623.087913 seconds from start
+[09-Dec-2025 12:09:23] NOTICE: [pool www] child 493 started
+[09-Dec-2025 12:21:02] NOTICE: [pool www] child 435 exited with code 0 after 6332.359899 seconds from start
+[09-Dec-2025 12:21:02] NOTICE: [pool www] child 494 started
+[09-Dec-2025 12:37:29] NOTICE: [pool www] child 465 exited with code 0 after 5447.461407 seconds from start
+[09-Dec-2025 12:37:29] NOTICE: [pool www] child 495 started
+[09-Dec-2025 13:54:03] NOTICE: [pool www] child 494 exited with code 0 after 5580.075143 seconds from start
+[09-Dec-2025 13:54:03] NOTICE: [pool www] child 549 started
+[09-Dec-2025 14:18:37] NOTICE: [pool www] child 495 exited with code 0 after 6067.892651 seconds from start
+[09-Dec-2025 14:18:37] NOTICE: [pool www] child 550 started
+[09-Dec-2025 14:42:54] NOTICE: [pool www] child 522 exited with code 0 after 3914.101798 seconds from start
+[09-Dec-2025 14:42:54] NOTICE: [pool www] child 577 started
+[09-Dec-2025 14:44:32] NOTICE: [pool www] child 549 exited with code 0 after 3029.009363 seconds from start
+[09-Dec-2025 14:44:32] NOTICE: [pool www] child 578 started
+[09-Dec-2025 14:45:28] NOTICE: [pool www] child 550 exited with code 0 after 1611.487764 seconds from start
+[09-Dec-2025 14:45:28] NOTICE: [pool www] child 579 started
+[09-Dec-2025 15:10:14] NOTICE: [pool www] child 577 exited with code 0 after 1639.105881 seconds from start
+[09-Dec-2025 15:10:14] NOTICE: [pool www] child 580 started
+[09-Dec-2025 15:47:56] NOTICE: [pool www] child 579 exited with code 0 after 3747.776253 seconds from start
+[09-Dec-2025 15:47:56] NOTICE: [pool www] child 609 started
+[09-Dec-2025 16:07:57] NOTICE: [pool www] child 580 exited with code 0 after 3462.977990 seconds from start
+[09-Dec-2025 16:07:57] NOTICE: [pool www] child 610 started
+[09-Dec-2025 16:14:45] NOTICE: [pool www] child 581 exited with code 0 after 3395.989828 seconds from start
+[09-Dec-2025 16:14:45] NOTICE: [pool www] child 611 started
+[09-Dec-2025 16:55:54] NOTICE: [pool www] child 609 exited with code 0 after 4077.652993 seconds from start
+[09-Dec-2025 16:55:54] NOTICE: [pool www] child 640 started
+[09-Dec-2025 17:14:39] NOTICE: [pool www] child 610 exited with code 0 after 4002.129502 seconds from start
+[09-Dec-2025 17:14:39] NOTICE: [pool www] child 654 started
+[09-Dec-2025 17:14:59] NOTICE: [pool www] child 611 exited with code 0 after 3614.579115 seconds from start
+[09-Dec-2025 17:14:59] NOTICE: [pool www] child 655 started
+[09-Dec-2025 17:17:31] NOTICE: [pool www] child 640 exited with code 0 after 1296.729124 seconds from start
+[09-Dec-2025 17:17:31] NOTICE: [pool www] child 656 started
+[09-Dec-2025 18:31:42] NOTICE: [pool www] child 886 exited with code 0 after 2274.704458 seconds from start
+[09-Dec-2025 18:31:42] NOTICE: [pool www] child 896 started
+[09-Dec-2025 18:40:27] NOTICE: Finishing ...
+[09-Dec-2025 18:40:27] NOTICE: exiting, bye-bye!
+[09-Dec-2025 18:40:34] NOTICE: fpm is running, pid 1
+[09-Dec-2025 18:40:34] NOTICE: ready to handle connections
+[09-Dec-2025 18:40:34] NOTICE: systemd monitor disabled
+[09-Dec-2025 19:10:12] NOTICE: [pool www] child 45 exited with code 0 after 1736.717507 seconds from start
+[09-Dec-2025 19:10:12] NOTICE: [pool www] child 75 started
+[09-Dec-2025 19:47:05] NOTICE: Finishing ...
+[09-Dec-2025 19:47:05] NOTICE: exiting, bye-bye!
+[09-Dec-2025 19:47:11] NOTICE: fpm is running, pid 1
+[09-Dec-2025 19:47:11] NOTICE: ready to handle connections
+[09-Dec-2025 19:47:11] NOTICE: systemd monitor disabled
+[09-Dec-2025 20:27:22] NOTICE: [pool www] child 88 exited with code 0 after 1928.527800 seconds from start
+[09-Dec-2025 20:27:22] NOTICE: [pool www] child 105 started
+[09-Dec-2025 20:28:40] NOTICE: [pool www] child 90 exited with code 0 after 1980.315164 seconds from start
+[09-Dec-2025 20:28:40] NOTICE: [pool www] child 106 started
+[09-Dec-2025 20:48:21] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[09-Dec-2025 20:57:39] NOTICE: [pool www] child 106 exited with code 0 after 1739.105993 seconds from start
+[09-Dec-2025 20:57:39] NOTICE: [pool www] child 135 started
+[09-Dec-2025 21:06:45] NOTICE: [pool www] child 133 exited with code 0 after 1399.649561 seconds from start
+[09-Dec-2025 21:06:45] NOTICE: [pool www] child 136 started
+[09-Dec-2025 21:28:02] NOTICE: [pool www] child 135 exited with code 0 after 1822.846183 seconds from start
+[09-Dec-2025 21:28:02] NOTICE: [pool www] child 138 started
+[09-Dec-2025 21:40:33] NOTICE: [pool www] child 136 exited with code 0 after 2028.676824 seconds from start
+[09-Dec-2025 21:40:33] NOTICE: [pool www] child 139 started
+[09-Dec-2025 21:42:39] NOTICE: [pool www] child 137 exited with code 0 after 1851.399634 seconds from start
+[09-Dec-2025 21:42:39] NOTICE: [pool www] child 140 started
+[09-Dec-2025 22:17:04] NOTICE: [pool www] child 140 exited with code 0 after 2065.012676 seconds from start
+[09-Dec-2025 22:17:04] NOTICE: [pool www] child 170 started
+[09-Dec-2025 22:22:15] NOTICE: [pool www] child 168 exited with code 0 after 1821.687422 seconds from start
+[09-Dec-2025 22:22:15] NOTICE: [pool www] child 171 started
+[09-Dec-2025 22:29:53] NOTICE: [pool www] child 169 exited with code 0 after 2028.249007 seconds from start
+[09-Dec-2025 22:29:53] NOTICE: [pool www] child 172 started
+[09-Dec-2025 22:46:31] NOTICE: [pool www] child 170 exited with code 0 after 1767.010781 seconds from start
+[09-Dec-2025 22:46:31] NOTICE: [pool www] child 199 started
+[09-Dec-2025 22:59:31] NOTICE: [pool www] child 171 exited with code 0 after 2235.482516 seconds from start
+[09-Dec-2025 22:59:31] NOTICE: [pool www] child 200 started
+[09-Dec-2025 23:29:58] NOTICE: [pool www] child 199 exited with code 0 after 2606.926894 seconds from start
+[09-Dec-2025 23:29:58] NOTICE: [pool www] child 202 started
+[09-Dec-2025 23:44:59] NOTICE: [pool www] child 200 exited with code 0 after 2727.886484 seconds from start
+[09-Dec-2025 23:44:59] NOTICE: [pool www] child 229 started
+[09-Dec-2025 23:54:28] NOTICE: [pool www] child 201 exited with code 0 after 3254.463501 seconds from start
+[09-Dec-2025 23:54:28] NOTICE: [pool www] child 230 started
+[10-Dec-2025 00:11:43] NOTICE: [pool www] child 229 exited with code 0 after 1603.753704 seconds from start
+[10-Dec-2025 00:11:43] NOTICE: [pool www] child 232 started
+[10-Dec-2025 00:11:56] NOTICE: [pool www] child 230 exited with code 0 after 1048.627416 seconds from start
+[10-Dec-2025 00:11:56] NOTICE: [pool www] child 233 started
+[10-Dec-2025 00:13:13] NOTICE: [pool www] child 231 exited with code 0 after 512.830588 seconds from start
+[10-Dec-2025 00:13:13] NOTICE: [pool www] child 234 started
+[10-Dec-2025 00:26:37] NOTICE: [pool www] child 232 exited with code 0 after 894.022181 seconds from start
+[10-Dec-2025 00:26:37] NOTICE: [pool www] child 235 started
+[10-Dec-2025 00:27:17] NOTICE: [pool www] child 233 exited with code 0 after 920.378345 seconds from start
+[10-Dec-2025 00:27:17] NOTICE: [pool www] child 236 started
+[10-Dec-2025 01:34:17] NOTICE: [pool www] child 235 exited with code 0 after 4060.633468 seconds from start
+[10-Dec-2025 01:34:17] NOTICE: [pool www] child 264 started
+[10-Dec-2025 01:35:26] NOTICE: [pool www] child 236 exited with code 0 after 4089.069032 seconds from start
+[10-Dec-2025 01:35:26] NOTICE: [pool www] child 265 started
+[10-Dec-2025 02:43:42] NOTICE: [pool www] child 265 exited with code 0 after 4095.837453 seconds from start
+[10-Dec-2025 02:43:42] NOTICE: [pool www] child 320 started
+[10-Dec-2025 02:47:06] NOTICE: [pool www] child 266 exited with code 0 after 3807.182551 seconds from start
+[10-Dec-2025 02:47:06] NOTICE: [pool www] child 321 started
+[10-Dec-2025 03:41:53] NOTICE: [pool www] child 293 exited with code 0 after 4004.365477 seconds from start
+[10-Dec-2025 03:41:53] NOTICE: [pool www] child 322 started
+[10-Dec-2025 04:09:01] NOTICE: [pool www] child 320 exited with code 0 after 5119.093320 seconds from start
+[10-Dec-2025 04:09:01] NOTICE: [pool www] child 349 started
+[10-Dec-2025 04:24:12] NOTICE: [pool www] child 321 exited with code 0 after 5826.059430 seconds from start
+[10-Dec-2025 04:24:12] NOTICE: [pool www] child 350 started
+[10-Dec-2025 05:27:22] NOTICE: [pool www] child 322 exited with code 0 after 6328.762849 seconds from start
+[10-Dec-2025 05:27:22] NOTICE: [pool www] child 377 started
+[10-Dec-2025 05:29:32] NOTICE: [pool www] child 349 exited with code 0 after 4831.422397 seconds from start
+[10-Dec-2025 05:29:32] NOTICE: [pool www] child 378 started
+[10-Dec-2025 05:34:51] NOTICE: [pool www] child 350 exited with code 0 after 4239.103620 seconds from start
+[10-Dec-2025 05:34:51] NOTICE: [pool www] child 379 started
+[10-Dec-2025 05:48:12] NOTICE: [pool www] child 377 exited with code 0 after 1249.784438 seconds from start
+[10-Dec-2025 05:48:12] NOTICE: [pool www] child 408 started
+[10-Dec-2025 06:00:04] NOTICE: [pool www] child 378 exited with code 0 after 1831.607541 seconds from start
+[10-Dec-2025 06:00:04] NOTICE: [pool www] child 409 started
+[10-Dec-2025 06:15:35] NOTICE: [pool www] child 379 exited with code 0 after 2444.315826 seconds from start
+[10-Dec-2025 06:15:35] NOTICE: [pool www] child 410 started
+[10-Dec-2025 07:11:43] NOTICE: [pool www] child 408 exited with code 0 after 5010.706754 seconds from start
+[10-Dec-2025 07:11:43] NOTICE: [pool www] child 438 started
+[10-Dec-2025 07:25:45] NOTICE: [pool www] child 409 exited with code 0 after 5141.431987 seconds from start
+[10-Dec-2025 07:25:45] NOTICE: [pool www] child 439 started
+[10-Dec-2025 07:48:18] NOTICE: [pool www] child 410 exited with code 0 after 5563.017570 seconds from start
+[10-Dec-2025 07:48:18] NOTICE: [pool www] child 466 started
+[10-Dec-2025 08:28:51] NOTICE: [pool www] child 438 exited with code 0 after 4628.376467 seconds from start
+[10-Dec-2025 08:28:51] NOTICE: [pool www] child 467 started
+[10-Dec-2025 08:47:37] NOTICE: [pool www] child 439 exited with code 0 after 4911.799960 seconds from start
+[10-Dec-2025 08:47:37] NOTICE: [pool www] child 495 started
+[10-Dec-2025 09:09:00] NOTICE: [pool www] child 466 exited with code 0 after 4841.446476 seconds from start
+[10-Dec-2025 09:09:00] NOTICE: [pool www] child 496 started
+[10-Dec-2025 10:03:01] NOTICE: [pool www] child 495 exited with code 0 after 4524.386093 seconds from start
+[10-Dec-2025 10:03:01] NOTICE: [pool www] child 524 started
+[10-Dec-2025 10:51:28] NOTICE: [pool www] child 497 exited with code 0 after 6148.146552 seconds from start
+[10-Dec-2025 10:51:28] NOTICE: [pool www] child 551 started
+[10-Dec-2025 10:56:11] NOTICE: [pool www] child 496 exited with code 0 after 6431.163825 seconds from start
+[10-Dec-2025 10:56:11] NOTICE: [pool www] child 552 started
+[10-Dec-2025 12:03:40] NOTICE: [pool www] child 524 exited with code 0 after 7238.582349 seconds from start
+[10-Dec-2025 12:03:40] NOTICE: [pool www] child 579 started
+[10-Dec-2025 12:33:49] NOTICE: [pool www] child 552 exited with code 0 after 5857.802140 seconds from start
+[10-Dec-2025 12:33:49] NOTICE: [pool www] child 581 started
+[10-Dec-2025 12:52:22] NOTICE: [pool www] child 579 exited with code 0 after 2922.186122 seconds from start
+[10-Dec-2025 12:52:22] NOTICE: [pool www] child 610 started
+[10-Dec-2025 12:53:42] NOTICE: [pool www] child 580 exited with code 0 after 1572.066116 seconds from start
+[10-Dec-2025 12:53:42] NOTICE: [pool www] child 611 started
+[10-Dec-2025 13:05:05] NOTICE: [pool www] child 581 exited with code 0 after 1876.033034 seconds from start
+[10-Dec-2025 13:05:05] NOTICE: [pool www] child 612 started
+[10-Dec-2025 13:33:33] NOTICE: [pool www] child 610 exited with code 0 after 2470.463553 seconds from start
+[10-Dec-2025 13:33:33] NOTICE: [pool www] child 613 started
+[10-Dec-2025 13:37:12] NOTICE: [pool www] child 611 exited with code 0 after 2610.217836 seconds from start
+[10-Dec-2025 13:37:12] NOTICE: [pool www] child 614 started
+[10-Dec-2025 13:38:32] NOTICE: [pool www] child 612 exited with code 0 after 2007.778257 seconds from start
+[10-Dec-2025 13:38:32] NOTICE: [pool www] child 615 started
+[10-Dec-2025 15:07:01] NOTICE: [pool www] child 613 exited with code 0 after 5608.923609 seconds from start
+[10-Dec-2025 15:07:02] NOTICE: [pool www] child 668 started
+[10-Dec-2025 15:25:10] NOTICE: [pool www] child 615 exited with code 0 after 6397.339237 seconds from start
+[10-Dec-2025 15:25:10] NOTICE: [pool www] child 670 started
+[10-Dec-2025 16:02:55] NOTICE: [pool www] child 669 exited with code 0 after 2971.595966 seconds from start
+[10-Dec-2025 16:02:55] NOTICE: [pool www] child 698 started
+[10-Dec-2025 16:20:15] NOTICE: [pool www] child 670 exited with code 0 after 3305.494686 seconds from start
+[10-Dec-2025 16:20:15] NOTICE: [pool www] child 699 started
+[10-Dec-2025 16:59:03] NOTICE: [pool www] child 697 exited with code 0 after 3832.795939 seconds from start
+[10-Dec-2025 16:59:03] NOTICE: [pool www] child 726 started
+[10-Dec-2025 17:07:16] NOTICE: [pool www] child 698 exited with code 0 after 3860.566028 seconds from start
+[10-Dec-2025 17:07:16] NOTICE: [pool www] child 727 started
+[10-Dec-2025 17:41:48] NOTICE: [pool www] child 727 exited with code 0 after 2072.394942 seconds from start
+[10-Dec-2025 17:41:48] NOTICE: [pool www] child 756 started
+[10-Dec-2025 17:48:02] NOTICE: [pool www] child 728 exited with code 0 after 1602.533762 seconds from start
+[10-Dec-2025 17:48:02] NOTICE: [pool www] child 757 started
+[10-Dec-2025 17:53:18] WARNING: [pool www] child 729, script '/code/web//index.php' (request: "GET /index.php") executing too slow (5.113404 sec), logging
+[10-Dec-2025 17:53:18] NOTICE: child 729 stopped for tracing
+[10-Dec-2025 17:53:18] NOTICE: about to trace 729
+[10-Dec-2025 17:53:18] NOTICE: finished trace of 729
+[10-Dec-2025 17:58:29] NOTICE: [pool www] child 729 exited with code 0 after 1454.235201 seconds from start
+[10-Dec-2025 17:58:29] NOTICE: [pool www] child 771 started
+[10-Dec-2025 18:07:30] WARNING: [pool www] server reached pm.max_children setting (4), consider raising it
+[10-Dec-2025 18:12:31] NOTICE: Finishing ...
+[10-Dec-2025 18:12:31] NOTICE: exiting, bye-bye!
+[10-Dec-2025 18:12:38] NOTICE: fpm is running, pid 1
+[10-Dec-2025 18:12:38] NOTICE: ready to handle connections
+[10-Dec-2025 18:12:38] NOTICE: systemd monitor disabled
+[10-Dec-2025 19:00:32] WARNING: [pool www] child 110, script '/code/web//index.php' (request: "GET /index.php?search=schema&categories=&security_advisory_coverage=1&maintenance_status=1&page=0&limit=12&sort=best_match&source=drupalorg_jsonapi") executing too slow (6.239060 sec), logging
+[10-Dec-2025 19:00:32] NOTICE: child 110 stopped for tracing
+[10-Dec-2025 19:00:32] NOTICE: about to trace 110
+[10-Dec-2025 19:00:32] NOTICE: finished trace of 110
+[10-Dec-2025 19:04:50] NOTICE: Finishing ...
+[10-Dec-2025 19:04:51] NOTICE: exiting, bye-bye!
+[10-Dec-2025 19:04:58] NOTICE: fpm is running, pid 1
+[10-Dec-2025 19:04:58] NOTICE: ready to handle connections
+[10-Dec-2025 19:04:58] NOTICE: systemd monitor disabled
+[10-Dec-2025 19:59:16] NOTICE: [pool www] child 75 exited with code 0 after 1315.451537 seconds from start
+[10-Dec-2025 19:59:16] NOTICE: [pool www] child 118 started
+[10-Dec-2025 19:59:40] NOTICE: [pool www] child 76 exited with code 0 after 1308.674191 seconds from start
+[10-Dec-2025 19:59:40] NOTICE: [pool www] child 119 started
+[10-Dec-2025 20:51:40] NOTICE: [pool www] child 119 exited with code 0 after 3120.344199 seconds from start
+[10-Dec-2025 20:51:40] NOTICE: [pool www] child 148 started
+[10-Dec-2025 20:56:13] NOTICE: [pool www] child 118 exited with code 0 after 3416.759247 seconds from start
+[10-Dec-2025 20:56:13] NOTICE: [pool www] child 149 started
+[10-Dec-2025 20:58:41] NOTICE: [pool www] child 120 exited with code 0 after 3306.397633 seconds from start
+[10-Dec-2025 20:58:41] NOTICE: [pool www] child 150 started
+[10-Dec-2025 21:59:29] NOTICE: [pool www] child 150 exited with code 0 after 3647.863479 seconds from start
+[10-Dec-2025 21:59:29] NOTICE: [pool www] child 180 started
+[10-Dec-2025 22:06:07] NOTICE: [pool www] child 149 exited with code 0 after 4194.336567 seconds from start
+[10-Dec-2025 22:06:07] NOTICE: [pool www] child 181 started
+[10-Dec-2025 22:15:58] NOTICE: [pool www] child 151 exited with code 0 after 4165.737294 seconds from start
+[10-Dec-2025 22:15:58] NOTICE: [pool www] child 182 started
+[10-Dec-2025 22:36:58] NOTICE: Finishing ...
+[10-Dec-2025 22:36:58] NOTICE: exiting, bye-bye!
+[10-Dec-2025 22:37:05] NOTICE: fpm is running, pid 1
+[10-Dec-2025 22:37:05] NOTICE: ready to handle connections
+[10-Dec-2025 22:37:05] NOTICE: systemd monitor disabled
+[10-Dec-2025 23:02:10] NOTICE: [pool www] child 103 exited with code 0 after 891.197392 seconds from start
+[10-Dec-2025 23:02:10] NOTICE: [pool www] child 106 started
+[10-Dec-2025 23:04:13] NOTICE: [pool www] child 104 exited with code 0 after 764.553975 seconds from start
+[10-Dec-2025 23:04:13] NOTICE: [pool www] child 107 started
+[10-Dec-2025 23:05:26] NOTICE: [pool www] child 105 exited with code 0 after 759.652237 seconds from start
+[10-Dec-2025 23:05:26] NOTICE: [pool www] child 108 started
+[10-Dec-2025 23:14:34] NOTICE: [pool www] child 107 exited with code 0 after 621.552443 seconds from start
+[10-Dec-2025 23:14:34] NOTICE: [pool www] child 110 started
+[10-Dec-2025 23:25:16] NOTICE: [pool www] child 108 exited with code 0 after 1189.744819 seconds from start
+[10-Dec-2025 23:25:16] NOTICE: [pool www] child 111 started
+[11-Dec-2025 00:02:50] NOTICE: [pool www] child 109 exited with code 0 after 3170.773413 seconds from start
+[11-Dec-2025 00:02:50] NOTICE: [pool www] child 139 started
+[11-Dec-2025 00:39:41] NOTICE: [pool www] child 110 exited with code 0 after 5106.965330 seconds from start
+[11-Dec-2025 00:39:41] NOTICE: [pool www] child 140 started
+[11-Dec-2025 00:46:12] NOTICE: [pool www] child 111 exited with code 0 after 4856.301648 seconds from start
+[11-Dec-2025 00:46:12] NOTICE: [pool www] child 167 started
+[11-Dec-2025 01:22:08] NOTICE: [pool www] child 139 exited with code 0 after 4758.244345 seconds from start
+[11-Dec-2025 01:22:08] NOTICE: [pool www] child 168 started
+[11-Dec-2025 02:13:26] NOTICE: [pool www] child 140 exited with code 0 after 5625.267098 seconds from start
+[11-Dec-2025 02:13:26] NOTICE: [pool www] child 196 started
+[11-Dec-2025 02:26:32] NOTICE: [pool www] child 167 exited with code 0 after 6019.895472 seconds from start
+[11-Dec-2025 02:26:32] NOTICE: [pool www] child 197 started
+[11-Dec-2025 02:51:55] NOTICE: [pool www] child 168 exited with code 0 after 5387.262165 seconds from start
+[11-Dec-2025 02:51:55] NOTICE: [pool www] child 224 started
+[11-Dec-2025 02:54:46] NOTICE: [pool www] child 196 exited with code 0 after 2479.986956 seconds from start
+[11-Dec-2025 02:54:46] NOTICE: [pool www] child 225 started
+[11-Dec-2025 02:59:33] NOTICE: [pool www] child 197 exited with code 0 after 1981.650543 seconds from start
+[11-Dec-2025 02:59:33] NOTICE: [pool www] child 226 started
+[11-Dec-2025 03:26:05] NOTICE: [pool www] child 224 exited with code 0 after 2049.290086 seconds from start
+[11-Dec-2025 03:26:05] NOTICE: [pool www] child 227 started
+[11-Dec-2025 03:50:12] NOTICE: [pool www] child 225 exited with code 0 after 3325.598483 seconds from start
+[11-Dec-2025 03:50:12] NOTICE: [pool www] child 255 started
+[11-Dec-2025 04:02:30] NOTICE: [pool www] child 226 exited with code 0 after 3776.397952 seconds from start
+[11-Dec-2025 04:02:30] NOTICE: [pool www] child 256 started
+[11-Dec-2025 04:30:33] NOTICE: [pool www] child 227 exited with code 0 after 3868.700990 seconds from start
+[11-Dec-2025 04:30:33] NOTICE: [pool www] child 257 started
+[11-Dec-2025 04:54:33] NOTICE: [pool www] child 255 exited with code 0 after 3861.200591 seconds from start
+[11-Dec-2025 04:54:33] NOTICE: [pool www] child 284 started
+[11-Dec-2025 05:20:29] NOTICE: [pool www] child 256 exited with code 0 after 4679.364469 seconds from start
+[11-Dec-2025 05:20:29] NOTICE: [pool www] child 285 started
+[11-Dec-2025 05:54:29] NOTICE: [pool www] child 257 exited with code 0 after 5036.172314 seconds from start
+[11-Dec-2025 05:54:29] NOTICE: [pool www] child 312 started
+[11-Dec-2025 05:57:03] NOTICE: [pool www] child 284 exited with code 0 after 3749.464879 seconds from start
+[11-Dec-2025 05:57:03] NOTICE: [pool www] child 313 started
+[11-Dec-2025 05:58:29] NOTICE: [pool www] child 285 exited with code 0 after 2280.009186 seconds from start
+[11-Dec-2025 05:58:29] NOTICE: [pool www] child 314 started
+[11-Dec-2025 06:25:02] NOTICE: [pool www] child 312 exited with code 0 after 1832.504579 seconds from start
+[11-Dec-2025 06:25:02] NOTICE: [pool www] child 315 started
+[11-Dec-2025 06:49:34] NOTICE: [pool www] child 313 exited with code 0 after 3151.614100 seconds from start
+[11-Dec-2025 06:49:34] NOTICE: [pool www] child 342 started
+[11-Dec-2025 07:13:41] NOTICE: [pool www] child 314 exited with code 0 after 4511.797343 seconds from start
+[11-Dec-2025 07:13:41] NOTICE: [pool www] child 343 started
+[11-Dec-2025 08:19:12] NOTICE: [pool www] child 342 exited with code 0 after 5377.562838 seconds from start
+[11-Dec-2025 08:19:12] NOTICE: [pool www] child 371 started
+[11-Dec-2025 08:52:12] NOTICE: [pool www] child 343 exited with code 0 after 5911.169046 seconds from start
+[11-Dec-2025 08:52:12] NOTICE: [pool www] child 398 started
+[11-Dec-2025 08:52:59] NOTICE: [pool www] child 344 exited with code 0 after 5196.111412 seconds from start
+[11-Dec-2025 08:52:59] NOTICE: [pool www] child 399 started
+[11-Dec-2025 09:15:25] NOTICE: [pool www] child 371 exited with code 0 after 3373.219845 seconds from start
+[11-Dec-2025 09:15:25] NOTICE: [pool www] child 400 started
+[11-Dec-2025 09:23:28] NOTICE: [pool www] child 398 exited with code 0 after 1875.663461 seconds from start
+[11-Dec-2025 09:23:28] NOTICE: [pool www] child 401 started
+[11-Dec-2025 09:53:32] NOTICE: [pool www] child 399 exited with code 0 after 3633.186741 seconds from start
+[11-Dec-2025 09:53:32] NOTICE: [pool www] child 428 started
+[11-Dec-2025 11:38:55] NOTICE: [pool www] child 400 exited with code 0 after 8610.252323 seconds from start
+[11-Dec-2025 11:38:55] NOTICE: [pool www] child 456 started
+[11-Dec-2025 11:41:22] NOTICE: [pool www] child 401 exited with code 0 after 8274.236215 seconds from start
+[11-Dec-2025 11:41:22] NOTICE: [pool www] child 457 started
+[11-Dec-2025 11:47:47] NOTICE: [pool www] child 428 exited with code 0 after 6855.017038 seconds from start
+[11-Dec-2025 11:47:47] NOTICE: [pool www] child 485 started
+[11-Dec-2025 12:59:26] NOTICE: [pool www] child 456 exited with code 0 after 4831.143477 seconds from start
+[11-Dec-2025 12:59:26] NOTICE: [pool www] child 512 started
+[11-Dec-2025 13:07:32] NOTICE: [pool www] child 457 exited with code 0 after 5169.678478 seconds from start
+[11-Dec-2025 13:07:32] NOTICE: [pool www] child 513 started
+[11-Dec-2025 13:23:45] NOTICE: [pool www] child 485 exited with code 0 after 5757.235003 seconds from start
+[11-Dec-2025 13:23:45] NOTICE: [pool www] child 514 started
+[11-Dec-2025 15:22:55] NOTICE: [pool www] child 513 exited with code 0 after 8122.851311 seconds from start
+[11-Dec-2025 15:22:55] NOTICE: [pool www] child 569 started
+[11-Dec-2025 15:46:35] NOTICE: [pool www] child 514 exited with code 0 after 8570.701508 seconds from start
+[11-Dec-2025 15:46:35] NOTICE: [pool www] child 599 started
+[11-Dec-2025 16:45:12] NOTICE: [pool www] child 568 exited with code 0 after 6870.734494 seconds from start
+[11-Dec-2025 16:45:12] NOTICE: [pool www] child 627 started
+[11-Dec-2025 17:03:06] NOTICE: [pool www] child 569 exited with code 0 after 6011.127669 seconds from start
+[11-Dec-2025 17:03:06] NOTICE: [pool www] child 628 started
+[11-Dec-2025 17:15:40] NOTICE: [pool www] child 599 exited with code 0 after 5344.791444 seconds from start
+[11-Dec-2025 17:15:40] NOTICE: [pool www] child 629 started
+[11-Dec-2025 17:28:31] NOTICE: [pool www] child 627 exited with code 0 after 2598.925951 seconds from start
+[11-Dec-2025 17:28:31] NOTICE: [pool www] child 630 started
+[11-Dec-2025 17:29:37] NOTICE: [pool www] child 628 exited with code 0 after 1591.271043 seconds from start
+[11-Dec-2025 17:29:37] NOTICE: [pool www] child 631 started
+[11-Dec-2025 17:30:27] NOTICE: [pool www] child 629 exited with code 0 after 886.577283 seconds from start
+[11-Dec-2025 17:30:27] NOTICE: [pool www] child 632 started
+[11-Dec-2025 17:58:23] NOTICE: [pool www] child 630 exited with code 0 after 1791.330790 seconds from start
+[11-Dec-2025 17:58:23] NOTICE: [pool www] child 660 started
+[11-Dec-2025 18:07:50] NOTICE: [pool www] child 631 exited with code 0 after 2292.743210 seconds from start
+[11-Dec-2025 18:07:50] NOTICE: [pool www] child 661 started
+[11-Dec-2025 18:21:38] NOTICE: [pool www] child 632 exited with code 0 after 3071.061011 seconds from start
+[11-Dec-2025 18:21:38] NOTICE: [pool www] child 662 started
+[11-Dec-2025 19:00:26] NOTICE: [pool www] child 660 exited with code 0 after 3723.573286 seconds from start
+[11-Dec-2025 19:00:26] NOTICE: [pool www] child 689 started
+[11-Dec-2025 19:05:19] NOTICE: [pool www] child 661 exited with code 0 after 3448.853538 seconds from start
+[11-Dec-2025 19:05:19] NOTICE: [pool www] child 690 started
+[11-Dec-2025 19:18:55] NOTICE: [pool www] child 662 exited with code 0 after 3436.942425 seconds from start
+[11-Dec-2025 19:18:55] NOTICE: [pool www] child 691 started
+[11-Dec-2025 19:52:44] NOTICE: [pool www] child 689 exited with code 0 after 3138.169551 seconds from start
+[11-Dec-2025 19:52:44] NOTICE: [pool www] child 718 started
+[11-Dec-2025 20:08:04] NOTICE: [pool www] child 690 exited with code 0 after 3765.606991 seconds from start
+[11-Dec-2025 20:08:04] NOTICE: [pool www] child 719 started
+[11-Dec-2025 20:09:23] NOTICE: [pool www] child 691 exited with code 0 after 3027.910521 seconds from start
+[11-Dec-2025 20:09:23] NOTICE: [pool www] child 720 started
+[11-Dec-2025 20:20:34] NOTICE: [pool www] child 720 exited with code 0 after 670.934912 seconds from start
+[11-Dec-2025 20:20:34] NOTICE: [pool www] child 723 started
+[11-Dec-2025 20:21:47] NOTICE: [pool www] child 721 exited with code 0 after 572.801228 seconds from start
+[11-Dec-2025 20:21:47] NOTICE: [pool www] child 724 started
+[11-Dec-2025 20:27:45] NOTICE: Finishing ...
+[11-Dec-2025 20:27:47] NOTICE: exiting, bye-bye!
+[11-Dec-2025 20:27:53] NOTICE: fpm is running, pid 1
+[11-Dec-2025 20:27:53] NOTICE: ready to handle connections
+[11-Dec-2025 20:27:53] NOTICE: systemd monitor disabled
+[11-Dec-2025 21:54:46] NOTICE: [pool www] child 94 exited with code 0 after 2626.726955 seconds from start
+[11-Dec-2025 21:54:46] NOTICE: [pool www] child 123 started
+[11-Dec-2025 23:30:11] NOTICE: [pool www] child 126 exited with code 0 after 4736.408582 seconds from start
+[11-Dec-2025 23:30:11] NOTICE: [pool www] child 157 started
+[11-Dec-2025 23:32:17] NOTICE: [pool www] child 127 exited with code 0 after 4793.180513 seconds from start
+[11-Dec-2025 23:32:17] NOTICE: [pool www] child 158 started
+[11-Dec-2025 23:47:52] NOTICE: Finishing ...
+[11-Dec-2025 23:47:52] NOTICE: exiting, bye-bye!
+[11-Dec-2025 23:48:00] NOTICE: fpm is running, pid 1
+[11-Dec-2025 23:48:00] NOTICE: ready to handle connections
+[11-Dec-2025 23:48:00] NOTICE: systemd monitor disabled
+[11-Dec-2025 23:58:25] NOTICE: [pool www] child 9 exited with code 0 after 622.825828 seconds from start
+[11-Dec-2025 23:58:25] NOTICE: [pool www] child 81 started
+[11-Dec-2025 23:59:01] NOTICE: [pool www] child 44 exited with code 0 after 642.562241 seconds from start
+[11-Dec-2025 23:59:01] NOTICE: [pool www] child 82 started
+[11-Dec-2025 23:59:27] NOTICE: [pool www] child 80 exited with code 0 after 530.220025 seconds from start
+[11-Dec-2025 23:59:27] NOTICE: [pool www] child 83 started
+[12-Dec-2025 00:13:25] NOTICE: Finishing ...
+[12-Dec-2025 00:13:25] NOTICE: exiting, bye-bye!
+[12-Dec-2025 00:24:16] NOTICE: fpm is running, pid 1
+[12-Dec-2025 00:24:16] NOTICE: ready to handle connections
+[12-Dec-2025 00:24:16] NOTICE: systemd monitor disabled
+[12-Dec-2025 01:30:29] NOTICE: [pool www] child 7 exited with code 0 after 3973.262243 seconds from start
+[12-Dec-2025 01:30:29] NOTICE: [pool www] child 37 started
+[12-Dec-2025 01:34:05] NOTICE: [pool www] child 8 exited with code 0 after 4187.817763 seconds from start
+[12-Dec-2025 01:34:05] NOTICE: [pool www] child 38 started
+[12-Dec-2025 01:47:27] WARNING: [pool www] child 37, script '/code/web//index.php' (request: "GET /index.php") executing too slow (6.387700 sec), logging
+[12-Dec-2025 01:47:29] NOTICE: child 37 stopped for tracing
+[12-Dec-2025 01:47:29] NOTICE: about to trace 37
+[12-Dec-2025 01:47:29] NOTICE: finished trace of 37
+[12-Dec-2025 03:01:52] NOTICE: [pool www] child 38 exited with code 0 after 5267.060091 seconds from start
+[12-Dec-2025 03:01:52] NOTICE: [pool www] child 94 started
+[12-Dec-2025 03:19:53] NOTICE: [pool www] child 65 exited with code 0 after 4694.158562 seconds from start
+[12-Dec-2025 03:19:53] NOTICE: [pool www] child 95 started
+[12-Dec-2025 03:33:55] NOTICE: [pool www] child 66 exited with code 0 after 4001.266310 seconds from start
+[12-Dec-2025 03:33:55] NOTICE: [pool www] child 96 started
+[12-Dec-2025 04:11:04] NOTICE: [pool www] child 94 exited with code 0 after 4152.126947 seconds from start
+[12-Dec-2025 04:11:04] NOTICE: [pool www] child 123 started
+[12-Dec-2025 05:05:34] NOTICE: [pool www] child 123 exited with code 0 after 3270.277341 seconds from start
+[12-Dec-2025 05:05:34] NOTICE: [pool www] child 154 started
+[12-Dec-2025 05:11:42] NOTICE: [pool www] child 124 exited with code 0 after 3262.126813 seconds from start
+[12-Dec-2025 05:11:42] NOTICE: [pool www] child 155 started
+[12-Dec-2025 05:20:06] NOTICE: [pool www] child 125 exited with code 0 after 3473.139638 seconds from start
+[12-Dec-2025 05:20:06] NOTICE: [pool www] child 156 started
+[12-Dec-2025 05:55:06] NOTICE: [pool www] child 154 exited with code 0 after 2971.472894 seconds from start
+[12-Dec-2025 05:55:06] NOTICE: [pool www] child 183 started
+[12-Dec-2025 06:05:11] NOTICE: [pool www] child 155 exited with code 0 after 3208.799196 seconds from start
+[12-Dec-2025 06:05:11] NOTICE: [pool www] child 184 started
+[12-Dec-2025 06:08:53] NOTICE: [pool www] child 156 exited with code 0 after 2926.143217 seconds from start
+[12-Dec-2025 06:08:53] NOTICE: [pool www] child 185 started
+[12-Dec-2025 06:39:36] NOTICE: [pool www] child 183 exited with code 0 after 2669.912468 seconds from start
+[12-Dec-2025 06:39:36] NOTICE: [pool www] child 186 started
+[12-Dec-2025 06:40:14] NOTICE: [pool www] child 184 exited with code 0 after 2103.120461 seconds from start
+[12-Dec-2025 06:40:14] NOTICE: [pool www] child 187 started
+[12-Dec-2025 06:45:24] NOTICE: [pool www] child 185 exited with code 0 after 2191.758074 seconds from start
+[12-Dec-2025 06:45:24] NOTICE: [pool www] child 188 started
+[12-Dec-2025 07:17:34] NOTICE: [pool www] child 186 exited with code 0 after 2278.909308 seconds from start
+[12-Dec-2025 07:17:34] NOTICE: [pool www] child 215 started
+[12-Dec-2025 07:18:37] NOTICE: [pool www] child 187 exited with code 0 after 2302.964070 seconds from start
+[12-Dec-2025 07:18:37] NOTICE: [pool www] child 216 started
+[12-Dec-2025 07:19:17] NOTICE: [pool www] child 188 exited with code 0 after 2032.535936 seconds from start
+[12-Dec-2025 07:19:17] NOTICE: [pool www] child 217 started
+[12-Dec-2025 08:03:33] NOTICE: [pool www] child 215 exited with code 0 after 2758.362871 seconds from start
+[12-Dec-2025 08:03:33] NOTICE: [pool www] child 245 started
+[12-Dec-2025 08:13:53] NOTICE: [pool www] child 216 exited with code 0 after 3316.481343 seconds from start
+[12-Dec-2025 08:13:53] NOTICE: [pool www] child 246 started
+[12-Dec-2025 08:28:23] NOTICE: [pool www] child 217 exited with code 0 after 4146.237482 seconds from start
+[12-Dec-2025 08:28:23] NOTICE: [pool www] child 247 started
+[12-Dec-2025 09:03:15] NOTICE: [pool www] child 245 exited with code 0 after 3582.331214 seconds from start
+[12-Dec-2025 09:03:15] NOTICE: [pool www] child 274 started
+[12-Dec-2025 09:08:01] NOTICE: [pool www] child 246 exited with code 0 after 3247.055768 seconds from start
+[12-Dec-2025 09:08:01] NOTICE: [pool www] child 275 started
+[12-Dec-2025 09:30:53] NOTICE: [pool www] child 247 exited with code 0 after 3749.529018 seconds from start
+[12-Dec-2025 09:30:53] NOTICE: [pool www] child 276 started
+[12-Dec-2025 10:02:55] NOTICE: [pool www] child 274 exited with code 0 after 3579.591554 seconds from start
+[12-Dec-2025 10:02:55] NOTICE: [pool www] child 303 started
+[12-Dec-2025 10:13:06] NOTICE: [pool www] child 275 exited with code 0 after 3905.385308 seconds from start
+[12-Dec-2025 10:13:06] NOTICE: [pool www] child 304 started
+[12-Dec-2025 10:29:37] NOTICE: [pool www] child 276 exited with code 0 after 3524.154737 seconds from start
+[12-Dec-2025 10:29:37] NOTICE: [pool www] child 305 started
+[12-Dec-2025 11:00:20] NOTICE: [pool www] child 303 exited with code 0 after 3445.057470 seconds from start
+[12-Dec-2025 11:00:20] NOTICE: [pool www] child 334 started
+[12-Dec-2025 11:00:32] NOTICE: [pool www] child 304 exited with code 0 after 2846.532256 seconds from start
+[12-Dec-2025 11:00:32] NOTICE: [pool www] child 335 started
+[12-Dec-2025 11:01:07] NOTICE: [pool www] child 305 exited with code 0 after 1889.982283 seconds from start
+[12-Dec-2025 11:01:07] NOTICE: [pool www] child 336 started
+[12-Dec-2025 11:02:02] NOTICE: [pool www] child 334 exited with code 0 after 102.540441 seconds from start
+[12-Dec-2025 11:02:02] NOTICE: [pool www] child 337 started
+[12-Dec-2025 11:02:10] NOTICE: [pool www] child 335 exited with code 0 after 97.222429 seconds from start
+[12-Dec-2025 11:02:10] NOTICE: [pool www] child 338 started
+[12-Dec-2025 11:02:31] NOTICE: [pool www] child 336 exited with code 0 after 84.001482 seconds from start
+[12-Dec-2025 11:02:31] NOTICE: [pool www] child 339 started
+[12-Dec-2025 11:03:15] NOTICE: [pool www] child 337 exited with code 0 after 72.626513 seconds from start
+[12-Dec-2025 11:03:15] NOTICE: [pool www] child 340 started
+[12-Dec-2025 11:03:22] NOTICE: [pool www] child 338 exited with code 0 after 72.481741 seconds from start
+[12-Dec-2025 11:03:22] NOTICE: [pool www] child 341 started
+[12-Dec-2025 11:03:43] NOTICE: [pool www] child 339 exited with code 0 after 72.109706 seconds from start
+[12-Dec-2025 11:03:43] NOTICE: [pool www] child 342 started
+[12-Dec-2025 11:04:30] NOTICE: [pool www] child 340 exited with code 0 after 74.496573 seconds from start
+[12-Dec-2025 11:04:30] NOTICE: [pool www] child 343 started
+[12-Dec-2025 11:04:46] NOTICE: [pool www] child 341 exited with code 0 after 83.784780 seconds from start
+[12-Dec-2025 11:04:46] NOTICE: [pool www] child 344 started
+[12-Dec-2025 11:05:32] NOTICE: [pool www] child 342 exited with code 0 after 109.377286 seconds from start
+[12-Dec-2025 11:05:32] NOTICE: [pool www] child 345 started
+[12-Dec-2025 11:07:04] NOTICE: [pool www] child 343 exited with code 0 after 154.110002 seconds from start
+[12-Dec-2025 11:07:04] NOTICE: [pool www] child 346 started
+[12-Dec-2025 11:07:15] NOTICE: [pool www] child 344 exited with code 0 after 148.709283 seconds from start
+[12-Dec-2025 11:07:15] NOTICE: [pool www] child 347 started
+[12-Dec-2025 11:07:37] NOTICE: [pool www] child 345 exited with code 0 after 124.865335 seconds from start
+[12-Dec-2025 11:07:37] NOTICE: [pool www] child 348 started
+[12-Dec-2025 11:08:13] NOTICE: [pool www] child 346 exited with code 0 after 69.114859 seconds from start
+[12-Dec-2025 11:08:13] NOTICE: [pool www] child 349 started
+[12-Dec-2025 11:08:17] NOTICE: [pool www] child 347 exited with code 0 after 62.088941 seconds from start
+[12-Dec-2025 11:08:17] NOTICE: [pool www] child 350 started
+[12-Dec-2025 11:08:32] NOTICE: [pool www] child 348 exited with code 0 after 55.147298 seconds from start
+[12-Dec-2025 11:08:32] NOTICE: [pool www] child 351 started
+[12-Dec-2025 11:09:14] NOTICE: [pool www] child 349 exited with code 0 after 60.821869 seconds from start
+[12-Dec-2025 11:09:14] NOTICE: [pool www] child 352 started
+[12-Dec-2025 11:12:14] NOTICE: [pool www] child 350 exited with code 0 after 237.240070 seconds from start
+[12-Dec-2025 11:12:14] NOTICE: [pool www] child 353 started
+[12-Dec-2025 11:33:16] NOTICE: [pool www] child 351 exited with code 0 after 1483.699581 seconds from start
+[12-Dec-2025 11:33:16] NOTICE: [pool www] child 354 started
+[12-Dec-2025 12:00:54] NOTICE: [pool www] child 352 exited with code 0 after 3100.245251 seconds from start
+[12-Dec-2025 12:00:54] NOTICE: [pool www] child 381 started
+[12-Dec-2025 12:04:44] NOTICE: [pool www] child 353 exited with code 0 after 3149.827138 seconds from start
+[12-Dec-2025 12:04:44] NOTICE: [pool www] child 382 started
+[12-Dec-2025 12:14:55] NOTICE: [pool www] child 354 exited with code 0 after 2499.413827 seconds from start
+[12-Dec-2025 12:14:55] NOTICE: [pool www] child 383 started
+[12-Dec-2025 12:44:13] NOTICE: [pool www] child 381 exited with code 0 after 2599.426334 seconds from start
+[12-Dec-2025 12:44:13] NOTICE: [pool www] child 384 started
+[12-Dec-2025 12:48:08] NOTICE: [pool www] child 382 exited with code 0 after 2604.653917 seconds from start
+[12-Dec-2025 12:48:08] NOTICE: [pool www] child 411 started
+[12-Dec-2025 12:54:03] NOTICE: [pool www] child 383 exited with code 0 after 2347.547395 seconds from start
+[12-Dec-2025 12:54:03] NOTICE: [pool www] child 412 started
+[12-Dec-2025 13:21:49] NOTICE: [pool www] child 384 exited with code 0 after 2255.292113 seconds from start
+[12-Dec-2025 13:21:49] NOTICE: [pool www] child 413 started
+[12-Dec-2025 13:28:57] NOTICE: [pool www] child 411 exited with code 0 after 2448.416743 seconds from start
+[12-Dec-2025 13:28:57] NOTICE: [pool www] child 414 started
+[12-Dec-2025 13:36:47] NOTICE: [pool www] child 412 exited with code 0 after 2563.743926 seconds from start
+[12-Dec-2025 13:36:47] NOTICE: [pool www] child 415 started
+[12-Dec-2025 14:06:32] NOTICE: [pool www] child 413 exited with code 0 after 2683.402685 seconds from start
+[12-Dec-2025 14:06:32] NOTICE: [pool www] child 442 started
+[12-Dec-2025 14:09:50] NOTICE: [pool www] child 414 exited with code 0 after 2452.833734 seconds from start
+[12-Dec-2025 14:09:50] NOTICE: [pool www] child 443 started
+[12-Dec-2025 14:16:24] NOTICE: [pool www] child 415 exited with code 0 after 2376.924903 seconds from start
+[12-Dec-2025 14:16:24] NOTICE: [pool www] child 444 started
+[12-Dec-2025 14:41:52] NOTICE: [pool www] child 442 exited with code 0 after 2120.467104 seconds from start
+[12-Dec-2025 14:41:52] NOTICE: [pool www] child 445 started
+[12-Dec-2025 14:44:09] NOTICE: [pool www] child 443 exited with code 0 after 2059.251600 seconds from start
+[12-Dec-2025 14:44:09] NOTICE: [pool www] child 472 started
+[12-Dec-2025 14:55:19] NOTICE: [pool www] child 444 exited with code 0 after 2335.349511 seconds from start
+[12-Dec-2025 14:55:19] NOTICE: [pool www] child 473 started
+[12-Dec-2025 15:12:44] NOTICE: [pool www] child 472 exited with code 0 after 1714.566234 seconds from start
+[12-Dec-2025 15:12:44] NOTICE: [pool www] child 474 started
+[12-Dec-2025 15:13:09] NOTICE: [pool www] child 445 exited with code 0 after 1876.074269 seconds from start
+[12-Dec-2025 15:13:09] NOTICE: [pool www] child 475 started
+[12-Dec-2025 15:17:31] NOTICE: [pool www] child 473 exited with code 0 after 1331.806514 seconds from start
+[12-Dec-2025 15:17:31] NOTICE: [pool www] child 476 started
+[12-Dec-2025 15:37:41] NOTICE: [pool www] child 474 exited with code 0 after 1497.161624 seconds from start
+[12-Dec-2025 15:37:41] NOTICE: [pool www] child 477 started
+[12-Dec-2025 15:40:23] NOTICE: [pool www] child 475 exited with code 0 after 1634.731003 seconds from start
+[12-Dec-2025 15:40:23] NOTICE: [pool www] child 478 started
+[12-Dec-2025 15:41:14] NOTICE: [pool www] child 476 exited with code 0 after 1423.002084 seconds from start
+[12-Dec-2025 15:41:14] NOTICE: [pool www] child 479 started
+[12-Dec-2025 15:59:49] NOTICE: [pool www] child 477 exited with code 0 after 1328.311497 seconds from start
+[12-Dec-2025 15:59:49] NOTICE: [pool www] child 506 started
+[12-Dec-2025 16:02:13] NOTICE: [pool www] child 478 exited with code 0 after 1309.483923 seconds from start
+[12-Dec-2025 16:02:13] NOTICE: [pool www] child 507 started
+[12-Dec-2025 16:07:02] NOTICE: [pool www] child 479 exited with code 0 after 1548.681717 seconds from start
+[12-Dec-2025 16:07:02] NOTICE: [pool www] child 508 started
+[12-Dec-2025 16:33:44] NOTICE: [pool www] child 521 exited with code 0 after 1403.629652 seconds from start
+[12-Dec-2025 16:33:44] NOTICE: [pool www] child 524 started
+[12-Dec-2025 16:53:31] NOTICE: [pool www] child 523 exited with code 0 after 1812.442869 seconds from start
+[12-Dec-2025 16:53:31] NOTICE: [pool www] child 552 started

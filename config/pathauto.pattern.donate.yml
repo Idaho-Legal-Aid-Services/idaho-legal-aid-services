@@ -1,0 +1,22 @@
+uuid: 90ea75fc-6aad-406e-b9d0-7172d1659542
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: donate
+label: Donate
+type: 'canonical_entities:node'
+pattern: '/donate[node:title]'
+selection_criteria:
+  cd7e8504-2cca-4d00-9a4a-3dcde763a101:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: cd7e8504-2cca-4d00-9a4a-3dcde763a101
+    context_mapping:
+      node: node
+    bundles:
+      donate: donate
+selection_logic: and
+weight: -5
+relationships: {  }

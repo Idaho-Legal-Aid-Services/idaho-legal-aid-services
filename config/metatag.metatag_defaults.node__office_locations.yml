@@ -1,0 +1,8 @@
+uuid: 8150b4e7-bbe7-4c53-b234-615a0693364d
+langcode: en
+status: true
+dependencies: {  }
+id: node__office_locations
+label: 'Content: Office Locations'
+tags:
+  schema_web_page_type: WebPage

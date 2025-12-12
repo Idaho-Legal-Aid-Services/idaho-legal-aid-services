@@ -1,0 +1,9 @@
+uuid: 1ed8b138-3ad2-4512-8171-cfce1dc1099d
+langcode: en
+status: true
+dependencies: {  }
+id: node__apply_for_help
+label: 'Content: Apply for Help'
+tags:
+  schema_web_page_description: '[node:field_body:summary]'
+  schema_web_page_type: ContactPage

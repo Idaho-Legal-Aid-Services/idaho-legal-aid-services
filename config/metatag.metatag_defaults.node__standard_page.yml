@@ -1,0 +1,8 @@
+uuid: fc730899-fc7a-4027-bb0e-0d89377abb44
+langcode: en
+status: true
+dependencies: {  }
+id: node__standard_page
+label: 'Content: Standard Page'
+tags:
+  schema_web_page_type: WebPage

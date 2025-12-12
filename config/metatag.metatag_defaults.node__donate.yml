@@ -1,0 +1,9 @@
+uuid: abe1e9fa-21b9-4714-95a8-05f9ea9d7bf1
+langcode: en
+status: true
+dependencies: {  }
+id: node__donate
+label: 'Content: Donate'
+tags:
+  schema_web_page_description: '[node:field_donor_body:summary]'
+  schema_web_page_type: WebPage

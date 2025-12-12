@@ -10,7 +10,17 @@ id: menu_path
 label: 'Menu Path'
 type: 'canonical_entities:node'
 pattern: '[node:menu-link:parents:join-path]/[node:title]'
-selection_criteria: {  }
+selection_criteria:
+  69eef9d9-f89b-4b33-8304-8f31a1146890:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: 69eef9d9-f89b-4b33-8304-8f31a1146890
+    context_mapping:
+      node: node
+    bundles:
+      apply_for_help: apply_for_help
+      get_involved: get_involved
+      standard_page: standard_page
 selection_logic: and
-weight: 10
+weight: 0
 relationships: {  }

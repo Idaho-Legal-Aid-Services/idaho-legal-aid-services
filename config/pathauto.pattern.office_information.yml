@@ -1,0 +1,22 @@
+uuid: 4f73b356-f0dd-45a5-9988-48322b826ea3
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: office_information
+label: 'Office Information'
+type: 'canonical_entities:node'
+pattern: '/contact/offices/[node:title]'
+selection_criteria:
+  0633d8cb-1f0d-44fd-aff2-b2b72bd7b147:
+    id: 'entity_bundle:node'
+    negate: false
+    uuid: 0633d8cb-1f0d-44fd-aff2-b2b72bd7b147
+    context_mapping:
+      node: node
+    bundles:
+      office_information: office_information
+selection_logic: and
+weight: -5
+relationships: {  }

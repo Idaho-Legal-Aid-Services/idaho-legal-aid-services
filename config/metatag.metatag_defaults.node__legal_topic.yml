@@ -1,0 +1,8 @@
+uuid: 642f6e96-d407-4c2c-aa10-5346a48e48f2
+langcode: en
+status: true
+dependencies: {  }
+id: node__legal_topic
+label: 'Content: Legal Topic'
+tags:
+  schema_web_page_type: WebPage

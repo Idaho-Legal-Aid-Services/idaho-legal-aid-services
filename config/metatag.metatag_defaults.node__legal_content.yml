@@ -1,0 +1,10 @@
+uuid: 9c414e66-0fd1-470e-a0f7-3cfcdb584130
+langcode: en
+status: true
+dependencies: {  }
+id: node__legal_content
+label: 'Content: Legal Content'
+tags:
+  og_type: website
+  schema_web_page_description: '[node:field_legal_content_description:summary]'
+  schema_web_page_type: CollectionPage

@@ -1,0 +1,8 @@
+uuid: 2923a080-7201-4f66-9acc-423eb3437f98
+langcode: en
+status: true
+dependencies: {  }
+id: node__employment_application
+label: 'Content: Employment Application'
+tags:
+  schema_job_posting_type: JobPosting

@@ -1,0 +1,15 @@
+uuid: f23e6550-02a4-429c-9f79-5dcb40b6205f
+langcode: en
+status: true
+dependencies: {  }
+id: node__office_information
+label: 'Content: Office Information'
+tags:
+  schema_organization_additional_type: Organization
+  schema_organization_geo: 'a:3:{s:5:"@type";s:14:"GeoCoordinates";s:8:"latitude";s:36:"[node:field_office_location_map:lat]";s:9:"longitude";s:36:"[node:field_office_location_map:lon]";}'
+  schema_organization_id: '[node:url]'
+  schema_organization_name: '[node:title]'
+  schema_organization_opening_hours_specification: 'a:2:{s:5:"@type";s:25:"OpeningHoursSpecification";s:9:"dayOfWeek";s:31:"[node:field_office_hours:value]";}'
+  schema_organization_telephone: '[node:field_phone_number]'
+  schema_organization_type: LegalService
+  schema_organization_url: '[node:url]'

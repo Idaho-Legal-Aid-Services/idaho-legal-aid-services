@@ -1,0 +1,11 @@
+uuid: 502d7d33-7ec1-4a08-b358-bf5e0522cdb6
+langcode: en
+status: true
+dependencies: {  }
+id: node__resource
+label: 'Content: Resource'
+tags:
+  article_section: '[node:field_service_areas:entity:name]'
+  schema_article_description: '[node:field_main_content:summary]'
+  schema_article_headline: '[node:title]'
+  schema_article_type: Article
