@@ -275,15 +275,16 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
   $breadcrumb = $breadcrumb_manager->build($route_match);
   $links = $breadcrumb->getLinks();
 
-  // Need at least 2 items for a meaningful breadcrumb.
-  if (count($links) < 2) {
-    return;
-  }
+  // Get current page URL.
+  $request = \Drupal::request();
+  $base_url = $request->getSchemeAndHttpHost();
+  $current_url = $base_url . $request->getRequestUri();
+  // Remove query strings for cleaner canonical URL.
+  $current_url = strtok($current_url, '?');
 
   // Build the BreadcrumbList schema.
   $breadcrumb_items = [];
   $position = 1;
-  $base_url = \Drupal::request()->getSchemeAndHttpHost();
 
   foreach ($links as $link) {
     $url = $link->getUrl();
@@ -294,7 +295,8 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
       $absolute_url = $url->setAbsolute()->toString();
     }
     else {
-      $absolute_url = $base_url . $url->toString();
+      $uri = $url->toString();
+      $absolute_url = (strpos($uri, 'http') === 0) ? $uri : $base_url . $uri;
     }
 
     // Handle string or TranslatableMarkup text.
@@ -314,13 +316,15 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
     $position++;
   }
 
-  // Add current page as final breadcrumb item (without 'item' URL per Google spec).
+  // Add current page as final breadcrumb item with URL.
   $current_title = '';
   if (isset($variables['head_title']['title'])) {
     $title = $variables['head_title']['title'];
     $current_title = is_object($title) ? $title->__toString() : (string) $title;
     // Remove site name suffix if present.
     $current_title = preg_replace('/\s*\|\s*Idaho Legal Aid Services$/', '', $current_title);
+    // Also handle other separator patterns.
+    $current_title = preg_replace('/\s*\|\s*[^|]+$/', '', $current_title);
   }
 
   if (!empty($current_title)) {
@@ -328,10 +332,11 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
       '@type' => 'ListItem',
       'position' => $position,
       'name' => $current_title,
+      'item' => $current_url,
     ];
   }
 
-  // Only output if we have valid breadcrumb items.
+  // Need at least 2 items for a meaningful breadcrumb.
   if (count($breadcrumb_items) < 2) {
     return;
   }
@@ -339,6 +344,7 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
   $schema = [
     '@context' => 'https://schema.org',
     '@type' => 'BreadcrumbList',
+    '@id' => $current_url . '#breadcrumb',
     'itemListElement' => $breadcrumb_items,
   ];
 

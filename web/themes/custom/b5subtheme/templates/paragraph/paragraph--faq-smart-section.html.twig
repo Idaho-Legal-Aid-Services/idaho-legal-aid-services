@@ -40,7 +40,7 @@
 }
 </script>
 
-<div class="faq-smart-section" itemscope itemtype="https://schema.org/FAQPage">
+<div class="faq-smart-section">
   {% if content.field_faq_section_title %}
     <h3 class="faq-section-title">
       {{ content.field_faq_section_title }}
@@ -84,14 +84,13 @@
       {% if item['#paragraph'] is defined %}
         {% set item_id = 'faq-' ~ item['#paragraph'].id() %}
 
-        <div class="accordion-item faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+        <div class="accordion-item faq-item">
           <h2 class="accordion-header" id="heading-{{ item_id }}">
             <button class="accordion-button collapsed" type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#collapse-{{ item_id }}"
                     aria-expanded="false"
-                    aria-controls="collapse-{{ item_id }}"
-                    itemprop="name">
+                    aria-controls="collapse-{{ item_id }}">
               {% if item['#paragraph'].field_faq_question.value %}
                 {{ item['#paragraph'].field_faq_question.value }}
               {% endif %}
@@ -100,9 +99,8 @@
           <div id="collapse-{{ item_id }}"
                class="accordion-collapse collapse"
                aria-labelledby="heading-{{ item_id }}"
-               data-bs-parent="#{{ accordion_id }}"
-               itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
-            <div class="accordion-body" itemprop="text">
+               data-bs-parent="#{{ accordion_id }}">
+            <div class="accordion-body">
               {% if item['#paragraph'].field_faq_answer.value %}
                 {{ item['#paragraph'].field_faq_answer|view }}
               {% endif %}
