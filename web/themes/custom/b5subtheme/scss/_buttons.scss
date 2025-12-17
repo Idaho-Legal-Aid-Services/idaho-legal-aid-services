@@ -1,12 +1,9 @@
 /***********************************************
  * Button Component Styles
- * 
+ *
  * Standardized button styles for site-wide consistency.
  * Matches the utility bar hover style with subtle rounded corners.
  ***********************************************/
-
-@import 'variables_theme';
-@import 'mixins';
 
 // Base button styles - override Bootstrap defaults
 .btn {

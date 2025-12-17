@@ -5,8 +5,8 @@ core_version_requirement: '^10.1 || ^11.0'
 'base theme': bootstrap5
 libraries:
   - b5subtheme/global-styling
-  - b5subtheme/bootstrap-icons
-  - b5subtheme/fontawesome
+  # bootstrap-icons removed - not used in templates (saves ~87KB)
+  # fontawesome removed from global - already compiled into style.css via SCSS (saves ~72KB duplicate)
   - b5subtheme/custom-scripts
   - b5subtheme/smart-faq
   - b5subtheme/search-overlay

@@ -78,12 +78,36 @@
     {# Critical CSS for above-the-fold content #}
     <style id="critical-css">
       /* Critical CSS for immediate rendering - prevents FOUC */
+
+      /* Font-display: swap fallback - shows system font until Nunito Sans loads */
+      @font-face {
+        font-family: 'Nunito Sans';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: local('Nunito Sans'), local('NunitoSans-Regular');
+      }
+      @font-face {
+        font-family: 'Nunito Sans';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: local('Nunito Sans SemiBold'), local('NunitoSans-SemiBold');
+      }
+      @font-face {
+        font-family: 'Nunito Sans';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: local('Nunito Sans Bold'), local('NunitoSans-Bold');
+      }
+
       :root {
         --bs-primary: #1263a0;
         --bs-primary-dark: #0a58ca;
         --bs-font-sans-serif: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      
+
       /* Base body styles to prevent layout shift */
       body {
         margin: 0;

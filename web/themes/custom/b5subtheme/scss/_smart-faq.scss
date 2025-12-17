@@ -1,7 +1,5 @@
 // Smart FAQ Section Styles
-@import 'variables_theme';
-@import 'mixins';
-@import 'accordion'; // Import base accordion styles
+// Note: accordion is imported before this file in style.scss
 
 // FAQ-specific variables
 $faq-bg-color: $color-gray-bg;

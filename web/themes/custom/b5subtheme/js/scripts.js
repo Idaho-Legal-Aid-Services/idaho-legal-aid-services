@@ -189,23 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // ==========================================
-  // SEARCH TOGGLE
-  // ==========================================
-  const toggleBtn = document.getElementById('searchToggle');
-  const searchForm = document.getElementById('searchForm');
-  if (toggleBtn && searchForm) {
-    searchForm.style.display = 'none';
-    toggleBtn.setAttribute('aria-expanded', 'false');
-    searchForm.setAttribute('aria-hidden', 'true');
-    toggleBtn.addEventListener('click', () => {
-      const isHidden = window.getComputedStyle(searchForm).display === 'none';
-      searchForm.style.display = isHidden ? 'inline-block' : 'none';
-      toggleBtn.setAttribute('aria-expanded', String(isHidden));
-      searchForm.setAttribute('aria-hidden', String(!isHidden));
-    });
-  }
-
-  // ==========================================
   // IMPACT CARDS FLIP + A11Y - ENHANCED VERSION
   // ==========================================
   

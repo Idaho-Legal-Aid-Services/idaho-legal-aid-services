@@ -1,12 +1,9 @@
 /**
  * Apply for Help Page Styles
- * 
+ *
  * Most styles now come from standardized components in _layout-components.scss
  * Only page-specific customizations remain here.
  */
-
-@import 'variables_theme';
-@import 'mixins';
 
 .node--apply-for-help {
   // Subtitle section styling (unique to this page)

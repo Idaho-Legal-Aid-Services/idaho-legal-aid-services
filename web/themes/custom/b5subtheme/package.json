@@ -18,6 +18,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^6.0.0",
     "bootswatch": "^5.3.6",
     "browser-sync": "^3.0.4",
     "browser-sync-webpack-plugin": "^2.4.0",
@@ -34,7 +35,6 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
-    "bootstrap": "^5.3.6",
-    "bootstrap-icons": "^1.13.1"
+    "bootstrap": "^5.3.6"
   }
 }

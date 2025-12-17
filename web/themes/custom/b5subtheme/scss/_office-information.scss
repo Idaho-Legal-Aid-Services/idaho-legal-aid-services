@@ -1,12 +1,9 @@
 /**
  * Office Information Page Styles
- * 
+ *
  * Most styles now come from standardized components in _layout-components.scss
  * The info-card and info-list components handle the layout.
  */
-
-@import 'variables_theme';
-@import 'mixins';
 
 .node--office-information {
   .content-section {

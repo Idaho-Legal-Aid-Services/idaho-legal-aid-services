@@ -1,61 +1,144 @@
+// =============================================================================
+// MAIN STYLESHEET
+// Idaho Legal Aid Services - b5subtheme
+//
+// OPTIMIZED: Selective Bootstrap imports to reduce CSS bundle size
+// Original: ~670KB -> Target: ~150-200KB (with PurgeCSS)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. BOOTSTRAP FUNCTIONS (required for variable manipulation)
+// -----------------------------------------------------------------------------
+@import '~bootstrap/scss/functions';
+
+// -----------------------------------------------------------------------------
+// 2. VARIABLE OVERRIDES (must come BEFORE Bootstrap variables)
+// -----------------------------------------------------------------------------
 @import 'variables_drupal';
 @import 'variables_bootswatch';
 @import 'variables_bootstrap';
-// Import subtheme variables.
 @import 'variables_theme';
-// Import mixins.
+
+// -----------------------------------------------------------------------------
+// 3. BOOTSTRAP VARIABLES AND MAPS
+// -----------------------------------------------------------------------------
+@import '~bootstrap/scss/variables';
+@import '~bootstrap/scss/variables-dark';
+@import '~bootstrap/scss/maps';
+
+// -----------------------------------------------------------------------------
+// 4. BOOTSTRAP MIXINS
+// -----------------------------------------------------------------------------
+@import '~bootstrap/scss/mixins';
+
+// -----------------------------------------------------------------------------
+// 5. BOOTSTRAP UTILITIES SETUP (required before utilities/api)
+// -----------------------------------------------------------------------------
+@import '~bootstrap/scss/utilities';
+
+// -----------------------------------------------------------------------------
+// 6. CUSTOM MIXINS (after Bootstrap mixins are available)
+// -----------------------------------------------------------------------------
 @import 'mixins';
-// Include bootstrap.
-@import '~bootstrap/scss/bootstrap';
+
+// -----------------------------------------------------------------------------
+// 7. BOOTSTRAP COMPONENTS (selective import - only what we use)
+// -----------------------------------------------------------------------------
+
+// Core
+@import '~bootstrap/scss/root';
+@import '~bootstrap/scss/reboot';
+
+// Content
+@import '~bootstrap/scss/type';
+@import '~bootstrap/scss/images';
+@import '~bootstrap/scss/tables';
+
+// Layout
+@import '~bootstrap/scss/containers';
+@import '~bootstrap/scss/grid';
+
+// Forms
+@import '~bootstrap/scss/forms';
+
+// Components (only those actually used in templates/SCSS)
+@import '~bootstrap/scss/buttons';
+@import '~bootstrap/scss/transitions';
+@import '~bootstrap/scss/dropdown';
+@import '~bootstrap/scss/nav';
+@import '~bootstrap/scss/navbar';
+@import '~bootstrap/scss/card';
+@import '~bootstrap/scss/accordion';
+@import '~bootstrap/scss/alert';
+@import '~bootstrap/scss/progress';
+@import '~bootstrap/scss/list-group';
+@import '~bootstrap/scss/close';
+@import '~bootstrap/scss/badge';
+
+// Helpers and Utilities
+@import '~bootstrap/scss/helpers';
+@import '~bootstrap/scss/utilities/api';
+
+// -----------------------------------------------------------------------------
+// 8. BOOTSWATCH THEME (after Bootstrap components)
+// -----------------------------------------------------------------------------
 @import 'bootswatch';
 
-// Import Font Awesome
+// -----------------------------------------------------------------------------
+// 9. FONT AWESOME (selective - only icon styles actually used)
+// -----------------------------------------------------------------------------
 @import '~@fortawesome/fontawesome-free/scss/fontawesome';
-@import '~@fortawesome/fontawesome-free/scss/brands';
 @import '~@fortawesome/fontawesome-free/scss/solid';
-@import '~@fortawesome/fontawesome-free/scss/regular';
-// Import header styles.
+@import '~@fortawesome/fontawesome-free/scss/brands';
+// Note: 'regular' icons removed - audit found no usage in templates
+
+// =============================================================================
+// 10. CUSTOM COMPONENT IMPORTS
+// =============================================================================
+
+// Header and navigation
 @import 'header';
-// Import button component.
+@import 'hover-menu';
+@import 'mobile-menu';
+
+// Buttons and UI components
 @import 'buttons';
-// Import footer styles.
+
+// Footer
 @import 'footer';
-// Import layout styles.
+
+// Layout and structure
 @import 'layout-components';
-// Import topic cards component.
+
+// Card components
 @import 'topic-cards';
-// Import impact cards components.
 @import 'impact-cards';
-// Import custom home page.
+
+// Page-specific styles
 @import 'home-page';
-// Import donor page template.
 @import 'donate';
-// Import help overlay.
-@import 'help-overlay';
-// Import search overlay.
-@import 'search-overlay';
-// Import apply for help page.
 @import 'apply-for-help';
-// Import office locations template.
 @import 'office-locations';
-// Import office specific template.
 @import 'office-information';
-// Import column component.
+
+// Overlays
+@import 'help-overlay';
+@import 'search-overlay';
+
+// Content components
 @import 'two-column-info';
-// Import accordion styles.
 @import 'accordion';
 @import 'down-arrow-accordion';
 @import 'smart-faq';
-// Import application features.
+
+// Application forms
 @import 'employment-form-webform';
 @import 'employment-application';
-// Import resources layout for legal topics.
+
+// Resources
 @import 'resource';
 @import 'external-resource';
 
-@import 'hover-menu';
-@import 'mobile-menu';
-// Import back to top button.
+// Utilities
 @import 'back-to-top';
-// Import language switcher.
 @import 'language-switcher';

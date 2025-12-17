@@ -3,8 +3,7 @@
  *  File: _header.scss
  *****************************************************************/
 
-@import 'variables_theme';
-@import 'mixins';
+// Variables and mixins are imported in style.scss before this file
 
 // ===================================
 // Configuration Variables
@@ -60,9 +59,11 @@ $transition-speed: 0.3s;
     > button {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.05rem;
       color: $color-white;
-      padding: 0.5rem 0.75rem;
+      height: calc(#{$utility-bar-height} - 1rem); // Explicit height for uniformity
+      padding: 0 0.75rem;
       line-height: 1;
       border-radius: 4px;
       transition: all $transition-speed ease;
@@ -104,12 +105,13 @@ $transition-speed: 0.3s;
       
       @include mobile {
         font-size: 0.8rem;
-        padding: 0.4rem 0.5rem;
-        
+        height: calc(#{$utility-bar-height} - 1.2rem); // Slightly smaller on mobile
+        padding: 0 0.5rem;
+
         i {
           font-size: 0.9rem;
         }
-        
+
         span {
           white-space: nowrap;
         }
