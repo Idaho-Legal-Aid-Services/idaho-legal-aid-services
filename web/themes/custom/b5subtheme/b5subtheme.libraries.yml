@@ -21,9 +21,6 @@ custom-scripts:
 
 premium-application:
   version: 1.0
-  css:
-    theme:
-      css/style.css: {}
   js:
     js/premium-application.js: {}
   dependencies:
@@ -34,9 +31,6 @@ premium-application:
 
 smart-faq:
   version: 2.0
-  css:
-    component:
-      css/style.css: {}
   js:
     js/smart-faq-enhanced.js: { weight: -10 }
   dependencies:
@@ -47,9 +41,6 @@ smart-faq:
 
 down-arrow-accordion:
   version: 1.0
-  css:
-    component:
-      css/style.css: {}
   js:
     js/down-arrow-accordion.js: {}
   dependencies:
@@ -103,9 +94,6 @@ scroll-behaviors:
 
 resources:
   version: 1.0
-  css:
-    theme:
-      css/style.css: {}
   js:
     js/resources.js: {}
   dependencies:
@@ -148,9 +136,6 @@ topic-cards:
   version: 1.0
   js:
     js/topic-cards.js: {}
-  css:
-    theme:
-      css/style.css: {}
   dependencies:
     - core/drupal
     - core/once
