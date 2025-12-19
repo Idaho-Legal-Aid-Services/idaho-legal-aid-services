@@ -331,7 +331,18 @@ display:
       cache:
         type: search_api_tag
         options: {  }
-      empty: {  }
+      empty:
+        area_text_custom:
+          id: area_text_custom
+          table: views
+          field: area_text_custom
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: text_custom
+          empty: true
+          content: '<div class="search-empty-message"><p>Enter keywords above to search for legal topics, forms, and resources.</p></div>'
+          tokenize: false
       sorts:
         search_api_relevance:
           id: search_api_relevance
@@ -369,7 +380,7 @@ display:
             operator_limit_selection: false
             operator_list: {  }
             identifier: keys
-            required: false
+            required: true
             remember: false
             multiple: false
             remember_roles:

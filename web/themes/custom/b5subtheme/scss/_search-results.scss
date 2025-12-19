@@ -261,13 +261,237 @@ ul.pager__items {
 }
 
 // -----------------------------------------------------------------------------
-// Search Results Items
+// Search Page Layout
+// -----------------------------------------------------------------------------
+.search-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.search-form-wrapper {
+  margin-bottom: 2rem;
+}
+
+.search-results {
+  margin-top: 1rem;
+}
+
+.search-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.search-empty-message {
+  background-color: $color-gray-bg;
+  border-radius: $border-radius-lg;
+  padding: 2rem;
+
+  p {
+    font-size: 1.25rem;
+    color: $color-gray-text;
+    margin: 0;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Search Results List
+// -----------------------------------------------------------------------------
+.search-results__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-results__item {
+  border-bottom: 2px solid #868e96;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Individual Search Result
+// -----------------------------------------------------------------------------
+.search-result {
+  padding: 1.5rem 0;
+
+  // Icon column
+  &__icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: $color-gray-bg;
+    border-radius: 50%;
+    color: $color-primary;
+    font-size: 1.1rem;
+  }
+
+  // Content column
+  &__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  // Title - larger than excerpt
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    line-height: 1.3;
+
+    @include mobile {
+      font-size: 1.5rem;
+    }
+
+    a {
+      color: $color-primary;
+      text-decoration: none;
+      transition: color 0.2s ease;
+
+      &:hover {
+        color: darken($color-primary, 15%);
+        text-decoration: underline;
+      }
+    }
+  }
+
+  // Excerpt - limit to 2 lines
+  &__excerpt {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #495057;
+    margin-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+    // Highlight matched search terms
+    strong {
+      color: $color-primary;
+      background-color: rgba($color-primary, 0.1);
+      padding: 0.1em 0.2em;
+      border-radius: 2px;
+    }
+  }
+
+  // Learn More / Download CTA
+  &__cta {
+    margin-top: 0.5rem;
+  }
+
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $color-primary;
+    text-decoration: none !important;
+    border-bottom: none !important;
+    transition: all 0.2s ease;
+
+    &,
+    &:link,
+    &:visited {
+      text-decoration: none !important;
+      border-bottom: none !important;
+    }
+
+    span {
+      text-decoration: none !important;
+      border-bottom: none !important;
+    }
+
+    i {
+      font-size: 0.875rem;
+      transition: transform 0.2s ease;
+    }
+
+    &:hover,
+    &:focus {
+      color: darken($color-primary, 15%);
+
+      span {
+        text-decoration: underline !important;
+      }
+
+      i {
+        transform: translateX(3px);
+      }
+    }
+  }
+
+  // Page variant - icon aligned with title
+  &--page {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+
+    .search-result__icon {
+      background-color: $color-gray-bg;
+      color: $color-primary;
+      margin-top: 0.25rem; // Align with title text
+    }
+  }
+
+  // File variant - header with icon, title, and download inline
+  &--file {
+    .search-result__header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .search-result__icon {
+      background-color: rgba($color-primary, 0.1);
+      color: $color-primary;
+    }
+
+    .search-result__title {
+      flex: 1;
+      margin: 0;
+    }
+
+    .search-result__download {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      background-color: $color-primary;
+      color: $color-white;
+      border-radius: 50%;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: darken($color-primary, 10%);
+        transform: scale(1.05);
+      }
+    }
+
+    .search-result__excerpt {
+      margin-left: 3.25rem; // Align with title (icon width + gap)
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Legacy Search Results Items (fallback)
 // -----------------------------------------------------------------------------
 .views-element-container {
   // Result title styling
   .views-row {
     padding: 1.25rem 0;
-    border-bottom: 1px solid $color-gray-bg;
+    border-bottom: 2px solid #868e96;
 
     &:last-child {
       border-bottom: none;
@@ -276,7 +500,8 @@ ul.pager__items {
     h2,
     .node__title,
     .media__title {
-      font-size: 1.5rem;
+      font-size: 1.75rem;
+      font-weight: 700;
       margin: 0 0 $spacer-sm;
 
       a {
@@ -315,6 +540,7 @@ ul.pager__items {
 
   // Excerpt/snippet styling
   .search-api-excerpt {
+    font-size: 1rem;
     color: #495057;
     line-height: 1.6;
     margin-top: $spacer-sm;

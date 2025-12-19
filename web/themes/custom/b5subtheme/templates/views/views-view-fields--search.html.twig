@@ -1,0 +1,107 @@
+{#
+/**
+ * @file
+ * Theme override for search result fields.
+ *
+ * Displays individual search result with type icon, title, excerpt, and Learn More link.
+ *
+ * Available variables:
+ * - view: The view object.
+ * - options: An array of options. Each option contains:
+ *   - separator: A separator for grouped fields.
+ * - row: The row object containing the result.
+ * - fields: An array of field handlers. Each field contains:
+ *   - content: The rendered content.
+ *   - raw: The raw field content.
+ *   - class: A class for the field.
+ *   - label: The field label.
+ *   - handler: The Views field handler object.
+ *
+ * @see template_preprocess_views_view_fields()
+ */
+#}
+
+{# Determine if this is a media item or a node based on available fields #}
+{% set is_media = fields.name is defined and fields.name.content|render|trim is not empty %}
+{% set is_node = fields.title is defined and fields.title.content|render|trim is not empty %}
+
+{# Get the URL for files #}
+{% set file_url = '' %}
+{% if is_media and fields.media_file_url is defined %}
+  {% set file_url = fields.media_file_url.content|render|striptags|trim %}
+{% endif %}
+
+{# Extract URL from node title link #}
+{% set node_url = '' %}
+{% if is_node and fields.title.content %}
+  {% set title_html = fields.title.content|render|trim %}
+  {# Extract href from the anchor tag #}
+  {% if 'href="' in title_html %}
+    {% set node_url = title_html|split('href="')[1]|split('"')[0] %}
+  {% endif %}
+{% endif %}
+
+{% if is_media %}
+  {# FILE RESULT - Icon and download on same line #}
+  <article class="search-result search-result--file">
+    <div class="search-result__header">
+      <div class="search-result__icon">
+        <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>
+      </div>
+      <h2 class="search-result__title">
+        {% if file_url %}
+          <a href="{{ file_url }}" target="_blank">{{ fields.name.content }}</a>
+        {% else %}
+          {{ fields.name.content }}
+        {% endif %}
+      </h2>
+      {% if file_url %}
+        <a href="{{ file_url }}" class="search-result__download" target="_blank" aria-label="{{ 'Download file'|t }}">
+          <i class="fa-solid fa-download" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+
+    {# Excerpt - clean up leading ellipsis #}
+    {% if fields.search_api_excerpt.content %}
+      {% set excerpt_text = fields.search_api_excerpt.content|render|trim %}
+      {% set excerpt_clean = excerpt_text|replace({'… ': '', '... ': '', '…': '', '...': ''}) %}
+      <div class="search-result__excerpt">
+        {{ excerpt_clean|raw }}
+      </div>
+    {% endif %}
+  </article>
+
+{% else %}
+  {# PAGE RESULT - Icon aligned with title #}
+  <article class="search-result search-result--page">
+    <div class="search-result__icon">
+      <i class="fa-solid fa-globe" aria-hidden="true"></i>
+    </div>
+
+    <div class="search-result__content">
+      {# Title #}
+      {% if is_node and fields.title.content %}
+        <h2 class="search-result__title">
+          {{ fields.title.content }}
+        </h2>
+      {% endif %}
+
+      {# Excerpt - use clean_excerpt from preprocess (never fall back to search_api_excerpt for nodes to avoid stale highlights) #}
+      {% if clean_excerpt is defined and clean_excerpt is not empty %}
+        <p class="search-result__excerpt">
+          {{ clean_excerpt }}
+        </p>
+      {% endif %}
+
+      {# Learn More link #}
+      {% if node_url %}
+        <div class="search-result__cta">
+          <a href="{{ node_url }}" class="search-result__link" style="text-decoration: none;">
+            <span>{{ 'Learn More'|t }}</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </article>
+{% endif %}

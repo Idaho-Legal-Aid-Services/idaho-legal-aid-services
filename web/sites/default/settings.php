@@ -11,12 +11,14 @@ if (isset($_SERVER['REQUEST_URI']) &&
      strpos($_SERVER['REQUEST_URI'], '/search?') === 0 || 
      preg_match('#^/[^/]+/search($|\?)#', $_SERVER['REQUEST_URI']))) {
 
-  // 1. Block Deep Facet Stacking (The "Kill Switch")
-  // Legitimate users rarely filter by 6+ categories (f[5]).
-  // We check QUERY_STRING directly to avoid overhead.
-  if (isset($_SERVER['QUERY_STRING']) && (strpos($_SERVER['QUERY_STRING'], 'f[5]') !== false || strpos($_SERVER['QUERY_STRING'], 'f%5B5%5D') !== false)) {
+  // 1. Block ALL Facet Parameters (The "Kill Switch")
+  // Faceted search is not enabled on this site (Facets module disabled).
+  // Any request with f[...] parameters is bot traffic.
+  // Updated Dec 19, 2025: Changed from blocking f[5]+ to blocking ALL facet params
+  // to address China-based botnet attack using 5-filter combinations.
+  if (isset($_SERVER['QUERY_STRING']) && (strpos($_SERVER['QUERY_STRING'], 'f[') !== false || strpos($_SERVER['QUERY_STRING'], 'f%5B') !== false)) {
       header('HTTP/1.1 429 Too Many Requests');
-      die('Error: Search filter limit exceeded. Please refine your search with fewer parameters.');
+      die('Error: Invalid search parameters.');
   }
 
 }

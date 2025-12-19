@@ -3,7 +3,7 @@
  * @file
  * Theme override for the search view.
  *
- * Adds "Page X of Y" pager information display.
+ * Adds curved header, dynamic title, and "Page X of Y" pager information.
  *
  * Available variables:
  * - attributes: Remaining HTML attributes for the element.
@@ -29,6 +29,7 @@
  * - dom_id: Unique id for every view being printed to give unique class for
  *   Javascript.
  * - pager_info: Custom variable with current/total page info.
+ * - has_search_query: Whether a search query was entered.
  *
  * @see template_preprocess_views_view()
  * @see b5subtheme_preprocess_views_view()
@@ -36,12 +37,24 @@
 #}
 {%
   set classes = [
+    'search-page',
     dom_id ? 'js-view-dom-id-' ~ dom_id,
   ]
 %}
+
+{# Curved page header #}
+<div class="curved-page-header">
+  <h1 class="curved-page-header-title">
+    {% if rows %}
+      {{ 'Search Results'|t }}
+    {% else %}
+      {{ 'Search'|t }}
+    {% endif %}
+  </h1>
+</div>
+
 <div{{ attributes.addClass(classes) }}>
   {{ title_prefix }}
-  {{ title }}
   {{ title_suffix }}
 
   {% if header %}
@@ -50,13 +63,20 @@
     </header>
   {% endif %}
 
-  {{ exposed }}
+  <div class="search-form-wrapper">
+    {{ exposed }}
+  </div>
+
   {{ attachment_before }}
 
   {% if rows -%}
-    {{ rows }}
+    <div class="search-results">
+      {{ rows }}
+    </div>
   {% elseif empty -%}
-    {{ empty }}
+    <div class="search-empty">
+      {{ empty }}
+    </div>
   {% endif %}
 
   {{ pager }}
