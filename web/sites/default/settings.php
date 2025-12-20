@@ -5,10 +5,10 @@
  * Prevents database exhaustion from facet spam and known bot patterns.
  * Placed at the top to exit before bootstrapping Drupal.
  */
-if (isset($_SERVER['REQUEST_URI']) && 
-    strpos($_SERVER['REQUEST_URI'], '/admin/') === false && 
-    (strpos($_SERVER['REQUEST_URI'], '/search') === 0 || 
-     strpos($_SERVER['REQUEST_URI'], '/search?') === 0 || 
+if (isset($_SERVER['REQUEST_URI']) &&
+    strpos($_SERVER['REQUEST_URI'], '/admin/') === false &&
+    (strpos($_SERVER['REQUEST_URI'], '/search') === 0 ||
+     strpos($_SERVER['REQUEST_URI'], '/search?') === 0 ||
      preg_match('#^/[^/]+/search($|\?)#', $_SERVER['REQUEST_URI']))) {
 
   // 1. Block ALL Facet Parameters (The "Kill Switch")
@@ -64,16 +64,20 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
  */
 // $settings['skip_permissions_hardening'] = TRUE;
 
+
 /**
- * If there is a local settings file, then include it
+ * Include DDEV settings if present.
+ * Safe: this file doesn't exist on Pantheon.
  */
-$local_settings = __DIR__ . "/settings.local.php";
-if (file_exists($local_settings)) {
-  include $local_settings;
+$ddev_settings = __DIR__ . '/settings.ddev.php';
+if (is_readable($ddev_settings)) {
+  require $ddev_settings;
 }
 
-// Automatically generated include for settings managed by ddev.
-$ddev_settings = __DIR__ . '/settings.ddev.php';
-if (getenv('IS_DDEV_PROJECT') == 'true' && is_readable($ddev_settings)) {
-  require $ddev_settings;
+/**
+ * Include local settings LAST so it can override DDEV.
+ */
+$local_settings = __DIR__ . '/settings.local.php';
+if (file_exists($local_settings)) {
+  include $local_settings;
 }
