@@ -3,7 +3,7 @@ _core:
 and_or_limit: 7
 default_page: node_search
 index:
-  cron_limit: 100
+  cron_limit: 0
   overlap_cjk: true
   minimum_word_size: 3
   tag_weights:

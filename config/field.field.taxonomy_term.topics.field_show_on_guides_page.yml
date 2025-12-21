@@ -1,0 +1,23 @@
+uuid: e5f6a7b8-c9d0-1234-def0-567890123456
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.taxonomy_term.field_show_on_guides_page
+    - taxonomy.vocabulary.topics
+id: taxonomy_term.topics.field_show_on_guides_page
+field_name: field_show_on_guides_page
+entity_type: taxonomy_term
+bundle: topics
+label: 'Show on Guides Page'
+description: 'Check this box to display this topic category on the public Guides page. Only topics with this checked AND at least one associated guide will appear.'
+required: false
+translatable: false
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: 'Yes - Show as Guides category'
+  off_label: 'No - Do not show on Guides page'
+field_type: boolean
