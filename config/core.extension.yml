@@ -73,6 +73,7 @@ module:
   ilas_chatbot: 0
   ilas_donation_inquiry: 0
   ilas_hotspot: 0
+  ilas_redirect_automation: 0
   ilas_resources: 0
   image: 0
   imce: 0

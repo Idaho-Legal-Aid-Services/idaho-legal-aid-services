@@ -1,3 +1,5 @@
 label: Contenido
 tags:
+  title: '[node:field_seo_title|node:title] | [site:name]'
+  description: '[node:field_seo_description|node:field_description]'
   canonical_url: '[node:url]'
