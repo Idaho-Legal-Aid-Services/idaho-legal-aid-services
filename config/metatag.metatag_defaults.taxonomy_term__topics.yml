@@ -1,0 +1,25 @@
+uuid: 27292270-4988-45ae-80e4-70e422207389
+langcode: en
+status: true
+dependencies: {  }
+id: taxonomy_term__topics
+label: 'Taxonomy term: Topics'
+tags:
+  title: '[term:name] Resources | [site:name]'
+  description: 'Find legal forms, guides, and resources about [term:name]. Free civil legal assistance for low-income Idahoans from Idaho Legal Aid Services.'
+  canonical_url: '[current-page:url:absolute]'
+  robots: 'index, follow'
+  og_type: website
+  og_site_name: '[site:name]'
+  og_title: '[term:name] Legal Resources'
+  og_description: 'Legal forms, guides, and resources about [term:name] from Idaho Legal Aid Services.'
+  og_url: '[current-page:url:absolute]'
+  twitter_cards_type: summary
+  twitter_cards_title: '[term:name] Resources'
+  twitter_cards_description: 'Find legal forms, guides, and resources about [term:name]. Free assistance for low-income Idahoans.'
+  schema_web_page_type: CollectionPage
+  schema_web_page_id: '[term:url]#collection'
+  schema_web_page_name: '[term:name] Resources'
+  schema_web_page_description: 'Legal forms, guides, and resources about [term:name] from Idaho Legal Aid Services.'
+  schema_web_page_is_part_of: 'a:2:{s:5:"@type";s:7:"WebSite";s:3:"@id";s:38:"https://idaholegalaid.org/#website";}'
+  schema_web_page_about: 'a:3:{s:5:"@type";s:12:"LegalService";s:4:"name";s:24:"Idaho Legal Aid Services";s:3:"@id";s:42:"https://idaholegalaid.org/#organization";}'

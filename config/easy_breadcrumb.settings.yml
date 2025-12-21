@@ -20,7 +20,7 @@ absolute_paths: false
 hide_single_home_item: true
 term_hierarchy: false
 use_site_title: false
-add_structured_data_json_ld: false
+add_structured_data_json_ld: true
 capitalizator_mode: none
 capitalizator_ignored_words:
   - of

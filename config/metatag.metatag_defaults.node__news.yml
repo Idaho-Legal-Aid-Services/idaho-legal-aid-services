@@ -9,7 +9,7 @@ tags:
   title: '[node:title] | News | [site:name]'
   description: '[node:field_seo_description|node:field_description]'
   schema_article_type: NewsArticle
-  schema_article_id: '[node:url]'
+  schema_article_id: '[node:url]#article'
   schema_article_name: '[node:title]'
   schema_article_headline: '[node:title]'
   schema_article_description: '[node:field_seo_description|node:field_description]'

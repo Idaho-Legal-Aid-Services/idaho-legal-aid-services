@@ -23,7 +23,7 @@ tags:
   schema_organization_area_served: '[node:field_county]'
   schema_organization_price_range: Free
   schema_web_page_type: ContactPage
-  schema_web_page_id: '[node:url]'
+  schema_web_page_id: '[node:url]#contact'
   schema_web_page_name: '[node:title]'
   schema_web_page_description: 'Contact information and office hours for Idaho Legal Aid Services [node:title]. Serving [node:field_county].'
   schema_web_page_is_part_of: 'a:2:{s:5:"@type";s:7:"WebSite";s:3:"@id";s:38:"https://idaholegalaid.org/#website";}'

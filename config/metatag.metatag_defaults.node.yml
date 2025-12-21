@@ -31,5 +31,5 @@ tags:
   twitter_cards_title: '[node:field_seo_title|node:title]'
   twitter_cards_type: summary_large_image
   schema_web_page_type: WebPage
-  schema_web_page_id: '[node:url]'
+  schema_web_page_id: '[node:url]#webpage'
   schema_web_page_description: '[node:field_seo_description|node:field_description]'

@@ -7,7 +7,7 @@ label: 'Content: Resource'
 tags:
   article_section: '[node:field_service_areas:entity:name]'
   schema_article_type: Article
-  schema_article_id: '[node:url]'
+  schema_article_id: '[node:url]#article'
   schema_article_name: '[node:title]'
   schema_article_headline: '[node:title]'
   schema_article_description: '[node:field_seo_description|node:field_main_content:summary]'

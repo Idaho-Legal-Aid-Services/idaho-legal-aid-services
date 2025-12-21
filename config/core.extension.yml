@@ -75,6 +75,7 @@ module:
   ilas_hotspot: 0
   ilas_redirect_automation: 0
   ilas_resources: 0
+  ilas_seo: 0
   image: 0
   imce: 0
   inline_form_errors: 0

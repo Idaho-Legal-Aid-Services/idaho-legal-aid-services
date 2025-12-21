@@ -1,0 +1,5 @@
+name: 'ILAS SEO'
+type: module
+description: 'SEO optimizations for Idaho Legal Aid Services including noindex for search, pagination, and filtered views.'
+package: ILAS
+core_version_requirement: ^10 || ^11

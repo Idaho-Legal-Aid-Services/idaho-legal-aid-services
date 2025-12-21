@@ -9,7 +9,7 @@ tags:
   description: 'Get free legal help with [node:title] issues in Idaho. Idaho Legal Aid Services provides resources and assistance for low-income Idahoans.'
   og_type: website
   schema_web_page_type: CollectionPage
-  schema_web_page_id: '[node:url]'
+  schema_web_page_id: '[node:url]#collection'
   schema_web_page_name: '[node:title]'
   schema_web_page_description: 'Legal resources and information about [node:title] for low-income Idahoans.'
   schema_web_page_is_part_of: 'a:2:{s:5:"@type";s:7:"WebSite";s:3:"@id";s:38:"https://idaholegalaid.org/#website";}'

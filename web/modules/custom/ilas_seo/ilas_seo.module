@@ -1,0 +1,116 @@
+<?php
+
+/**
+ * @file
+ * ILAS SEO module - provides SEO optimizations for Idaho Legal Aid Services.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_page_attachments_alter().
+ *
+ * Adds noindex meta tag to search pages, paginated pages, and filtered views
+ * to prevent index bloat and improve crawl efficiency.
+ */
+function ilas_seo_page_attachments_alter(array &$attachments) {
+  // Don't run on admin pages.
+  if (\Drupal::service('router.admin_context')->isAdminRoute()) {
+    return;
+  }
+
+  $should_noindex = FALSE;
+  $request = \Drupal::request();
+  $route_match = \Drupal::routeMatch();
+  $route_name = $route_match->getRouteName();
+
+  // Routes that should always be noindex.
+  $noindex_routes = [
+    // Search pages.
+    'view.search.page_1',
+    'view.site_search.page_1',
+    'search.view_node_search',
+    'search.view',
+    // Filtered views (category pages with arguments).
+    'view.forms.page_1',
+    'view.guides.page_1',
+  ];
+
+  // Check if current route is in noindex list.
+  if (in_array($route_name, $noindex_routes)) {
+    $should_noindex = TRUE;
+  }
+
+  // Check for pagination on any page (page parameter > 0).
+  $page = $request->query->get('page');
+  if (!empty($page) && is_numeric($page) && (int) $page > 0) {
+    $should_noindex = TRUE;
+  }
+
+  // Check for exposed filter parameters on views.
+  // Common filter parameters that indicate a filtered/faceted page.
+  $filter_params = ['keys', 'search', 'category', 'topic', 'type', 'sort_by', 'sort_order'];
+  foreach ($filter_params as $param) {
+    if ($request->query->has($param)) {
+      // Only noindex if it's a views page with filters.
+      if (str_starts_with($route_name ?? '', 'view.')) {
+        $should_noindex = TRUE;
+        break;
+      }
+    }
+  }
+
+  // Apply noindex if conditions are met.
+  if ($should_noindex) {
+    // Remove any existing robots meta tag first.
+    if (isset($attachments['#attached']['html_head'])) {
+      foreach ($attachments['#attached']['html_head'] as $key => $tag) {
+        if (isset($tag[1]) && $tag[1] === 'robots') {
+          unset($attachments['#attached']['html_head'][$key]);
+        }
+      }
+    }
+
+    // Add noindex, follow meta tag.
+    $attachments['#attached']['html_head'][] = [
+      [
+        '#tag' => 'meta',
+        '#attributes' => [
+          'name' => 'robots',
+          'content' => 'noindex, follow',
+        ],
+      ],
+      'robots_noindex',
+    ];
+  }
+}
+
+/**
+ * Implements hook_metatags_alter().
+ *
+ * Ensures metatag module respects our noindex rules.
+ */
+function ilas_seo_metatags_alter(array &$metatags, array &$context) {
+  $request = \Drupal::request();
+  $route_name = \Drupal::routeMatch()->getRouteName();
+
+  // Same logic as above - check if we should noindex.
+  $noindex_routes = [
+    'view.search.page_1',
+    'view.site_search.page_1',
+    'view.forms.page_1',
+    'view.guides.page_1',
+  ];
+
+  $should_noindex = in_array($route_name, $noindex_routes);
+
+  // Check pagination.
+  $page = $request->query->get('page');
+  if (!empty($page) && is_numeric($page) && (int) $page > 0) {
+    $should_noindex = TRUE;
+  }
+
+  if ($should_noindex) {
+    $metatags['robots'] = 'noindex, follow';
+  }
+}

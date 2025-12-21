@@ -1,0 +1,25 @@
+uuid: ba6750cc-18a0-4a9c-ab6a-393655854b6e
+langcode: en
+status: true
+dependencies: {  }
+id: taxonomy_term__service_areas
+label: 'Taxonomy term: Service Areas'
+tags:
+  title: '[term:name] Legal Help | [site:name]'
+  description: 'Get free legal help with [term:name] issues in Idaho. Idaho Legal Aid Services provides civil legal assistance to low-income Idahoans.'
+  canonical_url: '[current-page:url:absolute]'
+  robots: 'index, follow'
+  og_type: website
+  og_site_name: '[site:name]'
+  og_title: '[term:name] Legal Assistance'
+  og_description: 'Free legal help with [term:name] from Idaho Legal Aid Services.'
+  og_url: '[current-page:url:absolute]'
+  twitter_cards_type: summary
+  twitter_cards_title: '[term:name] Legal Help'
+  twitter_cards_description: 'Get free legal help with [term:name] issues in Idaho.'
+  schema_web_page_type: CollectionPage
+  schema_web_page_id: '[term:url]#collection'
+  schema_web_page_name: '[term:name] Legal Help'
+  schema_web_page_description: 'Legal resources and assistance for [term:name] issues from Idaho Legal Aid Services.'
+  schema_web_page_is_part_of: 'a:2:{s:5:"@type";s:7:"WebSite";s:3:"@id";s:38:"https://idaholegalaid.org/#website";}'
+  schema_web_page_about: 'a:3:{s:5:"@type";s:12:"LegalService";s:4:"name";s:24:"Idaho Legal Aid Services";s:3:"@id";s:42:"https://idaholegalaid.org/#organization";}'
