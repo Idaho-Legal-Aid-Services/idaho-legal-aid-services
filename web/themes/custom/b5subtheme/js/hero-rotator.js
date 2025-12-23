@@ -1,20 +1,18 @@
 /**
  * @file
- * Hero Image Rotator for the homepage.
+ * Hero Image Randomizer for the homepage.
  *
  * Randomly selects one hero image from a configured set on each page load.
  * Uses client-side JavaScript to work with Drupal's page caching.
+ *
+ * The server always renders image #1 (for SEO and caching). This script
+ * picks a random image and swaps it in with a fade transition. If the
+ * random selection is image #1, no swap occurs (no unnecessary flash).
  */
 
 (function (Drupal) {
   'use strict';
 
-  /**
-   * Hero rotator behavior.
-   *
-   * Swaps the default hero image with a randomly selected one from the
-   * configured set. This runs on page load and works with cached pages.
-   */
   Drupal.behaviors.heroRotator = {
     attach: function (context) {
       // Only run once on initial page load.
@@ -35,7 +33,7 @@
       // Get the JSON data with all hero images.
       const dataScript = heroContainer.querySelector('#hero-rotator-data');
       if (!dataScript) {
-        // No rotation data means only one image or no images configured.
+        // No rotation data means only one image configured.
         return;
       }
 
@@ -54,6 +52,12 @@
 
       // Randomly select an image index.
       const randomIndex = Math.floor(Math.random() * heroImages.length);
+
+      // If we selected image #0, no swap needed - server already rendered it.
+      if (randomIndex === 0) {
+        return;
+      }
+
       const selectedImage = heroImages[randomIndex];
 
       if (!selectedImage || !selectedImage.url) {
@@ -62,22 +66,25 @@
       }
 
       // Find the img element within the hero container.
-      // Handle both regular <img> and <picture><img> structures.
       const img = heroContainer.querySelector('img');
       if (!img) {
         console.warn('Hero rotator: No img element found');
         return;
       }
 
-      // Swap the image attributes.
-      // Use a small delay to ensure the DOM is ready and allow browser to
-      // potentially start loading the default image (which may be correct).
-      requestAnimationFrame(function () {
+      // Swap with a fade transition for smooth UX.
+      // First, set up the transition style.
+      img.style.transition = 'opacity 0.2s ease-out';
+
+      // Fade out.
+      img.style.opacity = '0';
+
+      // After fade out, swap the image and fade back in.
+      setTimeout(function () {
         // Update src.
         img.src = selectedImage.url;
 
-        // Update srcset if the image had one (remove it since we're using
-        // a specific styled image, not responsive sources).
+        // Update srcset if present (remove it - we're using a specific URL).
         if (img.srcset) {
           img.removeAttribute('srcset');
         }
@@ -93,21 +100,32 @@
           img.height = selectedImage.height;
         }
 
-        // If this is inside a <picture> element, we need to update
-        // or remove the <source> elements as well.
+        // If inside a <picture> element, remove <source> elements.
         const picture = img.closest('picture');
         if (picture) {
           const sources = picture.querySelectorAll('source');
           sources.forEach(function (source) {
-            // Remove source elements since we're using a single styled URL.
             source.remove();
           });
         }
 
-        // Mark the image as rotated for debugging.
+        // Wait for image to load, then fade in.
+        if (img.complete) {
+          img.style.opacity = '1';
+        } else {
+          img.onload = function () {
+            img.style.opacity = '1';
+          };
+          // Fallback in case onload doesn't fire (e.g., cached image).
+          setTimeout(function () {
+            img.style.opacity = '1';
+          }, 100);
+        }
+
+        // Mark for debugging.
         img.dataset.heroRotated = 'true';
         img.dataset.heroIndex = randomIndex.toString();
-      });
+      }, 200); // Match the fade-out duration.
     }
   };
 
