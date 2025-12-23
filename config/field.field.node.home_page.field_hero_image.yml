@@ -11,8 +11,8 @@ id: node.home_page.field_hero_image
 field_name: field_hero_image
 entity_type: node
 bundle: home_page
-label: 'Hero Image'
-description: ''
+label: 'Hero Images (Rotating)'
+description: 'Add up to 11 hero images. On each page load, one image will be randomly selected to display. The first image serves as the default for SEO and users without JavaScript.'
 required: false
 translatable: true
 default_value: {  }

@@ -44,8 +44,20 @@
           </div>
         </div>
         <div class="col-md-6 d-flex justify-content-end">
-          <div class="hero-media">
-            {{ content.field_hero_image }}
+          <div class="hero-media" id="hero-rotator">
+            {# Render only the first hero image server-side (for SEO and no-JS fallback) #}
+            {% if content.field_hero_image[0] is defined %}
+              {{ content.field_hero_image[0] }}
+            {% else %}
+              {{ content.field_hero_image }}
+            {% endif %}
+
+            {# Embed JSON data for all hero images (for client-side rotation) #}
+            {% if hero_images_data is defined and hero_images_data|length > 1 %}
+              <script type="application/json" id="hero-rotator-data">
+                {{ hero_images_data|json_encode|raw }}
+              </script>
+            {% endif %}
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+uuid: 070dac69-6461-4b41-b17f-e4ff5012ea5f
 langcode: en
 status: true
 dependencies:
@@ -13,7 +14,8 @@ description: 'Text displayed on the call-to-action button (e.g., "Learn More").'
 required: true
 translatable: true
 default_value:
-  - value: 'Learn More'
+  -
+    value: 'Learn More'
 default_value_callback: ''
 settings: {  }
 field_type: string

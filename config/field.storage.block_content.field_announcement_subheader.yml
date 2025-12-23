@@ -1,3 +1,4 @@
+uuid: 1c8f091c-2118-433e-bfa5-d50346723e64
 langcode: en
 status: true
 dependencies:
@@ -9,8 +10,8 @@ entity_type: block_content
 type: string
 settings:
   max_length: 255
-  is_ascii: false
   case_sensitive: false
+  is_ascii: false
 module: core
 locked: false
 cardinality: 1

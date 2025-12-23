@@ -1,3 +1,4 @@
+uuid: 583617f2-dd80-47f4-bf92-a8663ff76e63
 langcode: en
 status: true
 dependencies:
@@ -8,11 +9,12 @@ id: block_content.homepage_announcement.field_announcement_body
 field_name: field_announcement_body
 entity_type: block_content
 bundle: homepage_announcement
-label: 'Body'
+label: Body
 description: 'The main content of the announcement.'
 required: true
 translatable: true
 default_value: {  }
 default_value_callback: ''
-settings: {  }
+settings:
+  allowed_formats: {  }
 field_type: text_long

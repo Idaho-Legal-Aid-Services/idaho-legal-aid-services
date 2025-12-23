@@ -146,6 +146,110 @@ function b5subtheme_preprocess_node(&$variables) {
       $variables['donation_inquiry_endpoint'] = '/donation-inquiry/submit';
     }
   }
+
+  // Handle hero image rotator for home page.
+  if ($variables['content_type'] === 'home_page' && $variables['view_mode'] === 'full') {
+    _b5subtheme_preprocess_home_page_hero($variables, $node);
+  }
+}
+
+/**
+ * Prepares hero image rotator data for the home page.
+ *
+ * Extracts image URLs, alt text, and dimensions from all configured
+ * hero images for client-side random rotation.
+ *
+ * @param array $variables
+ *   The node template variables.
+ * @param \Drupal\node\NodeInterface $node
+ *   The home page node.
+ */
+function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
+  // Initialize hero rotator data.
+  $variables['hero_images_data'] = [];
+  $variables['hero_images_count'] = 0;
+
+  // Check if the hero image field exists and has values.
+  if (!$node->hasField('field_hero_image') || $node->get('field_hero_image')->isEmpty()) {
+    return;
+  }
+
+  $media_items = $node->get('field_hero_image')->referencedEntities();
+  if (empty($media_items)) {
+    return;
+  }
+
+  $variables['hero_images_count'] = count($media_items);
+
+  // Only set up rotator data if there's more than one image.
+  if (count($media_items) <= 1) {
+    return;
+  }
+
+  /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
+  $file_url_generator = \Drupal::service('file_url_generator');
+  /** @var \Drupal\image\ImageStyleInterface $image_style */
+  $image_style = \Drupal::entityTypeManager()->getStorage('image_style')->load('large');
+
+  $hero_images = [];
+  foreach ($media_items as $media) {
+    // Skip invalid media entities.
+    if (!$media instanceof \Drupal\media\MediaInterface) {
+      continue;
+    }
+
+    // Get the source field (usually field_media_image for image media).
+    $source_field = $media->getSource()->getConfiguration()['source_field'] ?? 'field_media_image';
+
+    if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
+      continue;
+    }
+
+    $image_field = $media->get($source_field)->first();
+    if (!$image_field) {
+      continue;
+    }
+
+    // Get the file entity.
+    $file = $image_field->entity;
+    if (!$file instanceof \Drupal\file\FileInterface) {
+      continue;
+    }
+
+    $uri = $file->getFileUri();
+
+    // Get the styled image URL.
+    $styled_url = '';
+    if ($image_style) {
+      $styled_url = $image_style->buildUrl($uri);
+    }
+    else {
+      // Fallback to original file URL if style doesn't exist.
+      $styled_url = $file_url_generator->generateAbsoluteString($uri);
+    }
+
+    // Get alt text from the image field.
+    $alt = $image_field->alt ?? '';
+
+    // Get image dimensions from the field.
+    $width = $image_field->width ?? '';
+    $height = $image_field->height ?? '';
+
+    // Add to hero images array.
+    $hero_images[] = [
+      'url' => $styled_url,
+      'alt' => $alt,
+      'width' => $width,
+      'height' => $height,
+    ];
+  }
+
+  // Only pass data if we have valid images.
+  if (!empty($hero_images)) {
+    $variables['hero_images_data'] = $hero_images;
+    // Attach the hero rotator library.
+    $variables['#attached']['library'][] = 'b5subtheme/hero-rotator';
+  }
 }
 
 /**

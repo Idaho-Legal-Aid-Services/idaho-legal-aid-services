@@ -155,3 +155,10 @@ guides:
       css/style.css: {}
   dependencies:
     - b5subtheme/global-styling
+
+hero-rotator:
+  version: 1.0
+  js:
+    js/hero-rotator.js: {}
+  dependencies:
+    - core/drupal

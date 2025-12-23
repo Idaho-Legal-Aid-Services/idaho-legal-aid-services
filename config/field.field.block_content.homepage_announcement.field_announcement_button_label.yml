@@ -1,3 +1,4 @@
+uuid: c501002b-c2e1-4dfd-8dc2-77d7df4bf7cb
 langcode: en
 status: true
 dependencies:
@@ -13,7 +14,8 @@ description: 'The text displayed on the trigger button (e.g., "Important Informa
 required: true
 translatable: true
 default_value:
-  - value: 'Important Information'
+  -
+    value: 'Important Information'
 default_value_callback: ''
 settings: {  }
 field_type: string

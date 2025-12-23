@@ -1,3 +1,4 @@
+uuid: 7c2be438-afb0-406c-afe6-526e69ae27d3
 langcode: en
 status: true
 dependencies:
@@ -8,7 +9,7 @@ id: block_content.homepage_announcement.field_announcement_subheader
 field_name: field_announcement_subheader
 entity_type: block_content
 bundle: homepage_announcement
-label: 'Subheader'
+label: Subheader
 description: 'Optional secondary heading below the title.'
 required: false
 translatable: true

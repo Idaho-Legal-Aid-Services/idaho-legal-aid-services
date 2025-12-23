@@ -1,3 +1,4 @@
+uuid: f9b14eaa-05c2-4146-8e74-e8dac167c82c
 langcode: en
 status: true
 dependencies:
@@ -13,7 +14,8 @@ description: 'If enabled, the call-to-action link will open in a new browser tab
 required: false
 translatable: false
 default_value:
-  - value: 0
+  -
+    value: 0
 default_value_callback: ''
 settings:
   on_label: 'Yes'

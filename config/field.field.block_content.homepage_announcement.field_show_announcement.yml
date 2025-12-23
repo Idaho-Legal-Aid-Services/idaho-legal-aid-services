@@ -1,3 +1,4 @@
+uuid: edd87850-b6ee-4aba-b0a2-361b4a45649d
 langcode: en
 status: true
 dependencies:
@@ -13,7 +14,8 @@ description: 'Turn this on to show the announcement button on the homepage.'
 required: false
 translatable: false
 default_value:
-  - value: 0
+  -
+    value: 0
 default_value_callback: ''
 settings:
   on_label: 'On'
