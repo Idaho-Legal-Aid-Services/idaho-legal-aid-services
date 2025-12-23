@@ -12,18 +12,6 @@ links:
     priority: '0.8'
     changefreq: weekly
   -
-    path: /legal-help
-    priority: '0.9'
-    changefreq: weekly
-  -
-    path: /office-locations
-    priority: '0.7'
-    changefreq: monthly
-  -
     path: /events
     priority: '0.7'
-    changefreq: daily
-  -
-    path: /news
-    priority: '0.6'
     changefreq: daily
