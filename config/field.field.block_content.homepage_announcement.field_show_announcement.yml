@@ -1,0 +1,21 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.storage.block_content.field_show_announcement
+id: block_content.homepage_announcement.field_show_announcement
+field_name: field_show_announcement
+entity_type: block_content
+bundle: homepage_announcement
+label: 'Show announcement'
+description: 'Turn this on to show the announcement button on the homepage.'
+required: false
+translatable: false
+default_value:
+  - value: 0
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

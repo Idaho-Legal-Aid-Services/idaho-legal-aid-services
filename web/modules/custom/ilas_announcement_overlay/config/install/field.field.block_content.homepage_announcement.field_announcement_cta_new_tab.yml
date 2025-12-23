@@ -1,0 +1,21 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.storage.block_content.field_announcement_cta_new_tab
+id: block_content.homepage_announcement.field_announcement_cta_new_tab
+field_name: field_announcement_cta_new_tab
+entity_type: block_content
+bundle: homepage_announcement
+label: 'Open CTA in new tab'
+description: 'If enabled, the call-to-action link will open in a new browser tab.'
+required: false
+translatable: false
+default_value:
+  - value: 0
+default_value_callback: ''
+settings:
+  on_label: 'Yes'
+  off_label: 'No'
+field_type: boolean

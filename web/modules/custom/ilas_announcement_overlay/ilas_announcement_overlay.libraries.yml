@@ -1,0 +1,7 @@
+announcement-overlay:
+  version: 1.0
+  js:
+    js/announcement-overlay.js: {}
+  dependencies:
+    - core/drupal
+    - core/once

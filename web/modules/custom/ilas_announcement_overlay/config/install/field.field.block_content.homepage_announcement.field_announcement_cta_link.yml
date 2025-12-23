@@ -1,0 +1,22 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.storage.block_content.field_announcement_cta_link
+  module:
+    - link
+id: block_content.homepage_announcement.field_announcement_cta_link
+field_name: field_announcement_cta_link
+entity_type: block_content
+bundle: homepage_announcement
+label: 'Call-to-action link'
+description: 'The URL the call-to-action button links to.'
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  title: 0
+  link_type: 17
+field_type: link

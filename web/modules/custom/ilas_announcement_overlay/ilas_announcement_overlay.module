@@ -1,0 +1,203 @@
+<?php
+
+/**
+ * @file
+ * ILAS Announcement Overlay module.
+ *
+ * Provides a reusable announcement overlay popup feature for the homepage.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function ilas_announcement_overlay_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.ilas_announcement_overlay':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The ILAS Announcement Overlay module provides a homepage announcement overlay popup that can be managed through the Drupal admin interface.') . '</p>';
+      $output .= '<h3>' . t('Usage') . '</h3>';
+      $output .= '<ol>';
+      $output .= '<li>' . t('Create a "Homepage Announcement" block at /block/add/homepage_announcement') . '</li>';
+      $output .= '<li>' . t('Enable "Show announcement" to display the button on the homepage') . '</li>';
+      $output .= '<li>' . t('The announcement will automatically appear on the homepage when enabled') . '</li>';
+      $output .= '</ol>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function ilas_announcement_overlay_theme($existing, $type, $theme, $path) {
+  return [
+    // Trigger button template (rendered in node template).
+    'announcement_overlay_trigger' => [
+      'variables' => [
+        'button_label' => '',
+        'block_id' => '',
+      ],
+      'template' => 'announcement-overlay-trigger',
+      'path' => $path . '/templates',
+    ],
+    // Popup overlay template (rendered at page root level).
+    'announcement_overlay_popup' => [
+      'variables' => [
+        'title' => '',
+        'subheader' => '',
+        'body' => [],
+        'cta_label' => '',
+        'cta_url' => '',
+        'cta_new_tab' => FALSE,
+        'block_id' => '',
+      ],
+      'template' => 'announcement-overlay-popup',
+      'path' => $path . '/templates',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for page templates.
+ *
+ * Adds the announcement overlay to the page level for proper z-index stacking.
+ * The overlay is rendered outside of any stacking contexts so it appears above
+ * all page elements including headers, footers, and navigation.
+ */
+function ilas_announcement_overlay_preprocess_page(&$variables) {
+  // Only show on the front page (homepage).
+  if (!\Drupal::service('path.matcher')->isFrontPage()) {
+    return;
+  }
+
+  // Get the active announcement.
+  $announcement = _ilas_announcement_overlay_get_active_announcement();
+  if (!$announcement) {
+    return;
+  }
+
+  // Extract field values.
+  $button_label = $announcement->get('field_announcement_button_label')->value ?? 'Important Information';
+  $title = $announcement->get('field_announcement_title')->value ?? '';
+  $subheader = $announcement->get('field_announcement_subheader')->value ?? '';
+  $body = $announcement->get('field_announcement_body')->getValue();
+  $cta_label = $announcement->get('field_announcement_cta_label')->value ?? 'Learn More';
+  $cta_new_tab = (bool) $announcement->get('field_announcement_cta_new_tab')->value;
+
+  // Get the CTA link URL.
+  $cta_url = '';
+  $cta_link_field = $announcement->get('field_announcement_cta_link');
+  if (!$cta_link_field->isEmpty()) {
+    $cta_url = $cta_link_field->first()->getUrl()->toString();
+  }
+
+  // Generate a unique ID for this announcement.
+  $block_id = 'announcement-overlay-' . $announcement->id();
+
+  // Build the render array for the trigger button (goes in node template).
+  $variables['announcement_trigger'] = [
+    '#theme' => 'announcement_overlay_trigger',
+    '#button_label' => $button_label,
+    '#block_id' => $block_id,
+    '#attached' => [
+      'library' => [
+        'ilas_announcement_overlay/announcement-overlay',
+      ],
+    ],
+    '#cache' => [
+      'tags' => ['block_content_list:homepage_announcement', 'block_content:' . $announcement->id()],
+      'contexts' => ['url.path'],
+    ],
+  ];
+
+  // Build the render array for the overlay popup (goes at page root level).
+  $variables['announcement_overlay'] = [
+    '#theme' => 'announcement_overlay_popup',
+    '#title' => $title,
+    '#subheader' => $subheader,
+    '#body' => $body,
+    '#cta_label' => $cta_label,
+    '#cta_url' => $cta_url,
+    '#cta_new_tab' => $cta_new_tab,
+    '#block_id' => $block_id,
+    '#cache' => [
+      'tags' => ['block_content_list:homepage_announcement', 'block_content:' . $announcement->id()],
+      'contexts' => ['url.path'],
+    ],
+  ];
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for node templates.
+ *
+ * Adds the announcement trigger button to home_page nodes.
+ */
+function ilas_announcement_overlay_preprocess_node(&$variables) {
+  $node = $variables['node'];
+
+  // Only process home_page content type.
+  if ($node->getType() !== 'home_page') {
+    return;
+  }
+
+  // Only on full view mode.
+  if ($variables['view_mode'] !== 'full') {
+    return;
+  }
+
+  // Get the active announcement.
+  $announcement = _ilas_announcement_overlay_get_active_announcement();
+  if (!$announcement) {
+    return;
+  }
+
+  // Extract field values needed for the trigger button.
+  $button_label = $announcement->get('field_announcement_button_label')->value ?? 'Important Information';
+
+  // Generate a unique ID for this announcement.
+  $block_id = 'announcement-overlay-' . $announcement->id();
+
+  // Build the render array for just the trigger button.
+  $variables['announcement_trigger'] = [
+    '#theme' => 'announcement_overlay_trigger',
+    '#button_label' => $button_label,
+    '#block_id' => $block_id,
+    '#attached' => [
+      'library' => [
+        'ilas_announcement_overlay/announcement-overlay',
+      ],
+    ],
+    '#cache' => [
+      'tags' => ['block_content_list:homepage_announcement', 'block_content:' . $announcement->id()],
+      'contexts' => ['url.path'],
+    ],
+  ];
+}
+
+/**
+ * Get the active homepage announcement block content.
+ *
+ * @return \Drupal\block_content\Entity\BlockContent|null
+ *   The block content entity or NULL if none found.
+ */
+function _ilas_announcement_overlay_get_active_announcement() {
+  $storage = \Drupal::entityTypeManager()->getStorage('block_content');
+
+  // Query for published homepage_announcement blocks with show_announcement enabled.
+  $query = $storage->getQuery()
+    ->accessCheck(TRUE)
+    ->condition('type', 'homepage_announcement')
+    ->condition('status', 1)
+    ->condition('field_show_announcement', 1)
+    ->sort('changed', 'DESC')
+    ->range(0, 1);
+
+  $ids = $query->execute();
+
+  if (empty($ids)) {
+    return NULL;
+  }
+
+  return $storage->load(reset($ids));
+}

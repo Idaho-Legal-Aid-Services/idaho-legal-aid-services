@@ -1,0 +1,19 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.storage.block_content.field_announcement_button_label
+id: block_content.homepage_announcement.field_announcement_button_label
+field_name: field_announcement_button_label
+entity_type: block_content
+bundle: homepage_announcement
+label: 'Button label'
+description: 'The text displayed on the trigger button (e.g., "Important Information").'
+required: true
+translatable: true
+default_value:
+  - value: 'Important Information'
+default_value_callback: ''
+settings: {  }
+field_type: string

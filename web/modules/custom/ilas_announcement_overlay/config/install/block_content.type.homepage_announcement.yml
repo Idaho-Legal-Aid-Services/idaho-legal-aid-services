@@ -1,0 +1,7 @@
+langcode: en
+status: true
+dependencies: {  }
+id: homepage_announcement
+label: 'Homepage Announcement'
+revision: false
+description: 'Content block for homepage announcement overlay popup.'

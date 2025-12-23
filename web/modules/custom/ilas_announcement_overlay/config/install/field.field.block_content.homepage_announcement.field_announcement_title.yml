@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.storage.block_content.field_announcement_title
+id: block_content.homepage_announcement.field_announcement_title
+field_name: field_announcement_title
+entity_type: block_content
+bundle: homepage_announcement
+label: 'Title'
+description: 'The main heading displayed in the announcement overlay popup.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

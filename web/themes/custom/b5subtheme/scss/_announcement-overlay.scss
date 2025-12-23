@@ -1,0 +1,402 @@
+/**
+ * @file
+ * Announcement Overlay Popup Styles
+ *
+ * Provides styling for the homepage announcement overlay popup feature.
+ * Uses existing theme variables and button styles for consistency.
+ */
+
+// ============================================================================
+// ANNOUNCEMENT BUTTON COLOR OPTIONS
+// ============================================================================
+// Choose ONE of these color schemes for the homepage trigger button.
+// The popup CTA button always uses primary blue.
+
+// Option 1: Alert Orange (recommended for urgent announcements)
+$announcement-btn-bg: #e67e22;           // Warm orange
+$announcement-btn-hover-bg: #d35400;     // Darker orange on hover
+$announcement-btn-text: #ffffff;
+
+// Option 2: Notice Red (for critical/emergency announcements)
+// $announcement-btn-bg: #c0392b;        // Alert red
+// $announcement-btn-hover-bg: #a93226;  // Darker red on hover
+// $announcement-btn-text: #ffffff;
+
+// Option 3: Highlight Teal (for general important notices)
+// $announcement-btn-bg: #16a085;        // Teal green
+// $announcement-btn-hover-bg: #138d75;  // Darker teal on hover
+// $announcement-btn-text: #ffffff;
+
+// Option 4: Royal Purple (for special events/announcements)
+// $announcement-btn-bg: #8e44ad;        // Purple
+// $announcement-btn-hover-bg: #7d3c98;  // Darker purple on hover
+// $announcement-btn-text: #ffffff;
+
+// ============================================================================
+// TRIGGER BUTTON WRAPPER
+// ============================================================================
+
+.announcement-overlay-trigger-wrapper {
+  display: block;
+  margin-bottom: 1.5rem;
+  // Left-align to match hero-sub-heading position
+  text-align: left;
+
+  @include mobile {
+    margin-bottom: 1rem;
+    text-align: center; // Center on mobile for better UX
+  }
+}
+
+// ============================================================================
+// TRIGGER BUTTON - Custom styling (orange default, primary blue on hover)
+// Does NOT use .btn-primary to avoid hover color conflicts
+// ============================================================================
+
+.announcement-overlay-trigger {
+  // Full button styling (inherits .btn base, adds our colors)
+  background-color: $announcement-btn-bg;
+  border-color: $announcement-btn-bg;
+  color: $color-white;
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+  white-space: normal; // Allow text to wrap if needed
+  max-width: 100%; // Prevent overflow
+
+  &:hover,
+  &:focus {
+    // On hover: primary blue background, white text
+    background-color: $color-primary;
+    border-color: $color-primary;
+    color: $color-white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  &:active {
+    background-color: darken($color-primary, 10%);
+    border-color: darken($color-primary, 10%);
+    color: $color-white;
+    transform: translateY(0);
+  }
+
+  // Fix: Ensure button returns to normal state after popup closes
+  &:focus:not(:focus-visible) {
+    outline: none;
+    background-color: $announcement-btn-bg;
+    border-color: $announcement-btn-bg;
+    color: $color-white;
+    transform: none;
+    box-shadow: none;
+  }
+
+  // Accessible focus ring
+  &:focus-visible {
+    outline: 3px solid $color-primary;
+    outline-offset: 3px;
+  }
+
+  // Mobile-specific styles
+  @include mobile {
+    font-size: 0.875rem; // Smaller text on mobile
+    padding: 0.625rem 1rem; // Tighter padding
+    max-width: 90%; // Leave some margin on sides
+    line-height: 1.3;
+    display: block; // Make block-level for centering
+    margin: 0 auto; // Center the button
+  }
+}
+
+// ============================================================================
+// OVERLAY CONTAINER
+// ============================================================================
+
+.announcement-overlay {
+  // Hidden by default
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  // Very high z-index to ensure overlay appears above ALL other elements
+  z-index: 999999;
+
+  // Flex centering for the panel
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+
+  // Animation preparation
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+
+  // Open state
+  &.is-open {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+// ============================================================================
+// BACKDROP
+// ============================================================================
+
+.announcement-overlay-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+// ============================================================================
+// PANEL
+// ============================================================================
+
+.announcement-overlay-panel {
+  position: relative;
+  background: $color-white;
+  border: 3px solid $color-primary;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  z-index: 1;
+
+  // Animation
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+
+  .is-open & {
+    transform: translateY(0);
+  }
+
+  @include tablet {
+    max-width: 550px;
+  }
+
+  @include mobile {
+    max-width: 100%;
+    max-height: 90vh;
+    margin: 0.5rem;
+  }
+}
+
+// ============================================================================
+// CLOSE BUTTON
+// ============================================================================
+
+.announcement-overlay-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid transparent;
+  background: $color-gray-bg;
+  color: $color-gray-text;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%; // Circle shape
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $color-primary;
+    border-color: $color-primary;
+    color: $color-white;
+    transform: scale(1.1);
+  }
+
+  &:focus {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+    background: $color-primary;
+    color: $color-white;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @include mobile {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 44px;
+    height: 44px;
+    font-size: 2rem;
+  }
+}
+
+// ============================================================================
+// CONTENT
+// ============================================================================
+
+.announcement-overlay-content {
+  padding: 2rem 2.5rem;
+
+  @include tablet {
+    padding: 1.75rem 2rem;
+  }
+
+  @include mobile {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+// ============================================================================
+// TITLE
+// ============================================================================
+
+.announcement-overlay-title {
+  font-family: $font-family-sans-serif;
+  font-size: 3rem;
+  font-weight: 700;
+  color: $color-primary;
+  margin: 0 0 1rem 0;
+  line-height: 1.2;
+  text-align: center;
+
+  @include tablet {
+    font-size: 2.5rem;
+  }
+
+  @include mobile {
+    font-size: $font-size-mobile-header;
+    margin-bottom: 0.75rem;
+  }
+}
+
+// ============================================================================
+// SUBHEADER
+// ============================================================================
+
+.announcement-overlay-subheader {
+  font-family: $font-family-sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: $color-gray-dark;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+
+  @include mobile {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+// ============================================================================
+// BODY
+// ============================================================================
+
+.announcement-overlay-body {
+  // Match main body typography from the site
+  font-family: $font-family-sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: $color-gray-dark;
+  margin-bottom: 2rem;
+
+  @include mobile {
+    font-size: $font-size-mobile-body;
+    margin-bottom: 1.5rem;
+  }
+
+  // Prose styling for body content
+  p {
+    margin: 0 0 1rem 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul, ol {
+    margin: 0 0 1rem 1.5rem;
+    padding: 0;
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  a {
+    color: $color-primary;
+    text-decoration: underline;
+
+    &:hover,
+    &:focus {
+      text-decoration: none;
+    }
+  }
+
+  strong, b {
+    font-weight: 600;
+  }
+}
+
+// ============================================================================
+// CALL-TO-ACTION
+// ============================================================================
+
+.announcement-overlay-cta {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+
+  // The CTA button inherits .btn-primary styles from _buttons.scss
+  .btn {
+    // Ensure inline display for CTA even on mobile
+    display: inline-block;
+    width: auto;
+    min-width: 150px;
+  }
+
+  @include mobile {
+    margin-top: 1rem;
+
+    .btn {
+      width: 100%;
+      max-width: 280px;
+    }
+  }
+}
+
+// ============================================================================
+// BODY SCROLL LOCK
+// ============================================================================
+
+body.announcement-overlay-open {
+  overflow: hidden;
+}
+
+// ============================================================================
+// REDUCED MOTION
+// ============================================================================
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-overlay,
+  .announcement-overlay-panel,
+  .announcement-overlay-close {
+    transition: none;
+  }
+
+  .announcement-overlay-panel {
+    transform: none;
+  }
+}

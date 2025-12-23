@@ -1,0 +1,93 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - block_content.type.homepage_announcement
+    - field.field.block_content.homepage_announcement.field_announcement_body
+    - field.field.block_content.homepage_announcement.field_announcement_button_label
+    - field.field.block_content.homepage_announcement.field_announcement_cta_label
+    - field.field.block_content.homepage_announcement.field_announcement_cta_link
+    - field.field.block_content.homepage_announcement.field_announcement_cta_new_tab
+    - field.field.block_content.homepage_announcement.field_announcement_subheader
+    - field.field.block_content.homepage_announcement.field_announcement_title
+    - field.field.block_content.homepage_announcement.field_show_announcement
+  module:
+    - link
+    - text
+id: block_content.homepage_announcement.default
+targetEntityType: block_content
+bundle: homepage_announcement
+mode: default
+content:
+  field_announcement_body:
+    type: text_default
+    weight: 4
+    region: content
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+  field_announcement_button_label:
+    type: string
+    weight: 1
+    region: content
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+  field_announcement_cta_label:
+    type: string
+    weight: 5
+    region: content
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+  field_announcement_cta_link:
+    type: link
+    weight: 6
+    region: content
+    label: hidden
+    settings:
+      trim_length: 80
+      url_only: true
+      url_plain: true
+      rel: ''
+      target: ''
+    third_party_settings: {  }
+  field_announcement_cta_new_tab:
+    type: boolean
+    weight: 7
+    region: content
+    label: hidden
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+  field_announcement_subheader:
+    type: string
+    weight: 3
+    region: content
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+  field_announcement_title:
+    type: string
+    weight: 2
+    region: content
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+  field_show_announcement:
+    type: boolean
+    weight: 0
+    region: content
+    label: hidden
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+hidden: {  }

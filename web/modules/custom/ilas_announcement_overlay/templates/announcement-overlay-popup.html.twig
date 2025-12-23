@@ -1,0 +1,91 @@
+{#
+/**
+ * @file
+ * Template for the Announcement Overlay popup.
+ *
+ * This is rendered at the page root level (outside of any stacking contexts)
+ * to ensure it appears above all other page elements.
+ *
+ * Available variables:
+ * - title: The announcement title.
+ * - subheader: The optional subheader text.
+ * - body: The announcement body content (render array).
+ * - cta_label: The call-to-action button text.
+ * - cta_url: The call-to-action URL.
+ * - cta_new_tab: Boolean indicating if CTA should open in new tab.
+ * - block_id: Unique identifier for this announcement.
+ */
+#}
+
+{% set overlay_id = block_id ~ '-overlay' %}
+{% set title_id = block_id ~ '-title' %}
+{% set body_id = block_id ~ '-body' %}
+
+{# Overlay Popup - rendered at page root level for proper z-index #}
+<div
+  id="{{ overlay_id }}"
+  class="announcement-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="{{ title_id }}"
+  aria-describedby="{{ body_id }}"
+  aria-hidden="true"
+  data-announcement-overlay="{{ block_id }}"
+>
+  {# Backdrop #}
+  <div class="announcement-overlay-backdrop" data-announcement-backdrop="{{ block_id }}"></div>
+
+  {# Popup Panel #}
+  <div class="announcement-overlay-panel" role="document">
+    {# Close Button #}
+    <button
+      type="button"
+      class="announcement-overlay-close"
+      aria-label="{{ 'Close announcement'|t }}"
+      data-announcement-close="{{ block_id }}"
+    >
+      <span aria-hidden="true">&times;</span>
+    </button>
+
+    {# Content #}
+    <div class="announcement-overlay-content">
+      {# Title #}
+      {% if title %}
+        <h2 id="{{ title_id }}" class="announcement-overlay-title">{{ title }}</h2>
+      {% endif %}
+
+      {# Subheader #}
+      {% if subheader %}
+        <p class="announcement-overlay-subheader">{{ subheader }}</p>
+      {% endif %}
+
+      {# Body #}
+      {% if body %}
+        <div id="{{ body_id }}" class="announcement-overlay-body">
+          {% for item in body %}
+            {{ item.value|raw }}
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {# Call-to-Action Button #}
+      {% if cta_url and cta_label %}
+        <div class="announcement-overlay-cta">
+          <a
+            href="{{ cta_url }}"
+            class="btn btn-primary"
+            {% if cta_new_tab %}
+              target="_blank"
+              rel="noopener noreferrer"
+            {% endif %}
+          >
+            {{ cta_label }}
+            {% if cta_new_tab %}
+              <span class="visually-hidden">{{ '(opens in new tab)'|t }}</span>
+            {% endif %}
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

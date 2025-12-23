@@ -17,9 +17,15 @@
   {# 2) WHITE HERO CONTENT SECTION - Subtitle, CTA, Image     #}
   {# --------------------------------------------------------- #}
   {% set accessible_label = content.field_hero_subtitle|render|striptags|trim %}
-  
+
   <section class="hero-content-section">
     <div class="container">
+      {# Announcement Trigger Button (rendered above hero content when active) #}
+      {# The overlay popup is rendered at page root level for proper z-index #}
+      {% if announcement_trigger %}
+        {{ announcement_trigger }}
+      {% endif %}
+
       <div class="row align-items-center justify-content-center">
         <div class="col-md-6">
           <div class="hero-sub-heading">

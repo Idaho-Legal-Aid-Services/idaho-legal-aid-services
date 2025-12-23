@@ -1,0 +1,28 @@
+{#
+/**
+ * @file
+ * Template for the Announcement Overlay trigger button.
+ *
+ * This is rendered inside the node template, within the hero section.
+ *
+ * Available variables:
+ * - button_label: The text for the trigger button.
+ * - block_id: Unique identifier for this announcement.
+ */
+#}
+
+{% set overlay_id = block_id ~ '-overlay' %}
+
+{# Trigger Button - uses .btn base only, NOT .btn-primary to avoid hover conflicts #}
+<div class="announcement-overlay-trigger-wrapper">
+  <button
+    type="button"
+    class="btn announcement-overlay-trigger"
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    aria-controls="{{ overlay_id }}"
+    data-announcement-trigger="{{ block_id }}"
+  >
+    {{ button_label }}
+  </button>
+</div>

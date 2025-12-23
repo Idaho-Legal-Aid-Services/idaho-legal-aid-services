@@ -243,3 +243,8 @@
 {# Include help overlay #}
 {% include '@b5subtheme/includes/help-overlay.html.twig' %}
 {% include '@b5subtheme/includes/mobile-menu.html.twig' %}
+
+{# Announcement Overlay - rendered at page root level for proper z-index stacking #}
+{% if announcement_overlay %}
+  {{ announcement_overlay }}
+{% endif %}
