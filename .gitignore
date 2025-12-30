@@ -100,3 +100,18 @@
 
 # Ignore runtime logs
 logs/
+
+# Prevent accidental Pantheon file pulls
+/web/sites/*/files_live/
+
+# Prevent accidental database dumps / archives
+*.sql
+*.sql.gz
+*.tar.gz
+
+# Prevent stray logs (outside logs/ dir)
+*.log
+*.log.*
+
+# Allow our custom theme ignore file (even though we ignore scaffolded ones under /web/)
+!/web/themes/custom/b5subtheme/.gitignore
