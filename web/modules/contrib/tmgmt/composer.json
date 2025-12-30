@@ -1,0 +1,12 @@
+{
+  "name": "drupal/tmgmt",
+  "description": "Translation Management Tool",
+  "type": "drupal-module",
+  "license": "GPL-2.0+",
+  "require-dev": {
+    "drupal/metatag": "2.0.x-dev || 1.x-dev",
+    "drupal/paragraphs": "1.x-dev",
+    "drupal/pathauto": "1.x-dev",
+    "drupal/webform": "6.1.x-dev || 6.2.x-dev"
+  }
+}

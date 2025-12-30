@@ -1,0 +1,13 @@
+name: 'Locales Source'
+description: 'Locales source plugin for the Translation Management system.'
+package: 'Translation Management'
+core_version_requirement: ^10.2 || ^11
+type: module
+dependencies:
+ - tmgmt:tmgmt
+ - drupal:locale
+
+# Information added by Drupal.org packaging script on 2024-11-15
+version: '8.x-1.17'
+project: 'tmgmt'
+datestamp: 1731630350
