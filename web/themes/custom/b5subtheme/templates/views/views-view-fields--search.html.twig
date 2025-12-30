@@ -87,11 +87,13 @@
         </h2>
       {% endif %}
 
-      {# Excerpt - use clean_excerpt from preprocess (never fall back to search_api_excerpt for nodes to avoid stale highlights) #}
-      {% if clean_excerpt is defined and clean_excerpt is not empty %}
-        <p class="search-result__excerpt">
-          {{ clean_excerpt }}
-        </p>
+      {# Excerpt - use Search API excerpt which includes paragraph content and highlights search terms #}
+      {% if fields.search_api_excerpt.content %}
+        {% set excerpt_text = fields.search_api_excerpt.content|render|trim %}
+        {% set excerpt_clean = excerpt_text|replace({'… ': '', '... ': '', '…': '', '...': ''}) %}
+        <div class="search-result__excerpt">
+          {{ excerpt_clean|raw }}
+        </div>
       {% endif %}
 
       {# Learn More link #}
