@@ -1,0 +1,18 @@
+uuid: 2fe28002-990b-46bf-b2d2-1e696c62d436
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.press_room
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+    bundle_settings:
+      untranslatable_fields_hide: '0'
+id: node.press_room
+target_entity_type_id: node
+target_bundle: press_room
+default_langcode: site_default
+language_alterable: true

@@ -1,0 +1,18 @@
+uuid: 66d271e6-ce62-440c-8da6-11f1aaf21de5
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.press_entry
+  module:
+    - content_translation
+third_party_settings:
+  content_translation:
+    enabled: true
+    bundle_settings:
+      untranslatable_fields_hide: '0'
+id: node.press_entry
+target_entity_type_id: node
+target_bundle: press_entry
+default_langcode: site_default
+language_alterable: true

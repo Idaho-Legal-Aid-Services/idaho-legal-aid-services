@@ -10,6 +10,7 @@ tags:
   canonical_url: '[current-page:url:absolute]'
   og_site_name: '[site:name]'
   og_url: '[current-page:url:absolute]'
+  og_locale: en_US
   referrer: strict-origin-when-cross-origin
   rights: 'Copyright ©[date:html_year] Idaho Legal Aid Services. All rights reserved.'
   shortlink: '[current-page:url:unaliased]'

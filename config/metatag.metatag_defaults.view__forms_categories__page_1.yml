@@ -1,0 +1,18 @@
+uuid: f1a2b3c4-d5e6-7890-abcd-ef1234567890
+langcode: en
+status: true
+dependencies:
+  config:
+    - views.view.forms_categories
+  module:
+    - metatag_views
+id: view__forms_categories__page_1
+label: 'View: Forms Categories - Page'
+tags:
+  title: 'Free Legal Forms & Documents | Idaho Legal Aid Services'
+  description: 'Download free legal forms and documents for Idaho courts. Find self-help forms, court templates, and legal documents organized by topic. Free resources for low-income Idahoans.'
+  og_title: 'Free Legal Forms & Documents'
+  og_description: 'Download free legal forms and documents for Idaho courts. Find self-help forms, court templates, and legal documents organized by topic.'
+  og_type: website
+  twitter_cards_title: 'Free Legal Forms & Documents | Idaho Legal Aid'
+  twitter_cards_description: 'Download free legal forms and documents for Idaho courts. Self-help forms and templates for low-income Idahoans.'

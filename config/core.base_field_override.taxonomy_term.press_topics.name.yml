@@ -1,0 +1,18 @@
+uuid: 22847680-f7be-40d8-80c8-938a31073522
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+id: taxonomy_term.press_topics.name
+field_name: name
+entity_type: taxonomy_term
+bundle: press_topics
+label: Name
+description: ''
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

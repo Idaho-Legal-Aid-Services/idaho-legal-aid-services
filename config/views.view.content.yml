@@ -489,8 +489,7 @@ display:
           entity_field: langcode
           plugin_id: language
           operator: in
-          value:
-            en: en
+          value: {  }
           group: 1
           exposed: true
           expose:

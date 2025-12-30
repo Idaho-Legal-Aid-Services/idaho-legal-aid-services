@@ -1,0 +1,20 @@
+uuid: a9185c74-817f-4069-ae52-a4573ea512cc
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+  module:
+    - options
+id: taxonomy_term.press_topics.publish_state
+field_name: publish_state
+entity_type: taxonomy_term
+bundle: press_topics
+label: 'Publish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

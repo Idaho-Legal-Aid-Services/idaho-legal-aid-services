@@ -1,0 +1,18 @@
+uuid: debf205f-fecf-4797-99f5-efe3e5236fbd
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+id: taxonomy_term.press_topics.publish_on
+field_name: publish_on
+entity_type: taxonomy_term
+bundle: press_topics
+label: 'Publish on'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: timestamp

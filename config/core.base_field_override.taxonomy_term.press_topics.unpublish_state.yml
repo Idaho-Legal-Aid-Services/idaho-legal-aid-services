@@ -1,0 +1,20 @@
+uuid: 100e9434-a70e-43a9-973f-7c7d64fc0302
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+  module:
+    - options
+id: taxonomy_term.press_topics.unpublish_state
+field_name: unpublish_state
+entity_type: taxonomy_term
+bundle: press_topics
+label: 'Unpublish state'
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: list_string

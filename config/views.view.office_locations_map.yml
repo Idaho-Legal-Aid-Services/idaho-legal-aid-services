@@ -270,8 +270,8 @@ display:
             options: '{"permanent":false,"direction":"center"}'
           leaflet_popup:
             value: title
-            options: '{"maxWidth":"300","minWidth":"50","autoPan":true}'
             view_mode: full
+            options: '{"maxWidth":"300","minWidth":"50","autoPan":true}'
           leaflet_map: 'OSM Mapnik'
           height: '525'
           height_unit: px
@@ -327,6 +327,8 @@ display:
             control: false
             options: '{"position":"topleft","pseudoFullscreen":false}'
           path: '{"color":"#3388ff","opacity":"1.0","stroke":true,"weight":3,"fill":"depends","fillColor":"*","fillOpacity":"0.2","radius":"6"}'
+          feature_properties:
+            values: ''
           geocoder:
             control: false
             settings:
@@ -346,8 +348,6 @@ display:
               options: ''
           map_lazy_load:
             lazy_load: false
-          feature_properties:
-            values: ''
       row:
         type: fields
       query:

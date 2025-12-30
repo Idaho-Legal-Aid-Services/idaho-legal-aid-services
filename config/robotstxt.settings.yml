@@ -52,6 +52,8 @@ content: |
   Disallow: /filter/tips
   Disallow: /node/add/
   Disallow: /search/
+  Disallow: /site-search
+  Disallow: /site-search/
   Disallow: /user/register
   Disallow: /user/password
   Disallow: /user/login

@@ -1,0 +1,21 @@
+uuid: f1649025-8981-440a-bf61-81a7b9d0bbc4
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+  module:
+    - text
+id: taxonomy_term.press_topics.description
+field_name: description
+entity_type: taxonomy_term
+bundle: press_topics
+label: Description
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

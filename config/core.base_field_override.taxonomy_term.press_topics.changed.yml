@@ -1,0 +1,18 @@
+uuid: b58d4e22-5c22-4a93-8646-c27ab56e7f44
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+id: taxonomy_term.press_topics.changed
+field_name: changed
+entity_type: taxonomy_term
+bundle: press_topics
+label: Changed
+description: 'The time that the term was last edited.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: changed

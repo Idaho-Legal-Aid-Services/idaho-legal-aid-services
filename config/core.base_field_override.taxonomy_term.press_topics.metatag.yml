@@ -1,0 +1,20 @@
+uuid: 73608216-6aee-41c0-b7b4-f1e5c76e56dc
+langcode: en
+status: true
+dependencies:
+  config:
+    - taxonomy.vocabulary.press_topics
+  module:
+    - metatag
+id: taxonomy_term.press_topics.metatag
+field_name: metatag
+entity_type: taxonomy_term
+bundle: press_topics
+label: 'Metatags (Hidden field for JSON support)'
+description: 'The computed meta tags for the entity.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: metatag_computed

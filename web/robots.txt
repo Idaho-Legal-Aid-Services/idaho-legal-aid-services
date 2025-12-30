@@ -58,6 +58,8 @@ Disallow: /*/search
 Disallow: /*/search*
 Disallow: /search?*f[*
 Disallow: /search?*f%5B*
+Disallow: /site-search
+Disallow: /site-search/
 Disallow: /user/register
 Disallow: /user/password
 Disallow: /user/login
