@@ -1,0 +1,65 @@
+diff --git a/sources/content/src/Plugin/tmgmt/Source/ContentEntitySource.php b/sources/content/src/Plugin/tmgmt/Source/ContentEntitySource.php
+index 85b943e..8eebc3f 100644
+--- a/sources/content/src/Plugin/tmgmt/Source/ContentEntitySource.php
++++ b/sources/content/src/Plugin/tmgmt/Source/ContentEntitySource.php
+@@ -503,7 +503,7 @@ class ContentEntitySource extends SourcePluginBase implements SourcePreviewInter
+       /** @var \Drupal\Core\Entity\TranslatableRevisionableStorageInterface $storage */
+       $storage = \Drupal::entityTypeManager()->getStorage($entity->getEntityTypeId());
+ 
+-      if ($storage instanceof TranslatableRevisionableStorageInterface) {
++      if ($translation->id() && $storage instanceof TranslatableRevisionableStorageInterface) {
+         // Always create a new revision of the translation.
+         $translation = $storage->createRevision($translation, $translation->isDefaultRevision());
+       }
+@@ -554,11 +554,16 @@ class ContentEntitySource extends SourcePluginBase implements SourcePreviewInter
+       $field = $translation->get($field_name);
+       $target_type = $field->getFieldDefinition()->getFieldStorageDefinition()->getSetting('target_type');
+       $is_target_type_translatable = $manager->isEnabled($target_type);
++      // Special handling for asymmetric paragraphs translations.
++      // @see https://www.drupal.org/project/paragraphs_asymmetric_translation_widgets
++      // @see https://www.drupal.org/project/tmgmt/issues/3134922
++      $is_asymmetric_translation_mode = $target_type == 'paragraph' && $field->getFieldDefinition()->isTranslatable();
++
+       // In case the target type is not translatable, the referenced entity will
+       // be duplicated. As a consequence, remove all the field items from the
+       // translation, update the field value to use the field object from the
+       // source language.
+-      if (!$is_target_type_translatable) {
++      if (!$is_target_type_translatable || $is_asymmetric_translation_mode) {
+         $field = clone $entity->get($field_name);
+ 
+         if (!$translation->get($field_name)->isEmpty()) {
+@@ -571,8 +576,8 @@ class ContentEntitySource extends SourcePluginBase implements SourcePreviewInter
+         foreach (Element::children($field_item) as $property) {
+           // Find the referenced entity. In case we are dealing with
+           // untranslatable target types, the source entity will be returned.
+-          if ($target_entity = $this->findReferencedEntity($field, $field_item, $delta, $property, $is_target_type_translatable)) {
+-            if ($is_target_type_translatable) {
++          if ($target_entity = $this->findReferencedEntity($field, $field_item, $delta, $property, $is_target_type_translatable, $is_asymmetric_translation_mode)) {
++            if ($is_target_type_translatable && !$is_asymmetric_translation_mode) {
+               // If the field is an embeddable reference and the property is a
+               // content entity, process it recursively.
+ 
+@@ -781,10 +786,12 @@ class ContentEntitySource extends SourcePluginBase implements SourcePreviewInter
+    * @param $property
+    * @param bool $is_target_type_translatable
+    *   (optional) Whether the target entity type is translatable.
++   * @param bool $is_asymmetric_translation_mode
++   *   (optional) Whether paragraph asymmetric mode is enabled.
+    *
+    * @return \Drupal\Core\Entity\ContentEntityInterface|null
+    */
+-  protected function findReferencedEntity(FieldItemListInterface $field, array $field_item, $delta, $property, $is_target_type_translatable = TRUE) {
++  protected function findReferencedEntity(FieldItemListInterface $field, array $field_item, $delta, $property, $is_target_type_translatable = TRUE, $is_asymmetric_translation_mode = FALSE) {
+     // If an id is provided, loop over the field item deltas until we find the
+     // matching entity. In case of untranslatable target types return the
+     // source target entity as it will be duplicated.
+@@ -793,7 +800,7 @@ class ContentEntitySource extends SourcePluginBase implements SourcePreviewInter
+         if ($item->$property instanceof ContentEntityInterface) {
+           /** @var ContentEntityInterface $referenced_entity */
+           $referenced_entity = $item->$property;
+-          if ($referenced_entity->id() == $field_item[$property]['#id'] || ($item_delta === $delta && !$is_target_type_translatable)) {
++          if ($referenced_entity->id() == $field_item[$property]['#id'] || ($item_delta === $delta && (!$is_target_type_translatable || $is_asymmetric_translation_mode))) {
+             return $referenced_entity;
+           }
+         }

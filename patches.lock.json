@@ -1,5 +1,5 @@
 {
-    "_hash": "47785d77d577c43ba9317c41c0cab8fdbdaae4b280a0ca08f89f64c9ff9cd6f6",
+    "_hash": "d1eaf77f723f8f50771ce53cdb9ac4c65f5b7721e3441c1ffb1d59de5a888ee7",
     "patches": {
         "drupal/core": [
             {
@@ -17,7 +17,7 @@
             {
                 "package": "drupal/tmgmt",
                 "description": "Fix paragraphs asymmetric translation saving source instead of translated text (https://www.drupal.org/project/tmgmt/issues/3134922)",
-                "url": "https://www.drupal.org/files/issues/2025-01-20/3134922-46.patch",
+                "url": "patches/tmgmt-paragraphs-3134922-46.patch",
                 "sha256": "af7bb76c3d94cf201fcf9d11f6a3ab704df0713a15baca020157140b0b677043",
                 "depth": 1,
                 "extra": {

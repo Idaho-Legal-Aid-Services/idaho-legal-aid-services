@@ -95,7 +95,7 @@
                 "BigPipe undefined array key fix (https://www.drupal.org/project/drupal/issues/3194462)": "patches/bigpipe-undefined-array-key-3194462.patch"
             },
             "drupal/tmgmt": {
-                "Fix paragraphs asymmetric translation saving source instead of translated text (https://www.drupal.org/project/tmgmt/issues/3134922)": "https://www.drupal.org/files/issues/2025-01-20/3134922-46.patch"
+                "Fix paragraphs asymmetric translation saving source instead of translated text (https://www.drupal.org/project/tmgmt/issues/3134922)": "patches/tmgmt-paragraphs-3134922-46.patch"
             }
         },
         "compile-mode": "all",
