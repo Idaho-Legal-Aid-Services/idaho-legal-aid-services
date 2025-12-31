@@ -646,14 +646,7 @@ display:
           admin_label: ''
           plugin_id: taxonomy_index_tid
           operator: or
-          value:
-            113: '113'
-            114: '114'
-            115: '115'
-            116: '116'
-            117: '117'
-            118: '118'
-            119: '119'
+          value: {  }
           group: 1
           exposed: true
           expose:
@@ -670,19 +663,54 @@ display:
             multiple: false
             remember_roles:
               authenticated: authenticated
-            reduce: true
-          is_grouped: false
+            reduce: false
+          is_grouped: true
           group_info:
-            label: ''
+            label: 'Filter by Topic'
             description: ''
-            identifier: ''
+            identifier: topic
             optional: true
             widget: select
             multiple: false
             remember: false
             default_group: All
             default_group_multiple: {  }
-            group_items: {  }
+            group_items:
+              1:
+                title: 'Community Advocacy'
+                operator: or
+                value:
+                  113: '113'
+              2:
+                title: 'Community Education'
+                operator: or
+                value:
+                  114: '114'
+              3:
+                title: 'News'
+                operator: or
+                value:
+                  115: '115'
+              4:
+                title: 'Press Releases'
+                operator: or
+                value:
+                  116: '116'
+              5:
+                title: 'Story of Justice'
+                operator: or
+                value:
+                  117: '117'
+              6:
+                title: 'Upcoming Events'
+                operator: or
+                value:
+                  118: '118'
+              7:
+                title: 'Video Stories'
+                operator: or
+                value:
+                  119: '119'
           vid: press_topics
           type: select
           hierarchy: false

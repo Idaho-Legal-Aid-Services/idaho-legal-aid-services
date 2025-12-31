@@ -646,9 +646,7 @@ display:
           admin_label: ''
           plugin_id: taxonomy_index_tid
           operator: or
-          value:
-            120: '120'
-            121: '121'
+          value: {  }
           group: 1
           exposed: true
           expose:
@@ -665,19 +663,29 @@ display:
             multiple: false
             remember_roles:
               authenticated: authenticated
-            reduce: true
-          is_grouped: false
+            reduce: false
+          is_grouped: true
           group_info:
-            label: ''
+            label: 'Filter by Topic'
             description: ''
-            identifier: ''
+            identifier: topic
             optional: true
             widget: select
             multiple: false
             remember: false
             default_group: All
             default_group_multiple: {  }
-            group_items: {  }
+            group_items:
+              1:
+                title: 'Reports'
+                operator: or
+                value:
+                  120: '120'
+              2:
+                title: 'Publications'
+                operator: or
+                value:
+                  121: '121'
           vid: press_topics
           type: select
           hierarchy: false
