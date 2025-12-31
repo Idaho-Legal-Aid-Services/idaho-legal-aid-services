@@ -1,0 +1,20 @@
+uuid: null
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+id: reports_publications
+label: 'Reports & Publications'
+type: 'canonical_entities:node'
+pattern: /reports-publications
+selection_criteria:
+  a1c94ad9-88a0-45bc-9a2b-e7babe4f8a13:
+    id: entity_bundle:node
+    negate: false
+    context_mapping:
+      node: node
+    bundles:
+      reports_publications: reports_publications
+selection_logic: and
+weight: -5

@@ -1,0 +1,33 @@
+{#
+/**
+ * @file
+ * Template for Reports & Publications content type.
+ *
+ * Displays the main content followed by the filterable reports/publications listing.
+ * Uses standard page layout with curved header and footer (handled by page.html.twig).
+ *
+ * Available variables:
+ * - content: Rendered content fields
+ * - attributes: HTML attributes for the article element
+ * - node: The node entity
+ */
+#}
+
+<article{{ attributes.addClass('node', 'node--reports-publications', 'node--press-room') }}>
+
+  {# Main content using standard .main-content class for consistent styling #}
+  {% if content.field_main_content %}
+    <div class="main-content">
+      {{ content.field_main_content }}
+    </div>
+  {% endif %}
+
+  {# Reports & Publications Listing Section #}
+  <section class="press-room-listing-section">
+    <div class="container">
+      {# Embed the Reports & Publications Listing view #}
+      {{ drupal_view('reports_publications_listing', 'block_1') }}
+    </div>
+  </section>
+
+</article>

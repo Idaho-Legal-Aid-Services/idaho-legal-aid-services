@@ -1,4 +1,4 @@
-uuid: 8bc17e26-21e3-4884-a815-185185b0ae76
+uuid: null
 langcode: en
 status: true
 dependencies:
@@ -17,10 +17,10 @@ dependencies:
     - taxonomy
     - user
     - views_infinite_scroll
-id: press_room_listing
-label: 'Press Room Listing'
+id: reports_publications_listing
+label: 'Reports & Publications Listing'
 module: views
-description: 'Displays press entries and events tagged for Press Room, sorted by date with topic filtering.'
+description: 'Displays press entries tagged as Reports or Publications, sorted by date with topic filtering.'
 tag: ''
 base_table: node_field_data
 base_field: nid
@@ -488,7 +488,7 @@ display:
           plugin_id: text
           empty: true
           content:
-            value: '<p class="press-room-empty">No press entries are available at this time. Please check back later.</p>'
+            value: '<p class="press-room-empty">No reports or publications are available at this time. Please check back later.</p>'
             format: content_format
           tokenize: false
       sorts:
@@ -591,15 +591,15 @@ display:
             default_group: All
             default_group_multiple: {  }
             group_items: {  }
-        field_press_topic_target_id_exclude:
-          id: field_press_topic_target_id_exclude
+        field_press_topic_target_id_filter:
+          id: field_press_topic_target_id_filter
           table: node__field_press_topic
           field: field_press_topic_target_id
           relationship: none
           group_type: group
-          admin_label: 'Exclude Reports/Publications'
+          admin_label: 'Reports/Publications Only Filter'
           plugin_id: taxonomy_index_tid
-          operator: 'not'
+          operator: or
           value:
             120: '120'
             121: '121'
@@ -647,13 +647,8 @@ display:
           plugin_id: taxonomy_index_tid
           operator: or
           value:
-            113: '113'
-            114: '114'
-            115: '115'
-            116: '116'
-            117: '117'
-            118: '118'
-            119: '119'
+            120: '120'
+            121: '121'
           group: 1
           exposed: true
           expose:
@@ -768,13 +763,13 @@ display:
       tags: {  }
   block_1:
     id: block_1
-    display_title: 'Press Room Block'
+    display_title: 'Reports & Publications Block'
     display_plugin: block
     position: 1
     display_options:
-      display_description: 'Block display for embedding in Press Room page.'
+      display_description: 'Block display for embedding in Reports & Publications page.'
       display_extenders: {  }
-      block_description: 'Press Room Listing'
+      block_description: 'Reports & Publications Listing'
       block_category: Content
       block_hide_empty: true
     cache_metadata:

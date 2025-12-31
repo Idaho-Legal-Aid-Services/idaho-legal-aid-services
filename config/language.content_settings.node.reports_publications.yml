@@ -1,0 +1,12 @@
+uuid: null
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.reports_publications
+third_party_settings: {  }
+id: node.reports_publications
+target_entity_type_id: node
+target_bundle: reports_publications
+default_langcode: site_default
+language_alterable: true

@@ -1,0 +1,12 @@
+uuid: null
+langcode: en
+status: true
+dependencies: {  }
+third_party_settings: {  }
+name: 'Reports & Publications'
+type: reports_publications
+description: 'Hub page for Idaho Legal Aid Services reports, publications, and related documents. Displays a filterable listing of press entries tagged as Reports or Publications.'
+help: ''
+new_revision: true
+preview_mode: 1
+display_submitted: false

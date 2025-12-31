@@ -1,0 +1,37 @@
+{#
+/**
+ * @file
+ * Theme override for Press Room listing exposed form.
+ *
+ * Provides a compact filter UI similar to the search exposed filters
+ * but more condensed for topic filtering.
+ *
+ * Available variables:
+ * - form: A render element representing the form.
+ *
+ * @see template_preprocess_views_exposed_form()
+ */
+#}
+
+{% if q is not empty %}
+  {{ q }}
+{% endif %}
+
+<div class="press-room-filter">
+  <div class="press-room-filter__inner">
+    {# Topic filter #}
+    {% if form.topic is defined %}
+      <div class="press-room-filter__select">
+        {{ form.topic }}
+      </div>
+    {% endif %}
+
+    {# Submit and Reset buttons #}
+    <div class="press-room-filter__actions">
+      {{ form.actions }}
+    </div>
+  </div>
+</div>
+
+{# Render any remaining form elements (hidden fields, etc.) #}
+{{ form|without('topic', 'actions') }}

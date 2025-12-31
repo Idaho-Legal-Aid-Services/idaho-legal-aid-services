@@ -1,0 +1,123 @@
+{#
+/**
+ * @file
+ * Theme override for Press Room listing row.
+ *
+ * Displays individual press entry with thumbnail, title, meta info, excerpt,
+ * Read More link, and topic - all left-aligned with image floating left.
+ *
+ * Available variables:
+ * - view: The view object.
+ * - fields: An array of field handlers. Each field contains:
+ *   - content: The rendered content.
+ *   - raw: The raw field content.
+ *   - handler: The Views field handler object.
+ * - row: The row object containing the result.
+ *
+ * Fields available:
+ * - title: Node title (linked)
+ * - field_featured_image: Thumbnail image (optional)
+ * - field_publication_date: Publication date
+ * - field_byline: Author byline (optional)
+ * - uid: Node author
+ * - field_body: Body content (trimmed)
+ * - field_press_topic: Topic taxonomy term
+ * - nid: Node ID (hidden, for building URLs)
+ * - type: Content type (hidden)
+ */
+#}
+
+{# Extract the node URL from the title link #}
+{% set node_url = '' %}
+{% if fields.title.content %}
+  {% set title_html = fields.title.content|render|trim %}
+  {% if 'href="' in title_html %}
+    {% set node_url = title_html|split('href="')[1]|split('"')[0] %}
+  {% endif %}
+{% endif %}
+
+{# Get content type for any type-specific handling #}
+{% set content_type = fields.type.content|render|striptags|trim %}
+
+{# Get the byline or fall back to ILAS Communications #}
+{% set byline_text = fields.field_byline.content|render|striptags|trim %}
+{% set display_author = byline_text ? byline_text : 'ILAS Communications' %}
+
+{# Get the publication date #}
+{% set pub_date = fields.field_publication_date.content|render|striptags|trim %}
+
+{# Get the excerpt #}
+{% set excerpt = fields.field_body.content|render|trim %}
+
+{# Get the topic #}
+{% set topic_html = fields.field_press_topic.content|render|trim %}
+
+{# Get the thumbnail image #}
+{% set has_image = fields.field_featured_image.content|render|striptags|trim is not empty %}
+{% set image_html = fields.field_featured_image.content|render|trim %}
+
+<article class="press-entry{{ has_image ? ' press-entry--has-image' : '' }}">
+  {# Title - left aligned #}
+  {% if fields.title.content %}
+    <h2 class="press-entry__title">
+      {{ fields.title.content }}
+    </h2>
+  {% endif %}
+
+  {# Meta line: date + author (left aligned) #}
+  <div class="press-entry__meta">
+    {% if pub_date %}
+      <span class="press-entry__date">{{ pub_date }}</span>
+    {% endif %}
+    {% if pub_date and display_author %}
+      <span class="press-entry__separator">|</span>
+    {% endif %}
+    {% if display_author %}
+      <span class="press-entry__author">{{ display_author }}</span>
+    {% endif %}
+  </div>
+
+  {# Content wrapper for image + text #}
+  <div class="press-entry__content">
+    {# Thumbnail image (floats left) #}
+    {% if has_image %}
+      <div class="press-entry__image">
+        {% if node_url %}
+          <a href="{{ node_url }}">{{ image_html|raw }}</a>
+        {% else %}
+          {{ image_html|raw }}
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {# Text content #}
+    <div class="press-entry__text">
+      {# Excerpt #}
+      {% if excerpt %}
+        <div class="press-entry__excerpt">
+          {{ excerpt|raw }}
+        </div>
+      {% endif %}
+
+      {# Read More link #}
+      {% if node_url %}
+        <div class="press-entry__cta">
+          <a href="{{ node_url }}" class="press-entry__link">
+            <span>{{ 'Read More'|t }}</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+      {% endif %}
+
+      {# Topic line #}
+      {% if topic_html %}
+        <div class="press-entry__topic">
+          <span class="press-entry__topic-label">{{ 'Topic'|t }}:</span>
+          {{ topic_html|raw }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Clear float #}
+  <div class="press-entry__clear"></div>
+</article>

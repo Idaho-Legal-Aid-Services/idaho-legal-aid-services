@@ -1,0 +1,29 @@
+uuid: null
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.node.reports_publications.field_main_content
+    - node.type.reports_publications
+  module:
+    - text
+    - user
+id: node.reports_publications.default
+targetEntityType: node
+bundle: reports_publications
+mode: default
+content:
+  field_main_content:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 0
+    region: content
+hidden:
+  entity_print_view_epub: true
+  entity_print_view_pdf: true
+  entity_print_view_word_docx: true
+  langcode: true
+  links: true
+  search_api_excerpt: true
