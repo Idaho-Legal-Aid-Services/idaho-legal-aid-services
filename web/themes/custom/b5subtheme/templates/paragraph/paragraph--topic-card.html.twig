@@ -43,8 +43,8 @@
     </div>
   </div>
   
-  {# Screen reader content #}
-  <span class="sr-only" id="{{ cta_id }}">
+  {# Screen reader content - uses Bootstrap's .visually-hidden utility #}
+  <span class="visually-hidden" id="{{ cta_id }}">
     Click to learn more about {{ topic_title|lower }} legal services
   </span>
   

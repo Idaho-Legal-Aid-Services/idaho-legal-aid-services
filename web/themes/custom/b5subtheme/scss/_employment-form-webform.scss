@@ -5,7 +5,7 @@
 
 // Webform-specific variables
 $webform-border-radius: 8px;
-$webform-transition: all 0.3s ease;
+$webform-transition: $transition-base;
 
 // Webform wrapper styling - integrates with the template
 .webform-container {
@@ -31,23 +31,26 @@ $webform-transition: all 0.3s ease;
         margin-bottom: 2rem;
         padding-bottom: 1.5rem;
         border-bottom: 1px solid $color-gray-bg;
-        
+        max-width: 75ch;
+        margin-inline: auto;
+
         h2 {
           color: $color-primary;
           font-size: 2rem;
-          font-weight: 600;
+          font-weight: $weight-heading;
           margin-bottom: 0.5rem;
-          
+
           @include mobile {
             font-size: $font-size-mobile-subheader;
           }
         }
-        
+
         p {
           color: $color-gray-border;
           font-size: 1.1rem;
+          line-height: 1.6;
           margin: 0;
-          
+
           @include mobile {
             font-size: $font-size-mobile-body;
           }
@@ -73,7 +76,7 @@ $webform-transition: all 0.3s ease;
       margin-bottom: 1.5rem;
       
       label {
-        font-weight: 600;
+        font-weight: $weight-label;
         color: $color-gray-border;
         margin-bottom: 0.5rem;
         display: block;
@@ -156,7 +159,7 @@ $webform-transition: all 0.3s ease;
         border: 2px solid $color-primary;
         border-radius: $webform-border-radius;
         padding: 0.75rem 1.5rem;
-        font-weight: 600;
+        font-weight: $weight-button;
         transition: $webform-transition;
         
         &:hover {
@@ -176,7 +179,7 @@ $webform-transition: all 0.3s ease;
     .webform-button--submit {
       padding: 0.75rem 2rem;
       border-radius: $webform-border-radius;
-      font-weight: 600;
+      font-weight: $weight-button;
       transition: $webform-transition;
       border: 2px solid;
       
@@ -270,7 +273,7 @@ $webform-transition: all 0.3s ease;
     border: 2px solid $color-primary;
     border-radius: $webform-border-radius;
     padding: 0.75rem 2rem;
-    font-weight: 600;
+    font-weight: $weight-button;
     transition: $webform-transition;
     text-decoration: none;
     

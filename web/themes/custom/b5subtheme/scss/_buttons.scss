@@ -3,16 +3,58 @@
  *
  * Standardized button styles for site-wide consistency.
  * Matches the utility bar hover style with subtle rounded corners.
+ *
+ * UNDERLINE POLICY: Buttons NEVER have text-decoration underlines.
+ * This is enforced via the button-no-underline mixin from _mixins.scss.
+ * All button variants inherit this behavior automatically.
  ***********************************************/
 
-// Base button styles - override Bootstrap defaults
+// =============================================================================
+// GLOBAL BUTTON NO-UNDERLINE RULE
+// High-specificity rule to prevent ANY underline on buttons, regardless of context
+// This catches buttons inside content areas, colored sections, etc.
+// =============================================================================
+.btn,
+a.btn,
+button.btn,
+.button,
+a.button,
+.form-submit,
+[role="button"],
+input[type="submit"],
+input[type="button"] {
+  @include button-no-underline;
+}
+
+// Even higher specificity for buttons inside content wrappers
+// This overrides rules like .content-body a { text-decoration: underline }
+.content-body,
+.content-section,
+.content-section--primary,
+.standard-layout,
+.node__content,
+.donate-body,
+.forms-intro,
+.info-list {
+  .btn,
+  a.btn,
+  .button,
+  a.button,
+  .form-submit,
+  [role="button"] {
+    @include button-no-underline;
+  }
+}
+
+// =============================================================================
+// BASE BUTTON STYLES
+// =============================================================================
 .btn {
   // Reset and base styles
   display: inline-block;
   font-family: $font-family-sans-serif;
-  font-weight: 600;
+  font-weight: $weight-button;
   text-align: center;
-  text-decoration: none;
   white-space: nowrap;
   vertical-align: middle;
   user-select: none;
@@ -21,23 +63,26 @@
   font-size: 1rem;
   line-height: 1.5;
   border-radius: 4px;
-  transition: all 0.3s ease;
+  transition: $transition-base;
   cursor: pointer;
-  
+
+  // No underline - enforced by mixin above, but explicit for clarity
+  text-decoration: none;
+
   // Minimum touch target size for accessibility
   min-height: 48px;
-  
-  // Focus styles for accessibility
+
+  // Focus styles for accessibility (outlines preserved)
   &:focus-visible {
     outline: 2px solid $color-primary;
     outline-offset: 2px;
   }
-  
+
   // Remove default focus outline for mouse users
   &:focus:not(:focus-visible) {
     outline: none;
   }
-  
+
   // Disabled state
   &:disabled,
   &.disabled {
@@ -47,34 +92,37 @@
   }
 }
 
+// =============================================================================
+// BUTTON VARIANTS
+// =============================================================================
+
 // Primary button variant - increase specificity for Bootstrap override
 .b5subtheme .btn-primary,
 .btn-primary {
   background-color: $color-primary;
   border-color: $color-primary;
   color: $color-white;
-  
+
   // Ensure text is white even with Bootstrap utility classes
   &,
   &.text-white,
   &.text-light {
     color: $color-white;
   }
-  
+
   // Force all child elements to be white
   * {
     color: $color-white;
   }
-  
+
   &:hover,
   &:focus {
     background-color: $color-white;
     border-color: $color-primary;
     color: $color-primary;
-    text-decoration: none;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    
+    box-shadow: $shadow-hover;
+
     // Ensure hover text color overrides utility classes
     &,
     &.text-white,
@@ -83,12 +131,12 @@
       color: $color-primary;
     }
   }
-  
+
   &:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: $shadow-pressed;
   }
-  
+
   // Remove transform on mobile for better touch experience
   @include mobile {
     &:hover,
@@ -104,13 +152,12 @@
   background-color: transparent;
   border-color: $color-primary;
   color: $color-primary;
-  
+
   &:hover,
   &:focus {
     background-color: $color-primary;
     border-color: $color-primary;
     color: $color-white;
-    text-decoration: none;
   }
 }
 
@@ -119,13 +166,12 @@
   background-color: $color-white;
   border-color: $color-white;
   color: $color-primary;
-  
+
   &:hover,
   &:focus {
     background-color: transparent;
     border-color: $color-white;
     color: $color-white;
-    text-decoration: none;
   }
 }
 
@@ -134,56 +180,53 @@
   background-color: transparent;
   border-color: $color-gray-border;
   color: $color-gray-border;
-  
+
   &:hover,
   &:focus {
     background-color: $color-gray-bg;
     border-color: darken($color-gray-border, 10%);
     color: darken($color-gray-border, 10%);
-    text-decoration: none;
   }
 }
 
-// Success button variant
-$color-success: #38a169; // Define as variable
+// Success button variant (uses $color-success from _variables_theme.scss)
 .btn-success {
   background-color: $color-success;
   border-color: $color-success;
   color: $color-white;
-  
+
   // Ensure text is white even with Bootstrap utility classes
   &,
   &.text-white,
   &.text-light {
     color: $color-white;
   }
-  
+
   // Force all child elements to be white
   * {
     color: $color-white;
   }
-  
+
   &:hover,
   &:focus {
     background-color: darken($color-success, 10%);
     border-color: darken($color-success, 10%);
     color: $color-white;
-    text-decoration: none;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    
+    box-shadow: $shadow-hover;
+
     // Ensure hover text remains white
     &,
     * {
       color: $color-white;
     }
   }
-  
+
   &:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: $shadow-pressed;
   }
-  
+
   // Remove transform on mobile for better touch experience
   @include mobile {
     &:hover,
@@ -194,6 +237,28 @@ $color-success: #38a169; // Define as variable
   }
 }
 
+// =============================================================================
+// BTN-LINK VARIANT
+// Bootstrap's .btn-link is intentionally styled like a link but as a button.
+// Per project requirements: remove underline even on btn-link.
+// =============================================================================
+.btn-link {
+  @include button-no-underline;
+  background-color: transparent;
+  border-color: transparent;
+  color: $color-primary;
+
+  &:hover,
+  &:focus {
+    color: darken($color-primary, 15%);
+    // No underline on hover either
+  }
+}
+
+// =============================================================================
+// LAYOUT MODIFIERS
+// =============================================================================
+
 // Block button modifier (full width on mobile)
 .btn-block {
   display: block;
@@ -201,17 +266,12 @@ $color-success: #38a169; // Define as variable
 }
 
 // Mobile responsive behavior
+// Buttons remain their natural size on mobile by default
+// Use .btn-block-mobile for opt-in full-width behavior
 @include mobile {
-  .btn {
-    // Full width on mobile for better touch targets
+  .btn-block-mobile {
     display: block;
     width: 100%;
-    
-    // Allow inline buttons with specific class
-    &.btn-inline-mobile {
-      display: inline-block;
-      width: auto;
-    }
   }
 }
 
@@ -220,17 +280,19 @@ $color-success: #38a169; // Define as variable
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-  
+
   @include mobile {
     flex-direction: column;
-    
+
     .btn {
       width: 100%;
     }
   }
 }
 
-// Ensure buttons in forms have consistent styling
+// =============================================================================
+// FORM BUTTON CONSISTENCY
+// =============================================================================
 form .btn,
 input[type="submit"].btn,
 input[type="button"].btn,
@@ -240,21 +302,10 @@ button.btn {
   -moz-appearance: none;
 }
 
-// Ensure anchor tags with button classes never have underlines
-// Use higher specificity instead of !important
-body a.btn,
-a.btn {
-  text-decoration: none;
-  
-  &:hover,
-  &:focus,
-  &:active,
-  &:visited {
-    text-decoration: none;
-  }
-}
+// =============================================================================
+// BOOTSTRAP UTILITY CLASS OVERRIDES
+// =============================================================================
 
-// Additional specificity overrides for Bootstrap utility classes
 // Target buttons with text-white class specifically
 .btn-primary.text-white,
 .btn-success.text-white,
@@ -269,4 +320,48 @@ button.btn-success.text-white {
 a.btn-primary:visited,
 a.btn-success:visited {
   color: $color-white;
+}
+
+// =============================================================================
+// BACK BUTTON COMPONENT
+// Consistent styling for all navigation "back" buttons site-wide
+// =============================================================================
+.back-button {
+  // Layout: inline-flex for icon + text alignment
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+
+  // Icon styling with hover animation
+  i {
+    font-size: 0.875rem;
+    transition: transform 0.2s ease;
+  }
+
+  // Hover: arrow moves left for visual feedback
+  &:hover,
+  &:focus {
+    i {
+      transform: translateX(-3px);
+    }
+  }
+}
+
+// Back button inherits from btn-primary by default
+// Add .btn.btn-primary alongside .back-button for primary styling
+// Add .btn.btn-secondary alongside .back-button for secondary styling
+
+// Secondary variant override for prev-step buttons in forms
+.back-button.btn-secondary,
+.back-button.prev-step {
+  background-color: $color-gray-border;
+  border-color: $color-gray-border;
+  color: $color-white;
+
+  &:hover,
+  &:focus {
+    background-color: darken($color-gray-border, 10%);
+    border-color: darken($color-gray-border, 10%);
+    color: $color-white;
+  }
 }

@@ -13,7 +13,7 @@
   --forms-bg-alt: #{$color-gray-bg};
   --forms-text: #{$color-black};
   --forms-text-muted: #{$color-gray-text};
-  --forms-border: #e9ecef;
+  --forms-border: #{$color-gray-border-light};
 
   // Spacing
   --forms-gap: 1.5rem;
@@ -44,7 +44,7 @@
 
 
 /*──────────── 3) Intro Section (below curved header) ────────────*/
-// Matches .main-content styling from _layout-components.scss
+// Uses .content-body styling - container provides gutters
 .forms-intro-section {
   position: relative;
   z-index: z('overlay');
@@ -55,18 +55,13 @@
     position: relative;
     z-index: z('overlay');
     margin: 0 auto 3rem auto;
-    padding: 0 1rem;
-    max-width: 1200px;
+    padding: 0; // Container provides gutters
+    max-width: 75ch; // Optimal reading width
     @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
     line-height: 1.6;
     text-transform: none;
     color: $color-black;
     text-align: center;
-
-    @include mobile {
-      margin: 0 !important;
-      padding: 0 !important;
-    }
 
     p {
       margin-bottom: 1rem;
@@ -76,7 +71,8 @@
       }
     }
 
-    a {
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
       color: $color-primary;
       text-decoration: underline;
 
@@ -88,51 +84,15 @@
 }
 
 
-/*──────────── 4) Main Content Area (matches main-content style) ────────────*/
+/*──────────── 4) Main Content Area ────────────*/
+// Container for grid/list content - container provides gutters
 .forms-main-content {
   @extend %centered-container;
   position: relative;
   z-index: z('overlay');
   margin: 0 auto 3rem auto;
-  padding: 0 1rem;
+  padding: 0; // Container provides gutters
   max-width: 1200px;
-  @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
-  line-height: 1.6;
-  text-transform: none;
-  color: $color-black;
-
-  @include mobile {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  // Style common body field elements (matching .main-content)
-  p {
-    margin-bottom: 1rem;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-
-  ul, ol {
-    margin: 1rem 0;
-    padding-left: 2rem;
-  }
-
-  h2, h3, h4, h5, h6 {
-    margin: 1.5rem 0 1rem;
-    font-weight: 600;
-  }
-
-  a {
-    color: $color-primary;
-    text-decoration: underline;
-
-    &:hover {
-      text-decoration: none;
-    }
-  }
 }
 
 .forms-content {
@@ -154,7 +114,7 @@
   @include mobile {
     grid-template-columns: 1fr;
     justify-items: center;
-    padding: 0 0.75rem;
+    padding: 0; // Container provides gutters - see CONTAINER CONTRACT in _variables_theme.scss
     gap: 1rem;
   }
 }
@@ -174,15 +134,16 @@
   color: $color-primary;
   border: 6px solid $color-primary;
   border-radius: $border-radius;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: $shadow-card;
   padding: 0;
   overflow: hidden;
 
   @include mobile {
     border-width: 3px;
-    height: 100px;
-    min-height: 100px;
-    max-height: 100px;
+    // Content-driven height - no truncation, allows card to grow for long titles
+    height: auto;
+    min-height: 80px;
+    max-height: none;
   }
 
   // Hover state (matches topic-card hover) - desktop only
@@ -190,7 +151,7 @@
     &:hover {
       z-index: 10;
       background-color: $color-white;
-      box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+      box-shadow: $shadow-glow-gray;
     }
   }
 
@@ -198,7 +159,7 @@
   &:focus-within {
     outline: 3px solid $color-primary;
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
+    box-shadow: $focus-ring-primary;
   }
 
   // The clickable link that fills the entire card
@@ -215,8 +176,9 @@
     cursor: pointer;
 
     @include mobile {
-      height: 100px;
-      padding: 0.75rem;
+      height: auto;
+      min-height: 80px;
+      padding: 1rem;
     }
 
     &:hover,
@@ -231,13 +193,21 @@
 
   // Title styling - centered
   .form-category-title {
-    font-size: 1.375rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: $weight-heading;
     margin: 0;
-    transition: all 0.3s ease;
+    transition: $transition-base;
     text-align: center;
     line-height: 1.3;
     color: $color-primary;
+    // Prevent long words from overflowing
+    overflow-wrap: anywhere;
+    word-break: break-word; // Fallback for older browsers
+    hyphens: auto;
+
+    @include mobile {
+      font-size: 1.1rem;
+    }
   }
 
   // Description styling - centered
@@ -294,7 +264,7 @@
 
   .form-item-title {
     font-size: 1.25rem;
-    font-weight: 700;
+    font-weight: $weight-heading;
     color: var(--forms-primary);
     margin: 0 0 0.5rem;
     line-height: 1.3;
@@ -305,6 +275,7 @@
     line-height: 1.5;
     color: var(--forms-text);
     margin: 0 0 1rem;
+    max-width: 75ch;
   }
 
   .form-item-download {
@@ -325,10 +296,10 @@
       border: 2px solid $color-primary;
       padding: 0.625rem 1.25rem;
       border-radius: 4px;
-      font-weight: 600;
+      font-weight: $weight-button;
       font-size: 0.9375rem;
       text-decoration: none;
-      transition: all 0.3s ease;
+      transition: $transition-base;
 
       &:hover,
       &:focus {
@@ -336,7 +307,7 @@
         border-color: $color-primary;
         color: $color-primary;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: $shadow-hover;
       }
 
       &:focus-visible {
@@ -347,7 +318,7 @@
       // File type indicator
       &::before {
         font-family: "Font Awesome 6 Free";
-        font-weight: 900;
+        font-weight: $weight-icon;
         content: "\f019"; // Download icon
       }
     }
@@ -373,7 +344,7 @@
     color: var(--forms-text-muted);
 
     .form-item-label {
-      font-weight: 600;
+      font-weight: $weight-label;
       color: var(--forms-text);
     }
 
@@ -395,7 +366,7 @@
 
     a {
       color: var(--forms-primary);
-      font-weight: 600;
+      font-weight: $weight-body-emphasis;
 
       &:hover,
       &:focus {
@@ -431,7 +402,7 @@
         border: 1px solid var(--forms-border);
         border-radius: var(--forms-card-radius);
         color: var(--forms-primary);
-        font-weight: 600;
+        font-weight: $weight-nav;
         text-decoration: none;
         transition: var(--forms-transition);
 

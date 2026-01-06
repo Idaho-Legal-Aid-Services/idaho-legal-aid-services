@@ -1,16 +1,3 @@
-// Screen reader utility class
-.sr-only {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-
 /***********************************************
  * Topic Cards Component (Refactored with CSS Grid)
  ***********************************************/
@@ -30,7 +17,7 @@
   @include mobile {
     grid-template-columns: 1fr;
     justify-items: center;
-    padding: 0 0.75rem;
+    padding: 0; // Container provides gutters - see CONTAINER CONTRACT in _variables_theme.scss
     gap: 1rem;
   }
 
@@ -47,15 +34,16 @@
     width: 100%;
     min-height: 220px;
     border: 6px solid $color-white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    box-shadow: $shadow-card;
     z-index: 3;
 
     @include mobile {
       border-width: 3px;
-      width: 300px;
-      height: 120px;
-      min-height: 120px;
-      max-height: 120px;
+      width: 100%;
+      max-width: clamp(280px, 85vw, 340px); // Scales with viewport, better use of space on larger phones
+      min-height: 80px;           // Minimum for visual consistency
+      height: auto;               // Allow content to dictate height
+      max-height: none;           // Remove restriction to prevent text truncation
     }
 
     // --- Variants ---
@@ -71,7 +59,7 @@
       @media (min-width: #{$break-md}) {
         &:hover {
           border-color: $color-primary;
-          box-shadow: 0 0 10px 3px rgba(18, 99, 160, 0.4);
+          box-shadow: $shadow-glow-primary;
         }
       }
     }
@@ -88,7 +76,7 @@
 
       @media (min-width: #{$break-md}) {
         &:hover {
-          box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+          box-shadow: $shadow-glow-gray;
         }
       }
     }
@@ -132,7 +120,7 @@
     // New accessible structure styling
     &[role="link"] {
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: $transition-base;
       padding: 2rem;
       position: relative;
       display: flex;
@@ -141,9 +129,9 @@
       height: 100%; // Ensure cards fill their container height
       
       @include mobile {
-        min-height: 120px;
-        height: 120px; // Fixed height on mobile
-        max-height: 120px;
+        min-height: 80px;         // Minimum for visual consistency
+        height: auto;             // Allow content to dictate height
+        max-height: none;         // Remove restriction to prevent text truncation
         padding: 0.75rem;
       }
       
@@ -151,7 +139,7 @@
       &:focus {
         outline: 3px solid $color-primary;
         outline-offset: 2px;
-        box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
+        box-shadow: $focus-ring-primary;
       }
       
       // Remove pointer events from child elements to prevent bubbling
@@ -171,9 +159,9 @@
     &__title {
       @include responsive-typography(2.4rem, false, $font-size-mobile-subheader);
       text-transform: uppercase;
-      font-weight: 700;
+      font-weight: $weight-title;
       margin: 0;
-      transition: all 0.3s ease;
+      transition: $transition-base;
       text-align: left;
     }
 
@@ -193,11 +181,11 @@
       bottom: 1rem;
       right: 1rem;
       font-size: 0.875rem;
-      font-weight: 600;
+      font-weight: $weight-label;
       color: $color-primary; // Always use primary color for visibility
       opacity: 0;
       transform: translateX(10px);
-      transition: all 0.3s ease;
+      transition: $transition-base;
       
       @include mobile {
         display: none; // Hide on mobile where hover doesn't work well

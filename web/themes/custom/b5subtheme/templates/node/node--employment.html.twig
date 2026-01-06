@@ -78,11 +78,9 @@
 <article{{ attributes.addClass('node', 'node--employment') }}>
   <div class="container">
     
-    {# Main Content Area #}
+    {# Main Content Area - field template adds .content-body #}
     {% if content.field_main_content %}
-      <div class="main-content">
-        {{ content.field_main_content }}
-      </div>
+      {{ content.field_main_content }}
     {% endif %}
 
     {# Job Opportunities Section - Using Accordion #}
@@ -96,14 +94,14 @@
 
     {# Benefits Section #}
     {% if content.field_benefits %}
-      <div class="benefits-section mt-4">
+      <div class="benefits-section content-body mt-4">
         <h3 class="accordion-section-title">Why Work With Us?</h3>
         {{ content.field_benefits }}
       </div>
     {% endif %}
 
     {# Call to Action Section #}
-    <div class="cta-section mt-5 text-center">
+    <div class="cta-section content-body mt-5 text-center">
       <h3 class="accordion-section-title">Ready to Join Our Team?</h3>
       <p>We're looking for dedicated professionals who share our commitment to providing quality legal services to our community.</p>
       <a href="/eapplication" class="btn btn-primary btn-lg">

@@ -1,312 +1,75 @@
 /*--------------------------------------*
  * HOVER DROPDOWN MENU COMPONENT
- * Works with dropdown-menu.js for desktop hover behavior
+ * Desktop hover behavior for dropdowns
+ * Only activates on devices with hover capability
  *--------------------------------------*/
 
-// Desktop: Enable hover dropdowns
-@include desktop {
-  .navbar .dropdown {
-    position: relative;
-    
+// Hover-open dropdowns (desktop with mouse only)
+@media (min-width: $large-desktop-breakpoint) and (hover: hover) and (pointer: fine) {
+  .centered-logo-navbar .dropdown {
+
     // Show dropdown on hover
-    &:hover .dropdown-menu {
-      display: block !important;
+    &:hover > .dropdown-menu {
+      display: block;
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
     }
-    
-    // Dropdown menu positioning and styling
+
+    // Disable CSS :hover on dropdown toggles - browser can get stuck
+    // Use JS .dropdown-hover class instead for reliable show/hide
+    > .nav-link:hover {
+      background-color: transparent !important;
+      color: $color-black !important;
+    }
+
+    // Parent link highlight is handled via .dropdown-hover class added by JS
+    &.dropdown-hover > .nav-link {
+      background-color: $color-primary !important;
+      color: $color-white !important;
+    }
+
+    // Dropdown menu animation
     .dropdown-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      z-index: 1030;
-      min-width: 12rem;
-      padding: 0.5rem 0;
-      margin: 0.125rem 0 0;
-      font-size: 1rem;
-      color: #212529;
-      background-color: $color-white;
-      border: 1px solid rgba(0, 0, 0, 0.15);
-      border-radius: 0.375rem;
-      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
-      
-      // Hidden by default, shown on hover
-      display: none;
       opacity: 0;
       visibility: hidden;
       transform: translateY(-10px);
-      transition: all 0.2s ease-in-out;
-      
-      // Ensure dropdown appears above other content
-      background-clip: padding-box;
-    }
-    
-    // Dropdown items
-    .dropdown-item {
-      display: block;
-      width: 100%;
-      padding: 0.5rem 1rem;
-      clear: both;
-      font-weight: 400;
-      color: #212529;
-      text-align: inherit;
-      text-decoration: none;
-      text-transform: uppercase;
-      white-space: nowrap;
-      background-color: transparent;
-      border: 0;
-      transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
-      
-      &:hover,
-      &:focus {
-        color: #1e2125;
-        background-color: #f8f9fa;
-        text-decoration: none;
-      }
-      
-      &:active {
-        color: $color-white;
-        background-color: $color-primary;
-        text-decoration: none;
-      }
-      
-      &.disabled,
-      &:disabled {
-        color: #6c757d;
-        pointer-events: none;
-        background-color: transparent;
-      }
-    }
-    
-    // Dropdown divider
-    .dropdown-divider {
-      height: 0;
-      margin: 0.5rem 0;
-      overflow: hidden;
-      border-top: 1px solid rgba(0, 0, 0, 0.15);
-    }
-    
-    // Dropdown header
-    .dropdown-header {
-      display: block;
-      padding: 0.5rem 1rem;
-      margin-bottom: 0;
-      font-size: 0.875rem;
-      color: #6c757d;
-      white-space: nowrap;
-    }
-  }
-  
-  // Multi-level dropdown support
-  .navbar .dropdown .dropdown-submenu {
-    position: relative;
-    
-    > .dropdown-menu {
-      top: 0;
-      left: 100%;
-      margin-top: -6px;
-      margin-left: -1px;
-      border-radius: 0 0.375rem 0.375rem 0.375rem;
-    }
-    
-    &:hover > .dropdown-menu {
-      display: block !important;
-      opacity: 1;
-      visibility: visible;
-      transform: translateX(0);
-    }
-    
-    > a::after {
-      display: inline-block;
-      margin-left: 0.255em;
-      vertical-align: 0.255em;
-      content: "";
-      border-top: 0.3em solid transparent;
-      border-right: 0;
-      border-bottom: 0.3em solid transparent;
-      border-left: 0.3em solid;
-      float: right;
-      margin-top: 0.5em;
-    }
-  }
-  
-  // Right-aligned dropdowns
-  .navbar .dropdown .dropdown-menu-end {
-    right: 0;
-    left: auto;
-  }
-  
-  // Dark dropdown variant
-  .navbar .dropdown .dropdown-menu-dark {
-    color: #dee2e6;
-    background-color: #343a40;
-    border-color: rgba(0, 0, 0, 0.15);
-    
-    .dropdown-item {
-      color: #dee2e6;
-      
-      &:hover,
-      &:focus {
-        color: $color-white;
-        background-color: rgba(255, 255, 255, 0.15);
-      }
-      
-      &:active {
-        color: $color-white;
-        background-color: $color-primary;
-      }
-      
-      &.disabled,
-      &:disabled {
-        color: #adb5bd;
-      }
-    }
-    
-    .dropdown-divider {
-      border-color: rgba(0, 0, 0, 0.15);
-    }
-    
-    .dropdown-header {
-      color: #adb5bd;
-    }
-  }
-  
-  // Prevent dropdown from being cut off
-  .navbar .dropdown {
-    &.dropup .dropdown-menu {
-      top: auto;
-      bottom: 100%;
-      margin-top: 0;
-      margin-bottom: 0.125rem;
-      transform: translateY(10px);
-    }
-    
-    &.dropup:hover .dropdown-menu {
-      transform: translateY(0);
-    }
-    
-    &.dropend .dropdown-menu {
-      top: 0;
-      right: auto;
-      left: 100%;
-      margin-top: 0;
-      margin-left: 0.125rem;
-      transform: translateX(-10px);
-    }
-    
-    &.dropend:hover .dropdown-menu {
-      transform: translateX(0);
-    }
-    
-    &.dropstart .dropdown-menu {
-      top: 0;
-      right: 100%;
-      left: auto;
-      margin-top: 0;
-      margin-right: 0.125rem;
-      transform: translateX(10px);
-    }
-    
-    &.dropstart:hover .dropdown-menu {
-      transform: translateX(0);
+      transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
     }
   }
 }
 
-// Tablet: Use default Bootstrap behavior (click to toggle)
-@include tablet {
-  .navbar .dropdown {
-    .dropdown-menu {
-      // Reset hover styles for tablet
-      &:hover {
-        display: none;
-      }
-    }
-    
-    // Ensure tablet dropdown behavior works
-    &.show .dropdown-menu {
-      display: block !important;
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
+// Click/tap behavior (Bootstrap handles via .show class)
+// No custom rules needed — BS5's .dropdown-menu.show { display: block } covers this
+
+// Accessibility: Focus management for keyboard nav
+.centered-logo-navbar .dropdown {
+  .dropdown-toggle:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+
+  .dropdown-menu .dropdown-item:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: -2px;
+  }
+
+  // Caret rotation for expanded state
+  .dropdown-toggle::after {
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .dropdown-toggle[aria-expanded="true"]::after {
+    transform: rotate(180deg);
   }
 }
 
-// Mobile: Use default Bootstrap behavior (click to toggle)
-@include mobile {
-  .navbar .dropdown {
-    .dropdown-menu {
-      // Reset hover styles for mobile
-      &:hover {
-        display: none;
-      }
-    }
-    
-    // Ensure mobile dropdown behavior works
-    &.show .dropdown-menu {
-      display: block !important;
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-  }
-}
-
-// Accessibility improvements
-.navbar .dropdown {
-  .dropdown-toggle {
-    &:focus {
-      outline: 2px solid $color-primary;
-      outline-offset: 2px;
-    }
-    
-    // Improve caret visibility
-    &::after {
-      transition: transform 0.2s ease-in-out;
-    }
-    
-    &[aria-expanded="true"]::after {
-      transform: rotate(180deg);
-    }
-  }
-  
-  // Focus management for keyboard navigation
-  .dropdown-menu {
-    .dropdown-item:focus {
-      outline: 2px solid $color-primary;
-      outline-offset: -2px;
-    }
-  }
-}
-
-// Respect reduced motion preferences
+// Respect reduced motion
 @media (prefers-reduced-motion: reduce) {
-  .navbar .dropdown {
+  .centered-logo-navbar .dropdown {
     .dropdown-menu,
     .dropdown-toggle::after {
       transition: none;
-    }
-  }
-}
-
-// High contrast mode support
-@media (prefers-contrast: high) {
-  .navbar .dropdown {
-    .dropdown-menu {
-      border-width: 2px;
-      border-color: currentColor;
-    }
-    
-    .dropdown-item {
-      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-      
-      &:hover,
-      &:focus {
-        border-bottom-color: transparent;
-      }
     }
   }
 }

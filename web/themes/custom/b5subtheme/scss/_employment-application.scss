@@ -47,7 +47,7 @@ $warning-yellow: #ed8936;
   
   .application-title {
     font-size: 2.5rem;
-    font-weight: 700;
+    font-weight: $weight-title;
     margin-bottom: 0.5rem;
     color: $color-primary;
     
@@ -218,10 +218,10 @@ $warning-yellow: #ed8936;
         background-color: $color-primary;
         color: $color-white;
       }
-      
+
       .step-label {
         color: $color-primary;
-        font-weight: 600;
+        font-weight: $weight-label;
       }
     }
     
@@ -256,7 +256,7 @@ $warning-yellow: #ed8936;
     align-items: center;
     justify-content: center;
     margin: 0 auto 0.5rem;
-    font-weight: 600;
+    font-weight: $weight-label;
     position: relative;
     z-index: 2; // Ensure circles appear above progress line
     transition: all $transition-speed;
@@ -325,9 +325,9 @@ $warning-yellow: #ed8936;
   h2 {
     color: $color-primary;
     font-size: 2rem;
-    font-weight: 600;
+    font-weight: $weight-heading;
     margin-bottom: 0.5rem;
-    
+
     @include mobile {
       font-size: $font-size-mobile-subheader;
     }
@@ -456,7 +456,7 @@ $warning-yellow: #ed8936;
 
 .form-label {
   display: block;
-  font-weight: 600;
+  font-weight: $weight-label;
   color: $color-gray-border;
   margin-bottom: 0.5rem;
   font-size: 0.95rem;
@@ -588,7 +588,7 @@ $warning-yellow: #ed8936;
   border-radius: 6px;
   
   .sensitive-questions-intro {
-    font-weight: 600;
+    font-weight: $weight-label;
     color: $color-primary;
     margin-bottom: 1.5rem;
     font-size: 1rem;
@@ -668,7 +668,7 @@ $warning-yellow: #ed8936;
 
 .upload-label {
   display: block;
-  font-weight: 600;
+  font-weight: $weight-label;
   color: $color-gray-border;
   margin-bottom: 0.75rem;
   font-size: 1rem;
@@ -816,7 +816,7 @@ $warning-yellow: #ed8936;
       }
       
       .file-name {
-        font-weight: 600;
+        font-weight: $weight-label;
         color: $color-gray-border;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -891,7 +891,7 @@ $warning-yellow: #ed8936;
         }
         
         .file-name {
-          font-weight: 600;
+          font-weight: $weight-label;
           color: $color-gray-border;
         }
         
@@ -962,7 +962,7 @@ $warning-yellow: #ed8936;
         margin-bottom: 0.5rem;
         
         .review-label {
-          font-weight: 600;
+          font-weight: $weight-label;
           color: $color-gray-border;
           min-width: 140px;
           
@@ -1154,7 +1154,7 @@ $warning-yellow: #ed8936;
         border-color: $color-primary !important;
         color: $color-primary !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+        box-shadow: $shadow-hover !important;
         
         &,
         * {
@@ -1321,12 +1321,12 @@ $warning-yellow: #ed8936;
           position: absolute;
           left: 0;
           color: $success-green;
-          font-weight: bold;
+          font-weight: $font-weight-bold;
         }
       }
     }
   }
-  
+
   .modal-actions {
     display: flex;
     gap: 1rem;
@@ -1340,7 +1340,7 @@ $warning-yellow: #ed8936;
       padding: 0.75rem 2rem;
       border-radius: 6px;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: $weight-button;
       transition: all $transition-speed;
       
       &.btn-primary {
@@ -1497,7 +1497,7 @@ $warning-yellow: #ed8936;
   
   h1 {
     font-size: 2.5rem;
-    font-weight: 700;
+    font-weight: $weight-title;
     color: $color-primary;
     margin-bottom: 1rem;
     
@@ -1551,12 +1551,12 @@ $warning-yellow: #ed8936;
           position: absolute;
           left: 0;
           color: $success-green;
-          font-weight: bold;
+          font-weight: $font-weight-bold;
         }
       }
     }
   }
-  
+
   .success-actions {
     display: flex;
     gap: 1rem;

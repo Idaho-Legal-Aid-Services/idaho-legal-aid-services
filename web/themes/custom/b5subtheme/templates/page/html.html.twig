@@ -129,23 +129,21 @@
       }
       
       /* Header elements to prevent jump */
-      .utility-bar {
-        position: fixed;
+      .site-header {
+        position: sticky;
         top: 0;
-        left: 0;
+        z-index: 100;
         width: 100%;
-        height: 2.6rem;
-        z-index: 1040;
+      }
+
+      .utility-bar {
         background-color: var(--bs-primary);
         color: #fff;
       }
-      
+
       .centered-logo-navbar {
-        position: sticky;
-        top: 2.6rem;
         background-color: #fff;
-        padding: 3.5rem 0;
-        margin-top: 2.6rem;
+        padding: 1rem 0;
       }
       
       /* Prevent image layout shift */

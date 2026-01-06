@@ -9,7 +9,7 @@
   // If you want to style titles/subtitles/body specifically:
   .column-title {
     font-size: 2.5rem;
-    font-weight: 700 !important;
+    font-weight: $weight-title;
     text-transform: uppercase;
     margin: 0 0 1rem 0;
     color: $color-primary;
@@ -27,18 +27,23 @@
     }
   }
   .column-subtitle {
-    color: #4a4a4a; 
+    // NOTE: This element is not currently visible on any page - kept for future use
+    color: #4a4a4a;
     font-size: 1.5rem;
+    line-height: 1.4;
     margin-bottom: .25rem;
-    
+
     @include mobile {
       font-size: $font-size-mobile-subheader;
     }
   }
   .column-body {
-    color: #000; 
+    color: $color-black;
     font-size: 1.25rem;
-    
+    line-height: 1.6;
+    max-width: 75ch;
+    margin-inline: auto;
+
     @include mobile {
       font-size: $font-size-mobile-body;
     }

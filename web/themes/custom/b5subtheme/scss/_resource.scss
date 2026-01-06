@@ -9,7 +9,7 @@
   --resource-primary-dark: #{darken($color-primary, 10%)};
   --resource-bg: #{$color-white};
   --resource-text: #{$color-gray-text};
-  --resource-border: #e9ecef;
+  --resource-border: #{$color-gray-border-light};
   --resource-border-hover: #{$color-primary};
   
   // Typography
@@ -19,7 +19,7 @@
   --resource-btn-size: 0.875rem;
   
   // Spacing
-  --resource-gap: 1.5rem;
+  --resource-gap: 1.25rem;
   --resource-gap-sm: 0.5rem;
   --resource-card-padding: 1.5rem;
   --resource-nav-sticky-top: 6rem;
@@ -48,31 +48,18 @@
 }
 
 /*──────────── 1) Resource grid layout ────────────*/
+// The template uses Bootstrap's .row.row-cols-1.row-cols-md-2.g-4
+// We override Bootstrap's 1.5rem gap to match forms/guides at 1.25rem
 .resource-card-grid {
-  display: flex;
-  flex-wrap: wrap;
-  margin: calc(var(--resource-gap) / -2); // Assumes gutter is var(--resource-gap)
+  // Override Bootstrap's g-4 gap (1.5rem) to 1.25rem for consistency
+  --bs-gutter-x: var(--resource-gap);
+  --bs-gutter-y: var(--resource-gap);
 
-  // Ensure consistent alignment with other containers on mobile
-  @include mobile {
-    // These might be adjusted based on your parent container's padding
-    margin-left: calc(var(--resource-gap) / -2);
-    margin-right: calc(var(--resource-gap) / -2);
-    // padding-left: 0; // Often not needed if parent has padding & negative margins work
-    // padding-right: 0;
-  }
-
+  // Ensure columns use flex for equal-height cards
+  > .col,
   .resource-column {
-    flex: 0 0 100%;
     display: flex;
     flex-direction: column;
-    padding: calc(var(--resource-gap) / 2);
-
-    // Using Bootstrap's md breakpoint for 2 columns, adjust if your $break-md is different
-    @media (min-width: map-get($grid-breakpoints, md)) { // Or your custom $break-md if preferred
-      flex: 0 0 50%;
-      // max-width: 50%; // Often not needed with flex-basis and flex-grow: 0
-    }
   }
 }
 
@@ -100,8 +87,8 @@
   }
 
   .card-title {
-    font-size: 1.5rem; // h3 size
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: $weight-heading;
     line-height: 1.2;
     color: var(--resource-primary);
     margin-top: 0;
@@ -117,7 +104,7 @@
       background-color: var(--resource-primary);
       color: $color-white;
       font-size: 0.875rem;
-      font-weight: 600;
+      font-weight: $weight-label;
       padding: 0.375rem 1rem;
       border-radius: 9999px; // Full pill
       margin: 0 0.25rem;
@@ -132,13 +119,13 @@
     .topic-item {
       color: $color-black;
       font-size: 0.875rem; // Slightly larger
-      margin: 0 0.125rem; // 2px each side
+      margin: 0 $spacer-xs;
     }
-    
+
     .topic-separator {
       color: $color-gray-border; // #868e96 - same gray as used in borders
-      margin: 0 0.125rem; // 2px each side
-      font-weight: 300;
+      margin: 0 $spacer-xs;
+      font-weight: $font-weight-light;
     }
   }
 
@@ -148,6 +135,7 @@
     line-height: 1.5;
     margin-bottom: 1rem;
     flex-grow: 1; // Push button to bottom
+    max-width: 75ch;
 
     p {
       margin-bottom: 0;
@@ -202,7 +190,7 @@
       border-radius: 9999px;
       color: var(--resource-primary);
       font-size: 0.875rem; // Same as service area badge
-      font-weight: 600;
+      font-weight: $weight-nav;
       padding: 0.375rem 1rem; // Same as service area badge
       transition: var(--resource-transition-fast);
       cursor: pointer;
@@ -254,7 +242,7 @@
   border: 1px solid var(--resource-primary);
   border-radius: 9999px; // Full pill shape
   color: var(--resource-primary);
-  font-weight: 600;
+  font-weight: $weight-nav;
   transition: var(--resource-transition-fast);
   white-space: nowrap;
   display: inline-block; // Or flex for centering content if needed
@@ -286,16 +274,7 @@
 }
 
 
-/*──────────── 4) Topic headings / anchor offset ────────────*/
-.topic-heading {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--resource-primary); // Use variable
-  scroll-margin-top: var(--resource-nav-offset); // Use variable
-}
-
-
-/*──────────── 5) Accordion overrides ────────────*/
+/*──────────── 4) Accordion overrides ────────────*/
 .service-accordion {
   // Bootstrap 5 already rotates the icon by default.
   // .accordion-button::after { transform: rotate(90deg); } // Only if default is different
@@ -303,7 +282,7 @@
 
   .accordion-header .accordion-button {
     color: var(--resource-primary); // Use variable
-    font-weight: bold;
+    font-weight: $weight-heading;
     font-size: 1.75rem;
 
     &:not(.collapsed) {
@@ -336,8 +315,9 @@
     padding: 0.4rem 0.7rem;
   }
 
-  .main-content {
-    margin-bottom: 1rem;
+  // Uses CSS custom property from _layout-components.scss
+  .content-body {
+    --content-body-margin-bottom: 1rem;
   }
 
   .resource-file h3,
@@ -349,7 +329,7 @@
 
   /* ── Sidebar styling ── */
   .sidebar-sticky-wrapper {
-    @media (min-width: 992px) { // lg breakpoint and up
+    @media (min-width: $desktop-breakpoint) {
       position: sticky;
       position: -webkit-sticky;
       top: 120px; // Simple fixed value
@@ -371,7 +351,7 @@
 
       h3 {
         font-size: 1.25rem; // Slightly larger
-        font-weight: 700;
+        font-weight: $weight-heading;
         color: $color-black; // Or a text heading variable
         margin: 0;
         white-space: nowrap; // Ensure it stays on one line
@@ -383,7 +363,7 @@
 
       h4 { // Common styling for h4 in sidebar card body
           font-size: 1.125rem; // Slightly smaller than Resource Information (1.25rem)
-          font-weight: 700;
+          font-weight: $weight-heading;
           margin-bottom: .75rem;
           color: $color-black; // Or a text heading variable
           text-transform: uppercase;
@@ -405,7 +385,7 @@
             background-color: var(--resource-primary);
             color: $color-white;
             font-size: 0.875rem;
-            font-weight: 600;
+            font-weight: $weight-label;
             padding: 0.375rem 1rem;
             border-radius: 9999px; // Full pill
             margin: 0 0.25rem 0.5rem;
@@ -427,13 +407,13 @@
           .topic-item {
             color: $color-black;
             font-size: 0.875rem;
-            margin: 0 0.125rem;
+            margin: 0 $spacer-xs;
           }
 
           .topic-separator {
             color: $color-gray-border;
-            margin: 0 0.125rem;
-            font-weight: 300;
+            margin: 0 $spacer-xs;
+            font-weight: $font-weight-light;
           }
         }
       }
@@ -444,7 +424,7 @@
           font-size: 0.875rem; // Slightly larger to match other headers
           margin-bottom: 0.5rem;
           color: $color-black; // Primary black
-          font-weight: 700;
+          font-weight: $weight-heading;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -452,24 +432,19 @@
           font-size: 0.875rem;
           margin: 0;
           color: $color-black; // Primary black
-          font-weight: 400;
+          font-weight: $weight-body;
         }
       }
     }
 
     .card-footer {
       padding: 0.75rem; // Consistent padding
-      text-align: right;
+      text-align: center;
       background-color: #f0f2f5;
       border-top: 1px solid $color-gray-border; // Match card border, or use var(--resource-border)
 
-      // Sidebar buttons use standardized primary button style
-      .sidebar-btn {
-        @extend .btn;
-        @extend .btn-primary;
-        // No min-width - uses standard button dimensions
-        // margin-left: auto removed since parent has text-align: center
-      }
+      // Back button uses standardized .back-button class from _buttons.scss
+      // Inherits .btn.btn-primary styling when used with those classes
     }
   }
 
@@ -493,6 +468,8 @@
     font-size: 1.5rem;
     color: $color-black; // Or a specific text color variable
     line-height: 1.6;
+    max-width: 75ch;
+    margin-inline: auto;
     // Remove !important by increasing specificity or ensuring this rule comes later
 
     @include tablet {
@@ -507,7 +484,7 @@
 
 
 /* Media queries (General, or move to specific component if applicable) */
-@media (max-width: #{$break-md - 1px}) { // Using your $break-md
+@media (max-width: #{$break-md - 0.02px}) { // Using your $break-md
   .resource-full {
     .col-lg-4.sidebar-column { // Add a class like .sidebar-column for clarity
       margin-top: 2rem; // Or var(--resource-gap-lg)

@@ -40,7 +40,7 @@
     border-radius: 25px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    transition: all 0.3s ease;
+    transition: $transition-base;
     backdrop-filter: blur(10px); // Blur effect for modern browsers
     -webkit-backdrop-filter: blur(10px); // Safari support
     
@@ -124,7 +124,7 @@
     font-size: 1.25rem;
     line-height: 1;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: $transition-base;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -205,7 +205,7 @@
     text-decoration: none;
     color: $color-black;
     border-radius: 8px;
-    transition: all 0.2s ease;
+    transition: $transition-quick;
     margin-bottom: 0.25rem;
     
     &:hover,
@@ -220,7 +220,7 @@
     }
     
     .search-result-title {
-      font-weight: 600;
+      font-weight: $weight-label;
       font-size: 0.95rem;
       line-height: 1.4;
       color: $color-primary;
@@ -243,7 +243,7 @@
     mark {
       background-color: rgba($color-primary, 0.2);
       color: inherit;
-      font-weight: 600;
+      font-weight: $weight-label;
       padding: 0 2px;
       border-radius: 2px;
     }
@@ -257,11 +257,11 @@
     padding: 0.75rem 1rem;
     text-decoration: none;
     color: $color-primary;
-    font-weight: 600;
+    font-weight: $weight-nav;
     font-size: 0.9rem;
     border-top: 1px solid rgba($color-gray-border, 0.3);
     margin-top: 0.5rem;
-    transition: all 0.2s ease;
+    transition: $transition-quick;
     
     &:hover,
     &:focus {
@@ -300,13 +300,13 @@
   .search-error {
     padding: 1.5rem 1rem;
     text-align: center;
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: rgba($color-danger, 0.1);
     border-radius: 8px;
     margin: 0.5rem;
-    
+
     p {
       margin: 0;
-      color: #dc3545;
+      color: $color-danger;
       font-size: 0.9rem;
     }
   }
@@ -314,21 +314,43 @@
   @include mobile {
     top: calc(100% + 5px);
     max-height: 300px;
-    
+
     .search-results-content {
       padding: 0.25rem;
     }
-    
+
     .search-result-item {
       padding: 0.5rem 0.75rem;
-      
+
       .search-result-title {
         font-size: 0.9rem;
       }
-      
+
       .search-result-snippet {
         font-size: 0.8rem;
       }
     }
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .search-overlay.utility-bar-search {
+    .search-input-wrapper,
+    .search-close,
+    .search-result-item,
+    .search-view-all,
+    .search-view-all i {
+      transition: none;
+    }
+
+    .search-close:hover,
+    .search-result-item:hover {
+      transform: none;
+    }
+  }
+
+  .utility-bar-content {
+    transition: none;
   }
 }

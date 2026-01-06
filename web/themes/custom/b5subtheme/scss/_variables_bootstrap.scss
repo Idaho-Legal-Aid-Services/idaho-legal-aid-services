@@ -1,9 +1,44 @@
-// Bootstrap variables (overrides).
+// =============================================================================
+// BOOTSTRAP OVERRIDES
+// Override specific Bootstrap defaults (forms, tables, typography, weights)
+// No CSS output - variables only
+//
+// NOTE: These variables must be defined BEFORE importing Bootstrap's variables
+// to take effect. The import order in style.scss handles this.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// FONT WEIGHT OVERRIDES
+// Bootstrap uses these variables for component weights
+// We map them to our theme tokens for consistency
+// -----------------------------------------------------------------------------
+
+// Typography weights (Bootstrap defaults: 400, 500, 600, 700)
+$font-weight-lighter: $font-weight-light;
+$font-weight-light: $font-weight-light;
+$font-weight-normal: $font-weight-regular;
+$font-weight-medium: $font-weight-medium;
+$font-weight-semibold: $font-weight-semibold;
+$font-weight-bold: $font-weight-bold;
+$font-weight-bolder: $font-weight-black;
+
+// Heading weights - all headings use the same weight for consistency
+$headings-font-weight: $weight-heading;
+
+// Component-specific weights
+$btn-font-weight: $weight-button;
+$navbar-brand-font-weight: $weight-nav;
+$nav-link-font-weight: $weight-nav;
+$badge-font-weight: $weight-label;
+$alert-link-font-weight: $weight-label;
+$dt-font-weight: $weight-label;
+$legend-font-weight: $weight-label;
+$table-th-font-weight: $weight-heading;
+
+// -----------------------------------------------------------------------------
+// FORM OVERRIDES
+// -----------------------------------------------------------------------------
+
 $form-text-margin-top: 0;
 $legend-font-size: 1rem;
 $table-cell-padding-x: .75rem;
-
-// Font overrides - Using Nunito Sans
-$font-family-sans-serif: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-$font-family-base: $font-family-sans-serif;
-$headings-font-family: $font-family-sans-serif;

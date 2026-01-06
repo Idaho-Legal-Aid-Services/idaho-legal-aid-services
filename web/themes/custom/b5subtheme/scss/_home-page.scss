@@ -14,7 +14,7 @@
     position: relative;
     z-index: z('foreground');
     font-size: 3.5rem;
-    font-weight: bold;
+    font-weight: $weight-heading;
     text-align: center;
     margin: 0;
     color: $color-primary;
@@ -50,8 +50,10 @@
 
   .hero-sub-heading {
     font-size: 1.5rem;
+    line-height: 1.6;
     margin-bottom: 1rem;
     color: $color-black;
+    max-width: 75ch;
 
     @include mobile {
       text-align: center;
@@ -127,16 +129,17 @@
     position: absolute;
     left: 50%;
     top: 0;
-    width: 100vw;
+    // Compensate for scrollbar width to prevent horizontal overflow
+    width: calc(100vw - var(--scrollbar-width, 0px));
     height: 100%;
-    margin-left: -50vw;
+    margin-left: calc(-50vw + var(--scrollbar-width, 0px) / 2);
     background-image: url('/themes/custom/b5subtheme/images/curved-background (2400 x 600 px).svg');
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center center;
     z-index: -1;
     pointer-events: none;
-    
+
     @include mobile {
       background-image: url('/themes/custom/b5subtheme/images/curved-background (2400 x 600 px) (500 x 500 px).svg');
       background-size: cover;
@@ -159,7 +162,7 @@
 
   .section-heading {
     font-size: 2.5rem;
-    font-weight: 700;
+    font-weight: $weight-heading;
     margin: 0 0 3rem 0;
     color: $color-white;
     text-align: center;
@@ -206,7 +209,7 @@
   }
 
   .impact-title {
-    font-weight: 700;
+    font-weight: $weight-heading;
     font-size: 2.5rem;
     margin: 0 0 1.5rem 0;
     color: $color-primary;
@@ -225,7 +228,7 @@
     padding: 0;
     text-align: center;
     margin: 0 auto 2rem;
-    max-width: calc(100% - 4rem);
+    max-width: 75ch;
     line-height: 1.4;
 
     @include mobile {
@@ -359,7 +362,7 @@
 
 
 /* Navigation improvements for smaller tablets */
-@media (max-width: 991.98px) {
+@media (max-width: #{$desktop-breakpoint - 0.02px}) {
   .navbar {
     .navbar-toggler {
       border: none;

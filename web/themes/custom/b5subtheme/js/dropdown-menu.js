@@ -1,124 +1,179 @@
 /**
  * @file
- * Enhanced dropdown menu behavior that works with Bootstrap 5
- * Provides hover functionality on desktop while maintaining Bootstrap's mobile behavior
+ * Enhanced dropdown menu behavior that works with Bootstrap 5.
+ *
+ * Provides hover functionality on desktop while preserving Bootstrap's
+ * built-in keyboard navigation, Popper positioning, and ARIA handling.
+ *
+ * Uses Bootstrap's Dropdown API instead of manual class toggling.
  */
 
-(function ($, Drupal, once) {
+(function (Drupal, once) {
   'use strict';
 
   Drupal.behaviors.dropdownMenu = {
     attach: function (context, settings) {
-      
-      // Use once() correctly for Drupal 9/10
-      const elements = once('dropdown-menu-init', 'body', context);
-      
-      if (elements.length) {
-        
-        // Force dropdown functionality with multiple approaches
-        function forceDropdownHover() {
-          if (window.innerWidth < 1200) return;
-          
-          // Method 1: Direct CSS manipulation
-          const style = document.createElement('style');
-          style.textContent = `
-            @media (min-width: 1200px) {
-              .centered-logo-navbar .unified-menu .nav-item.dropdown:hover > .dropdown-menu {
-                display: block !important;
-                opacity: 1 !important;
-                visibility: visible !important;
-              }
-              .centered-logo-navbar .unified-menu .nav-item.dropdown:hover {
-                background: transparent;
-              }
-            }
-          `;
-          document.head.appendChild(style);
-          
-          // Method 2: Pure JavaScript hover (no jQuery)
-          const dropdowns = document.querySelectorAll('.centered-logo-navbar .unified-menu .nav-item.dropdown');
-          
-          dropdowns.forEach(dropdown => {
-            const toggle = dropdown.querySelector('.dropdown-toggle');
-            const menu = dropdown.querySelector('.dropdown-menu');
-            
-            if (!toggle || !menu) return;
-            
-            dropdown.addEventListener('mouseenter', function() {
-              dropdown.classList.add('show');
-              menu.classList.add('show');
-              menu.style.display = 'block';
-              toggle.setAttribute('aria-expanded', 'true');
-            });
-            
-            dropdown.addEventListener('mouseleave', function() {
-              dropdown.classList.remove('show');
-              menu.classList.remove('show');
-              menu.style.display = '';
-              toggle.setAttribute('aria-expanded', 'false');
-            });
-            
-            // Prevent click navigation on desktop
-            toggle.addEventListener('click', function(e) {
-              if (window.innerWidth >= 1200) {
-                const href = this.getAttribute('href');
-                if (href && href !== '#') {
-                  window.location.href = href;
-                }
-                e.preventDefault();
-              }
-            });
-          });
-          
-          // Method 3: jQuery with aggressive binding
-          setTimeout(function() {
-            
-            // Remove ALL possible interference
-            $('.dropdown-toggle').off();
-            $('.dropdown').off();
-            $(document).off('click.bs.dropdown');
-            $(document).off('keydown.bs.dropdown');
-            
-            // Simple jQuery hover
-            $('.centered-logo-navbar .unified-menu .nav-item.dropdown').each(function() {
-              const $item = $(this);
-              const $menu = $item.find('> .dropdown-menu');
-              const $toggle = $item.find('> .dropdown-toggle');
-              
-              $item.hover(
-                function() {
-                  $menu.stop(true, true).fadeIn(200);
-                  $item.addClass('show');
-                  $menu.addClass('show');
-                },
-                function() {
-                  $menu.stop(true, true).fadeOut(200);
-                  $item.removeClass('show');
-                  $menu.removeClass('show');
-                }
-              );
-            });
-            
-          }, 1000);
+
+      // Only apply hover behavior on desktop (>= 1200px)
+      function isDesktop() {
+        return window.innerWidth >= 1200;
+      }
+
+      // Initialize dropdowns with hover behavior
+      once('dropdown-menu', '.centered-logo-navbar .nav-item.dropdown', context).forEach(function (dropdown) {
+        var toggle = dropdown.querySelector('.dropdown-toggle');
+        var menu = dropdown.querySelector('.dropdown-menu');
+
+        if (!toggle || !menu) {
+          return;
         }
-        
-        // Run immediately and after delays to catch any late-loading scripts
-        forceDropdownHover();
-        setTimeout(forceDropdownHover, 2000);
-        setTimeout(forceDropdownHover, 3000);
-        
-        // Also run on window load
-        $(window).on('load', forceDropdownHover);
-        
-        // Handle resize
-        $(window).on('resize', function() {
-          if (window.innerWidth >= 1200) {
-            forceDropdownHover();
+
+        var hoverTimeout = null;
+
+        /**
+         * Get or create Bootstrap Dropdown instance
+         * Initialize immediately and ensure clean starting state
+         */
+        var bsDropdown = null;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+          bsDropdown = bootstrap.Dropdown.getOrCreateInstance(toggle, { popperConfig: null });
+          // Ensure dropdown starts in a clean hidden state
+          bsDropdown.hide();
+        }
+
+        function getDropdownInstance() {
+          return bsDropdown;
+        }
+
+        /**
+         * Show dropdown using Bootstrap API
+         */
+        function showDropdown() {
+          if (!isDesktop()) {
+            return;
+          }
+          clearTimeout(hoverTimeout);
+          dropdown.classList.add('dropdown-hover');
+          var instance = getDropdownInstance();
+          if (instance) {
+            instance.show();
+          }
+        }
+
+        /**
+         * Hide dropdown using Bootstrap API with small delay
+         * Delay prevents flickering when moving mouse between toggle and menu
+         */
+        function hideDropdown() {
+          if (!isDesktop()) {
+            return;
+          }
+          hoverTimeout = setTimeout(function () {
+            dropdown.classList.remove('dropdown-hover');
+            var instance = getDropdownInstance();
+            if (instance) {
+              instance.hide();
+            }
+          }, 150);
+        }
+
+        /**
+         * Cancel pending hide when re-entering dropdown area
+         */
+        function cancelHide() {
+          clearTimeout(hoverTimeout);
+        }
+
+        // Hover open - on dropdown container
+        dropdown.addEventListener('mouseenter', showDropdown);
+
+        // Hover close - on dropdown container
+        dropdown.addEventListener('mouseleave', hideDropdown);
+
+        // Cancel hide when entering menu (prevents flicker)
+        menu.addEventListener('mouseenter', cancelHide);
+
+        // Hide when leaving menu
+        menu.addEventListener('mouseleave', hideDropdown);
+
+        // Focus behavior for keyboard accessibility (only on keyboard focus, not mouse click)
+        toggle.addEventListener('focus', function () {
+          if (isDesktop()) {
+            // Small delay to avoid conflict with click
+            setTimeout(function () {
+              if (document.activeElement === toggle && toggle.matches(':focus-visible')) {
+                showDropdown();
+              }
+            }, 100);
           }
         });
-        
-      } // end if elements.length
-    } // end attach
-  }; // end behavior
 
-})(jQuery, Drupal, once);
+        // Blur handler - hide dropdown when focus leaves the entire dropdown area
+        dropdown.addEventListener('focusout', function (e) {
+          if (isDesktop()) {
+            // Check if focus moved outside the dropdown entirely
+            setTimeout(function () {
+              if (!dropdown.contains(document.activeElement)) {
+                hideDropdown();
+              }
+            }, 10);
+          }
+        });
+
+        // Click on toggle navigates to parent page (desktop)
+        toggle.addEventListener('click', function (e) {
+          if (isDesktop()) {
+            var href = this.getAttribute('href');
+            if (href && href !== '#') {
+              // Clean up hover state before navigating
+              dropdown.classList.remove('dropdown-hover');
+              window.location.href = href;
+              e.preventDefault();
+            }
+          }
+          // On mobile, let Bootstrap handle the click-to-toggle behavior
+        });
+      });
+
+      // Handle breakpoint crossing - close all dropdowns when crossing 1200px
+      // Uses matchMedia for efficiency (fires once on threshold cross, not every resize tick)
+      once('dropdown-menu-breakpoint', 'body', context).forEach(function () {
+        var desktopQuery = window.matchMedia('(min-width: 1200px)');
+
+        /**
+         * Force-close all dropdowns and clean up state
+         * Prevents "stuck" dropdowns when crossing breakpoints
+         */
+        function closeAllDropdowns() {
+          // Close via Bootstrap API
+          document.querySelectorAll('.centered-logo-navbar .dropdown-menu.show').forEach(function (menu) {
+            var toggle = menu.previousElementSibling;
+            if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+              var instance = bootstrap.Dropdown.getInstance(toggle);
+              if (instance) {
+                instance.hide();
+              }
+            }
+          });
+
+          // Clean up any stuck CSS classes
+          document.querySelectorAll('.centered-logo-navbar .dropdown.show').forEach(function (d) {
+            d.classList.remove('show');
+          });
+          document.querySelectorAll('.centered-logo-navbar .dropdown-hover').forEach(function (d) {
+            d.classList.remove('dropdown-hover');
+          });
+
+          // Reset aria-expanded attributes
+          document.querySelectorAll('.centered-logo-navbar .dropdown-toggle[aria-expanded="true"]').forEach(function (t) {
+            t.setAttribute('aria-expanded', 'false');
+          });
+        }
+
+        // Listen for breakpoint crossing (fires exactly once when threshold is crossed)
+        desktopQuery.addEventListener('change', closeAllDropdowns);
+      });
+    }
+  };
+
+})(Drupal, once);

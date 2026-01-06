@@ -20,11 +20,9 @@
     <div class="row align-items-start">
       {# Main content column #}
       <div class="col-lg-8">
-        {# Main content field #}
+        {# Main content field - field template adds .content-body #}
         {% if content.field_main_content %}
-          <div class="main-content">
-            {{ content.field_main_content }}
-          </div>
+          {{ content.field_main_content }}
         {% endif %}
         
         {# Resource sections #}
@@ -108,8 +106,9 @@
           
           {# Card footer with back button #}
           <div class="card-footer text-center">
-            <a href="javascript:history.back()" class="sidebar-btn">
-              BACK
+            <a href="/resources" class="btn btn-primary back-button" data-back-fallback>
+              <i class="fas fa-arrow-left" aria-hidden="true"></i>
+              <span>{{ 'Back'|t }}</span>
             </a>
           </div>
         </div>

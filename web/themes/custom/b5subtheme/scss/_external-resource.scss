@@ -15,7 +15,7 @@
     /* Heading underline example too */
     .external-resources-heading {
       font-size: 2.5rem;
-      font-weight: 600;
+      font-weight: $weight-heading;
       margin-bottom: 2rem;
       text-decoration: underline;
     }
@@ -37,14 +37,14 @@
     /* Title field */
     .field--name-field-external-title.field__item {
       font-size: 1.9rem;
-      font-weight: 600;
+      font-weight: $weight-title;
       margin-bottom: .15rem;
     }
   
     /* Link text */
     .field--name-field-external-link a {
       font-size: 1.5rem;
-      font-weight: 600;
+      font-weight: $weight-label;
       text-decoration: none;
     }
   }

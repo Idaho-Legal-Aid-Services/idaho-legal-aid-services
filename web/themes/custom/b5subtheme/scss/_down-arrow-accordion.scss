@@ -78,7 +78,7 @@
     flex-direction: column;
     align-items: center;
     gap: $spacer-sm;
-    padding: $spacer-md $spacer-lg;
+    padding: $spacer $spacer-lg;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -115,7 +115,7 @@
   &__title {
     margin: 0;
     font-size: 2.5rem;
-    font-weight: 600;
+    font-weight: $weight-title;
     color: $color-primary;
     text-align: center;
     transition: color $transition-fast;
@@ -241,22 +241,3 @@
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Legacy class mappings for backward compatibility
-// These can be removed once all content is updated
-// ─────────────────────────────────────────────────────────────────────────────
-.pp-er {
-  @extend .daa-header;
-  
-  &-wrap { @extend .daa-header__wrapper; }
-  &-inner { @extend .daa-header__inner; }
-  &-title-wrap { @extend .daa-header__toggle; }
-  &-title { @extend .daa-header__title; }
-  &-arrow { @extend .daa-header__icon; }
-}
-
-.pp-button-group {
-  @extend .daa-downloads;
-  
-  &-item { @extend .daa-downloads__item; }
-}

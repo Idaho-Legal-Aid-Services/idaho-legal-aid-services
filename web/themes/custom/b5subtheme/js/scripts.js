@@ -1,474 +1,454 @@
-document.addEventListener('DOMContentLoaded', () => {
-  
+/**
+ * @file
+ * Custom scripts for b5subtheme.
+ *
+ * Provides:
+ * - Help overlay with focus trap and accessibility (ARIA dialog pattern)
+ * - Utility bar hover effects
+ * - Button text color fixes
+ * - Impact card flip functionality (desktop only)
+ *
+ * All behaviors use Drupal.behaviors + once() for BigPipe/AJAX compatibility.
+ */
+
+(function (Drupal, once) {
+  'use strict';
+
   // ==========================================
-  // HELP OVERLAY
+  // HELP OVERLAY BEHAVIOR
+  // Implements ARIA dialog pattern with focus trap
   // ==========================================
-  
-  const helpToggle = document.getElementById('helpToggle');
-  const helpOverlay = document.getElementById('helpOverlay');
-  const helpBackdrop = document.getElementById('helpOverlayBackdrop');
-  
-  if (helpToggle && helpOverlay && helpBackdrop) {
-    
-    helpOverlay.setAttribute('aria-hidden', 'true');
-    helpToggle.setAttribute('aria-expanded', 'false');
-    
-    helpToggle.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Toggle the class
-      const active = helpOverlay.classList.toggle('show-overlay');
-      
-      // Force inline styles as a failsafe
-      if (active) {
-        helpOverlay.style.setProperty('display', 'block', 'important');
-        helpOverlay.style.setProperty('opacity', '1', 'important');
-        helpOverlay.style.setProperty('visibility', 'visible', 'important');
-        helpOverlay.style.setProperty('pointer-events', 'auto', 'important');
-        const panel = helpOverlay.querySelector('.help-panel');
-        if (panel) {
-          panel.style.setProperty('right', '5%', 'important');
+
+  Drupal.behaviors.helpOverlay = {
+    attach: function (context, settings) {
+      once('help-overlay', '#helpToggle', context).forEach(function (helpToggle) {
+        var helpOverlay = document.getElementById('helpOverlay');
+        var helpBackdrop = document.getElementById('helpOverlayBackdrop');
+        var helpPanel = document.getElementById('helpPanel');
+
+        if (!helpOverlay || !helpBackdrop) {
+          return;
         }
-      } else {
-        helpOverlay.style.removeProperty('display');
-        helpOverlay.style.removeProperty('opacity');
-        helpOverlay.style.removeProperty('visibility');
-        helpOverlay.style.removeProperty('pointer-events');
-        const panel = helpOverlay.querySelector('.help-panel');
-        if (panel) {
-          panel.style.removeProperty('right');
+
+        // Get background content elements for inert handling
+        var mainContent = document.querySelector('main.main-content');
+        var header = document.querySelector('.site-header');
+        var footer = document.querySelector('footer');
+
+        // Check if browser supports inert attribute
+        var supportsInert = 'inert' in HTMLElement.prototype;
+
+        // Store the element that triggered the overlay
+        var triggerElement = null;
+
+        /**
+         * Get all focusable elements within the help panel
+         */
+        function getFocusableElements() {
+          if (!helpPanel) {
+            return [];
+          }
+          return Array.prototype.slice.call(
+            helpPanel.querySelectorAll(
+              'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            )
+          );
         }
-      }
-      
-      // Update ARIA attributes
-      helpOverlay.setAttribute('aria-hidden', String(!active));
-      helpToggle.setAttribute('aria-expanded', String(active));
-      
-    });
-    
-    helpBackdrop.addEventListener('click', function() {
-      helpOverlay.classList.remove('show-overlay');
-      
-      // Remove inline styles
-      helpOverlay.style.removeProperty('display');
-      helpOverlay.style.removeProperty('opacity');
-      helpOverlay.style.removeProperty('visibility');
-      helpOverlay.style.removeProperty('pointer-events');
-      const panel = helpOverlay.querySelector('.help-panel');
-      if (panel) {
-        panel.style.removeProperty('right');
-      }
-      
-      helpOverlay.setAttribute('aria-hidden', 'true');
-      helpToggle.setAttribute('aria-expanded', 'false');
-    });
-    
-  }
-  
-  // ==========================================
-  // UTILITY BAR HOVER FIX
-  // ==========================================
-  // Fix hover functionality for utility bar items with Bootstrap text-white class
-  const utilityBarItems = document.querySelectorAll('.utility-bar .hotline > a, .utility-bar .search-col > button, .utility-bar .exit-link > a, .utility-bar .get-help > button');
-  
-  utilityBarItems.forEach(item => {
-    // Store original styles
-    const originalStyles = {
-      backgroundColor: item.style.backgroundColor || '',
-      color: item.style.color || ''
-    };
-    
-    // Handle mouse enter
-    item.addEventListener('mouseenter', function() {
-      // Override inline styles during hover
-      this.style.setProperty('background-color', '#fff', 'important');
-      this.style.setProperty('color', '#1263a0', 'important');
-      
-      // Also update all child elements
-      const allElements = this.querySelectorAll('*');
-      allElements.forEach(el => {
-        el.style.setProperty('color', '#1263a0', 'important');
-      });
-    });
-    
-    // Handle mouse leave
-    item.addEventListener('mouseleave', function() {
-      // Restore original styles
-      this.style.backgroundColor = originalStyles.backgroundColor;
-      this.style.color = originalStyles.color;
-      
-      // Remove inline styles from child elements
-      const allElements = this.querySelectorAll('*');
-      allElements.forEach(el => {
-        el.style.color = '';
-      });
-    });
-    
-    // Handle focus
-    item.addEventListener('focus', function() {
-      this.style.setProperty('background-color', '#fff', 'important');
-      this.style.setProperty('color', '#1263a0', 'important');
-      
-      const allElements = this.querySelectorAll('*');
-      allElements.forEach(el => {
-        el.style.setProperty('color', '#1263a0', 'important');
-      });
-    });
-    
-    // Handle blur
-    item.addEventListener('blur', function() {
-      this.style.backgroundColor = originalStyles.backgroundColor;
-      this.style.color = originalStyles.color;
-      
-      const allElements = this.querySelectorAll('*');
-      allElements.forEach(el => {
-        el.style.color = '';
-      });
-    });
-  });
-  
-  // ==========================================
-  // BUTTON TEXT COLOR FIX
-  // ==========================================
-  // Ensure white text is visible on primary and success buttons
-  const primaryButtons = document.querySelectorAll('.btn-primary, .btn-success');
-  
-  primaryButtons.forEach(button => {
-    // Set initial white color
-    if (button.classList.contains('btn-primary') || button.classList.contains('btn-success')) {
-      // Force white text color for non-hover state
-      if (!button.matches(':hover')) {
-        button.style.setProperty('color', '#fff', 'important');
-        
-        // Also update all child elements
-        const allElements = button.querySelectorAll('*');
-        allElements.forEach(el => {
-          el.style.setProperty('color', '#fff', 'important');
-        });
-      }
-    }
-    
-    // Handle hover states for primary buttons
-    if (button.classList.contains('btn-primary')) {
-      button.addEventListener('mouseenter', function() {
-        this.style.setProperty('color', '#1263a0', 'important');
-        const allElements = this.querySelectorAll('*');
-        allElements.forEach(el => {
-          el.style.setProperty('color', '#1263a0', 'important');
-        });
-      });
-      
-      button.addEventListener('mouseleave', function() {
-        this.style.setProperty('color', '#fff', 'important');
-        const allElements = this.querySelectorAll('*');
-        allElements.forEach(el => {
-          el.style.setProperty('color', '#fff', 'important');
-        });
-      });
-    }
-    
-    // Success buttons keep white text on hover
-    if (button.classList.contains('btn-success')) {
-      button.addEventListener('mouseenter', function() {
-        this.style.setProperty('color', '#fff', 'important');
-        const allElements = this.querySelectorAll('*');
-        allElements.forEach(el => {
-          el.style.setProperty('color', '#fff', 'important');
-        });
-      });
-      
-      button.addEventListener('mouseleave', function() {
-        this.style.setProperty('color', '#fff', 'important');
-        const allElements = this.querySelectorAll('*');
-        allElements.forEach(el => {
-          el.style.setProperty('color', '#fff', 'important');
-        });
-      });
-    }
-  });
-  
-  // ==========================================
-  // IMPACT CARDS FLIP + A11Y - ENHANCED VERSION
-  // ==========================================
-  
-  /**
-   * Check if device is mobile/tablet
-   */
-  function isMobileDevice() {
-    const isMobile = window.innerWidth < 768;
-    return isMobile;
-  }
 
-  /**
-   * Check if a card has back content (more reliable detection)
-   */
-  function hasBackContent(card) {
-    const backDetail = card.querySelector('.impact-card__back-detail');
-    if (!backDetail) return false;
-    
-    const content = backDetail.textContent || backDetail.innerText || '';
-    return content.trim().length > 0;
-  }
-
-  /**
-   * Get close button from card
-   */
-  function getCloseButton(card) {
-    return card.querySelector('.impact-card__back-close');
-  }
-
-  /**
-   * Flip a card to the specified state
-   */
-  function flipCard(card, shouldFlip) {
-    if (shouldFlip) {
-      card.classList.add('is-flipped');
-      card.setAttribute('aria-expanded', 'true');
-      
-      // Focus management for accessibility
-      setTimeout(() => {
-        const closeButton = card.querySelector('.impact-card__back-close');
-        if (closeButton) {
-          closeButton.focus();
+        /**
+         * Set background content as inert (prevents focus and AT interaction)
+         */
+        function setBackgroundInert(inert) {
+          var elements = [mainContent, header, footer];
+          elements.forEach(function (el) {
+            if (!el) {
+              return;
+            }
+            if (inert) {
+              if (supportsInert) {
+                el.setAttribute('inert', '');
+              } else {
+                // Fallback for browsers without inert support
+                el.setAttribute('aria-hidden', 'true');
+              }
+            } else {
+              if (supportsInert) {
+                el.removeAttribute('inert');
+              } else {
+                el.removeAttribute('aria-hidden');
+              }
+            }
+          });
         }
-      }, 250); // Wait for flip animation
-      
-    } else {
-      card.classList.remove('is-flipped');
-      card.setAttribute('aria-expanded', 'false');
-      
-      // Return focus to the card itself
-      setTimeout(() => {
-        card.focus();
-      }, 100);
-    }
-  }
 
-  /**
-   * Handle card click events
-   */
-  function handleCardClick(event) {
-    const card = event.currentTarget;
-    
-    // On mobile, completely disable flip functionality and ensure links work
-    if (isMobileDevice()) {
-      // Remove any flip classes that might be present
-      card.classList.remove('is-flipped');
-      
-      // Allow links to work normally - don't prevent default
-      const clickedLink = event.target.closest('a');
-      if (clickedLink && clickedLink.getAttribute('href')) {
-        // Let the browser handle the link navigation normally
-        return;
-      }
-      
-      // If not clicking a link, do nothing on mobile
-      return;
-    }
-    
-    // Desktop flip functionality below this point
-    
-    // If clicking on the close button, only close the card
-    if (event.target.closest('.impact-card__back-close')) {
-      event.stopPropagation();
-      flipCard(card, false);
-      return;
-    }
-    
-    // Don't flip if clicking on links or buttons in flipped state
-    if (card.classList.contains('is-flipped')) {
-      const target = event.target;
-      if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.closest('a, button')) {
-        return; // Allow the link/button to work normally
-      }
-    }
-    
-    // For front-side links, prevent navigation and flip instead
-    const frontLink = event.target.closest('.card-front a');
-    if (frontLink && !card.classList.contains('is-flipped')) {
-      event.preventDefault();
-      event.stopPropagation();
-      flipCard(card, true);
-      return;
-    }
-    
-    // Otherwise toggle flip state
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const isCurrentlyFlipped = card.classList.contains('is-flipped');
-    flipCard(card, !isCurrentlyFlipped);
-  }
+        /**
+         * Open the help overlay
+         */
+        function openHelpOverlay() {
+          triggerElement = document.activeElement;
 
-  /**
-   * Handle keyboard events for accessibility
-   */
-  function handleCardKeydown(event) {
-    const card = event.currentTarget;
-    
-    // Disable keyboard flip functionality on mobile
-    if (isMobileDevice()) {
-      return;
-    }
-    
-    // Handle Enter and Space keys
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      
-      const isCurrentlyFlipped = card.classList.contains('is-flipped');
-      flipCard(card, !isCurrentlyFlipped);
-    }
-    
-    // Handle Escape key to close flipped cards
-    if (event.key === 'Escape' && card.classList.contains('is-flipped')) {
-      event.preventDefault();
-      flipCard(card, false);
-    }
-  }
+          // Add class - CSS handles all visual state
+          helpOverlay.classList.add('show-overlay');
 
-  /**
-   * Set up mobile-specific card behavior
-   */
-  function setupMobileCard(card) {
-    // Remove any flip-related classes and attributes
-    card.classList.remove('is-flipped');
-    card.removeAttribute('role');
-    card.removeAttribute('tabindex');
-    card.removeAttribute('aria-expanded');
-    
-    // Add mobile-specific class for styling
-    card.classList.add('mobile-card');
-    
-    // Ensure the card behaves as a normal clickable element
-    card.style.cursor = 'pointer';
-    
-    // Find the main link inside the card
-    const cardLink = card.querySelector('.impact-card__link');
-    if (cardLink) {
-      // Ensure the link is clickable and has proper styling
-      cardLink.style.pointerEvents = 'auto';
-      cardLink.style.display = 'block';
-      cardLink.style.width = '100%';
-      cardLink.style.height = '100%';
-      
-      // Remove any existing click handlers on the card itself
-      card.onclick = null;
-      
-      // Optional: Add click handler to entire card that triggers the link
-      card.addEventListener('click', function(e) {
-        // If we didn't click directly on the link, trigger it
-        if (e.target !== cardLink && !cardLink.contains(e.target)) {
-          e.preventDefault();
-          cardLink.click();
+          // Update ARIA attributes
+          helpOverlay.setAttribute('aria-hidden', 'false');
+          helpToggle.setAttribute('aria-expanded', 'true');
+
+          // Prevent body scrolling
+          document.body.style.overflow = 'hidden';
+          document.body.classList.add('help-overlay-open');
+
+          // Make background content inert
+          setBackgroundInert(true);
+
+          // Focus first focusable element in panel
+          var focusableElements = getFocusableElements();
+          if (focusableElements.length > 0) {
+            setTimeout(function () {
+              focusableElements[0].focus();
+            }, 100);
+          }
         }
-      });
-    }
-    
-    // Remove any flip-related event listeners by cloning the node
-    const newCard = card.cloneNode(true);
-    card.parentNode.replaceChild(newCard, card);
-    
-    // Re-setup the click handler on the new card
-    const newCardLink = newCard.querySelector('.impact-card__link');
-    if (newCardLink) {
-      newCard.addEventListener('click', function(e) {
-        if (e.target !== newCardLink && !newCardLink.contains(e.target)) {
-          e.preventDefault();
-          newCardLink.click();
-        }
-      });
-    }
-  }
 
-  /**
-   * Initialize impact cards
-   */
-  function initializeCards() {
-    document.querySelectorAll('.impact-card').forEach(card => {
-      
-      // Clean up any existing event listeners and attributes
-      card.removeAttribute('role');
-      card.removeAttribute('tabindex');
-      card.removeAttribute('aria-expanded');
-      card.classList.remove('is-flipped');
-      
-      // On mobile, set up cards as normal clickable links
-      if (isMobileDevice()) {
-        setupMobileCard(card);
-        return; // Skip flip functionality setup on mobile
-      }
-      
-      // Desktop setup - only add flip functionality if card has back content
-      if (!hasBackContent(card)) {
-        return; // Skip cards without back content - let them work as normal links
-      }
-      
-      // Set up accessibility attributes for flippable cards (desktop only)
-      card.setAttribute('tabindex', '0');
-      card.setAttribute('role', 'button');
-      card.setAttribute('aria-expanded', 'false');
-      
-      // Get close button
-      const closeBtn = getCloseButton(card);
-      
-      // Add main card event listeners
-      card.addEventListener('click', handleCardClick);
-      card.addEventListener('keydown', handleCardKeydown);
-      
-      // Add close button event listener
-      if (closeBtn) {
-        closeBtn.addEventListener('click', (e) => {
+        /**
+         * Close the help overlay
+         */
+        function closeHelpOverlay() {
+          // Remove class - CSS handles all visual state
+          helpOverlay.classList.remove('show-overlay');
+
+          // Update ARIA attributes
+          helpOverlay.setAttribute('aria-hidden', 'true');
+          helpToggle.setAttribute('aria-expanded', 'false');
+
+          // Restore body scrolling
+          document.body.style.overflow = '';
+          document.body.classList.remove('help-overlay-open');
+
+          // Remove inert from background content
+          setBackgroundInert(false);
+
+          // Return focus to trigger element
+          if (triggerElement && typeof triggerElement.focus === 'function') {
+            triggerElement.focus();
+          }
+        }
+
+        /**
+         * Focus trap handler - keeps focus within overlay when open
+         */
+        function handleFocusTrap(e) {
+          if (!helpOverlay.classList.contains('show-overlay')) {
+            return;
+          }
+
+          var focusableElements = getFocusableElements();
+          if (focusableElements.length === 0) {
+            return;
+          }
+
+          var firstFocusable = focusableElements[0];
+          var lastFocusable = focusableElements[focusableElements.length - 1];
+
+          // Tab key handling
+          if (e.key === 'Tab') {
+            if (e.shiftKey) {
+              // Shift + Tab: if on first element, go to last
+              if (document.activeElement === firstFocusable) {
+                e.preventDefault();
+                lastFocusable.focus();
+              }
+            } else {
+              // Tab: if on last element, go to first
+              if (document.activeElement === lastFocusable) {
+                e.preventDefault();
+                firstFocusable.focus();
+              }
+            }
+          }
+        }
+
+        /**
+         * Handle Escape key to close overlay
+         */
+        function handleEscapeKey(e) {
+          if (e.key === 'Escape' && helpOverlay.classList.contains('show-overlay')) {
+            e.preventDefault();
+            closeHelpOverlay();
+          }
+        }
+
+        // Toggle button click
+        helpToggle.addEventListener('click', function (e) {
           e.preventDefault();
           e.stopPropagation();
+
+          if (helpOverlay.classList.contains('show-overlay')) {
+            closeHelpOverlay();
+          } else {
+            openHelpOverlay();
+          }
+        });
+
+        // Backdrop click to close
+        helpBackdrop.addEventListener('click', function () {
+          closeHelpOverlay();
+        });
+
+        // Keyboard handlers (attached to document for global coverage)
+        document.addEventListener('keydown', handleEscapeKey);
+        document.addEventListener('keydown', handleFocusTrap);
+
+        // Initialize ARIA state
+        helpOverlay.setAttribute('aria-hidden', 'true');
+        helpToggle.setAttribute('aria-expanded', 'false');
+      });
+    }
+  };
+
+  // ==========================================
+  // UTILITY BAR HOVER BEHAVIOR
+  // Adds state classes for CSS-based hover/focus styling
+  // ==========================================
+
+  Drupal.behaviors.utilityBarHover = {
+    attach: function (context, settings) {
+      var selector = '.utility-bar .hotline > a, .utility-bar .search-col > button, .utility-bar .exit-link > a, .utility-bar .get-help > button';
+
+      once('utility-bar-hover', selector, context).forEach(function (item) {
+        // Mouse enter - add hover class
+        item.addEventListener('mouseenter', function () {
+          this.classList.add('is-hovered');
+        });
+
+        // Mouse leave - remove hover class
+        item.addEventListener('mouseleave', function () {
+          this.classList.remove('is-hovered');
+        });
+
+        // Focus - add focus class
+        item.addEventListener('focus', function () {
+          this.classList.add('is-focused');
+        });
+
+        // Blur - remove focus class
+        item.addEventListener('blur', function () {
+          this.classList.remove('is-focused');
+        });
+      });
+    }
+  };
+
+  // ==========================================
+  // BUTTON TEXT COLOR BEHAVIOR
+  // Adds state classes for button hover styling
+  // ==========================================
+
+  Drupal.behaviors.buttonTextColor = {
+    attach: function (context, settings) {
+      once('button-text-color', '.btn-primary, .btn-success', context).forEach(function (button) {
+        // Mouse enter - add hover class
+        button.addEventListener('mouseenter', function () {
+          this.classList.add('is-hovered');
+        });
+
+        // Mouse leave - remove hover class
+        button.addEventListener('mouseleave', function () {
+          this.classList.remove('is-hovered');
+        });
+      });
+    }
+  };
+
+  // ==========================================
+  // IMPACT CARDS FLIP BEHAVIOR
+  // Desktop-only card flip with accessibility support
+  // ==========================================
+
+  Drupal.behaviors.impactCards = {
+    attach: function (context, settings) {
+
+      /**
+       * Check if device is mobile/tablet
+       */
+      function isMobileDevice() {
+        return window.innerWidth < 768;
+      }
+
+      /**
+       * Check if a card has back content
+       */
+      function hasBackContent(card) {
+        var backDetail = card.querySelector('.impact-card__back-detail');
+        if (!backDetail) {
+          return false;
+        }
+        var content = backDetail.textContent || backDetail.innerText || '';
+        return content.trim().length > 0;
+      }
+
+      /**
+       * Flip a card to the specified state
+       */
+      function flipCard(card, shouldFlip) {
+        if (shouldFlip) {
+          card.classList.add('is-flipped');
+          card.setAttribute('aria-expanded', 'true');
+
+          // Focus management for accessibility
+          setTimeout(function () {
+            var closeButton = card.querySelector('.impact-card__back-close');
+            if (closeButton) {
+              closeButton.focus();
+            }
+          }, 250);
+        } else {
+          card.classList.remove('is-flipped');
+          card.setAttribute('aria-expanded', 'false');
+
+          // Return focus to the card itself
+          setTimeout(function () {
+            card.focus();
+          }, 100);
+        }
+      }
+
+      /**
+       * Handle card click events
+       */
+      function handleCardClick(event) {
+        var card = event.currentTarget;
+
+        // On mobile, disable flip functionality and let links work
+        if (isMobileDevice()) {
+          card.classList.remove('is-flipped');
+          var clickedLink = event.target.closest('a');
+          if (clickedLink && clickedLink.getAttribute('href')) {
+            return; // Let browser handle link
+          }
+          return;
+        }
+
+        // If clicking on the close button, only close the card
+        if (event.target.closest('.impact-card__back-close')) {
+          event.stopPropagation();
+          flipCard(card, false);
+          return;
+        }
+
+        // Don't flip if clicking on links/buttons in flipped state
+        if (card.classList.contains('is-flipped')) {
+          var target = event.target;
+          if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.closest('a, button')) {
+            return;
+          }
+        }
+
+        // For front-side links, prevent navigation and flip instead
+        var frontLink = event.target.closest('.card-front a');
+        if (frontLink && !card.classList.contains('is-flipped')) {
+          event.preventDefault();
+          event.stopPropagation();
+          flipCard(card, true);
+          return;
+        }
+
+        // Otherwise toggle flip state
+        event.preventDefault();
+        event.stopPropagation();
+        flipCard(card, !card.classList.contains('is-flipped'));
+      }
+
+      /**
+       * Handle keyboard events
+       */
+      function handleCardKeydown(event) {
+        var card = event.currentTarget;
+
+        if (isMobileDevice()) {
+          return;
+        }
+
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          flipCard(card, !card.classList.contains('is-flipped'));
+        }
+
+        if (event.key === 'Escape' && card.classList.contains('is-flipped')) {
+          event.preventDefault();
+          flipCard(card, false);
+        }
+      }
+
+      /**
+       * Close all flipped cards
+       */
+      function closeAllFlippedCards() {
+        var flippedCards = document.querySelectorAll('.impact-card.is-flipped');
+        flippedCards.forEach(function (card) {
           flipCard(card, false);
         });
       }
-    });
-  }
 
-  // Initialize cards on page load
-  initializeCards();
+      // Initialize cards
+      once('impact-cards', '.impact-card', context).forEach(function (card) {
+        // Skip cards without back content
+        if (!hasBackContent(card)) {
+          return;
+        }
 
-  /**
-   * Close all flipped cards (utility function)
-   */
-  function closeAllFlippedCards() {
-    const flippedCards = document.querySelectorAll('.impact-card.is-flipped');
-    flippedCards.forEach(card => flipCard(card, false));
-  }
+        // On mobile, add mobile class and skip flip setup
+        if (isMobileDevice()) {
+          card.classList.add('mobile-card');
+          return;
+        }
 
-  // ==========================================
-  // GLOBAL EVENT HANDLERS
-  // ==========================================
-  
-  // Close flipped cards when clicking outside
-  document.addEventListener('click', (event) => {
-    const clickedCard = event.target.closest('.impact-card');
-    
-    if (!clickedCard && !isMobileDevice()) {
-      closeAllFlippedCards();
+        // Desktop setup
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-expanded', 'false');
+
+        card.addEventListener('click', handleCardClick);
+        card.addEventListener('keydown', handleCardKeydown);
+
+        // Close button handler
+        var closeBtn = card.querySelector('.impact-card__back-close');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            flipCard(card, false);
+          });
+        }
+      });
+
+      // Global handlers (only attach once per page)
+      once('impact-cards-global', 'body', context).forEach(function () {
+        // Close cards when clicking outside
+        document.addEventListener('click', function (event) {
+          var clickedCard = event.target.closest('.impact-card');
+          if (!clickedCard && !isMobileDevice()) {
+            closeAllFlippedCards();
+          }
+        });
+
+        // Close on Escape (global)
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape' && !isMobileDevice()) {
+            closeAllFlippedCards();
+          }
+        });
+
+        // Handle resize
+        var resizeTimeout;
+        window.addEventListener('resize', function () {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(function () {
+            closeAllFlippedCards();
+          }, 250);
+        });
+      });
     }
-  });
+  };
 
-  // Close flipped cards on Escape key (global) - desktop only
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !isMobileDevice()) {
-      closeAllFlippedCards();
-    }
-  });
-
-  // Handle window resize - reinitialize cards when switching between mobile/desktop
-  let resizeTimeout;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      // Close all flipped cards when resizing
-      closeAllFlippedCards();
-      
-      // Completely reinitialize all cards with proper mobile/desktop behavior
-      initializeCards();
-    }, 250);
-  });
-
-});
+})(Drupal, once);

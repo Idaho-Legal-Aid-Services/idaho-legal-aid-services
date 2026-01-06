@@ -10,7 +10,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 9990; /* Reduced from 9999 to allow CKEditor dialogs to appear above */
+  z-index: z('mobile-menu');
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -29,7 +29,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba($color-black, 0.5);
   cursor: pointer;
 }
 
@@ -43,7 +43,7 @@
   height: auto;
   max-height: 100%;
   background-color: $color-primary;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+  box-shadow: -2px 0 10px rgba($color-black, 0.2);
   transform: translateX(100%);
   transition: transform 0.3s ease;
   overflow-y: auto;
@@ -59,7 +59,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba($color-white, 0.2);
   
   .mobile-menu-logo {
     img {
@@ -72,7 +72,7 @@
     background: none;
     border: none;
     font-size: 1.5rem;
-    color: #fff;
+    color: $color-white;
     cursor: pointer;
     padding: 0.5rem;
     transition: opacity 0.3s ease;
@@ -86,13 +86,13 @@
 /* Mobile Menu Navigation */
 .mobile-menu-nav {
   padding: 1rem 0;
-  background-color: #fff;
+  background-color: $color-white;
 }
 
 /* Mobile Navigation Items */
 .mobile-nav-item {
-  border-bottom: 1px solid #e9ecef;
-  
+  border-bottom: 1px solid $color-gray-border-light;
+
   &:last-child {
     border-bottom: none;
   }
@@ -104,34 +104,34 @@
   align-items: center;
   min-height: 56px; /* Consistent height for all menu items */
   padding: 1rem 1.5rem;
-  color: #212529;
+  color: $color-body;
   text-decoration: none;
   transition: background-color 0.3s ease;
-  
+
   &:hover {
-    background-color: #f8f9fa;
+    background-color: $color-gray-light;
   }
-  
+
   &.no-submenu {
     display: flex;
     align-items: center;
     min-height: 56px; /* Match height of items with submenus */
     padding: 1rem 1.5rem;
-    color: #212529;
+    color: $color-body;
     text-decoration: none;
     transition: background-color 0.3s ease;
-    
+
     &:hover {
-      background-color: #f8f9fa;
+      background-color: $color-gray-light;
       color: $color-primary;
     }
   }
-  
+
   .menu-text-link {
-    color: #212529;
+    color: $color-body;
     text-decoration: none;
     flex: 1;
-    
+
     &:hover {
       color: $color-primary;
     }
@@ -140,11 +140,16 @@
   .menu-toggle {
     background: none;
     border: none;
-    padding: 0.5rem;
-    color: #6c757d;
+    padding: 0.75rem;
+    min-width: 44px;              // WCAG 2.5.5 minimum touch target
+    min-height: 44px;             // WCAG 2.5.5 minimum touch target
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $color-gray-text;
     cursor: pointer;
     transition: transform 0.3s ease;
-    
+
     &[aria-expanded="true"] .menu-icon {
       transform: rotate(45deg);
     }
@@ -154,16 +159,16 @@
 /* Mobile Submenu */
 .mobile-submenu {
   display: none;
-  background-color: #f8f9fa;
-  
+  background-color: $color-gray-light;
+
   &.show {
     display: block;
   }
 }
 
 .mobile-submenu-item {
-  border-top: 1px solid #e9ecef;
-  
+  border-top: 1px solid $color-gray-border-light;
+
   &:first-child {
     border-top: none;
   }
@@ -171,14 +176,15 @@
 
 .mobile-submenu-link {
   display: block;
-  padding: 0.75rem 1.5rem 0.75rem 2.5rem;
-  color: #495057;
+  padding: 0.875rem 1.5rem 0.875rem 2.5rem;
+  min-height: 44px; /* Minimum tap target size for accessibility */
+  color: $color-gray-muted;
   text-decoration: none;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
-  
+  transition: $transition-base;
+
   &:hover {
-    background-color: #e9ecef;
+    background-color: $color-gray-border-light;
     color: $color-primary;
     padding-left: 3rem;
   }
@@ -187,7 +193,7 @@
 /* Mobile Search Form */
 .mobile-menu-search {
   padding: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid rgba($color-white, 0.2);
   background-color: $color-primary;
   
   .mobile-search-form {
@@ -198,27 +204,27 @@
   .mobile-search-input {
     flex: 1;
     padding: 0.5rem 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba($color-white, 0.5);
     border-radius: 0.25rem;
     font-size: 1rem;
-    background-color: rgba(255, 255, 255, 0.9);
-    color: #212529;
+    background-color: rgba($color-white, 0.9);
+    color: $color-body;
     
     &::placeholder {
-      color: #6c757d;
+      color: $color-gray-text;
     }
     
     &:focus {
       outline: none;
-      border-color: #fff;
-      background-color: #fff;
-      box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+      border-color: $color-white;
+      background-color: $color-white;
+      box-shadow: 0 0 0 0.2rem rgba($color-white, 0.25);
     }
   }
   
   .mobile-search-button {
     padding: 0.5rem 1rem;
-    background-color: #fff;
+    background-color: $color-white;
     color: $color-primary;
     border: none;
     border-radius: 0.25rem;
@@ -241,4 +247,19 @@
 /* Prevent body scroll when menu is open */
 body.mobile-menu-open {
   overflow: hidden;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu-overlay,
+  .mobile-menu-panel,
+  .mobile-menu-close,
+  .mobile-nav-link,
+  .mobile-submenu-link,
+  .menu-toggle,
+  .menu-toggle .menu-icon,
+  .mobile-search-input,
+  .mobile-search-button {
+    transition: none;
+  }
 }

@@ -210,7 +210,7 @@ $announcement-btn-text: #ffffff;
   align-items: center;
   justify-content: center;
   border-radius: 50%; // Circle shape
-  transition: all 0.2s ease;
+  transition: $transition-quick;
 
   &:hover {
     background: $color-primary;
@@ -266,7 +266,7 @@ $announcement-btn-text: #ffffff;
 .announcement-overlay-title {
   font-family: $font-family-sans-serif;
   font-size: 3rem;
-  font-weight: 700;
+  font-weight: $weight-title;
   color: $color-primary;
   margin: 0 0 1rem 0;
   line-height: 1.2;
@@ -289,8 +289,8 @@ $announcement-btn-text: #ffffff;
 .announcement-overlay-subheader {
   font-family: $font-family-sans-serif;
   font-size: 1.25rem;
-  font-weight: 600;
-  color: $color-gray-dark;
+  font-weight: $weight-label;
+  color: $color-black;
   margin: 0 0 1.5rem 0;
   text-align: center;
 
@@ -309,8 +309,10 @@ $announcement-btn-text: #ffffff;
   font-family: $font-family-sans-serif;
   font-size: 1rem;
   line-height: 1.6;
-  color: $color-gray-dark;
+  color: $color-black;
   margin-bottom: 2rem;
+  max-width: 75ch;
+  margin-inline: auto;
 
   @include mobile {
     font-size: $font-size-mobile-body;
@@ -335,7 +337,8 @@ $announcement-btn-text: #ffffff;
     }
   }
 
-  a {
+  // Link styles - exclude buttons to prevent underline inheritance
+  a:not(#{$button-not-selector}) {
     color: $color-primary;
     text-decoration: underline;
 
@@ -346,7 +349,7 @@ $announcement-btn-text: #ffffff;
   }
 
   strong, b {
-    font-weight: 600;
+    font-weight: $weight-body-emphasis;
   }
 }
 

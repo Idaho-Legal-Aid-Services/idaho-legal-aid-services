@@ -21,14 +21,16 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
     .faq-search-container {
       max-width: 700px;
       margin: 0 auto;
-      
+
       // Search icon background uses primary color
-      .input-group-text {
-        background-color: $color-primary !important;
-        border-color: $color-primary !important;
-        color: $color-white !important;
-        
-        // Override Bootstrap's bg-primary if it's set to black
+      // Doubled selector for specificity over Bootstrap's .input-group-text
+      .input-group-text.input-group-text {
+        background-color: $color-primary;
+        border-color: $color-primary;
+        color: $color-white;
+
+        // Override Bootstrap's bg-primary utility - requires !important
+        // because Bootstrap utilities use !important by design
         &.bg-primary {
           background-color: $color-primary !important;
         }
@@ -59,8 +61,8 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
           
           a {
             color: $color-primary;
-            font-weight: 600;
-            
+            font-weight: $weight-label;
+
             &:focus {
               outline: 2px solid $faq-focus-color;
               outline-offset: 2px;
@@ -88,13 +90,13 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
         padding: 0.25rem;
       }
       
+      // Custom filter button - no Bootstrap conflict, no !important needed
       .filter-btn {
-        // Match homepage button style
+        @include button-no-underline;
         display: inline-block;
         font-family: $font-family-sans-serif;
-        font-weight: 600;
+        font-weight: $weight-button;
         text-align: center;
-        text-decoration: none !important;
         text-transform: uppercase;
         white-space: nowrap;
         vertical-align: middle;
@@ -104,65 +106,64 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
         font-size: 1rem;
         line-height: 1.5;
         border-radius: 4px;
-        transition: all 0.3s ease;
+        transition: $transition-base;
         cursor: pointer;
         min-height: 44px;
         min-width: 120px;
-        
+
         // Default state (like btn-secondary)
         background-color: transparent;
         color: $color-primary;
-        
+
         // Hover state - matches homepage button behavior
         &:hover,
         &:focus {
-          background-color: $color-primary !important;
-          border-color: $color-primary !important;
-          color: $color-white !important;
-          text-decoration: none !important;
+          background-color: $color-primary;
+          border-color: $color-primary;
+          color: $color-white;
           transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: $shadow-hover;
         }
-        
+
         // Active/pressed state
         &:active {
           transform: translateY(0);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          box-shadow: $shadow-pressed;
         }
-        
+
         // Selected filter state (like btn-primary)
         &.active {
-          background-color: $color-primary !important;
-          border-color: $color-primary !important;
-          color: $color-white !important;
-          font-weight: 700;
-          
+          background-color: $color-primary;
+          border-color: $color-primary;
+          color: $color-white;
+          font-weight: $weight-heading;
+
           &:hover,
           &:focus {
-            background-color: $color-white !important;
-            border-color: $color-primary !important;
-            color: $color-primary !important;
+            background-color: $color-white;
+            border-color: $color-primary;
+            color: $color-primary;
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: $shadow-hover;
           }
-          
+
           &:active {
             transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: $shadow-pressed;
           }
         }
-        
+
         // Focus state for accessibility
         &:focus-visible {
           outline: 2px solid $color-primary;
           outline-offset: 2px;
         }
-        
+
         // Remove default focus outline for mouse users
         &:focus:not(:focus-visible) {
           outline: none;
         }
-        
+
         // Disabled state
         &:disabled,
         &.disabled {
@@ -170,7 +171,7 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
           cursor: not-allowed;
           pointer-events: none;
         }
-        
+
         // Mobile - remove transform effects like homepage buttons
         @include mobile {
           &:hover,

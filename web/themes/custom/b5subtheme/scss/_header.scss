@@ -3,337 +3,262 @@
  *  File: _header.scss
  *****************************************************************/
 
-// Variables and mixins are imported in style.scss before this file
-
 // ===================================
 // Configuration Variables
 // ===================================
-// Using local header height to avoid conflict with global $header-height
 $utility-bar-height: 2.6rem;
 $transition-speed: 0.3s;
 
-// Note: Body padding removed - using margin-top on navbar instead
+// ===================================
+// 1) SITE HEADER CONTAINER (Sticky)
+// ===================================
+.site-header {
+  position: sticky;
+  top: 0;
+  // z-index: 100 - Intentionally hardcoded above z('overlay'):10 but below
+  // Bootstrap's modal (1055) and mobile-menu (9990). This ensures the sticky
+  // header stays above page content but doesn't block overlays/modals.
+  z-index: 100;
+  width: 100%;
+}
 
 // ===================================
-// 1) UTILITY BAR STYLES
+// 2) UTILITY BAR STYLES
 // ===================================
 .utility-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: $utility-bar-height;
-  z-index: 99; // Lower than Gin sticky regions (101) and admin toolbar
   background-color: $color-primary;
   color: $color-white;
-  font-weight: 600;
+  font-weight: $weight-nav;
   letter-spacing: 1px;
   font-family: $font-family-sans-serif;
   font-size: 1rem;
-  
-  .container { 
-    padding: 0.5rem 0; 
-    height: 100%;
+
+  .container {
+    padding: 0.5rem 0;
+
+    @include mobile {
+      padding: 0.25rem 0;
+    }
   }
-  
+
   .utility-bar-content {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 100%;
     gap: 1rem;
-    
+
     @include mobile {
       gap: 0.5rem;
       font-size: 0.875rem;
     }
   }
-  
-  // Utility bar links/buttons
+
   .hotline,
   .search-col,
   .exit-link,
   .get-help {
-    // Target the actual link/button elements
     > a,
     > button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.05rem;
+      gap: 0.25rem;
       color: $color-white;
-      height: calc(#{$utility-bar-height} - 1rem); // Explicit height for uniformity
-      padding: 0 0.75rem;
+      padding: 0.5rem 0.75rem;
       line-height: 1;
       border-radius: 4px;
-      transition: all $transition-speed ease;
+      transition: background-color $transition-speed ease, color $transition-speed ease;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: $weight-nav;
       letter-spacing: 1px;
       background: transparent;
-      border: 2px solid transparent;
+      border: none;
       font-family: inherit;
       font-size: inherit;
       cursor: pointer;
-      
-      // Ensure all text is white by default
-      &,
-      * {
+
+      &, * {
         color: $color-white;
       }
-      
-      &:hover,
-      &:focus {
+
+      &:hover {
         background-color: $color-white;
         text-decoration: none;
-        
-        // Force all elements to primary color on hover
-        &,
-        * {
+
+        &, *, &.text-white {
           color: $color-primary;
         }
       }
-      
+
       &:focus-visible {
+        background-color: $color-white;
+        text-decoration: none;
         outline: 2px solid $color-white;
         outline-offset: 2px;
+
+        &, *, &.text-white {
+          color: $color-primary;
+        }
       }
-      
+
       i {
         font-size: 1rem;
       }
-      
+
       @include mobile {
         font-size: 0.8rem;
-        height: calc(#{$utility-bar-height} - 1.2rem); // Slightly smaller on mobile
-        padding: 0 0.5rem;
+        min-height: 44px;
+        padding: 0.625rem 0.75rem;
 
-        i {
-          font-size: 0.9rem;
-        }
-
-        span {
-          white-space: nowrap;
-        }
-      }
-    }
-  }
-}
-
-// Override Bootstrap's text-white class specifically for utility bar
-.utility-bar {
-  // Hotline link with phone number
-  .hotline > a {
-    &:hover,
-    &:focus {
-      &,
-      &.text-white {
-        color: $color-primary;
-      }
-    }
-  }
-  
-  // Search button
-  .search-col > button {
-    &:hover,
-    &:focus {
-      &,
-      &.text-white {
-        color: $color-primary;
-      }
-    }
-  }
-  
-  // Exit link
-  .exit-link > a {
-    &:hover,
-    &:focus {
-      &,
-      &.text-white {
-        color: $color-primary;
-      }
-    }
-  }
-  
-  // Get Help button
-  .get-help > button {
-    &:hover,
-    &:focus {
-      &,
-      &.text-white {
-        color: $color-primary;
+        i { font-size: 0.9rem; }
+        span { white-space: nowrap; }
       }
     }
   }
 }
 
 // ===================================
-// 2) CENTERED LOGO NAVBAR
+// 3) CENTERED LOGO NAVBAR
 // ===================================
 .centered-logo-navbar {
-  position: sticky;
-  top: $utility-bar-height; // Below utility bar
-  z-index: 100;
   background-color: $color-white;
-  --bs-navbar-padding-y: 0; // Override Bootstrap's navbar padding
+  --bs-navbar-padding-y: 0;
   padding: 1rem 0;
   overflow: visible;
-  margin-top: $utility-bar-height; // Original spacing below utility bar
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0);
-  
+  transition: padding $transition-speed ease, box-shadow $transition-speed ease;
+  box-shadow: none;
+
+  // Base logo size (mobile-first)
+  .site-logo img {
+    height: 70px;
+    width: auto;
+    display: block;
+    transition: height $transition-speed ease;
+  }
+
   // Shrunk state when scrolled
   &.navbar-shrink {
-    padding: 1rem 0;
+    padding: 0.5rem 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    
+
     .site-logo img {
-      max-height: 50px; // Reduced from 80px
+      height: 50px;
     }
   }
 
-  // Basic nav-link styling for all viewports
+  // Base nav-link styling
   .nav-link {
-    color: $color-gray-dark;
+    color: $color-black;
     white-space: nowrap;
     padding: 0.5rem 1rem;
-    font-weight: 500;
+    font-weight: $weight-nav-dropdown;
     text-transform: uppercase;
     font-size: 0.875rem;
     letter-spacing: 0.5px;
     border-radius: 4px;
-    transition: background-color 0.3s ease, color 0.3s ease;
-    
+    transition: background-color $transition-speed ease, color $transition-speed ease;
+
     &:hover,
-    &:focus {
-      background-color: #1263a0 !important;
-      color: #fff !important;
+    &:focus-visible {
+      background-color: $color-primary;
+      color: $color-white;
       text-decoration: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
     }
   }
 
   // ===================================
-  // RESPONSIVE MENU LAYOUTS
+  // Desktop Layout (>=1200px) - Grid-based centered logo
   // ===================================
-  
-  // Desktop Layout (≥1200px) - Grid-based centered logo
-  @media (min-width: 1200px) {
-    padding: 1rem 0;
-    
-    &.navbar-shrink {
-      padding: 1rem 0;
-      
-      .split-navigation {
-        .site-logo img {
-          height: 70px;
-        }
-        
-        // Reduce gap slightly when shrunk
-        gap: 1.5rem;
-      }
+  @media (min-width: $large-desktop-breakpoint) {
+    .site-logo img {
+      height: 120px;
     }
-    
-    // Container standard flex
-    .container {
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 1rem;
+
+    &.navbar-shrink .site-logo img {
+      height: 70px;
     }
-    
-    // Split navigation layout with true centering
+
+    // Your Twig uses .split-navigation as the wrapper.
     .split-navigation {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr; // left | logo | right
+      align-items: center;
+      width: 100%;
+      column-gap: 1rem;
+    }
+
+    .nav-section {
+      min-width: 0;
+    }
+
+    // Target either Bootstrap-style markup (.navbar-nav) or Drupal menu markup (.menu).
+    .nav-section > ul,
+    .nav-section .navbar-nav,
+    .nav-section .menu {
       width: 100%;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 2rem;
-      
-      // Left and right navigation sections
-      .nav-section {
-        flex: 1;
-        
-        &.nav-left {
-          display: flex;
-          justify-content: flex-end;
-          
-          // Hide items 4-6
-          .navbar-nav .nav-item:nth-child(n+4) {
-            display: none;
-          }
-        }
-        
-        &.nav-right {
-          display: flex;
-          justify-content: flex-start;
-          
-          // Hide items 1-3
-          .navbar-nav .nav-item:nth-child(-n+3) {
-            display: none;
-          }
-        }
-        
-        .navbar-nav {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          margin: 0;
-          padding: 0;
-        }
-      }
-      
-      // Logo in the natural flow (not absolute)
-      .site-logo {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        
-        img {
-          height: 120px;
-          width: auto;
-          transition: all 0.3s ease;
-        }
-      }
+      flex-wrap: nowrap;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      gap: 0.5rem; // Consistent spacing between items
     }
-    
-    // Large screens adjustments
-    @media (min-width: 1500px) {
-      .nav-link {
-        font-size: 1.1rem;
-        font-weight: 500;
-      }
+
+    // Left nav: push items toward logo (right edge of column)
+    .nav-left > ul,
+    .nav-left .navbar-nav,
+    .nav-left .menu {
+      justify-content: flex-end;
     }
-    
-    // Medium desktop screens
-    @media (max-width: 1499px) {
-      .nav-link {
-        font-size: 0.95rem;
-        padding: 0.4rem 0.5rem;
-      }
-      
-      // Grid remains the same, just smaller font
+
+    // Right nav: push items toward logo (left edge of column)
+    .nav-right > ul,
+    .nav-right .navbar-nav,
+    .nav-right .menu {
+      justify-content: flex-start;
+    }
+
+    .nav-section a {
+      white-space: nowrap;
     }
   }
-  
+
+  // Large screens adjustments
+  @media (min-width: $nav-expanded-breakpoint) {
+    .nav-link {
+      font-size: 1.1rem;
+    }
+  }
+
+  // Medium desktop screens
+  @media (min-width: $large-desktop-breakpoint) and (max-width: #{$nav-expanded-breakpoint - 0.02px}) {
+    .nav-link {
+      font-size: 0.95rem;
+      padding: 0.4rem 0.5rem;
+    }
+  }
+
   // Tablet Layout (768px-1199px)
   @include tablet {
-    padding: 2rem 0;
-    
-    .site-logo {
-      img {
-        height: 80px;
-      }
+    padding: 1.5rem 0;
+
+    .site-logo img {
+      height: 80px;
     }
   }
-  
+
   // Mobile Layout (<768px)
   @include mobile {
     padding: 1rem 0;
-    
-    .site-logo {
-      img {
-        height: 90px;
-      }
+
+    .site-logo img {
+      height: 70px;
     }
   }
 
@@ -341,31 +266,26 @@ $transition-speed: 0.3s;
   .navbar-toggler {
     border: none;
     padding: 0.5rem;
-    transition: all $transition-speed ease;
+    transition: background-color $transition-speed ease;
     background: transparent;
-    
+
     &:hover {
       background-color: rgba($color-primary, 0.1);
     }
-    
+
     &:focus {
       box-shadow: none;
       outline: 2px solid $color-primary;
       outline-offset: 2px;
     }
-    
+
     .navbar-toggler-icon {
       background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%280, 0, 0, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
     }
   }
-  
-  // Remove any collapse animations
-  .navbar-collapse {
-    display: block !important;
-  }
 
   // ===================================
-  // 3) DROPDOWN MENUS
+  // 4) DROPDOWN MENUS
   // ===================================
   .nav-item.dropdown {
     position: relative;
@@ -381,28 +301,28 @@ $transition-speed: 0.3s;
     padding: 0.5rem 1.25rem;
     color: $color-black;
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: $weight-nav-dropdown;
     line-height: 1.5;
     text-decoration: none;
     text-transform: uppercase;
     border-radius: 4px;
-    transition: all $transition-speed ease;
+    transition: background-color $transition-speed ease, color $transition-speed ease;
 
     &:hover,
-    &:focus {
-      background-color: $color-primary !important;
-      color: $color-white !important;
+    &:focus-visible {
+      background-color: $color-primary;
+      color: $color-white;
       text-decoration: none;
     }
-    
+
     &:focus-visible {
       outline: 2px solid $color-primary;
       outline-offset: -2px;
     }
   }
 
-  // Desktop dropdown behavior (≥1200px)
-  @media (min-width: 1200px) {
+  // Desktop dropdown styling (>=1200px)
+  @media (min-width: $large-desktop-breakpoint) {
     .dropdown-menu {
       position: absolute;
       top: 100%;
@@ -411,55 +331,34 @@ $transition-speed: 0.3s;
       background-color: $color-white;
       border: 2px solid $color-primary;
       border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       padding: 0.5rem 0;
       display: none;
-      z-index: z('overlay') + 5;
       margin-top: 0;
-      
-      // Show when parent has .show class (Bootstrap standard)
-      .dropdown.show & {
-        display: block;
-      }
-      
-      // Also show on hover
-      .dropdown:hover & {
-        display: block;
-      }
+      // z-index: 2000 - Must be higher than sticky header (100) so dropdowns
+      // appear above it. Matches Bootstrap's $zindex-dropdown (1000) pattern
+      // but higher to ensure visibility over any stacked content.
+      z-index: 2000;
     }
-    
-    // Visual feedback for hover/active states
-    .nav-item.dropdown:hover > .nav-link,
+
     .nav-item.dropdown.show > .nav-link {
       background-color: $color-primary;
       color: $color-white;
     }
-    
-    // Keep parent highlighted when hovering over dropdown menu
-    .nav-item.dropdown:hover .nav-link,
-    .nav-item.dropdown:has(.dropdown-menu:hover) .nav-link {
-      background-color: $color-primary !important;
-      color: $color-white !important;
-    }
   }
 
   // Tablet & Mobile dropdown (<1200px)
-  @media (max-width: 1199px) {
+  @media (max-width: #{$large-desktop-breakpoint - 0.02px}) {
     .dropdown-menu {
       position: static;
       width: 100%;
-      background-color: #f8f9fa;
+      background-color: $color-gray-bg;
       border: none;
       box-shadow: none;
       margin-top: 0;
       padding: 0;
       display: none;
-      
-      // Show when open
-      .dropdown.show & {
-        display: block;
-      }
-      
+
       .dropdown-item {
         padding: 0.5rem 2rem;
         font-size: 0.95rem;
@@ -469,26 +368,16 @@ $transition-speed: 0.3s;
 }
 
 // ===================================
-// 4) MAIN CONTENT SPACING
-// ===================================
-.main-content {
-  padding-top: 2rem;
-  
-  @include mobile {
-    padding-top: 1rem;
-  }
-}
-
-// ===================================
 // 5) REDUCED MOTION
 // ===================================
 @media (prefers-reduced-motion: reduce) {
   .utility-bar a,
   .utility-bar button,
-  .nav-link,
-  .dropdown-menu,
-  .dropdown-item,
-  .navbar-toggler {
+  .centered-logo-navbar .nav-link,
+  .centered-logo-navbar .dropdown-menu,
+  .centered-logo-navbar .dropdown-item,
+  .centered-logo-navbar .navbar-toggler,
+  .centered-logo-navbar .site-logo img {
     transition: none;
   }
 }
@@ -497,18 +386,21 @@ $transition-speed: 0.3s;
 // 6) PRINT STYLES
 // ===================================
 @media print {
+  .site-header {
+    position: static;
+  }
+
   .utility-bar {
     display: none;
   }
-  
+
   .centered-logo-navbar {
-    margin-top: 0;
     box-shadow: none;
-    
+
     .navbar-toggler {
       display: none;
     }
-    
+
     .navbar-collapse {
       display: block !important;
     }

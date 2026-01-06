@@ -13,9 +13,9 @@
 
 <article{{ attributes.addClass('node', 'node--office-locations') }}>
 
-  {# Main content using standard .main-content class #}
+  {# Main content - field template adds .content-body #}
   {% if content.field_main_content %}
-    <div class="main-content">
+    <div class="container">
       {{ content.field_main_content }}
     </div>
   {% endif %}

@@ -1,3 +1,59 @@
+// =============================================================================
+// MIXINS & HELPERS
+// Reusable mixins, functions, and placeholders
+// Configuration variables use !default and can be overridden in variable files
+// No CSS output - mixins/functions only
+// =============================================================================
+
+// =============================================================================
+// BUTTON NO-UNDERLINE SYSTEM
+// Centralized solution to prevent underlines on buttons site-wide
+// Single source of truth for button selectors used in :not() exclusions
+// =============================================================================
+
+// Selector string for :not() exclusions in link rules
+// Add new button classes here to automatically exclude them from link styling
+$button-not-selector: '.btn, .button, .form-submit, [role="button"]' !default;
+
+// Mixin: Guarantee no text-decoration on buttons across ALL states
+// Apply this to button base styles for complete coverage
+// Does NOT affect focus outlines - maintains accessibility
+@mixin button-no-underline {
+  text-decoration: none;
+
+  &:link,
+  &:visited,
+  &:hover,
+  &:focus,
+  &:focus-visible,
+  &:active {
+    text-decoration: none;
+  }
+}
+
+// Mixin: Style links while excluding buttons
+// Use this for content areas where links should be underlined but buttons should not
+// Example usage:
+//   .content-area {
+//     @include content-link-styles;
+//   }
+@mixin content-link-styles($link-color: $color-primary, $underline-on-hover: false) {
+  a:not(#{$button-not-selector}) {
+    color: $link-color;
+    text-decoration: underline;
+
+    @if $underline-on-hover {
+      &:hover {
+        text-decoration: underline;
+      }
+    } @else {
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+}
+
 // ===================================
 // Configuration Variables
 // ===================================
@@ -24,7 +80,9 @@ $z-layers: (
   'background': -1,
   'default': 0,
   'foreground': 1,
-  'overlay': 10
+  'overlay': 10,
+  'dropdown': 1030,
+  'mobile-menu': 9990
 ) !default;
 
 @function z($layer) {
@@ -47,17 +105,39 @@ $z-layers: (
   display: flex;
   position: relative;
   box-shadow: $box-shadow-sm;
-  transition: all 0.3s ease;
+  transition: $transition-base;
+}
+
+// Mixin for interactive card hover/focus states
+// Used by topic-cards, forms, guides for consistent behavior
+// @param $glow-color - Color for hover glow effect (default: gray)
+// @param $include-focus - Whether to include focus-visible styles (default: true)
+@mixin card-interactive($glow-color: $color-gray-card, $include-focus: true) {
+  box-shadow: $shadow-card;
+  transition: $transition-base;
+
+  &:hover {
+    box-shadow: 0 0 10px 3px rgba($glow-color, 0.4);
+  }
+
+  @if $include-focus {
+    &:focus-visible {
+      box-shadow: $focus-ring-primary;
+      outline: none;
+    }
+  }
 }
 
 // Full-bleed element base
+// Uses CSS custom property to compensate for scrollbar width
+// 100vw includes scrollbar, but parent container excludes it
 @mixin full-bleed-element($position: absolute, $top: 0) {
   content: '';
   position: $position;
   top: $top;
   left: 50%;
-  width: 100vw;
-  margin-left: -50vw;
+  width: calc(100vw - var(--scrollbar-width, 0px));
+  margin-left: calc(-50vw + var(--scrollbar-width, 0px) / 2);
 }
 
 // Standard Bootstrap breakpoint mixins using variables

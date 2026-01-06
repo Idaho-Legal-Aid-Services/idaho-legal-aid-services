@@ -1,0 +1,29 @@
+// =============================================================================
+// BASE STYLES
+// Global page structure and foundational styles
+// These apply site-wide and should load early in the cascade
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// PAGE LAYOUT: Flexbox sticky footer pattern
+// Ensures footer stays at bottom even on short-content pages
+// -----------------------------------------------------------------------------
+body {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+// Main content area grows to fill available space
+main {
+  flex: 1 0 auto;
+  overflow: visible; // Allow content to expand naturally
+  min-height: auto;  // Allow main to be its natural height
+}
+
+// Footer shrinks to its content height
+footer {
+  flex-shrink: 0;
+}

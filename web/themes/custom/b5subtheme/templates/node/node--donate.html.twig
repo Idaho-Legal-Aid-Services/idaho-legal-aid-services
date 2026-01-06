@@ -16,7 +16,7 @@
   {# The rest of the content below the curve #}
   <div class="container">
     {% if content.field_donor_body %}
-      <div class="main-content">
+      <div class="content-body">
         {{ content.field_donor_body }}
       </div>
     {% endif %}
@@ -240,7 +240,10 @@
           </div>
           
           <div class="form-navigation">
-            <button type="button" class="btn btn-secondary prev-step">Back</button>
+            <button type="button" class="btn btn-secondary prev-step back-button">
+              <i class="fas fa-arrow-left" aria-hidden="true"></i>
+              <span>{{ 'Back'|t }}</span>
+            </button>
             <button type="button" class="btn btn-primary next-step">Continue</button>
           </div>
         </div>
@@ -282,7 +285,10 @@
           {% endif %}
           
           <div class="form-navigation">
-            <button type="button" class="btn btn-secondary prev-step">Back</button>
+            <button type="button" class="btn btn-secondary prev-step back-button">
+              <i class="fas fa-arrow-left" aria-hidden="true"></i>
+              <span>{{ 'Back'|t }}</span>
+            </button>
             <button type="submit" class="btn btn-primary">Submit</button>
           </div>
         </div>
@@ -299,12 +305,7 @@
   </section>
   {% endif %}
 
-  {# Blue Curved Section #}
-  <div class="curved-section-blue">
-    <div class="curved-section-container">
-      {# Empty container as per the original design requirement #}
-    </div>
-  </div>
-  
+  {# Blue Curved Section is now rendered by page.html.twig #}
+  {# This reduces duplication - page chrome belongs at page level #}
 
 </article>

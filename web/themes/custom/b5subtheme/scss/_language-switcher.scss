@@ -7,7 +7,7 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);
-  transition: all 0.3s ease;
+  transition: $transition-base;
   
   // Hide when admin toolbar is present
   .toolbar-tray-open &,
@@ -36,7 +36,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
+    transition: $transition-base;
     font-size: 1.25rem;
     padding: 0;
     
@@ -71,7 +71,7 @@
     opacity: 0;
     visibility: hidden;
     transform: translateY(10px);
-    transition: all 0.3s ease;
+    transition: $transition-base;
     overflow: hidden;
     
     &.show {
@@ -93,16 +93,16 @@
     a {
       display: block;
       padding: 0.75rem 1rem;
-      color: #212529;
+      color: $color-body;
       text-decoration: none;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       transition: background-color 0.2s ease;
       font-size: 0.875rem;
-      font-weight: 500;
-      
+      font-weight: $weight-nav-dropdown;
+
       &:hover {
-        background-color: #f8f9fa;
+        background-color: $color-gray-light;
         color: $color-primary;
       }
       
