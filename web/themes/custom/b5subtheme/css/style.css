@@ -21056,6 +21056,13 @@ footer {
   outline: 2px solid #1263a0;
   outline-offset: 2px;
 }
+@supports selector(:focus-visible) {
+  .centered-logo-navbar .nav-link:focus:not(:focus-visible) {
+    background-color: transparent;
+    color: inherit;
+    outline: none;
+  }
+}
 @media (min-width: 1200px) {
   .centered-logo-navbar .site-logo img {
     height: 120px;
@@ -21242,16 +21249,18 @@ footer {
  * Desktop hover behavior for dropdowns
  * Only activates on devices with hover capability
  *--------------------------------------*/
+@media (hover: hover) and (pointer: fine) {
+  .centered-logo-navbar .nav-item.dropdown > .nav-link:hover {
+    background-color: transparent;
+    color: inherit;
+  }
+}
 @media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
   .centered-logo-navbar .dropdown:hover > .dropdown-menu {
     display: block;
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
-  }
-  .centered-logo-navbar .dropdown > .nav-link:hover {
-    background-color: transparent !important;
-    color: #000000 !important;
   }
   .centered-logo-navbar .dropdown.dropdown-hover > .nav-link {
     background-color: #1263a0 !important;
@@ -23868,9 +23877,10 @@ main.main-content {
  * Topic Cards Component (Refactored with CSS Grid)
  ***********************************************/
 .field--name-field-topic-cards, .how-we-help-section .topic-cards-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
   gap: 1.25rem;
   width: 100%;
   margin: 0 auto;
@@ -23879,16 +23889,26 @@ main.main-content {
 }
 @media (max-width: 767.98px) {
   .field--name-field-topic-cards, .how-we-help-section .topic-cards-row {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    padding: 0;
+    flex-direction: column;
+    align-items: center;
     gap: 1rem;
   }
 }
 .field--name-field-topic-cards .field__item, .field--name-field-topic-cards .how-we-help-section .topic-card-col, .how-we-help-section .field--name-field-topic-cards .topic-card-col, .how-we-help-section .topic-cards-row .field__item, .how-we-help-section .topic-cards-row .topic-card-col {
+  flex: 0 0 calc((100% - 2.5rem) / 3);
+  max-width: 380px;
+  min-width: 320px;
   display: flex;
   justify-content: stretch;
   position: relative;
+}
+@media (max-width: 767.98px) {
+  .field--name-field-topic-cards .field__item, .field--name-field-topic-cards .how-we-help-section .topic-card-col, .how-we-help-section .field--name-field-topic-cards .topic-card-col, .how-we-help-section .topic-cards-row .field__item, .how-we-help-section .topic-cards-row .topic-card-col {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: clamp(280px, 85vw, 340px);
+  }
 }
 .field--name-field-topic-cards .topic-card, .how-we-help-section .topic-cards-row .topic-card {
   display: flex;
@@ -23897,7 +23917,10 @@ main.main-content {
   transition: all 0.3s ease-in-out;
   flex: 1;
   width: 100%;
+  height: 220px;
   min-height: 220px;
+  max-height: 220px;
+  overflow: hidden;
   border: 6px solid #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   z-index: 3;
@@ -23922,7 +23945,7 @@ main.main-content {
   color: #ffffff;
 }
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card--blue:hover, .how-we-help-section .topic-cards-row .topic-card--blue:hover {
+  .field--name-field-topic-cards .topic-card--blue:hover, .how-we-help-section .topic-cards-row .topic-card--blue:hover, .field--name-field-topic-cards .topic-card--blue:focus-visible, .how-we-help-section .topic-cards-row .topic-card--blue:focus-visible {
     border-color: #1263a0;
     box-shadow: 0 0 10px 3px rgba(18, 99, 160, 0.4);
   }
@@ -23938,32 +23961,43 @@ main.main-content {
   color: #1263a0;
 }
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card--gray:hover, .how-we-help-section .topic-cards-row .topic-card--gray:hover {
+  .field--name-field-topic-cards .topic-card--gray:hover, .how-we-help-section .topic-cards-row .topic-card--gray:hover, .field--name-field-topic-cards .topic-card--gray:focus-visible, .how-we-help-section .topic-cards-row .topic-card--gray:focus-visible {
     box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
   }
 }
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card[role=link]:hover, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover {
+  .field--name-field-topic-cards .topic-card[role=link]:hover, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover, .field--name-field-topic-cards .topic-card[role=link]:focus-visible, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible {
     z-index: 10;
     background-color: #ffffff;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__content, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__content {
-    align-items: flex-start;
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__content, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__content, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__content, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__content {
+    transform: translateY(-1rem);
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title {
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title {
     color: #1263a0;
-    margin-bottom: 0.75rem;
     font-size: 1.7rem;
+    margin-bottom: 0.5rem;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__description, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__description {
-    max-height: 999px;
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title .title-full, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title .title-full {
+    display: none;
+  }
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title .title-short, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title .title-short {
+    display: block;
+  }
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__description, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__description, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__description, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__description {
+    max-height: 4.5em;
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
     margin-top: 0.5rem;
     color: #000000;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__cta {
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__description.is-clamped::after, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__description.is-clamped::after {
+    opacity: 1;
+  }
+  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__cta, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__cta {
     opacity: 1;
     transform: translateX(0);
   }
@@ -23971,12 +24005,10 @@ main.main-content {
 .field--name-field-topic-cards .topic-card[role=link], .how-we-help-section .topic-cards-row .topic-card[role=link] {
   cursor: pointer;
   transition: all 0.3s ease-in-out;
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   position: relative;
   display: flex;
-  align-items: stretch;
-  min-height: 220px;
-  height: 100%;
+  align-items: flex-start;
 }
 @media (max-width: 767.98px) {
   .field--name-field-topic-cards .topic-card[role=link], .how-we-help-section .topic-cards-row .topic-card[role=link] {
@@ -23991,6 +24023,15 @@ main.main-content {
   outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
 }
+.field--name-field-topic-cards .topic-card[role=link]:focus:not(:focus-visible), .how-we-help-section .topic-cards-row .topic-card[role=link]:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+.field--name-field-topic-cards .topic-card[role=link]:focus-visible, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible {
+  outline: 3px solid #1263a0;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
+}
 .field--name-field-topic-cards .topic-card[role=link] *, .how-we-help-section .topic-cards-row .topic-card[role=link] * {
   pointer-events: none;
 }
@@ -24000,6 +24041,8 @@ main.main-content {
   justify-content: center;
   text-align: left;
   width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
 }
 .field--name-field-topic-cards .topic-card__title, .how-we-help-section .topic-cards-row .topic-card__title {
   font-size: 2.4rem;
@@ -24014,6 +24057,12 @@ main.main-content {
     font-size: 1.7rem;
   }
 }
+.field--name-field-topic-cards .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card__title .title-full {
+  display: block;
+}
+.field--name-field-topic-cards .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card__title .title-short {
+  display: none;
+}
 .field--name-field-topic-cards .topic-card__description, .how-we-help-section .topic-cards-row .topic-card__description {
   position: relative;
   max-height: 0;
@@ -24022,14 +24071,44 @@ main.main-content {
   visibility: hidden;
   pointer-events: none;
   font-size: 1.2rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
   transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+}
+.field--name-field-topic-cards .topic-card__description::after, .how-we-help-section .topic-cards-row .topic-card__description::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5em;
+  background: linear-gradient(to bottom, transparent, #ffffff);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+@media (max-width: 767.98px) {
+  .field--name-field-topic-cards .topic-card__description, .how-we-help-section .topic-cards-row .topic-card__description {
+    max-height: none;
+    opacity: 1;
+    visibility: visible;
+    margin-top: 0.5rem;
+    -webkit-line-clamp: unset;
+    color: inherit;
+  }
+  .field--name-field-topic-cards .topic-card__description::after, .how-we-help-section .topic-cards-row .topic-card__description::after {
+    display: none;
+  }
 }
 .field--name-field-topic-cards .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card__cta {
   position: absolute;
   bottom: 1rem;
   right: 1rem;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #1263a0;
   opacity: 0;
   transform: translateX(10px);
@@ -24041,6 +24120,14 @@ main.main-content {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .topic-card,
+  .topic-card__title,
+  .topic-card__description,
+  .topic-card__cta {
+    transition: none;
+  }
+}
 /***********************************************
  * Impact Cards Component
  * 
@@ -24805,11 +24892,19 @@ main.main-content {
   max-width: 920px;
   width: 100%;
 }
-.how-we-help-section .topic-card-col {
-  flex: 1 1 400px;
+.how-we-help-section .topic-cards-row .topic-card-col {
+  flex: 0 0 450px;
+  min-width: 450px;
   max-width: 450px;
 }
-
+@media (max-width: 767.98px) {
+  .how-we-help-section .topic-cards-row .topic-card-col {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: clamp(280px, 85vw, 340px);
+  }
+}
 /*--------------------------------------*
  * 4) IMPACT SECTION - Impact title, quote and cards
  *--------------------------------------*/

@@ -2,12 +2,14 @@
  * Topic Cards Component (Refactored with CSS Grid)
  ***********************************************/
 
-// The grid container for the cards
+// The flex container for the cards
+// Flexbox with justify-content: center naturally centers incomplete rows
+// This solves: pages with 1-2 cards, and last rows with 1-2 orphan cards
 .field--name-field-topic-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  // Remove stretch to allow cards to expand independently
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
   gap: 1.25rem;
   width: 100%;
   margin: 0 auto;
@@ -15,24 +17,39 @@
   z-index: 3;
 
   @include mobile {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    padding: 0; // Container provides gutters - see CONTAINER CONTRACT in _variables_theme.scss
+    flex-direction: column;
+    align-items: center;
     gap: 1rem;
   }
 
   .field__item {
+    // Fixed width = consistent card size regardless of how many per row
+    // calc((100% - 2 gaps) / 3) approximates 3-card-per-row width
+    // Centered via parent's justify-content: center when fewer than 3
+    flex: 0 0 calc((100% - 2.5rem) / 3);
+    max-width: 380px; // Cap for very wide screens
+    min-width: 320px; // Floor for narrow screens
     display: flex;
     justify-content: stretch;
-    // Add position relative to create a stacking context for the z-index on hover
     position: relative;
+
+    @include mobile {
+      flex: 0 0 auto;
+      width: 100%;
+      min-width: 0;
+      max-width: clamp(280px, 85vw, 340px);
+    }
   }
 
   .topic-card {
     @include card-base;
     flex: 1;
     width: 100%;
+    // FIXED HEIGHT: Prevents layout shift on hover
+    height: 220px;
     min-height: 220px;
+    max-height: 220px;
+    overflow: hidden;
     border: 6px solid $color-white;
     box-shadow: $shadow-card;
     z-index: 3;
@@ -57,7 +74,8 @@
       }
 
       @media (min-width: #{$break-md}) {
-        &:hover {
+        &:hover,
+        &:focus-visible {
           border-color: $color-primary;
           box-shadow: $shadow-glow-primary;
         }
@@ -75,38 +93,58 @@
       }
 
       @media (min-width: #{$break-md}) {
-        &:hover {
+        &:hover,
+        &:focus-visible {
           box-shadow: $shadow-glow-gray;
         }
       }
     }
 
-    // --- Shared Hover State - Disabled on mobile to prevent overflow ---
+    // --- Shared Hover/Focus State - Disabled on mobile to prevent overflow ---
+    // ACCESSIBLE: :focus-visible ensures keyboard users see the same reveal as mouse users
     @media (min-width: #{$break-md}) {
-      &[role="link"]:hover {
-        // Lift the card to a new layer on hover, so its growth doesn't affect its neighbors
+      &[role="link"]:hover,
+      &[role="link"]:focus-visible {
+        // Lift the card to a new layer on hover
         z-index: 10;
         background-color: $color-white;
+        padding-left: 1.25rem;  // Reduced from 2rem
+        padding-right: 1.25rem; // Reduced from 2rem
 
         .topic-card__content {
-          align-items: flex-start;
+          transform: translateY(-1rem); // Shift content upward on hover
         }
 
         .topic-card__title {
           color: $color-primary;
-          margin-bottom: 0.75rem;
-          font-size: $font-size-mobile-subheader;
+          font-size: $font-size-mobile-subheader; // Shrink title to make room for description
+          margin-bottom: 0.5rem;
+
+          // Show short title, hide full title on hover
+          .title-full {
+            display: none;
+          }
+          .title-short {
+            display: block;
+          }
         }
 
         .topic-card__description {
-          max-height: 999px;
+          // CLAMPED: Limit to 3 lines instead of full height (999px)
+          // This prevents layout shift because height is now predictable
+          max-height: 4.5em; // 3 lines × 1.5 line-height
           opacity: 1;
           visibility: visible;
           pointer-events: auto;
           margin-top: 0.5rem;
           color: $color-black;
+
+          // Only show fade gradient when text is actually clamped (JS adds .is-clamped)
+          &.is-clamped::after {
+            opacity: 1;
+          }
         }
-        
+
         .topic-card__cta {
           opacity: 1;
           transform: translateX(0);
@@ -116,32 +154,43 @@
 
     // --- Card Internals ---
     // Remove old __link styles - now using article as clickable element
-    
+
     // New accessible structure styling
     &[role="link"] {
       cursor: pointer;
       transition: $transition-base;
-      padding: 2rem;
+      // Even padding: same top/bottom for balanced spacing on hover
+      padding: 1.5rem 2rem;
       position: relative;
       display: flex;
-      align-items: stretch;
-      min-height: 220px; // Increased to accommodate all content consistently
-      height: 100%; // Ensure cards fill their container height
-      
+      align-items: flex-start; // Align content to top, padding controls spacing
+
       @include mobile {
         min-height: 80px;         // Minimum for visual consistency
         height: auto;             // Allow content to dictate height
         max-height: none;         // Remove restriction to prevent text truncation
         padding: 0.75rem;
       }
-      
+
       // Focus styles for accessibility
       &:focus {
         outline: 3px solid $color-primary;
         outline-offset: 2px;
         box-shadow: $focus-ring-primary;
       }
-      
+
+      // Hide focus ring for mouse users, show only for keyboard
+      &:focus:not(:focus-visible) {
+        outline: none;
+        box-shadow: $shadow-card;
+      }
+
+      &:focus-visible {
+        outline: 3px solid $color-primary;
+        outline-offset: 2px;
+        box-shadow: $focus-ring-primary;
+      }
+
       // Remove pointer events from child elements to prevent bubbling
       * {
         pointer-events: none;
@@ -151,9 +200,11 @@
     &__content {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: center; // Vertically centered by default
       text-align: left;
       width: 100%;
+      height: 100%;
+      transition: transform 0.3s ease;
     }
 
     &__title {
@@ -163,6 +214,14 @@
       margin: 0;
       transition: $transition-base;
       text-align: left;
+
+      // Title swap: show full by default, short on hover
+      .title-full {
+        display: block;
+      }
+      .title-short {
+        display: none;
+      }
     }
 
     &__description {
@@ -173,23 +232,68 @@
       visibility: hidden;
       pointer-events: none;
       font-size: 1.2rem;
+      line-height: 1.5;
+      // LINE CLAMP: When revealed on hover, limit to 3 lines
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      text-overflow: ellipsis;
       transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+
+      // Fade gradient overlay (belt and suspenders with line-clamp)
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1.5em;
+        background: linear-gradient(to bottom, transparent, $color-white);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      @include mobile {
+        // Mobile: always visible, no clamp (no hover state anyway)
+        max-height: none;
+        opacity: 1;
+        visibility: visible;
+        margin-top: 0.5rem;
+        -webkit-line-clamp: unset;
+        color: inherit;
+
+        &::after {
+          display: none; // No fade needed on mobile
+        }
+      }
     }
-    
+
     &__cta {
       position: absolute;
       bottom: 1rem;
       right: 1rem;
       font-size: 0.875rem;
-      font-weight: $weight-label;
-      color: $color-primary; // Always use primary color for visibility
+      font-weight: $weight-heading; // Bolder for better visibility
+      color: $color-primary;
       opacity: 0;
       transform: translateX(10px);
       transition: $transition-base;
-      
+
       @include mobile {
-        display: none; // Hide on mobile where hover doesn't work well
+        display: none;
       }
     }
+  }
+}
+
+// --- Reduced Motion Support ---
+// ACCESSIBLE: Respects user's motion preferences
+@media (prefers-reduced-motion: reduce) {
+  .topic-card,
+  .topic-card__title,
+  .topic-card__description,
+  .topic-card__cta {
+    transition: none;
   }
 }

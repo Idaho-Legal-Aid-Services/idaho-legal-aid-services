@@ -184,13 +184,25 @@
     // Constrain the container to be wide enough for two large cards plus a gap
     max-width: 920px;
     width: 100%;
+
+    // Home page exception: wider cards (450px vs 320-380px default)
+    // Must be nested here for proper specificity over @extend
+    .topic-card-col {
+      flex: 0 0 450px;
+      min-width: 450px;
+      max-width: 450px;
+
+      @include mobile {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        max-width: clamp(280px, 85vw, 340px);
+      }
+    }
   }
 
   .topic-card-col {
     @extend .field__item;
-    // Allow cards to be flexible but aim for a large size
-    flex: 1 1 400px;
-    max-width: 450px;
   }
 }
 

@@ -19,6 +19,25 @@
         return window.innerWidth >= 1200;
       }
 
+      // FIX (Cause C): Track whether the most recent interaction was pointer vs keyboard.
+      // We want to blur only for pointer clicks (avoid harming keyboard UX).
+      // This is set up once per page load via the 'body' once handler.
+      once('dropdown-pointer-tracking', 'body', context).forEach(function () {
+        window.dropdownLastInputWasPointer = false;
+
+        document.addEventListener('pointerdown', function () {
+          window.dropdownLastInputWasPointer = true;
+        }, true);
+
+        document.addEventListener('keydown', function (e) {
+          // Any keyboard interaction should disable pointer assumption.
+          // Tab/Enter/Space are the common ones that trigger click or focus movement.
+          if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') {
+            window.dropdownLastInputWasPointer = false;
+          }
+        }, true);
+      });
+
       // Initialize dropdowns with hover behavior
       once('dropdown-menu', '.centered-logo-navbar .nav-item.dropdown', context).forEach(function (dropdown) {
         var toggle = dropdown.querySelector('.dropdown-toggle');
@@ -121,17 +140,41 @@
         });
 
         // Click on toggle navigates to parent page (desktop)
+        // FIX (Cause C): Hybrid approach - blur only for pointer clicks, programmatic
+        // navigation only when Bootstrap would intercept the click.
         toggle.addEventListener('click', function (e) {
-          if (isDesktop()) {
-            var href = this.getAttribute('href');
-            if (href && href !== '#') {
-              // Clean up hover state before navigating
-              dropdown.classList.remove('dropdown-hover');
-              window.location.href = href;
-              e.preventDefault();
-            }
+          if (!isDesktop()) {
+            // On mobile, let Bootstrap handle the click-to-toggle behavior
+            return;
           }
-          // On mobile, let Bootstrap handle the click-to-toggle behavior
+
+          var href = this.getAttribute('href');
+          if (!href || href === '#') {
+            return;
+          }
+
+          // Clean up hover-open state regardless of input type
+          dropdown.classList.remove('dropdown-hover');
+
+          // Pointer click focus should not "stick" visually after navigation.
+          // Keyboard users should KEEP focus (accessibility).
+          if (window.dropdownLastInputWasPointer) {
+            this.blur();
+          }
+
+          // If this link is wired as a Bootstrap dropdown toggle, normal navigation
+          // may not happen (Bootstrap intercepts clicks). Take over navigation explicitly.
+          var isBootstrapToggle =
+            this.classList.contains('dropdown-toggle') ||
+            this.hasAttribute('data-bs-toggle') ||
+            this.getAttribute('aria-haspopup') === 'true';
+
+          if (isBootstrapToggle) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.assign(href);
+          }
+          // Else: do NOT preventDefault — let the browser handle normal navigation.
         });
       });
 

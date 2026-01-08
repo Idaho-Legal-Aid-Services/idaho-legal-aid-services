@@ -4,6 +4,17 @@
  * Only activates on devices with hover capability
  *--------------------------------------*/
 
+// FIX (Cause B): Prevent CSS hover highlight on dropdown toggles on mouse-capable devices.
+// JS `.dropdown-hover` class owns the hover-open + highlight behavior.
+// This rule is outside the min-width constraint because hover conflicts can occur
+// at any viewport size on devices with true hover capability.
+@media (hover: hover) and (pointer: fine) {
+  .centered-logo-navbar .nav-item.dropdown > .nav-link:hover {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
 // Hover-open dropdowns (desktop with mouse only)
 @media (min-width: $large-desktop-breakpoint) and (hover: hover) and (pointer: fine) {
   .centered-logo-navbar .dropdown {
@@ -14,13 +25,6 @@
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
-    }
-
-    // Disable CSS :hover on dropdown toggles - browser can get stuck
-    // Use JS .dropdown-hover class instead for reliable show/hide
-    > .nav-link:hover {
-      background-color: transparent !important;
-      color: $color-black !important;
     }
 
     // Parent link highlight is handled via .dropdown-hover class added by JS

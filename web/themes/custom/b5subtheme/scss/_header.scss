@@ -172,6 +172,17 @@ $transition-speed: 0.3s;
     }
   }
 
+  // FIX (Cause A): Override Bootstrap `.nav-link:focus` which triggers on mouse click.
+  // We only want the highlight on keyboard focus (`:focus-visible`).
+  // Wrapped in @supports so browsers without :focus-visible don't lose focus styling.
+  @supports selector(:focus-visible) {
+    .nav-link:focus:not(:focus-visible) {
+      background-color: transparent;
+      color: inherit;
+      outline: none;
+    }
+  }
+
   // ===================================
   // Desktop Layout (>=1200px) - Grid-based centered logo
   // ===================================
