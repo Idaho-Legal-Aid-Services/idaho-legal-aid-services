@@ -19,23 +19,23 @@
         return window.innerWidth >= 1200;
       }
 
-      // FIX (Cause C): Track whether the most recent interaction was pointer vs keyboard.
-      // We want to blur only for pointer clicks (avoid harming keyboard UX).
-      // This is set up once per page load via the 'body' once handler.
+      // Track whether the most recent interaction was pointer vs keyboard.
+      // Used to decide whether to blur on click navigation (pointer only).
       once('dropdown-pointer-tracking', 'body', context).forEach(function () {
         window.dropdownLastInputWasPointer = false;
 
-        document.addEventListener('pointerdown', function () {
-          window.dropdownLastInputWasPointer = true;
-        }, true);
+        // Pointer movement counts as pointer usage (covers "first action is hover")
+        document.addEventListener('pointermove', function (e) {
+          if (e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === 'touch') {
+            window.dropdownLastInputWasPointer = true;
+          }
+        }, { capture: true, passive: true });
 
         document.addEventListener('keydown', function (e) {
-          // Any keyboard interaction should disable pointer assumption.
-          // Tab/Enter/Space are the common ones that trigger click or focus movement.
           if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') {
             window.dropdownLastInputWasPointer = false;
           }
-        }, true);
+        }, { capture: true });
       });
 
       // Initialize dropdowns with hover behavior
@@ -47,16 +47,15 @@
           return;
         }
 
-        var hoverTimeout = null;
+        // Timer for deferred hide - stored on the element for per-dropdown control
+        dropdown._hideTimer = null;
 
         /**
          * Get or create Bootstrap Dropdown instance
-         * Initialize immediately and ensure clean starting state
          */
         var bsDropdown = null;
         if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
           bsDropdown = bootstrap.Dropdown.getOrCreateInstance(toggle, { popperConfig: null });
-          // Ensure dropdown starts in a clean hidden state
           bsDropdown.hide();
         }
 
@@ -65,13 +64,48 @@
         }
 
         /**
-         * Show dropdown using Bootstrap API
+         * Check if dropdown should remain open.
+         * Pointer hover keeps it open.
+         * Keyboard focus keeps it open (ONLY if last input was keyboard).
+         */
+        function shouldKeepOpen() {
+          // Pointer hover keeps it open
+          if (dropdown.matches(':hover')) {
+            return true;
+          }
+          // Keyboard focus keeps it open (ONLY if the last input was keyboard)
+          if (!window.dropdownLastInputWasPointer && dropdown.contains(document.activeElement)) {
+            return true;
+          }
+          return false;
+        }
+
+        /**
+         * Schedule a hide with deferred shouldKeepOpen check.
+         * The check happens at hide time, not at schedule time.
+         */
+        function scheduleHide(delay) {
+          if (typeof delay === 'undefined') {
+            delay = 150; // Default delay for smooth UX
+          }
+          clearTimeout(dropdown._hideTimer);
+          dropdown._hideTimer = setTimeout(function () {
+            if (shouldKeepOpen()) {
+              return;
+            }
+            hideDropdown();
+          }, delay);
+        }
+
+        /**
+         * Show dropdown using Bootstrap API.
+         * NOTE: No focus/blur here - focus management is keyboard-only.
          */
         function showDropdown() {
           if (!isDesktop()) {
             return;
           }
-          clearTimeout(hoverTimeout);
+          clearTimeout(dropdown._hideTimer);
           dropdown.classList.add('dropdown-hover');
           var instance = getDropdownInstance();
           if (instance) {
@@ -80,45 +114,52 @@
         }
 
         /**
-         * Hide dropdown using Bootstrap API with small delay
-         * Delay prevents flickering when moving mouse between toggle and menu
+         * Hide dropdown immediately (no delay, no check).
+         * Use scheduleHide() for deferred hide with shouldKeepOpen check.
          */
         function hideDropdown() {
           if (!isDesktop()) {
             return;
           }
-          hoverTimeout = setTimeout(function () {
-            dropdown.classList.remove('dropdown-hover');
-            var instance = getDropdownInstance();
-            if (instance) {
-              instance.hide();
-            }
-          }, 150);
-        }
+          clearTimeout(dropdown._hideTimer);
+          dropdown.classList.remove('dropdown-hover');
+          var instance = getDropdownInstance();
+          if (instance) {
+            instance.hide();
+          }
 
-        /**
-         * Cancel pending hide when re-entering dropdown area
-         */
-        function cancelHide() {
-          clearTimeout(hoverTimeout);
+          // KEY FIX: If last input was pointer, blur any focused element inside dropdown.
+          // Focus is what produces the "stuck hover" highlight via :focus styling.
+          if (window.dropdownLastInputWasPointer) {
+            var ae = document.activeElement;
+            if (ae && dropdown.contains(ae) && typeof ae.blur === 'function') {
+              ae.blur();
+            }
+          }
         }
 
         // Hover open - on dropdown container
         dropdown.addEventListener('mouseenter', showDropdown);
 
-        // Hover close - on dropdown container
-        dropdown.addEventListener('mouseleave', hideDropdown);
+        // Hover close - schedule hide with shouldKeepOpen check
+        dropdown.addEventListener('mouseleave', function () {
+          scheduleHide(150);
+        });
 
-        // Cancel hide when entering menu (prevents flicker)
-        menu.addEventListener('mouseenter', cancelHide);
+        // Cancel pending hide when entering menu (prevents flicker)
+        menu.addEventListener('mouseenter', function () {
+          clearTimeout(dropdown._hideTimer);
+        });
 
-        // Hide when leaving menu
-        menu.addEventListener('mouseleave', hideDropdown);
+        // Hide when leaving menu - schedule with check
+        menu.addEventListener('mouseleave', function () {
+          scheduleHide(150);
+        });
 
-        // Focus behavior for keyboard accessibility (only on keyboard focus, not mouse click)
+        // Focus behavior for keyboard accessibility
+        // Only opens on keyboard focus (:focus-visible), not mouse click
         toggle.addEventListener('focus', function () {
           if (isDesktop()) {
-            // Small delay to avoid conflict with click
             setTimeout(function () {
               if (document.activeElement === toggle && toggle.matches(':focus-visible')) {
                 showDropdown();
@@ -127,24 +168,17 @@
           }
         });
 
-        // Blur handler - hide dropdown when focus leaves the entire dropdown area
-        dropdown.addEventListener('focusout', function (e) {
+        // Focus leaves dropdown area - schedule hide with shouldKeepOpen check
+        // This handles keyboard navigation away AND any programmatic blur
+        dropdown.addEventListener('focusout', function () {
           if (isDesktop()) {
-            // Check if focus moved outside the dropdown entirely
-            setTimeout(function () {
-              if (!dropdown.contains(document.activeElement)) {
-                hideDropdown();
-              }
-            }, 10);
+            scheduleHide(50);
           }
         });
 
         // Click on toggle navigates to parent page (desktop)
-        // FIX (Cause C): Hybrid approach - blur only for pointer clicks, programmatic
-        // navigation only when Bootstrap would intercept the click.
         toggle.addEventListener('click', function (e) {
           if (!isDesktop()) {
-            // On mobile, let Bootstrap handle the click-to-toggle behavior
             return;
           }
 
@@ -153,17 +187,15 @@
             return;
           }
 
-          // Clean up hover-open state regardless of input type
+          // Clean up hover state
           dropdown.classList.remove('dropdown-hover');
 
-          // Pointer click focus should not "stick" visually after navigation.
-          // Keyboard users should KEEP focus (accessibility).
+          // Blur only for pointer clicks (preserve keyboard focus)
           if (window.dropdownLastInputWasPointer) {
             this.blur();
           }
 
-          // If this link is wired as a Bootstrap dropdown toggle, normal navigation
-          // may not happen (Bootstrap intercepts clicks). Take over navigation explicitly.
+          // If Bootstrap dropdown toggle, take over navigation
           var isBootstrapToggle =
             this.classList.contains('dropdown-toggle') ||
             this.hasAttribute('data-bs-toggle') ||
@@ -174,21 +206,14 @@
             e.stopPropagation();
             window.location.assign(href);
           }
-          // Else: do NOT preventDefault — let the browser handle normal navigation.
         });
       });
 
       // Handle breakpoint crossing - close all dropdowns when crossing 1200px
-      // Uses matchMedia for efficiency (fires once on threshold cross, not every resize tick)
       once('dropdown-menu-breakpoint', 'body', context).forEach(function () {
         var desktopQuery = window.matchMedia('(min-width: 1200px)');
 
-        /**
-         * Force-close all dropdowns and clean up state
-         * Prevents "stuck" dropdowns when crossing breakpoints
-         */
         function closeAllDropdowns() {
-          // Close via Bootstrap API
           document.querySelectorAll('.centered-logo-navbar .dropdown-menu.show').forEach(function (menu) {
             var toggle = menu.previousElementSibling;
             if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
@@ -199,7 +224,6 @@
             }
           });
 
-          // Clean up any stuck CSS classes
           document.querySelectorAll('.centered-logo-navbar .dropdown.show').forEach(function (d) {
             d.classList.remove('show');
           });
@@ -207,13 +231,11 @@
             d.classList.remove('dropdown-hover');
           });
 
-          // Reset aria-expanded attributes
           document.querySelectorAll('.centered-logo-navbar .dropdown-toggle[aria-expanded="true"]').forEach(function (t) {
             t.setAttribute('aria-expanded', 'false');
           });
         }
 
-        // Listen for breakpoint crossing (fires exactly once when threshold is crossed)
         desktopQuery.addEventListener('change', closeAllDropdowns);
       });
     }

@@ -4,14 +4,22 @@
  * Only activates on devices with hover capability
  *--------------------------------------*/
 
-// FIX (Cause B): Prevent CSS hover highlight on dropdown toggles on mouse-capable devices.
-// JS `.dropdown-hover` class owns the hover-open + highlight behavior.
-// This rule is outside the min-width constraint because hover conflicts can occur
-// at any viewport size on devices with true hover capability.
+// FIX (Cause B): On hover-capable devices, only `.dropdown-hover` (JS-controlled)
+// should highlight the toggle. Disable both CSS :hover AND Bootstrap's .show styling.
+// JS adds/removes .dropdown-hover reliably; .show can get out of sync.
 @media (hover: hover) and (pointer: fine) {
-  .centered-logo-navbar .nav-item.dropdown > .nav-link:hover {
-    background-color: transparent;
-    color: inherit;
+  .centered-logo-navbar .nav-item.dropdown {
+    // Disable CSS :hover highlight on toggle - JS handles it
+    > .nav-link:hover {
+      background-color: transparent;
+      color: inherit;
+    }
+
+    // Disable Bootstrap .show highlight - JS .dropdown-hover handles it
+    &.show > .nav-link {
+      background-color: transparent;
+      color: inherit;
+    }
   }
 }
 
@@ -48,9 +56,20 @@
 
 // Accessibility: Focus management for keyboard nav
 .centered-logo-navbar .dropdown {
+  // Only show focus-visible outline when NOT in hover mode.
+  // Bootstrap's show() can trigger :focus-visible even for pointer interactions.
   .dropdown-toggle:focus-visible {
     outline: 2px solid $color-primary;
     outline-offset: 2px;
+  }
+
+  // When dropdown-hover is active (pointer interaction), suppress focus styling
+  &.dropdown-hover .dropdown-toggle {
+    &:focus,
+    &:focus-visible {
+      outline: 0 !important;
+      box-shadow: none !important;
+    }
   }
 
   .dropdown-menu .dropdown-item:focus-visible {

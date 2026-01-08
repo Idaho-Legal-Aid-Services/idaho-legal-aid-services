@@ -21254,6 +21254,10 @@ footer {
     background-color: transparent;
     color: inherit;
   }
+  .centered-logo-navbar .nav-item.dropdown.show > .nav-link {
+    background-color: transparent;
+    color: inherit;
+  }
 }
 @media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
   .centered-logo-navbar .dropdown:hover > .dropdown-menu {
@@ -21276,6 +21280,10 @@ footer {
 .centered-logo-navbar .dropdown .dropdown-toggle:focus-visible {
   outline: 2px solid #1263a0;
   outline-offset: 2px;
+}
+.centered-logo-navbar .dropdown.dropdown-hover .dropdown-toggle:focus, .centered-logo-navbar .dropdown.dropdown-hover .dropdown-toggle:focus-visible {
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 .centered-logo-navbar .dropdown .dropdown-menu .dropdown-item:focus-visible {
   outline: 2px solid #1263a0;
