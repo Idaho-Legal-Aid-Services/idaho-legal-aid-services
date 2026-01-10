@@ -49,7 +49,7 @@
     text-transform: none;
     color: $color-black;
     text-align: center;
-    max-width: 75ch;
+    max-width: $reading-column-width;
     margin-inline: auto;
     
     @include tablet {
@@ -91,11 +91,10 @@
 
   .resource-sections {
     margin-bottom: 3rem;
-    // Remove any padding constraints to match standard pages
-    
+
     .paragraph {
       margin-bottom: 2rem;
-      
+
       &:last-child {
         margin-bottom: 0;
       }

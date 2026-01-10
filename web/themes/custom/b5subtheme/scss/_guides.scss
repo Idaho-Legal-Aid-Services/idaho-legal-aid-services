@@ -56,7 +56,7 @@
     z-index: z('overlay');
     margin: 0 auto 3rem auto;
     padding: 0; // Container provides gutters
-    max-width: 75ch; // Optimal reading width
+    max-width: $reading-column-width; // Optimal reading width
     @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
     line-height: 1.6;
     text-transform: none;
@@ -84,6 +84,126 @@
 }
 
 
+/*──────────── 3b) Topic Navigation Filter ────────────*/
+// Jump-to-topic dropdown matching press-room-filter style
+.guides-filter-section {
+  padding: 0 0 1.5rem;
+
+  @include mobile {
+    padding: 0 0 1rem;
+  }
+}
+
+.guides-filter {
+  max-width: 500px;
+  margin: 0 auto;
+
+  @include mobile {
+    max-width: 100%;
+  }
+
+  // Inner container with styling
+  &__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacer-sm;
+    align-items: flex-end;
+    justify-content: center;
+    padding: $spacer;
+    background-color: $color-gray-bg;
+    border-radius: $border-radius-lg;
+    box-shadow: $box-shadow-sm;
+    border: 2px solid $color-primary;
+
+    @include mobile {
+      flex-direction: column;
+      padding: $spacer-sm;
+    }
+  }
+
+  &__select {
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+
+    label {
+      font-size: 1.1rem;
+      font-weight: $font-weight-bold;
+      color: $color-primary;
+      margin-bottom: $spacer-sm;
+      display: block;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+
+      @include mobile {
+        font-size: 1rem;
+      }
+    }
+
+    select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      border: 2px solid $color-gray-border;
+      border-radius: $border-radius;
+      background-color: $color-white;
+      transition: $transition-fast;
+      cursor: pointer;
+
+      &:focus {
+        border-color: $color-primary;
+        box-shadow: 0 0 0 3px rgba($color-primary, 0.15);
+        outline: none;
+      }
+    }
+  }
+
+  &__actions {
+    flex-shrink: 0;
+
+    @include mobile {
+      width: 100%;
+    }
+  }
+
+  &__button {
+    display: inline-block;
+    font-family: $font-family-sans-serif;
+    font-weight: $font-weight-semibold;
+    text-align: center;
+    white-space: nowrap;
+    border: 2px solid $color-primary;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    border-radius: $border-radius;
+    transition: $transition-base;
+    cursor: pointer;
+    background-color: $color-primary;
+    color: $color-white;
+
+    @include mobile {
+      width: 100%;
+    }
+
+    &:hover,
+    &:focus {
+      background-color: $color-white;
+      border-color: $color-primary;
+      color: $color-primary;
+      transform: translateY(-1px);
+      box-shadow: $shadow-pressed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
+    }
+  }
+}
+
+
 /*──────────── 4) Main Content Area ────────────*/
 // Container for grid/list content - container provides gutters
 .guides-main-content {
@@ -93,10 +213,20 @@
   margin: 0 auto 3rem auto;
   padding: 0; // Container provides gutters
   max-width: 1200px;
+
+  // Reduced margin for topic pages (item listings)
+  .guides-by-topic & {
+    margin-bottom: 1.5rem;
+  }
 }
 
 .guides-content {
   padding: 2rem 0 3rem;
+
+  // Reduced padding for topic pages
+  .guides-by-topic & {
+    padding-bottom: 2rem;
+  }
 }
 
 
@@ -199,6 +329,14 @@
     text-align: center;
     line-height: 1.3;
     color: $color-primary;
+    // Prevent long words from overflowing
+    overflow-wrap: anywhere;
+    word-break: break-word; // Fallback for older browsers
+    hyphens: auto;
+
+    @include mobile {
+      font-size: 1.1rem;
+    }
   }
 
   // Description styling - centered
@@ -215,7 +353,10 @@
 /*──────────── 6) Topic Page Back Button ────────────*/
 .guides-back-nav {
   margin-top: 2rem;
-  text-align: left;
+  max-width: $reading-column-width; // Match item list width for alignment
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left; // Button aligns to left edge of centered container
 
   .btn {
     display: inline-flex;
@@ -235,6 +376,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--guides-gap);
+  max-width: $reading-column-width; // Optimal reading width
+  margin: 0 auto; // Center the list
 }
 
 .guide-item-card {
@@ -245,6 +388,8 @@
   padding: var(--guides-card-padding);
   box-shadow: var(--guides-shadow-sm);
   transition: var(--guides-transition);
+  width: 100%; // Fill available width within centered container
+  text-align: center; // Center all content
 
   &:hover,
   &:focus-within {
@@ -259,6 +404,7 @@
     color: var(--guides-primary);
     margin: 0 0 0.5rem;
     line-height: 1.3;
+    text-align: center;
   }
 
   .guide-item-description {
@@ -266,7 +412,8 @@
     line-height: 1.5;
     color: var(--guides-text);
     margin: 0 0 1rem;
-    max-width: 75ch;
+    max-width: $reading-column-width;
+    text-align: center;
   }
 
   .guide-item-download {
@@ -372,6 +519,16 @@
 .guides-pager {
   margin-top: 2rem;
 
+  // Hide empty pager containers
+  &:empty {
+    display: none;
+  }
+
+  // Hide pager when it only has one page (just current page indicator)
+  &:has(.pager__items:only-child .pager__item:only-child) {
+    display: none;
+  }
+
   .pager {
     display: flex;
     justify-content: center;
@@ -380,6 +537,12 @@
     list-style: none;
     padding: 0;
     margin: 0;
+
+    // Hide empty pager lists
+    &:empty,
+    .pager__items:empty {
+      display: none;
+    }
 
     .pager__item {
       a,

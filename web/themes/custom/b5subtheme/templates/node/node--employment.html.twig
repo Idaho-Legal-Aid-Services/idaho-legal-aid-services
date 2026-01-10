@@ -86,9 +86,7 @@
     {# Job Opportunities Section - Using Accordion #}
     {% if content.field_job_listings %}
       <div class="job-opportunities-section mt-4">
-        <div class="accordion" id="jobListingsAccordion">
-          {{ content.field_job_listings }}
-        </div>
+        {{ content.field_job_listings }}
       </div>
     {% endif %}
 
@@ -111,7 +109,7 @@
 
     {# Additional Content #}
     {% if content.field_additional_content %}
-      <div class="additional-content mt-4">
+      <div class="additional-content content-body mt-4">
         {{ content.field_additional_content }}
       </div>
     {% endif %}

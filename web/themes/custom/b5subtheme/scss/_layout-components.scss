@@ -49,7 +49,7 @@ main.main-content {
   z-index: z('overlay');
   margin: 0 auto var(--content-body-margin-bottom) auto;
   padding: 0; // Container provides gutters
-  max-width: 75ch; // Optimal reading width (~65-85 characters)
+  max-width: $reading-column-width; // Optimal reading width (~65-85 characters)
   @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
   line-height: $content-line-height;
   text-transform: none;
@@ -88,15 +88,29 @@ main.main-content {
 }
 
 // ===========================================================================
+// READING COLUMN UTILITY CLASS
+// Apply to any component that should match .content-body width
+// Use this for accordions, FAQ sections, and other styled containers
+// ===========================================================================
+.reading-column {
+  max-width: $reading-column-width;
+  margin-inline: auto;
+  width: 100%;
+}
+
+// ===========================================================================
 // STANDARD LAYOUT: Typography for pages without custom templates
 // Applied to content in .standard-layout wrapper (see page.html.twig)
 // ===========================================================================
 .standard-layout {
   // Provide typography for default node content
   .node__content {
-    @include responsive-typography(1.25rem, 1.15rem, $font-size-mobile-body);
+    max-width: $reading-column-width;
+    margin-inline: auto;
+    @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
     line-height: $content-line-height;
     color: $color-black;
+    text-align: center;
 
     p {
       margin-bottom: 1rem;

@@ -53,7 +53,7 @@
     line-height: 1.6;
     margin-bottom: 1rem;
     color: $color-black;
-    max-width: 75ch;
+    max-width: $reading-column-width;
 
     @include mobile {
       text-align: center;
@@ -241,7 +241,7 @@
     padding: 0;
     text-align: center;
     margin: 0 auto 2rem;
-    max-width: 75ch;
+    max-width: $reading-column-width;
     line-height: 1.4;
 
     @include mobile {

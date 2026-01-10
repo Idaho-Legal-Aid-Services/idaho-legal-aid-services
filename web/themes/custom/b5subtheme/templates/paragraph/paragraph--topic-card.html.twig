@@ -38,7 +38,7 @@
   'IDAHO SENIOR LEGAL RISK DETECTOR - ENGLISH': 'RISK DETECTOR ENGLISH',
   'IDAHO SENIOR LEGAL RISK DETECTOR - ESPANOL': 'RISK DETECTOR SPANISH',
   'SENIOR LEGAL RISK DETECTOR': 'RISK DETECTOR',
-  'FINANCIALS & REPORTS': 'FINANCIALS/REPORTS'
+  'FINANCIALS & REPORTS': 'FINANCIALS'
 } %}
 
 {# Get short title from map, or use full title if not mapped #}
@@ -64,12 +64,12 @@
 {% set cta_id = card_id ~ '-cta' %}
 
 <article{{ attributes.addClass(classes) }}
-         role="link"
-         tabindex="0"
          data-href="{{ topic_url }}"
-         aria-label="{{ aria_label }}"
          aria-labelledby="{{ title_id }}"
          aria-describedby="{{ desc_id }} {{ cta_id }}">
+
+  {# Stretched anchor for native link behavior (right-click, middle-click, etc.) #}
+  <a href="{{ topic_url }}" class="topic-card__link-overlay" aria-label="{{ aria_label }}"></a>
 
   <div class="topic-card__content">
     <h2 class="topic-card__title" id="{{ title_id }}">

@@ -41,7 +41,7 @@
     color: $color-black;
     font-size: 1.25rem;
     line-height: 1.6;
-    max-width: 75ch;
+    max-width: $reading-column-width;
     margin-inline: auto;
 
     @include mobile {

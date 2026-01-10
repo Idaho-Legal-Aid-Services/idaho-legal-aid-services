@@ -3,13 +3,14 @@
  * @file
  * Theme override to display a resource node.
  *
+ * Layout: Standard single-column with footer metadata
+ * - Uses standard .content-body (75ch, centered)
+ * - Metadata and back button in simple footer section
+ *
  * Available variables:
  * - node: The node entity with limited access to object properties and methods.
  * - label: The title of the node.
- * - content: All node items. Use {{ content }} to print them all,
- *   or print a subset such as {{ content.field_example }}. Use
- *   {{ content|without('field_example') }} to temporarily suppress the printing
- *   of a given child element.
+ * - content: All node items.
  */
 #}
 
@@ -17,103 +18,92 @@
 
 <article{{ attributes.addClass('node', 'node--type-resource', 'node--view-mode-full', 'resource-full') }}>
   <div class="container">
-    <div class="row align-items-start">
-      {# Main content column #}
-      <div class="col-lg-8">
-        {# Main content field - field template adds .content-body #}
-        {% if content.field_main_content %}
-          {{ content.field_main_content }}
-        {% endif %}
-        
-        {# Resource sections #}
-        {% if content.field_sections %}
-          <div class="resource-sections">
-            {{ content.field_sections }}
-          </div>
-        {% endif %}
-        
-        {# External resources section #}
-        {% if content.field_external_resources %}
-          <div class="resource-external mt-4">
-            <h2 class="external-resources-heading">External Resources</h2>
-            <ul class="external-resources inline-list">
-              {{ content.field_external_resources }}
-            </ul>
-          </div>
-        {% endif %}
-        
-        {# File download section #}
-        {% if content.field_file %}
-          <div class="resource-file mt-4">
-            <h3>Download Resource</h3>
-            {{ content.field_file }}
-          </div>
-        {% endif %}
-        
-        {# External link section #}
-        {% if content.field_link %}
-          <div class="resource-link mt-4">
-            <h3>External Link</h3>
-            {{ content.field_link }}
-          </div>
-        {% endif %}
+
+    {# Main content field - field template adds .content-body (standard 75ch centered) #}
+    {% if content.field_main_content %}
+      {{ content.field_main_content }}
+    {% endif %}
+
+    {# Resource sections #}
+    {% if content.field_sections %}
+      <div class="resource-sections">
+        {{ content.field_sections }}
       </div>
-      
-      {# Sidebar column #}
-      <div class="col-lg-4 sidebar-column">
-        <div class="sidebar-sticky-wrapper">
-          <div class="sidebar-card card">
-          <div class="card-header">
-            <h3>Resource Information</h3>
-          </div>
-          
-          <div class="card-body">
-            {# Service Areas #}
-            {% if node.field_service_areas %}
-              <div class="resource-service-areas mb-3 text-center">
-                <h4>SERVICE AREAS</h4>
-                <div class="service-areas-badges">
-                  {% for item in node.field_service_areas %}
-                    {% if item.entity %}
-                      <span class="service-area-badge">{{ item.entity.label }}</span>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
-            
-            {# Topics #}
-            {% if node.field_topics %}
-              <div class="resource-topics mb-3 text-center">
-                <h4>TOPICS</h4>
-                <div class="topics-items">
-                  {% for item in node.field_topics %}
-                    {% if item.entity %}
-                      <span class="topic-item">{{ item.entity.label }}</span>
-                      {% if not loop.last %}<span class="topic-separator">|</span>{% endif %}
-                    {% endif %}
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
-            
-            {# Last updated #}
-            <div class="last-updated text-center">
-              <h4>Last Updated</h4>
-              <p>{{ node.changed.value|date('F j, Y') }}</p>
-            </div>
-          </div>
-          
-          {# Card footer with back button #}
-          <div class="card-footer text-center">
-            <a href="/resources" class="btn btn-primary back-button" data-back-fallback>
-              <i class="fas fa-arrow-left" aria-hidden="true"></i>
-              <span>{{ 'Back'|t }}</span>
-            </a>
-          </div>
-        </div>
-        </div>
+    {% endif %}
+
+    {# External resources section #}
+    {% if content.field_external_resources %}
+      <div class="resource-external">
+        <h2 class="external-resources-heading">External Resources</h2>
+        <ul class="external-resources inline-list">
+          {{ content.field_external_resources }}
+        </ul>
       </div>
-    </div>
+    {% endif %}
+
+    {# File download section #}
+    {% if content.field_file %}
+      <div class="resource-file">
+        <h3>Download Resource</h3>
+        {{ content.field_file }}
+      </div>
+    {% endif %}
+
+    {# External link section #}
+    {% if content.field_link %}
+      <div class="resource-link">
+        <h3>External Link</h3>
+        {{ content.field_link }}
+      </div>
+    {% endif %}
+
+    {# Footer section with metadata and back button #}
+    <footer class="resource-footer">
+
+      {# Service Areas #}
+      {% if node.field_service_areas %}
+        <div class="resource-footer-item resource-service-areas">
+          <span class="resource-footer-label">{{ 'Service Areas'|t }}</span>
+          <span class="resource-footer-value">
+            {% for item in node.field_service_areas %}
+              {% if item.entity %}
+                <span class="service-area-badge">{{ item.entity.label }}</span>
+              {% endif %}
+            {% endfor %}
+          </span>
+        </div>
+      {% endif %}
+
+      {# Topics #}
+      {% if node.field_topics %}
+        <div class="resource-footer-item resource-topics">
+          <span class="resource-footer-label">{{ 'Topics'|t }}</span>
+          <span class="resource-footer-value">
+            {% for item in node.field_topics %}
+              {% if item.entity %}
+                <span class="topic-item">{{ item.entity.label }}</span>
+                {% if not loop.last %}<span class="topic-separator">|</span>{% endif %}
+              {% endif %}
+            {% endfor %}
+          </span>
+        </div>
+      {% endif %}
+
+      {# Last updated #}
+      <div class="resource-footer-item resource-last-updated">
+        <span class="resource-footer-label">{{ 'Last Updated'|t }}</span>
+        <span class="resource-footer-value">{{ node.changed.value|date('F j, Y') }}</span>
+      </div>
+
+      {# Back button #}
+      <div class="resource-footer-back">
+        <a href="/resources" class="btn btn-primary back-button" data-back-fallback>
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+          <span>{{ 'Back'|t }}</span>
+        </a>
+      </div>
+
+    </footer>
+
   </div>
 </article>

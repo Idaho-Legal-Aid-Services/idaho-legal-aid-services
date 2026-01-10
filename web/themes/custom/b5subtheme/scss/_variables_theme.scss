@@ -80,6 +80,11 @@ $font-size-mobile-body: 1.1rem;        // Body text, descriptions
 // Used with @include responsive-typography() for consistent content areas
 $content-line-height: 1.6;             // Standard line-height for body content
 
+// Reading Column Width
+// Single source of truth for body content max-width
+// 75ch ≈ 600px at 16px base ≈ 65-85 characters per line (optimal readability)
+$reading-column-width: 75ch !default;
+
 // =============================================================================
 // SPACING
 // =============================================================================

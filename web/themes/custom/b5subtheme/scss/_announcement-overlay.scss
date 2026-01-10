@@ -311,7 +311,7 @@ $announcement-btn-text: #ffffff;
   line-height: 1.6;
   color: $color-black;
   margin-bottom: 2rem;
-  max-width: 75ch;
+  max-width: $reading-column-width;
   margin-inline: auto;
 
   @include mobile {

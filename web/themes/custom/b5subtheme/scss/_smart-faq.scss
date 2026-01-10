@@ -11,67 +11,322 @@ $faq-focus-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
 // Extend base accordion-section styles
 .faq-smart-section {
     @extend .accordion-section;
-    
+
     // FAQ-specific title selector
     .faq-section-title {
       @extend .accordion-section-title;
     }
-    
-    // Search styling
+
+    // -----------------------------------------------------------------------------
+    // FAQ Search Container - Matches search results page + press-room-filter style
+    // -----------------------------------------------------------------------------
     .faq-search-container {
-      max-width: 700px;
-      margin: 0 auto;
+      max-width: 600px;
+      margin: 0 auto 1.5rem;
+      padding: $spacer;
+      background-color: $color-gray-bg;
+      border-radius: $border-radius-lg;
+      box-shadow: $box-shadow-sm;
+      border: 2px solid $color-primary;
+      position: relative;
 
-      // Search icon background uses primary color
-      // Doubled selector for specificity over Bootstrap's .input-group-text
-      .input-group-text.input-group-text {
-        background-color: $color-primary;
-        border-color: $color-primary;
-        color: $color-white;
+      @include mobile {
+        padding: $spacer-sm;
+        margin-bottom: 1rem;
+      }
 
-        // Override Bootstrap's bg-primary utility - requires !important
-        // because Bootstrap utilities use !important by design
-        &.bg-primary {
-          background-color: $color-primary !important;
+      // Search label - centered, uppercase, matches search results page
+      .faq-search-label {
+        display: block;
+        font-size: 1.25rem;
+        color: $color-primary;
+        font-weight: $weight-heading;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: $spacer-sm;
+
+        @include mobile {
+          font-size: 1.1rem;
         }
       }
-      
-      // Make search button smaller
-      .btn-sm {
-        padding: 0.375rem 1rem;
-        font-size: 0.875rem;
-        min-height: auto;
+
+      // Form row - flex layout for input + button
+      .faq-search-form {
+        display: flex;
+        gap: $spacer-sm;
+        align-items: stretch;
+
+        @include mobile {
+          flex-direction: column;
+        }
       }
-      
+
+      // Input wrapper with icon
+      .faq-search-input-wrapper {
+        flex: 1;
+        position: relative;
+        display: flex;
+        align-items: stretch;
+      }
+
+      // Search icon - left side of input
+      .faq-search-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        background-color: $color-primary;
+        border: 2px solid $color-primary;
+        border-right: none;
+        border-radius: $border-radius 0 0 $border-radius;
+        color: $color-white;
+        font-size: 1rem;
+
+        @include mobile {
+          width: 2.75rem;
+        }
+      }
+
+      // Search input field
+      .faq-search {
+        flex: 1;
+        width: 100%;
+        padding: 0.625rem 1rem;
+        font-size: 1rem;
+        border: 2px solid $color-gray-border;
+        border-left: none;
+        border-radius: 0 $border-radius $border-radius 0;
+        transition: $transition-fast;
+        height: auto;
+
+        &:focus {
+          border-color: $color-primary;
+          box-shadow: 0 0 0 3px rgba($color-primary, 0.15);
+          outline: none;
+        }
+
+        &::placeholder {
+          color: $color-gray-text;
+        }
+      }
+
+      // Search button - matches standard btn-primary style
+      .faq-search-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: $font-family-sans-serif;
+        font-weight: $weight-button;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border: 2px solid $color-primary;
+        padding: 0.625rem 1.25rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: $border-radius;
+        transition: $transition-base;
+        cursor: pointer;
+        background-color: $color-primary;
+        color: $color-white;
+        min-height: 44px; // WCAG touch target
+
+        @include mobile {
+          width: 100%;
+          justify-content: center;
+        }
+
+        &:hover,
+        &:focus {
+          background-color: $color-white;
+          border-color: $color-primary;
+          color: $color-primary;
+          text-decoration: none;
+          transform: translateY(-2px);
+          box-shadow: $shadow-hover;
+        }
+
+        &:active {
+          transform: translateY(0);
+          box-shadow: $shadow-pressed;
+        }
+
+        &:focus-visible {
+          outline: 2px solid $color-primary;
+          outline-offset: 2px;
+        }
+
+        // Remove transform on mobile
+        @include mobile {
+          &:hover,
+          &:focus,
+          &:active {
+            transform: none;
+          }
+        }
+      }
+
+      // Legacy Bootstrap input-group support (backward compatibility)
+      .input-group {
+        display: flex;
+        gap: 0;
+        align-items: stretch;
+
+        .input-group-text {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 3rem;
+          background-color: $color-primary;
+          border: 2px solid $color-primary;
+          border-right: none;
+          border-radius: $border-radius 0 0 $border-radius;
+          color: $color-white;
+          font-size: 1rem;
+          padding: 0;
+
+          @include mobile {
+            width: 2.75rem;
+          }
+        }
+
+        .form-control {
+          flex: 1;
+          padding: 0.625rem 1rem;
+          font-size: 1rem;
+          border: 2px solid $color-gray-border;
+          border-left: none;
+          border-radius: 0 $border-radius $border-radius 0;
+          transition: $transition-fast;
+          height: auto;
+
+          &:focus {
+            border-color: $color-primary;
+            box-shadow: 0 0 0 3px rgba($color-primary, 0.15);
+            outline: none;
+            z-index: 1;
+          }
+
+          &::placeholder {
+            color: $color-gray-text;
+          }
+        }
+
+        // Override Bootstrap btn styles in input-group context
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-family: $font-family-sans-serif;
+          font-weight: $weight-button;
+          border: 2px solid $color-primary;
+          padding: 0.625rem 1.25rem;
+          font-size: 1rem;
+          line-height: 1.5;
+          border-radius: $border-radius;
+          background-color: $color-primary;
+          color: $color-white;
+          min-height: 44px;
+          margin-left: $spacer-sm;
+
+          // Override btn-sm sizing
+          &.btn-sm {
+            padding: 0.625rem 1.25rem;
+            font-size: 1rem;
+            min-height: 44px;
+          }
+
+          &:hover,
+          &:focus {
+            background-color: $color-white;
+            border-color: $color-primary;
+            color: $color-primary;
+            transform: translateY(-2px);
+            box-shadow: $shadow-hover;
+          }
+
+          &:active {
+            transform: translateY(0);
+            box-shadow: $shadow-pressed;
+          }
+
+          @include mobile {
+            margin-left: 0;
+            margin-top: $spacer-sm;
+            width: 100%;
+            justify-content: center;
+
+            &:hover,
+            &:focus,
+            &:active {
+              transform: none;
+            }
+          }
+        }
+
+        // Stack on mobile
+        @include mobile {
+          flex-wrap: wrap;
+
+          .input-group-text {
+            border-radius: $border-radius 0 0 $border-radius;
+          }
+
+          .form-control {
+            flex: 1;
+            min-width: 0;
+            border-radius: 0 $border-radius $border-radius 0;
+          }
+        }
+      }
+
+      // Search results dropdown
       .faq-search-results {
-        border: 1px solid $faq-border-color;
-        border-radius: 0.25rem;
+        border: 2px solid $color-gray-border;
+        border-radius: $border-radius;
         background-color: $color-white;
         max-height: 300px;
         overflow-y: auto;
-        
+        margin-top: $spacer-sm;
+
         h5 {
           padding: 0.75rem;
           border-bottom: 1px solid $faq-border-color;
           margin-bottom: 0;
+          font-weight: $weight-heading;
+          color: $color-primary;
         }
-        
+
         .list-group-item {
           padding: 0.75rem;
-          
+          border: none;
+          border-bottom: 1px solid $faq-border-color;
+
+          &:last-child {
+            border-bottom: none;
+          }
+
           a {
             color: $color-primary;
             font-weight: $weight-label;
+            text-decoration: none;
+
+            &:hover {
+              text-decoration: underline;
+            }
 
             &:focus {
               outline: 2px solid $faq-focus-color;
               outline-offset: 2px;
             }
           }
-          
+
           p {
             color: $faq-text-muted;
             margin-top: 0.25rem;
+            margin-bottom: 0;
+            font-size: 0.9rem;
           }
         }
       }

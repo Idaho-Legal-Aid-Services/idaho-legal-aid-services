@@ -40,8 +40,8 @@
 }
 
 // Container for grouping multiple accordions
+// Uses same --accordion-max-width custom property as .accordion-section for consistency
 .down-arrow-accordion-group {
-  // Inherit container styling from base accordion
   background-color: $color-gray-bg;
   border: 6px solid $color-primary;
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
@@ -49,7 +49,10 @@
   padding: 1rem;
   margin-bottom: 2rem;
   overflow: hidden; // Prevent content from spilling outside container
-  
+  width: 100%;
+  max-width: var(--accordion-max-width);
+  margin-inline: auto; // Center when max-width is applied
+
   @include mobile {
     padding: 1rem;
     margin-bottom: 1.5rem;
@@ -68,7 +71,7 @@
   
   &__inner {
     width: 100%;
-    max-width: 800px; // Constrain width for better readability
+    max-width: $reading-column-width;
   }
   
   // Interactive toggle button
@@ -186,7 +189,7 @@
   flex-wrap: wrap;
   gap: $spacer-sm;
   justify-content: center;
-  max-width: 900px;
+  max-width: $reading-column-width; // Match reading column width
   margin: 0 auto;
   padding: 0 $spacer-sm; // Add horizontal padding to prevent edge overflow
   

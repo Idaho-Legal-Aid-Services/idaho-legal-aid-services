@@ -31,7 +31,7 @@ $webform-transition: $transition-base;
         margin-bottom: 2rem;
         padding-bottom: 1.5rem;
         border-bottom: 1px solid $color-gray-bg;
-        max-width: 75ch;
+        max-width: $reading-column-width;
         margin-inline: auto;
 
         h2 {

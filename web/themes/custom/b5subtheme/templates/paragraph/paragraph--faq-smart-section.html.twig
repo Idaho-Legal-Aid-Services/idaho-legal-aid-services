@@ -49,7 +49,8 @@
   {% endif %}
 
   {# Search bar with global search capabilities #}
-  <div class="faq-search-container mb-4">
+  <div class="faq-search-container">
+    <label class="faq-search-label" for="{{ search_id }}">Search FAQs</label>
     <div class="input-group">
       <span class="input-group-text">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -59,7 +60,7 @@
              id="{{ search_id }}"
              placeholder="{{ search_placeholder }}"
              aria-label="Search FAQs and resources">
-      <button class="btn btn-primary btn-sm" type="button" id="{{ search_id }}-button">
+      <button class="btn btn-primary faq-search-btn" type="button" id="{{ search_id }}-button">
         Search
       </button>
     </div>
@@ -70,14 +71,6 @@
     <div class="visually-hidden" role="status" aria-live="assertive" aria-atomic="true" id="{{ search_id }}-status"></div>
   </div>
 
-  {# FAQ categories/filters #}
-  <div class="faq-filters">
-    <div class="filter-group" role="group" aria-label="FAQ filters">
-      <button type="button" class="filter-btn active" data-filter="all">All</button>
-      <button type="button" class="filter-btn" data-filter="services">Services</button>
-      <button type="button" class="filter-btn" data-filter="resources">Resources</button>
-    </div>
-  </div>
 
   {# Accordion for FAQs #}
   <div class="accordion faq-accordion" id="{{ accordion_id }}">

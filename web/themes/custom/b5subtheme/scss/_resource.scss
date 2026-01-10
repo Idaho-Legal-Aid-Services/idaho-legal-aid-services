@@ -1,5 +1,5 @@
 /*---------------------------------------------------
-  RESOURCES  (cards • sticky-sidebar nav • accordion tweaks)
+  RESOURCES  (cards • filters • full page with footer)
 ---------------------------------------------------*/
 
 /*──────────── Resource CSS Custom Properties ────────────*/
@@ -11,27 +11,25 @@
   --resource-text: #{$color-gray-text};
   --resource-border: #{$color-gray-border-light};
   --resource-border-hover: #{$color-primary};
-  
+
   // Typography
   --resource-title-size: 1.25rem;
   --resource-text-size: 0.95rem;
   --resource-badge-size: 0.75rem;
   --resource-btn-size: 0.875rem;
-  
+
   // Spacing
   --resource-gap: 1.25rem;
   --resource-gap-sm: 0.5rem;
   --resource-card-padding: 1.5rem;
-  --resource-nav-sticky-top: 6rem;
-  --resource-nav-offset: 8rem;
-  
+
   // Borders & Shadows
   --resource-card-radius: #{$border-radius};
   --resource-badge-radius: #{$border-radius-sm};
   --resource-btn-radius: #{$border-radius};
   --resource-shadow-sm: #{$box-shadow-sm};
   --resource-shadow-hover: #{$card-hover-shadow};
-  
+
   // Transitions
   --resource-transition: #{$transition-base};
   --resource-transition-fast: #{$transition-fast};
@@ -39,23 +37,18 @@
 
 /*──────────── Resource page header consistency ────────────*/
 .node--type-resource {
-  /* Override the standard curved header for resource pages */
   .curved-page-header {
     .curved-page-header-title {
-      color: var(--resource-primary); // Use CSS custom property for resource pages
+      color: var(--resource-primary);
     }
   }
 }
 
 /*──────────── 1) Resource grid layout ────────────*/
-// The template uses Bootstrap's .row.row-cols-1.row-cols-md-2.g-4
-// We override Bootstrap's 1.5rem gap to match forms/guides at 1.25rem
 .resource-card-grid {
-  // Override Bootstrap's g-4 gap (1.5rem) to 1.25rem for consistency
   --bs-gutter-x: var(--resource-gap);
   --bs-gutter-y: var(--resource-gap);
 
-  // Ensure columns use flex for equal-height cards
   > .col,
   .resource-column {
     display: flex;
@@ -63,7 +56,7 @@
   }
 }
 
-/*──────────── 2) Resource cards ────────────*/
+/*──────────── 2) Resource cards (listing view) ────────────*/
 .resource-card {
   border: 6px solid var(--resource-primary);
   border-radius: var(--resource-card-radius);
@@ -73,14 +66,14 @@
   background: $color-gray-bg;
 
   &:hover,
-  &:focus-within { // Added focus-within for keyboard users to see hover state
+  &:focus-within {
     box-shadow: var(--resource-shadow-hover);
     border-color: var(--resource-border-hover);
     transform: translateY(-2px);
   }
 
   .card-body {
-    padding: var(--resource-card-padding) 1rem; // Reduced left/right padding
+    padding: var(--resource-card-padding) 1rem;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -95,10 +88,9 @@
     margin-bottom: 0.75rem;
   }
 
-  // Service area badge - blue pill with white text
   .resource-service-areas {
     margin-bottom: 0.75rem;
-    
+
     .service-area-badge {
       display: inline-block;
       background-color: var(--resource-primary);
@@ -106,24 +98,23 @@
       font-size: 0.875rem;
       font-weight: $weight-label;
       padding: 0.375rem 1rem;
-      border-radius: 9999px; // Full pill
+      border-radius: 9999px;
       margin: 0 0.25rem;
     }
   }
 
-  // Topics with pipe separators
   .resource-topics {
     margin-bottom: 1rem;
     line-height: 1.6;
-    
+
     .topic-item {
       color: $color-black;
-      font-size: 0.875rem; // Slightly larger
+      font-size: 0.875rem;
       margin: 0 $spacer-xs;
     }
 
     .topic-separator {
-      color: $color-gray-border; // #868e96 - same gray as used in borders
+      color: $color-gray-border;
       margin: 0 $spacer-xs;
       font-weight: $font-weight-light;
     }
@@ -134,41 +125,34 @@
     font-size: var(--resource-text-size);
     line-height: 1.5;
     margin-bottom: 1rem;
-    flex-grow: 1; // Push button to bottom
+    flex-grow: 1;
     max-width: 75ch;
 
     p {
       margin-bottom: 0;
-      // Limit to 2 lines
       display: -webkit-box;
       -webkit-box-orient: vertical;
       /* stylelint-disable-next-line property-no-vendor-prefix */
       -webkit-line-clamp: 2;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-height: calc(1.5em * 2); // 2 lines at 1.5 line-height
+      max-height: calc(1.5em * 2);
     }
   }
-  // If Bootstrap's .card-text adds margin, be more specific:
+
   &.card .card-body .resource-description {
     margin-bottom: 0;
   }
 
-
-  // Action button styling - uses standardized button styles
   .resource-actions {
-    margin-top: auto; // Push to bottom
+    margin-top: auto;
     text-align: center;
-    padding-top: 1rem; // Ensure separation from description
-    
-    // Button will use the standardized .btn-primary styles from buttons.scss
-    // No additional button styling needed here
+    padding-top: 1rem;
   }
 }
 
 
 /*──────────── 3) Resource filters ────────────*/
-// Hide unwanted view labels
 .views-view-resources-by-service {
   .views-label,
   .views-field-title {
@@ -179,29 +163,29 @@
 .resource-filters {
   margin-bottom: 2rem;
   text-align: center;
-  
+
   .nav-pills {
     display: inline-flex;
     justify-content: center;
-    
+
     .pill-link {
       background: var(--resource-bg);
       border: 2px solid var(--resource-primary);
       border-radius: 9999px;
       color: var(--resource-primary);
-      font-size: 0.875rem; // Same as service area badge
+      font-size: 0.875rem;
       font-weight: $weight-nav;
-      padding: 0.375rem 1rem; // Same as service area badge
+      padding: 0.375rem 1rem;
       transition: var(--resource-transition-fast);
       cursor: pointer;
-      
+
       &:hover,
       &:focus {
         background: var(--resource-primary);
         color: var(--resource-bg);
         text-decoration: none;
       }
-      
+
       &.active {
         background: var(--resource-primary);
         color: var(--resource-bg);
@@ -211,55 +195,26 @@
   }
 }
 
-/*──────────── 4) Sticky sidebar nav & pills (legacy) ────────────*/
-.topic-nav {
-  position: sticky;
-  top: var(--resource-nav-sticky-top);
-  max-height: calc(100vh - var(--resource-nav-sticky-top) - 2rem); // Prevent overlap with footer/bottom
-  overflow-y: auto; // Added for vertical scrolling
-  overflow-x: hidden; // Usually pills wrap, so horizontal scroll might not be needed
-  padding: 0 0.25rem;
-
-  // If pills are set to `white-space: nowrap` then overflow-x: auto is needed
-  // .nav { white-space: nowrap; } then set overflow-x: auto on .topic-nav
-
-  @media (max-width: map-get($grid-breakpoints, sm)) { // Using Bootstrap sm breakpoint
-    .nav {
-      gap: var(--resource-gap-sm);
-      flex-wrap: nowrap; // Allow horizontal scroll on mobile for many pills
-      overflow-x: auto;
-      padding-bottom: 0.5rem; // Space for scrollbar
-    }
-    // For mobile horizontal scroll, make .topic-nav itself scrollable if pills don't wrap
-    overflow-x: auto;
-    overflow-y: hidden; // Prioritize horizontal scroll on small screens if pills are many
-    max-height: none; // Or a smaller fixed height for the horizontal bar
-  }
-}
-
+/*──────────── 4) Pill links (shared) ────────────*/
 .pill-link {
   background: var(--resource-bg);
   border: 1px solid var(--resource-primary);
-  border-radius: 9999px; // Full pill shape
+  border-radius: 9999px;
   color: var(--resource-primary);
   font-weight: $weight-nav;
   transition: var(--resource-transition-fast);
   white-space: nowrap;
-  display: inline-block; // Or flex for centering content if needed
+  display: inline-block;
 
   &:hover,
   &:focus {
     background: var(--resource-primary);
-    color: var(--resource-bg); // Use variable for white or light contrast color
+    color: var(--resource-bg);
     text-decoration: none;
   }
 
-  // Make sure active state has high specificity and is visible
-  // Trying without !important first by increasing specificity if needed.
-  // This assumes .pill-link is also a .nav-link in a .nav-pills structure.
-  .nav-pills &.active, // If .pill-link is the .nav-link
-  &.active // General fallback
-  {
+  .nav-pills &.active,
+  &.active {
     background-color: var(--resource-primary);
     color: var(--resource-bg);
     text-decoration: none;
@@ -274,203 +229,150 @@
 }
 
 
-/*──────────── 4) Accordion overrides ────────────*/
+/*──────────── 5) Accordion overrides ────────────*/
 .service-accordion {
-  // Bootstrap 5 already rotates the icon by default.
-  // .accordion-button::after { transform: rotate(90deg); } // Only if default is different
-  // .accordion-button.collapsed::after { transform: rotate(0); }
-
   .accordion-header .accordion-button {
-    color: var(--resource-primary); // Use variable
+    color: var(--resource-primary);
     font-weight: $weight-heading;
     font-size: 1.75rem;
 
-    &:not(.collapsed) {
-      // Style for open accordion button, e.g., background or different icon color
-    }
     &:focus {
-        box-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
+      box-shadow: 0 0 0 0.25rem rgba($color-primary, 0.25);
     }
   }
 }
 
 
-/*──────────── 6) Full resource page ────────────*/
+/*──────────── 6) Full resource page layout ────────────*/
 .resource-full {
+  // ──────────────────────────────────────────────────────────
+  // STANDARD CONTENT LAYOUT
+  // Uses default .content-body (75ch, centered) from _layout-components.scss
+  // No overrides needed - inherits standard typography and width
+  // ──────────────────────────────────────────────────────────
 
   .page-title {
-    color: var(--resource-primary); // Use variable
+    color: var(--resource-primary);
     margin-bottom: 1rem;
   }
 
   .section-heading h2 {
-    color: $color-black; // Or a specific heading color variable
+    color: $color-black;
     font-size: 1.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .resource-topics .badge { // Increased specificity if needed
-    font-size: 0.9rem; // Consider --resource-full-badge-size
-    padding: 0.4rem 0.7rem;
-  }
-
-  // Uses CSS custom property from _layout-components.scss
-  .content-body {
-    --content-body-margin-bottom: 1rem;
-  }
-
-  .resource-file h3,
-  .resource-link h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-  }
-
-
-  /* ── Sidebar styling ── */
-  .sidebar-sticky-wrapper {
-    @media (min-width: $desktop-breakpoint) {
-      position: sticky;
-      position: -webkit-sticky;
-      top: 120px; // Simple fixed value
-      z-index: 10;
-    }
-  }
-  
-  .sidebar-card {
-    max-width: 100%; // Increased from 80% to give more room
-    margin: 0 auto;
-    border: 3px solid $color-primary;
-    text-align: center;
-    background-color: $color-white; // Explicit background
-
-    .card-header {
-      padding: 1rem 1.5rem; // Increased padding for more room
-      background-color: $color-gray-bg; // Primary gray background
-      border-bottom: 1px solid $color-gray-border;
-
-      h3 {
-        font-size: 1.25rem; // Slightly larger
-        font-weight: $weight-heading;
-        color: $color-black; // Or a text heading variable
-        margin: 0;
-        white-space: nowrap; // Ensure it stays on one line
-      }
+  // Resource sections (accordions) - match content-body width
+  // Override accordion-section's own max-width (which uses ch units)
+  // to use a fixed width that aligns with content-body visually
+  .resource-sections {
+    .accordion-section {
+      max-width: 1080px;
     }
 
-    .card-body {
-      padding: 0;
-
-      h4 { // Common styling for h4 in sidebar card body
-          font-size: 1.125rem; // Slightly smaller than Resource Information (1.25rem)
-          font-weight: $weight-heading;
-          margin-bottom: .75rem;
-          color: $color-black; // Or a text heading variable
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-      }
-
-      /* Service Areas - matching resource card style */
-      .resource-service-areas {
-        margin-bottom: 1.5rem;
-        padding-top: 0.25rem; // Reduced padding top
-        
-        h4 {
-          margin-bottom: 0.25rem; // Reduced margin between header and badges
-        }
-        
-        .service-areas-badges {
-          .service-area-badge {
-            display: inline-block;
-            background-color: var(--resource-primary);
-            color: $color-white;
-            font-size: 0.875rem;
-            font-weight: $weight-label;
-            padding: 0.375rem 1rem;
-            border-radius: 9999px; // Full pill
-            margin: 0 0.25rem 0.5rem;
-          }
-        }
-      }
-
-      /* Topics - matching resource card style with pipe separators */
-      .resource-topics {
-        margin-bottom: 1.5rem;
-
-        h4 {
-          margin-bottom: 0.25rem; // Reduced margin between header and topics
-        }
-        
-        .topics-items {
-          line-height: 1.6;
-
-          .topic-item {
-            color: $color-black;
-            font-size: 0.875rem;
-            margin: 0 $spacer-xs;
-          }
-
-          .topic-separator {
-            color: $color-gray-border;
-            margin: 0 $spacer-xs;
-            font-weight: $font-weight-light;
-          }
-        }
-      }
-
-      /* Last Updated */
-      .last-updated {
-        h4 {
-          font-size: 0.875rem; // Slightly larger to match other headers
-          margin-bottom: 0.5rem;
-          color: $color-black; // Primary black
-          font-weight: $weight-heading;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        p {
-          font-size: 0.875rem;
-          margin: 0;
-          color: $color-black; // Primary black
-          font-weight: $weight-body;
-        }
-      }
-    }
-
-    .card-footer {
-      padding: 0.75rem; // Consistent padding
+    .accordion-file {
       text-align: center;
-      background-color: $color-gray-bg;
-      border-top: 1px solid $color-gray-border; // Match card border, or use var(--resource-border)
-
-      // Back button uses standardized .back-button class from _buttons.scss
-      // Inherits .btn.btn-primary styling when used with those classes
     }
+  }
+
+  .resource-file,
+  .resource-link,
+  .resource-external {
+    max-width: 1080px;
+    margin: 2rem auto;
+    text-align: center;
+
+    h2, h3 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      color: $color-primary;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // RESOURCE FOOTER (simple, like press-entry)
+  // Left-aligned, matches content-body typography
+  // ──────────────────────────────────────────────────────────
+  .resource-footer {
+    max-width: 1080px;
+    margin: 2rem auto 0;
+    padding-top: 1.5rem;
+    border-top: 2px solid $color-gray-border;
+    text-align: left;
+  }
+
+  .resource-footer-item {
+    margin-bottom: 1rem;
+    @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
+    line-height: $content-line-height;
+  }
+
+  .resource-footer-label {
+    font-weight: $weight-label;
+    color: $color-black;
+
+    &::after {
+      content: ':';
+      margin-right: 0.5rem;
+    }
+  }
+
+  .resource-footer-value {
+    color: $color-black;
+  }
+
+  // Service area badges in footer
+  .resource-service-areas {
+    .service-area-badge {
+      display: inline-block;
+      background-color: var(--resource-primary);
+      color: $color-white;
+      font-size: 0.875rem;
+      font-weight: $weight-label;
+      padding: 0.375rem 1rem;
+      border-radius: 9999px;
+      margin: 0.125rem;
+    }
+  }
+
+  // Topics in footer
+  .resource-topics {
+    .topic-item {
+      color: $color-black;
+    }
+
+    .topic-separator {
+      color: $color-gray-border;
+      margin: 0 $spacer-xs;
+      font-weight: $font-weight-light;
+    }
+  }
+
+  // Back button in footer
+  .resource-footer-back {
+    margin-top: 1.5rem;
   }
 
 } /* end .resource-full */
 
 
 /*──────────── 7) Legal content styling ────────────*/
-// Ensure legal content pages have consistent container margins
 .node--type-legal-content {
-  .container { // Or your main content wrapper class
+  .container {
     @include mobile {
-      padding-left: var(--resource-gap); // Use theme variable, adjust if needed
+      padding-left: var(--resource-gap);
       padding-right: var(--resource-gap);
     }
   }
 
-  // Override Bootstrap .lead to match main-content
-  // Increase specificity if .lead is too generic
-  .content .lead, // Example: if .lead is inside a .content area
-  > .lead {       // If .lead is a direct child of node type
+  .content .lead,
+  > .lead {
     font-size: 1.5rem;
-    color: $color-black; // Or a specific text color variable
+    color: $color-black;
     line-height: 1.6;
     max-width: 75ch;
     margin-inline: auto;
-    // Remove !important by increasing specificity or ensuring this rule comes later
 
     @include tablet {
       font-size: 1.4rem;
@@ -483,57 +385,33 @@
 }
 
 
-/* Media queries (General, or move to specific component if applicable) */
-@media (max-width: #{$break-md - 0.02px}) { // Using your $break-md
-  .resource-full {
-    .col-lg-4.sidebar-column { // Add a class like .sidebar-column for clarity
-      margin-top: 2rem; // Or var(--resource-gap-lg)
-    }
-  }
-}
-
-
 /*──────────── 8) Print styles for resources ────────────*/
 @media print {
-  // Hide navigation and interactive elements
-  .topic-nav,
   .resource-actions,
-  .sidebar-card .card-footer,
+  .resource-footer-back,
   .btn {
     display: none !important;
   }
-  
-  // Ensure full resource description is visible
+
   .resource-description {
     -webkit-line-clamp: none !important;
     max-height: none !important;
     overflow: visible !important;
   }
-  
-  // Improve print layout
+
   .resource-full {
-    .col-lg-8,
-    .col-lg-4 {
-      width: 100%;
-      max-width: 100%;
-    }
-    
-    .sidebar-card {
-      max-width: 100%;
-      page-break-inside: avoid;
-      margin-top: 2rem;
-      border: 1px solid $color-black;
+    .resource-footer {
+      border-top: 1px solid $color-black;
     }
   }
 
-  // Ensure badges print well
-  .badge {
+  .badge,
+  .service-area-badge {
     border: 1px solid $color-black !important;
     color: $color-black !important;
     background: transparent !important;
   }
-  
-  // Resource cards should not break across pages
+
   .resource-card {
     page-break-inside: avoid;
   }

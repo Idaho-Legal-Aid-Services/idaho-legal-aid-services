@@ -8,15 +8,34 @@
 .node--office-information {
   .content-section {
     padding-top: 0;
+
+    // Make row items stretch to full height for equal-height cards
+    .row > [class*="col-"] {
+      display: flex;
+      flex-direction: column;
+    }
   }
+
+  // Info card adjustments for this page
+  .info-card {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+
+    @include mobile {
+      padding: 0.75rem;
+    }
+  }
+
   .info-card__title {
     text-transform: uppercase;
   }
-  
+
   // Remove underline from phone number links
   .info-list dd a {
     text-decoration: none;
-    
+
     &:hover {
       text-decoration: underline;
     }

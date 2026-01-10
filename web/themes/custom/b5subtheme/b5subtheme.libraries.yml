@@ -146,16 +146,24 @@ forms:
   css:
     theme:
       css/style.css: {}
+  js:
+    js/topic-nav.js: {}
   dependencies:
     - b5subtheme/global-styling
+    - core/drupal
+    - core/once
 
 guides:
   version: 1.0
   css:
     theme:
       css/style.css: {}
+  js:
+    js/topic-nav.js: {}
   dependencies:
     - b5subtheme/global-styling
+    - core/drupal
+    - core/once
 
 hero-rotator:
   version: 1.0

@@ -3,6 +3,7 @@
  * @file
  * Theme override for the Guides landing page view.
  * Displays guide categories as clickable cards with curved header.
+ * Includes topic navigation dropdown for quick access to specific topics.
  */
 #}
 
@@ -23,6 +24,32 @@
       <div class="container">
         <div class="guides-intro">
           {{ header }}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  {# Topic navigation filter - between intro and content #}
+  {% if topic_nav_options is not empty %}
+    <div class="guides-filter-section">
+      <div class="container">
+        <div class="guides-filter">
+          <div class="guides-filter__inner">
+            <div class="guides-filter__select">
+              <label for="{{ topic_nav_id }}">{{ topic_nav_label }}</label>
+              <select id="{{ topic_nav_id }}" class="guides-filter__dropdown" data-base-path="{{ topic_nav_base_path }}">
+                <option value="">{{ 'Select a topic...'|t }}</option>
+                {% for option in topic_nav_options %}
+                  <option value="{{ option.url_slug }}">{{ option.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="guides-filter__actions">
+              <button type="button" class="guides-filter__button" id="{{ topic_nav_id }}-go">
+                {{ 'Go'|t }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

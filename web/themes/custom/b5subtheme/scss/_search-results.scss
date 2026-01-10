@@ -365,7 +365,7 @@ ul.pager__items {
     line-height: 1.6;
     color: $color-black;
     margin-bottom: 0.75rem;
-    max-width: 75ch;
+    max-width: $reading-column-width;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -545,7 +545,7 @@ ul.pager__items {
     color: $color-black;
     line-height: 1.6;
     margin-top: $spacer-sm;
-    max-width: 75ch;
+    max-width: $reading-column-width;
 
     strong {
       color: $color-primary;

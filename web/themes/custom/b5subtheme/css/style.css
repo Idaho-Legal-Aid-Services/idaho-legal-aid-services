@@ -23309,14 +23309,23 @@ main.main-content {
   text-decoration: none;
 }
 
+.reading-column {
+  max-width: 75ch;
+  margin-inline: auto;
+  width: 100%;
+}
+
 .standard-layout .node__content {
-  font-size: 1.25rem;
+  max-width: 75ch;
+  margin-inline: auto;
+  font-size: 1.5rem;
   line-height: 1.6;
   color: #000000;
+  text-align: center;
 }
 @media (min-width: 768px) and (max-width: 991.98px) {
   .standard-layout .node__content {
-    font-size: 1.15rem;
+    font-size: 1.4rem;
   }
 }
 @media (max-width: 767.98px) {
@@ -23932,6 +23941,12 @@ main.main-content {
   border: 6px solid #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   z-index: 3;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  padding: 1.5rem 2rem;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
 }
 @media (max-width: 767.98px) {
   .field--name-field-topic-cards .topic-card, .how-we-help-section .topic-cards-row .topic-card {
@@ -23953,7 +23968,7 @@ main.main-content {
   color: #ffffff;
 }
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card--blue:hover, .how-we-help-section .topic-cards-row .topic-card--blue:hover, .field--name-field-topic-cards .topic-card--blue:focus-visible, .how-we-help-section .topic-cards-row .topic-card--blue:focus-visible {
+  .field--name-field-topic-cards .topic-card--blue:hover, .how-we-help-section .topic-cards-row .topic-card--blue:hover, .field--name-field-topic-cards .topic-card--blue:focus-within, .how-we-help-section .topic-cards-row .topic-card--blue:focus-within {
     border-color: #1263a0;
     box-shadow: 0 0 10px 3px rgba(18, 99, 160, 0.4);
   }
@@ -23969,32 +23984,45 @@ main.main-content {
   color: #1263a0;
 }
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card--gray:hover, .how-we-help-section .topic-cards-row .topic-card--gray:hover, .field--name-field-topic-cards .topic-card--gray:focus-visible, .how-we-help-section .topic-cards-row .topic-card--gray:focus-visible {
+  .field--name-field-topic-cards .topic-card--gray:hover, .how-we-help-section .topic-cards-row .topic-card--gray:hover, .field--name-field-topic-cards .topic-card--gray:focus-within, .how-we-help-section .topic-cards-row .topic-card--gray:focus-within {
     box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
   }
 }
+.field--name-field-topic-cards .topic-card__link-overlay, .how-we-help-section .topic-cards-row .topic-card__link-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  pointer-events: auto;
+  text-decoration: none;
+}
+.field--name-field-topic-cards .topic-card__link-overlay:focus, .how-we-help-section .topic-cards-row .topic-card__link-overlay:focus {
+  outline: none;
+}
 @media (min-width: 768px) {
-  .field--name-field-topic-cards .topic-card[role=link]:hover, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover, .field--name-field-topic-cards .topic-card[role=link]:focus-visible, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible {
+  .field--name-field-topic-cards .topic-card:hover, .how-we-help-section .topic-cards-row .topic-card:hover, .field--name-field-topic-cards .topic-card:focus-within, .how-we-help-section .topic-cards-row .topic-card:focus-within {
     z-index: 10;
     background-color: #ffffff;
     padding-left: 1.25rem;
     padding-right: 1.25rem;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__content, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__content, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__content, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__content {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__content, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__content, .field--name-field-topic-cards .topic-card:focus-within .topic-card__content, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__content {
     transform: translateY(-1rem);
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__title, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__title, .field--name-field-topic-cards .topic-card:focus-within .topic-card__title, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__title {
     color: #1263a0;
     font-size: 1.7rem;
     margin-bottom: 0.5rem;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title .title-full, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title .title-full {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__title .title-full, .field--name-field-topic-cards .topic-card:focus-within .topic-card__title .title-full, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__title .title-full {
     display: none;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__title .title-short, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__title .title-short {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__title .title-short, .field--name-field-topic-cards .topic-card:focus-within .topic-card__title .title-short, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__title .title-short {
     display: block;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__description, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__description, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__description, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__description {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__description, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__description, .field--name-field-topic-cards .topic-card:focus-within .topic-card__description, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__description {
     max-height: 4.5em;
     opacity: 1;
     visibility: visible;
@@ -24002,45 +24030,32 @@ main.main-content {
     margin-top: 0.5rem;
     color: #000000;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__description.is-clamped::after, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__description.is-clamped::after {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__description.is-clamped::after, .field--name-field-topic-cards .topic-card:focus-within .topic-card__description.is-clamped::after, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__description.is-clamped::after {
     opacity: 1;
   }
-  .field--name-field-topic-cards .topic-card[role=link]:hover .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card[role=link]:hover .topic-card__cta, .field--name-field-topic-cards .topic-card[role=link]:focus-visible .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible .topic-card__cta {
+  .field--name-field-topic-cards .topic-card:hover .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card:hover .topic-card__cta, .field--name-field-topic-cards .topic-card:focus-within .topic-card__cta, .how-we-help-section .topic-cards-row .topic-card:focus-within .topic-card__cta {
     opacity: 1;
     transform: translateX(0);
   }
 }
-.field--name-field-topic-cards .topic-card[role=link], .how-we-help-section .topic-cards-row .topic-card[role=link] {
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
-  padding: 1.5rem 2rem;
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-}
 @media (max-width: 767.98px) {
-  .field--name-field-topic-cards .topic-card[role=link], .how-we-help-section .topic-cards-row .topic-card[role=link] {
+  .field--name-field-topic-cards .topic-card, .how-we-help-section .topic-cards-row .topic-card {
     min-height: 80px;
     height: auto;
     max-height: none;
     padding: 0.75rem;
   }
 }
-.field--name-field-topic-cards .topic-card[role=link]:focus, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus {
+.field--name-field-topic-cards .topic-card:focus-within, .how-we-help-section .topic-cards-row .topic-card:focus-within {
   outline: 3px solid #1263a0;
   outline-offset: 2px;
   box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
 }
-.field--name-field-topic-cards .topic-card[role=link]:focus:not(:focus-visible), .how-we-help-section .topic-cards-row .topic-card[role=link]:focus:not(:focus-visible) {
+.field--name-field-topic-cards .topic-card:has(.topic-card__link-overlay:focus:not(:focus-visible)), .how-we-help-section .topic-cards-row .topic-card:has(.topic-card__link-overlay:focus:not(:focus-visible)) {
   outline: none;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
-.field--name-field-topic-cards .topic-card[role=link]:focus-visible, .how-we-help-section .topic-cards-row .topic-card[role=link]:focus-visible {
-  outline: 3px solid #1263a0;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
-}
-.field--name-field-topic-cards .topic-card[role=link] *, .how-we-help-section .topic-cards-row .topic-card[role=link] * {
+.field--name-field-topic-cards .topic-card > *:not(.topic-card__link-overlay), .how-we-help-section .topic-cards-row .topic-card > *:not(.topic-card__link-overlay) {
   pointer-events: none;
 }
 .field--name-field-topic-cards .topic-card__content, .how-we-help-section .topic-cards-row .topic-card__content {
@@ -24136,6 +24151,10 @@ main.main-content {
     transition: none;
   }
 }
+.standard-layout .node__content:has(.field--name-field-topic-cards, .how-we-help-section .topic-cards-row) {
+  max-width: none;
+}
+
 /***********************************************
  * Impact Cards Component
  * 
@@ -26056,6 +26075,21 @@ main.main-content {
 .node--office-information .content-section {
   padding-top: 0;
 }
+.node--office-information .content-section .row > [class*=col-] {
+  display: flex;
+  flex-direction: column;
+}
+.node--office-information .info-card {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+@media (max-width: 767.98px) {
+  .node--office-information .info-card {
+    padding: 0.75rem;
+  }
+}
 .node--office-information .info-card__title {
   text-transform: uppercase;
 }
@@ -26717,19 +26751,39 @@ ul.pager__items {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.press-entry-row {
-  border-bottom: 2px solid #868e96;
-}
-.press-entry-row:last-child {
+.view-press-room-listing .views-row {
+  position: relative;
   border-bottom: none;
+  padding: 0;
+}
+.view-press-room-listing .views-row::after {
+  content: "";
+  display: block;
+  width: 150ch;
+  max-width: calc(100% - 108px);
+  height: 2px;
+  background-color: #868e96;
+  margin-left: 108px;
+}
+@media (max-width: 767.98px) {
+  .view-press-room-listing .views-row::after {
+    margin-left: 0;
+    max-width: 100%;
+  }
+}
+.view-press-room-listing .views-row:last-child::after {
+  display: none;
 }
 
 .press-entry {
   padding: 1.5rem 0;
+  max-width: 125ch;
+  margin-left: 108px;
 }
 @media (max-width: 767.98px) {
   .press-entry {
     padding: 1.25rem 0;
+    margin-left: 0;
   }
 }
 .press-entry__title {
@@ -26759,8 +26813,8 @@ ul.pager__items {
   text-decoration: underline;
 }
 .press-entry__meta {
-  font-size: 0.9375rem;
-  color: #6c757d;
+  font-size: 1.1rem;
+  color: #000000;
   margin-bottom: 0.75rem;
   display: flex;
   flex-wrap: wrap;
@@ -26771,7 +26825,7 @@ ul.pager__items {
 }
 @media (max-width: 767.98px) {
   .press-entry__meta {
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
 }
 .press-entry__date {
@@ -26818,12 +26872,11 @@ ul.pager__items {
   overflow: hidden;
 }
 .press-entry__excerpt {
-  font-size: 1rem;
+  font-size: 1.5rem;
   line-height: 1.6;
   color: #000000;
   margin-bottom: 0.75rem;
   text-align: left;
-  max-width: 75ch;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
@@ -26842,7 +26895,7 @@ ul.pager__items {
 }
 @media (max-width: 767.98px) {
   .press-entry__excerpt {
-    font-size: 0.9375rem;
+    font-size: 1.25rem;
     -webkit-line-clamp: 3;
   }
 }
@@ -26884,17 +26937,17 @@ ul.pager__items {
   transform: translateX(3px);
 }
 .press-entry__topic {
-  font-size: 0.9375rem;
+  font-size: 1.1rem;
   margin-top: 0.5rem;
   text-align: left;
 }
 @media (max-width: 767.98px) {
   .press-entry__topic {
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
 }
 .press-entry__topic-label {
-  color: #6c757d;
+  color: #000000;
   font-weight: 600;
   margin-right: 0.25rem;
 }
@@ -26992,13 +27045,23 @@ ul.pager__items {
 .node--type-press-entry .user-picture {
   display: none !important;
 }
+.node--type-press-entry.node--view-mode-full .press-entry-content {
+  max-width: 125ch;
+  margin-left: 108px;
+}
+@media (max-width: 767.98px) {
+  .node--type-press-entry.node--view-mode-full .press-entry-content {
+    margin-left: 0;
+  }
+}
 .node--type-press-entry.node--view-mode-full .press-entry-title {
   font-size: 2rem;
   font-weight: 700;
   color: #1263a0;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.5rem;
   line-height: 1.3;
   text-align: left;
+  max-width: 125ch;
 }
 @media (min-width: 768px) and (max-width: 991.98px) {
   .node--type-press-entry.node--view-mode-full .press-entry-title {
@@ -27011,10 +27074,15 @@ ul.pager__items {
   }
 }
 .node--type-press-entry.node--view-mode-full .press-entry-meta {
-  font-size: 1rem;
-  color: #6c757d;
-  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  color: #000000;
+  margin-bottom: 0.75rem;
   text-align: left;
+}
+@media (max-width: 767.98px) {
+  .node--type-press-entry.node--view-mode-full .press-entry-meta {
+    font-size: 1rem;
+  }
 }
 .node--type-press-entry.node--view-mode-full .press-entry-meta .press-entry-date {
   font-weight: 500;
@@ -27065,20 +27133,16 @@ ul.pager__items {
   padding: 0;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-body {
-  font-size: 1.25rem;
-  line-height: 1.7;
+  font-size: 1.5rem;
+  line-height: 1.6;
   color: #000000;
   text-align: left;
-  max-width: 75ch;
-}
-@media (min-width: 768px) and (max-width: 991.98px) {
-  .node--type-press-entry.node--view-mode-full .press-entry-body {
-    font-size: 1.125rem;
-  }
+  margin: 0 0 0.75rem 0;
+  max-width: none;
 }
 @media (max-width: 767.98px) {
   .node--type-press-entry.node--view-mode-full .press-entry-body {
-    font-size: 1rem;
+    font-size: 1.25rem;
   }
 }
 .node--type-press-entry.node--view-mode-full .press-entry-body p {
@@ -27098,14 +27162,14 @@ ul.pager__items {
   clear: both;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-footer {
-  margin-top: 2rem;
+  margin-top: 0.75rem;
   padding-top: 1.5rem;
   border-top: 2px solid #868e96;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-topic,
 .node--type-press-entry.node--view-mode-full .field--name-field-press-topic {
   font-size: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   text-align: left;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-topic .field__label,
@@ -27150,7 +27214,7 @@ ul.pager__items {
   text-decoration: underline;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-back {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   text-align: left;
 }
 .node--type-press-entry.node--view-mode-full .press-entry-back .btn-back {
@@ -28062,6 +28126,12 @@ body.announcement-overlay-open {
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
   border-radius: 0.25rem;
   padding: 1rem;
+  width: 100%;
+  max-width: 75ch;
+  margin-inline: auto;
+}
+.node--type-donate .accordion-section, .node--type-donate .faq-smart-section, .node--employment .accordion-section, .node--employment .faq-smart-section {
+  max-width: 1080px;
 }
 @media (max-width: 767.98px) {
   .accordion-section, .faq-smart-section {
@@ -28186,17 +28256,26 @@ body .node--employment .field--name-field-faq-section-title,
 
 .accordion-section .accordion-body, .faq-smart-section .accordion-body {
   color: #000000;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
+  line-height: 1.6;
   padding: 1rem;
   animation: fadeIn 0.3s ease;
   overflow-x: auto;
   overflow-y: visible;
-  max-width: 75ch;
-  margin-inline: auto;
+  text-align: left;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .accordion-section .accordion-body, .faq-smart-section .accordion-body {
+    font-size: 1.4rem;
+  }
 }
 @media (max-width: 767.98px) {
   .accordion-section .accordion-body, .faq-smart-section .accordion-body {
-    font-size: 1rem;
+    font-size: 1.1rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .accordion-section .accordion-body, .faq-smart-section .accordion-body {
     padding: 1rem 0.75rem;
   }
 }
@@ -28310,6 +28389,9 @@ body .node--employment .field--name-field-faq-section-title,
   padding: 1rem;
   margin-bottom: 2rem;
   overflow: hidden;
+  width: 100%;
+  max-width: var(--accordion-max-width);
+  margin-inline: auto;
 }
 @media (max-width: 767.98px) {
   .down-arrow-accordion-group {
@@ -28325,7 +28407,7 @@ body .node--employment .field--name-field-faq-section-title,
 }
 .daa-header__inner {
   width: 100%;
-  max-width: 800px;
+  max-width: 75ch;
 }
 .daa-header__toggle {
   width: 100%;
@@ -28412,7 +28494,7 @@ body .node--employment .field--name-field-faq-section-title,
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: center;
-  max-width: 900px;
+  max-width: 75ch;
   margin: 0 auto;
   padding: 0 0.5rem;
 }
@@ -28458,40 +28540,269 @@ body .node--employment .field--name-field-faq-section-title,
 }
 
 .faq-smart-section .faq-search-container {
-  max-width: 700px;
-  margin: 0 auto;
+  max-width: 600px;
+  margin: 0 auto 1.5rem;
+  padding: 1rem;
+  background-color: #f0f2f5;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 2px solid #1263a0;
+  position: relative;
 }
-.faq-smart-section .faq-search-container .input-group-text.input-group-text {
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container {
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+  }
+}
+.faq-smart-section .faq-search-container .faq-search-label {
+  display: block;
+  font-size: 1.25rem;
+  color: #1263a0;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .faq-search-label {
+    font-size: 1.1rem;
+  }
+}
+.faq-smart-section .faq-search-container .faq-search-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .faq-search-form {
+    flex-direction: column;
+  }
+}
+.faq-smart-section .faq-search-container .faq-search-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.faq-smart-section .faq-search-container .faq-search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
   background-color: #1263a0;
-  border-color: #1263a0;
+  border: 2px solid #1263a0;
+  border-right: none;
+  border-radius: 0.375rem 0 0 0.375rem;
   color: #ffffff;
+  font-size: 1rem;
 }
-.faq-smart-section .faq-search-container .input-group-text.input-group-text.bg-primary {
-  background-color: #1263a0 !important;
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .faq-search-icon {
+    width: 2.75rem;
+  }
 }
-.faq-smart-section .faq-search-container .btn-sm {
-  padding: 0.375rem 1rem;
-  font-size: 0.875rem;
-  min-height: auto;
+.faq-smart-section .faq-search-container .faq-search {
+  flex: 1;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #868e96;
+  border-left: none;
+  border-radius: 0 0.375rem 0.375rem 0;
+  transition: all 0.15s ease-in-out;
+  height: auto;
+}
+.faq-smart-section .faq-search-container .faq-search:focus {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 3px rgba(18, 99, 160, 0.15);
+  outline: none;
+}
+.faq-smart-section .faq-search-container .faq-search::-moz-placeholder {
+  color: #6c757d;
+}
+.faq-smart-section .faq-search-container .faq-search::placeholder {
+  color: #6c757d;
+}
+.faq-smart-section .faq-search-container .faq-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 2px solid #1263a0;
+  padding: 0.625rem 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease-in-out;
+  cursor: pointer;
+  background-color: #1263a0;
+  color: #ffffff;
+  min-height: 44px;
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .faq-search-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+.faq-smart-section .faq-search-container .faq-search-btn:hover, .faq-smart-section .faq-search-container .faq-search-btn:focus {
+  background-color: #ffffff;
+  border-color: #1263a0;
+  color: #1263a0;
+  text-decoration: none;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.faq-smart-section .faq-search-container .faq-search-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.faq-smart-section .faq-search-container .faq-search-btn:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .faq-search-btn:hover, .faq-smart-section .faq-search-container .faq-search-btn:focus, .faq-smart-section .faq-search-container .faq-search-btn:active {
+    transform: none;
+  }
+}
+.faq-smart-section .faq-search-container .input-group {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+}
+.faq-smart-section .faq-search-container .input-group .input-group-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  background-color: #1263a0;
+  border: 2px solid #1263a0;
+  border-right: none;
+  border-radius: 0.375rem 0 0 0.375rem;
+  color: #ffffff;
+  font-size: 1rem;
+  padding: 0;
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .input-group .input-group-text {
+    width: 2.75rem;
+  }
+}
+.faq-smart-section .faq-search-container .input-group .form-control {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #868e96;
+  border-left: none;
+  border-radius: 0 0.375rem 0.375rem 0;
+  transition: all 0.15s ease-in-out;
+  height: auto;
+}
+.faq-smart-section .faq-search-container .input-group .form-control:focus {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 3px rgba(18, 99, 160, 0.15);
+  outline: none;
+  z-index: 1;
+}
+.faq-smart-section .faq-search-container .input-group .form-control::-moz-placeholder {
+  color: #6c757d;
+}
+.faq-smart-section .faq-search-container .input-group .form-control::placeholder {
+  color: #6c757d;
+}
+.faq-smart-section .faq-search-container .input-group .btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  border: 2px solid #1263a0;
+  padding: 0.625rem 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border-radius: 0.375rem;
+  background-color: #1263a0;
+  color: #ffffff;
+  min-height: 44px;
+  margin-left: 0.5rem;
+}
+.faq-smart-section .faq-search-container .input-group .btn.btn-sm, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .btn-sm.amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .btn-sm.amount-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .btn-sm.frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .btn-sm.frequency-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .btn-sm.donate-button, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .btn-sm.donate-button {
+  padding: 0.625rem 1.25rem;
+  font-size: 1rem;
+  min-height: 44px;
+}
+.faq-smart-section .faq-search-container .input-group .btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:hover, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:hover, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:hover, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:hover, .faq-smart-section .faq-search-container .input-group .btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:focus, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:focus, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:focus, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:focus {
+  background-color: #ffffff;
+  border-color: #1263a0;
+  color: #1263a0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.faq-smart-section .faq-search-container .input-group .btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:active, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:active, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:active, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .input-group .btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: center;
+  }
+  .faq-smart-section .faq-search-container .input-group .btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:hover, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:hover, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:hover, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:hover, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:hover, .faq-smart-section .faq-search-container .input-group .btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:focus, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:focus, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:focus, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:focus, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:focus, .faq-smart-section .faq-search-container .input-group .btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:active, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .faq-smart-section .faq-search-container .input-group .amount-btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:active, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .faq-smart-section .faq-search-container .input-group .frequency-btn:active, .faq-smart-section .faq-search-container .input-group .node--type-donate.donate-page .custom-donation-form .donate-button:active, .node--type-donate.donate-page .custom-donation-form .faq-smart-section .faq-search-container .input-group .donate-button:active {
+    transform: none;
+  }
+}
+@media (max-width: 767.98px) {
+  .faq-smart-section .faq-search-container .input-group {
+    flex-wrap: wrap;
+  }
+  .faq-smart-section .faq-search-container .input-group .input-group-text {
+    border-radius: 0.375rem 0 0 0.375rem;
+  }
+  .faq-smart-section .faq-search-container .input-group .form-control {
+    flex: 1;
+    min-width: 0;
+    border-radius: 0 0.375rem 0.375rem 0;
+  }
 }
 .faq-smart-section .faq-search-container .faq-search-results {
-  border: 1px solid #868e96;
-  border-radius: 0.25rem;
+  border: 2px solid #868e96;
+  border-radius: 0.375rem;
   background-color: #ffffff;
   max-height: 300px;
   overflow-y: auto;
+  margin-top: 0.5rem;
 }
 .faq-smart-section .faq-search-container .faq-search-results h5, .faq-smart-section .faq-search-container .faq-search-results .h5 {
   padding: 0.75rem;
   border-bottom: 1px solid #868e96;
   margin-bottom: 0;
+  font-weight: 700;
+  color: #1263a0;
 }
 .faq-smart-section .faq-search-container .faq-search-results .list-group-item {
   padding: 0.75rem;
+  border: none;
+  border-bottom: 1px solid #868e96;
+}
+.faq-smart-section .faq-search-container .faq-search-results .list-group-item:last-child {
+  border-bottom: none;
 }
 .faq-smart-section .faq-search-container .faq-search-results .list-group-item a {
   color: #1263a0;
   font-weight: 600;
+  text-decoration: none;
+}
+.faq-smart-section .faq-search-container .faq-search-results .list-group-item a:hover {
+  text-decoration: underline;
 }
 .faq-smart-section .faq-search-container .faq-search-results .list-group-item a:focus {
   outline: 2px solid #1263a0;
@@ -28500,6 +28811,8 @@ body .node--employment .field--name-field-faq-section-title,
 .faq-smart-section .faq-search-container .faq-search-results .list-group-item p {
   color: rgb(188.610619469, 193, 197.389380531);
   margin-top: 0.25rem;
+  margin-bottom: 0;
+  font-size: 0.9rem;
 }
 .faq-smart-section .faq-filters {
   margin-bottom: 1.5rem;
@@ -30263,7 +30576,7 @@ mark.search-highlight, .search-highlight.mark {
   }
 }
 /*---------------------------------------------------
-  RESOURCES  (cards • sticky-sidebar nav • accordion tweaks)
+  RESOURCES  (cards • filters • full page with footer)
 ---------------------------------------------------*/
 /*──────────── Resource CSS Custom Properties ────────────*/
 :root {
@@ -30280,8 +30593,6 @@ mark.search-highlight, .search-highlight.mark {
   --resource-gap: 1.25rem;
   --resource-gap-sm: 0.5rem;
   --resource-card-padding: 1.5rem;
-  --resource-nav-sticky-top: 6rem;
-  --resource-nav-offset: 8rem;
   --resource-card-radius: 0.375rem;
   --resource-badge-radius: 0.25rem;
   --resource-btn-radius: 0.375rem;
@@ -30292,9 +30603,6 @@ mark.search-highlight, .search-highlight.mark {
 }
 
 /*──────────── Resource page header consistency ────────────*/
-.node--type-resource {
-  /* Override the standard curved header for resource pages */
-}
 .node--type-resource .curved-page-header .curved-page-header-title {
   color: var(--resource-primary);
 }
@@ -30310,7 +30618,7 @@ mark.search-highlight, .search-highlight.mark {
   flex-direction: column;
 }
 
-/*──────────── 2) Resource cards ────────────*/
+/*──────────── 2) Resource cards (listing view) ────────────*/
 .resource-card {
   border: 6px solid var(--resource-primary);
   border-radius: var(--resource-card-radius);
@@ -30428,29 +30736,7 @@ mark.search-highlight, .search-highlight.mark {
   box-shadow: 0 2px 4px rgba(18, 99, 160, 0.3);
 }
 
-/*──────────── 4) Sticky sidebar nav & pills (legacy) ────────────*/
-.topic-nav {
-  position: sticky;
-  top: var(--resource-nav-sticky-top);
-  max-height: calc(100vh - var(--resource-nav-sticky-top) - 2rem);
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0 0.25rem;
-}
-@media (max-width: 576px) {
-  .topic-nav {
-    overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
-  }
-  .topic-nav .nav {
-    gap: var(--resource-gap-sm);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-  }
-}
-
+/*──────────── 4) Pill links (shared) ────────────*/
 .pill-link {
   background: var(--resource-bg);
   border: 1px solid var(--resource-primary);
@@ -30478,7 +30764,7 @@ mark.search-highlight, .search-highlight.mark {
   outline-offset: 2px;
 }
 
-/*──────────── 4) Accordion overrides ────────────*/
+/*──────────── 5) Accordion overrides ────────────*/
 .service-accordion .accordion-header .accordion-button {
   color: var(--resource-primary);
   font-weight: 700;
@@ -30488,10 +30774,7 @@ mark.search-highlight, .search-highlight.mark {
   box-shadow: 0 0 0 0.25rem rgba(18, 99, 160, 0.25);
 }
 
-/*──────────── 6) Full resource page ────────────*/
-.resource-full {
-  /* ── Sidebar styling ── */
-}
+/*──────────── 6) Full resource page layout ────────────*/
 .resource-full .page-title {
   color: var(--resource-primary);
   margin-bottom: 1rem;
@@ -30502,68 +30785,66 @@ mark.search-highlight, .search-highlight.mark {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.resource-full .resource-topics .badge {
-  font-size: 0.9rem;
-  padding: 0.4rem 0.7rem;
+.resource-full .resource-sections .accordion-section, .resource-full .resource-sections .faq-smart-section {
+  max-width: 1080px;
 }
-.resource-full .content-body {
-  --content-body-margin-bottom: 1rem;
+.resource-full .resource-sections .accordion-file {
+  text-align: center;
 }
-.resource-full .resource-file h3, .resource-full .resource-file .h3,
+.resource-full .resource-file,
+.resource-full .resource-link,
+.resource-full .resource-external {
+  max-width: 1080px;
+  margin: 2rem auto;
+  text-align: center;
+}
+.resource-full .resource-file h2, .resource-full .resource-file .h2, .resource-full .resource-file h3, .resource-full .resource-file .h3,
+.resource-full .resource-link h2,
+.resource-full .resource-link .h2,
 .resource-full .resource-link h3,
-.resource-full .resource-link .h3 {
+.resource-full .resource-link .h3,
+.resource-full .resource-external h2,
+.resource-full .resource-external .h2,
+.resource-full .resource-external h3,
+.resource-full .resource-external .h3 {
   font-size: 1.25rem;
   margin-bottom: 1rem;
+  color: #1263a0;
 }
-@media (min-width: 992px) {
-  .resource-full .sidebar-sticky-wrapper {
-    position: sticky;
-    position: -webkit-sticky;
-    top: 120px;
-    z-index: 10;
+.resource-full .resource-footer {
+  max-width: 1080px;
+  margin: 2rem auto 0;
+  padding-top: 1.5rem;
+  border-top: 2px solid #868e96;
+  text-align: left;
+}
+.resource-full .resource-footer-item {
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  line-height: 1.6;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .resource-full .resource-footer-item {
+    font-size: 1.4rem;
   }
 }
-.resource-full .sidebar-card {
-  max-width: 100%;
-  margin: 0 auto;
-  border: 3px solid #1263a0;
-  text-align: center;
-  background-color: #ffffff;
+@media (max-width: 767.98px) {
+  .resource-full .resource-footer-item {
+    font-size: 1.1rem;
+  }
 }
-.resource-full .sidebar-card .card-header {
-  padding: 1rem 1.5rem;
-  background-color: #f0f2f5;
-  border-bottom: 1px solid #868e96;
-}
-.resource-full .sidebar-card .card-header h3, .resource-full .sidebar-card .card-header .h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
+.resource-full .resource-footer-label {
+  font-weight: 600;
   color: #000000;
-  margin: 0;
-  white-space: nowrap;
 }
-.resource-full .sidebar-card .card-body {
-  padding: 0;
-  /* Service Areas - matching resource card style */
-  /* Topics - matching resource card style with pipe separators */
-  /* Last Updated */
+.resource-full .resource-footer-label::after {
+  content: ":";
+  margin-right: 0.5rem;
 }
-.resource-full .sidebar-card .card-body h4, .resource-full .sidebar-card .card-body .h4 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
+.resource-full .resource-footer-value {
   color: #000000;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
-.resource-full .sidebar-card .card-body .resource-service-areas {
-  margin-bottom: 1.5rem;
-  padding-top: 0.25rem;
-}
-.resource-full .sidebar-card .card-body .resource-service-areas h4, .resource-full .sidebar-card .card-body .resource-service-areas .h4 {
-  margin-bottom: 0.25rem;
-}
-.resource-full .sidebar-card .card-body .resource-service-areas .service-areas-badges .service-area-badge {
+.resource-full .resource-service-areas .service-area-badge {
   display: inline-block;
   background-color: var(--resource-primary);
   color: #ffffff;
@@ -30571,46 +30852,18 @@ mark.search-highlight, .search-highlight.mark {
   font-weight: 600;
   padding: 0.375rem 1rem;
   border-radius: 9999px;
-  margin: 0 0.25rem 0.5rem;
+  margin: 0.125rem;
 }
-.resource-full .sidebar-card .card-body .resource-topics {
-  margin-bottom: 1.5rem;
-}
-.resource-full .sidebar-card .card-body .resource-topics h4, .resource-full .sidebar-card .card-body .resource-topics .h4 {
-  margin-bottom: 0.25rem;
-}
-.resource-full .sidebar-card .card-body .resource-topics .topics-items {
-  line-height: 1.6;
-}
-.resource-full .sidebar-card .card-body .resource-topics .topics-items .topic-item {
+.resource-full .resource-topics .topic-item {
   color: #000000;
-  font-size: 0.875rem;
-  margin: 0 0.25rem;
 }
-.resource-full .sidebar-card .card-body .resource-topics .topics-items .topic-separator {
+.resource-full .resource-topics .topic-separator {
   color: #868e96;
   margin: 0 0.25rem;
   font-weight: 300;
 }
-.resource-full .sidebar-card .card-body .last-updated h4, .resource-full .sidebar-card .card-body .last-updated .h4 {
-  font-size: 0.875rem;
-  margin-bottom: 0.5rem;
-  color: #000000;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.resource-full .sidebar-card .card-body .last-updated p {
-  font-size: 0.875rem;
-  margin: 0;
-  color: #000000;
-  font-weight: 400;
-}
-.resource-full .sidebar-card .card-footer {
-  padding: 0.75rem;
-  text-align: center;
-  background-color: #f0f2f5;
-  border-top: 1px solid #868e96;
+.resource-full .resource-footer-back {
+  margin-top: 1.5rem;
 }
 
 /* end .resource-full */
@@ -30642,17 +30895,10 @@ mark.search-highlight, .search-highlight.mark {
   }
 }
 
-/* Media queries (General, or move to specific component if applicable) */
-@media (max-width: 767.98px) {
-  .resource-full .col-lg-4.sidebar-column {
-    margin-top: 2rem;
-  }
-}
 /*──────────── 8) Print styles for resources ────────────*/
 @media print {
-  .topic-nav,
   .resource-actions,
-  .sidebar-card .card-footer,
+  .resource-footer-back,
   .btn,
   .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn,
   .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn,
@@ -30664,18 +30910,11 @@ mark.search-highlight, .search-highlight.mark {
     max-height: none !important;
     overflow: visible !important;
   }
-  .resource-full .col-lg-8,
-  .resource-full .col-lg-4 {
-    width: 100%;
-    max-width: 100%;
+  .resource-full .resource-footer {
+    border-top: 1px solid #000000;
   }
-  .resource-full .sidebar-card {
-    max-width: 100%;
-    page-break-inside: avoid;
-    margin-top: 2rem;
-    border: 1px solid #000000;
-  }
-  .badge {
+  .badge,
+  .service-area-badge {
     border: 1px solid #000000 !important;
     color: #000000 !important;
     background: transparent !important;
@@ -30799,6 +31038,119 @@ mark.search-highlight, .search-highlight.mark {
   text-decoration: none;
 }
 
+/*──────────── 3b) Topic Navigation Filter ────────────*/
+.forms-filter-section {
+  padding: 0 0 1.5rem;
+}
+@media (max-width: 767.98px) {
+  .forms-filter-section {
+    padding: 0 0 1rem;
+  }
+}
+
+.forms-filter {
+  max-width: 500px;
+  margin: 0 auto;
+}
+@media (max-width: 767.98px) {
+  .forms-filter {
+    max-width: 100%;
+  }
+}
+.forms-filter__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background-color: #f0f2f5;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 2px solid #1263a0;
+}
+@media (max-width: 767.98px) {
+  .forms-filter__inner {
+    flex-direction: column;
+    padding: 0.5rem;
+  }
+}
+.forms-filter__select {
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
+}
+.forms-filter__select label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1263a0;
+  margin-bottom: 0.5rem;
+  display: block;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+@media (max-width: 767.98px) {
+  .forms-filter__select label {
+    font-size: 1rem;
+  }
+}
+.forms-filter__select select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid #868e96;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+.forms-filter__select select:focus {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 3px rgba(18, 99, 160, 0.15);
+  outline: none;
+}
+.forms-filter__actions {
+  flex-shrink: 0;
+}
+@media (max-width: 767.98px) {
+  .forms-filter__actions {
+    width: 100%;
+  }
+}
+.forms-filter__button {
+  display: inline-block;
+  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  border: 2px solid #1263a0;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease-in-out;
+  cursor: pointer;
+  background-color: #1263a0;
+  color: #ffffff;
+}
+@media (max-width: 767.98px) {
+  .forms-filter__button {
+    width: 100%;
+  }
+}
+.forms-filter__button:hover, .forms-filter__button:focus {
+  background-color: #ffffff;
+  border-color: #1263a0;
+  color: #1263a0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.forms-filter__button:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+
 /*──────────── 4) Main Content Area ────────────*/
 .forms-main-content {
   position: relative;
@@ -30807,9 +31159,15 @@ mark.search-highlight, .search-highlight.mark {
   padding: 0;
   max-width: 1200px;
 }
+.forms-by-topic .forms-main-content {
+  margin-bottom: 1.5rem;
+}
 
 .forms-content {
   padding: 2rem 0 3rem;
+}
+.forms-by-topic .forms-content {
+  padding-bottom: 2rem;
 }
 
 /*──────────── 5) Category Cards (Landing Page) ────────────*/
@@ -30922,6 +31280,9 @@ mark.search-highlight, .search-highlight.mark {
 /*──────────── 6) Topic Page Back Button ────────────*/
 .forms-back-nav {
   margin-top: 2rem;
+  max-width: 75ch;
+  margin-left: auto;
+  margin-right: auto;
   text-align: left;
 }
 .forms-back-nav .btn, .forms-back-nav .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .forms-back-nav .amount-btn, .forms-back-nav .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .forms-back-nav .frequency-btn, .forms-back-nav .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .forms-back-nav .donate-button {
@@ -30938,6 +31299,8 @@ mark.search-highlight, .search-highlight.mark {
   display: flex;
   flex-direction: column;
   gap: var(--forms-gap);
+  max-width: 75ch;
+  margin: 0 auto;
 }
 
 .form-item-card {
@@ -30948,6 +31311,8 @@ mark.search-highlight, .search-highlight.mark {
   padding: var(--forms-card-padding);
   box-shadow: var(--forms-shadow-sm);
   transition: var(--forms-transition);
+  width: 100%;
+  text-align: center;
 }
 .form-item-card:hover, .form-item-card:focus-within {
   background: #ffffff;
@@ -30960,6 +31325,7 @@ mark.search-highlight, .search-highlight.mark {
   color: var(--forms-primary);
   margin: 0 0 0.5rem;
   line-height: 1.3;
+  text-align: center;
 }
 .form-item-card .form-item-description {
   font-size: 0.95rem;
@@ -30967,6 +31333,7 @@ mark.search-highlight, .search-highlight.mark {
   color: var(--forms-text);
   margin: 0 0 1rem;
   max-width: 75ch;
+  text-align: center;
 }
 .form-item-card .form-item-download {
   margin-bottom: 0.75rem;
@@ -31049,6 +31416,12 @@ mark.search-highlight, .search-highlight.mark {
 .forms-pager {
   margin-top: 2rem;
 }
+.forms-pager:empty {
+  display: none;
+}
+.forms-pager:has(.pager__items:only-child .pager__item:only-child) {
+  display: none;
+}
 .forms-pager .pager {
   display: flex;
   justify-content: center;
@@ -31057,6 +31430,10 @@ mark.search-highlight, .search-highlight.mark {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+.forms-pager .pager:empty,
+.forms-pager .pager .pager__items:empty {
+  display: none;
 }
 .forms-pager .pager .pager__item a,
 .forms-pager .pager .pager__item span {
@@ -31185,6 +31562,119 @@ mark.search-highlight, .search-highlight.mark {
   text-decoration: none;
 }
 
+/*──────────── 3b) Topic Navigation Filter ────────────*/
+.guides-filter-section {
+  padding: 0 0 1.5rem;
+}
+@media (max-width: 767.98px) {
+  .guides-filter-section {
+    padding: 0 0 1rem;
+  }
+}
+
+.guides-filter {
+  max-width: 500px;
+  margin: 0 auto;
+}
+@media (max-width: 767.98px) {
+  .guides-filter {
+    max-width: 100%;
+  }
+}
+.guides-filter__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background-color: #f0f2f5;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: 2px solid #1263a0;
+}
+@media (max-width: 767.98px) {
+  .guides-filter__inner {
+    flex-direction: column;
+    padding: 0.5rem;
+  }
+}
+.guides-filter__select {
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
+}
+.guides-filter__select label {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1263a0;
+  margin-bottom: 0.5rem;
+  display: block;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+@media (max-width: 767.98px) {
+  .guides-filter__select label {
+    font-size: 1rem;
+  }
+}
+.guides-filter__select select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid #868e96;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+.guides-filter__select select:focus {
+  border-color: #1263a0;
+  box-shadow: 0 0 0 3px rgba(18, 99, 160, 0.15);
+  outline: none;
+}
+.guides-filter__actions {
+  flex-shrink: 0;
+}
+@media (max-width: 767.98px) {
+  .guides-filter__actions {
+    width: 100%;
+  }
+}
+.guides-filter__button {
+  display: inline-block;
+  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  border: 2px solid #1263a0;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease-in-out;
+  cursor: pointer;
+  background-color: #1263a0;
+  color: #ffffff;
+}
+@media (max-width: 767.98px) {
+  .guides-filter__button {
+    width: 100%;
+  }
+}
+.guides-filter__button:hover, .guides-filter__button:focus {
+  background-color: #ffffff;
+  border-color: #1263a0;
+  color: #1263a0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.guides-filter__button:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
+}
+
 /*──────────── 4) Main Content Area ────────────*/
 .guides-main-content {
   position: relative;
@@ -31193,9 +31683,15 @@ mark.search-highlight, .search-highlight.mark {
   padding: 0;
   max-width: 1200px;
 }
+.guides-by-topic .guides-main-content {
+  margin-bottom: 1.5rem;
+}
 
 .guides-content {
   padding: 2rem 0 3rem;
+}
+.guides-by-topic .guides-content {
+  padding-bottom: 2rem;
 }
 
 /*──────────── 5) Category Cards (Landing Page) ────────────*/
@@ -31287,6 +31783,15 @@ mark.search-highlight, .search-highlight.mark {
   text-align: center;
   line-height: 1.3;
   color: #1263a0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-hyphens: auto;
+          hyphens: auto;
+}
+@media (max-width: 767.98px) {
+  .guide-category-card .guide-category-title {
+    font-size: 1.1rem;
+  }
 }
 .guide-category-card .guide-category-description {
   font-size: 0.95rem;
@@ -31299,6 +31804,9 @@ mark.search-highlight, .search-highlight.mark {
 /*──────────── 6) Topic Page Back Button ────────────*/
 .guides-back-nav {
   margin-top: 2rem;
+  max-width: 75ch;
+  margin-left: auto;
+  margin-right: auto;
   text-align: left;
 }
 .guides-back-nav .btn, .guides-back-nav .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .guides-back-nav .amount-btn, .guides-back-nav .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .guides-back-nav .frequency-btn, .guides-back-nav .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .guides-back-nav .donate-button {
@@ -31315,6 +31823,8 @@ mark.search-highlight, .search-highlight.mark {
   display: flex;
   flex-direction: column;
   gap: var(--guides-gap);
+  max-width: 75ch;
+  margin: 0 auto;
 }
 
 .guide-item-card {
@@ -31325,6 +31835,8 @@ mark.search-highlight, .search-highlight.mark {
   padding: var(--guides-card-padding);
   box-shadow: var(--guides-shadow-sm);
   transition: var(--guides-transition);
+  width: 100%;
+  text-align: center;
 }
 .guide-item-card:hover, .guide-item-card:focus-within {
   background: #ffffff;
@@ -31337,6 +31849,7 @@ mark.search-highlight, .search-highlight.mark {
   color: var(--guides-primary);
   margin: 0 0 0.5rem;
   line-height: 1.3;
+  text-align: center;
 }
 .guide-item-card .guide-item-description {
   font-size: 0.95rem;
@@ -31344,6 +31857,7 @@ mark.search-highlight, .search-highlight.mark {
   color: var(--guides-text);
   margin: 0 0 1rem;
   max-width: 75ch;
+  text-align: center;
 }
 .guide-item-card .guide-item-download {
   margin-bottom: 0.75rem;
@@ -31426,6 +31940,12 @@ mark.search-highlight, .search-highlight.mark {
 .guides-pager {
   margin-top: 2rem;
 }
+.guides-pager:empty {
+  display: none;
+}
+.guides-pager:has(.pager__items:only-child .pager__item:only-child) {
+  display: none;
+}
 .guides-pager .pager {
   display: flex;
   justify-content: center;
@@ -31434,6 +31954,10 @@ mark.search-highlight, .search-highlight.mark {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+.guides-pager .pager:empty,
+.guides-pager .pager .pager__items:empty {
+  display: none;
 }
 .guides-pager .pager .pager__item a,
 .guides-pager .pager .pager__item span {

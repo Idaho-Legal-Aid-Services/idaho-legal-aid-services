@@ -75,7 +75,7 @@
 
       @media (min-width: #{$break-md}) {
         &:hover,
-        &:focus-visible {
+        &:focus-within {
           border-color: $color-primary;
           box-shadow: $shadow-glow-primary;
         }
@@ -94,17 +94,34 @@
 
       @media (min-width: #{$break-md}) {
         &:hover,
-        &:focus-visible {
+        &:focus-within {
           box-shadow: $shadow-glow-gray;
         }
       }
     }
 
+    // --- Stretched anchor overlay for native link behavior (right-click, middle-click) ---
+    &__link-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      pointer-events: auto; // Override the pointer-events: none on children
+      text-decoration: none;
+
+      // Hide focus outline on anchor, we show it on the card via :focus-within
+      &:focus {
+        outline: none;
+      }
+    }
+
     // --- Shared Hover/Focus State - Disabled on mobile to prevent overflow ---
-    // ACCESSIBLE: :focus-visible ensures keyboard users see the same reveal as mouse users
+    // ACCESSIBLE: :focus-within ensures keyboard users see the same reveal as mouse users
     @media (min-width: #{$break-md}) {
-      &[role="link"]:hover,
-      &[role="link"]:focus-visible {
+      &:hover,
+      &:focus-within {
         // Lift the card to a new layer on hover
         z-index: 10;
         background-color: $color-white;
@@ -152,49 +169,38 @@
       }
     }
 
-    // --- Card Internals ---
-    // Remove old __link styles - now using article as clickable element
+    // --- Card Base Styles ---
+    cursor: pointer;
+    transition: $transition-base;
+    // Even padding: same top/bottom for balanced spacing on hover
+    padding: 1.5rem 2rem;
+    position: relative;
+    display: flex;
+    align-items: flex-start; // Align content to top, padding controls spacing
 
-    // New accessible structure styling
-    &[role="link"] {
-      cursor: pointer;
-      transition: $transition-base;
-      // Even padding: same top/bottom for balanced spacing on hover
-      padding: 1.5rem 2rem;
-      position: relative;
-      display: flex;
-      align-items: flex-start; // Align content to top, padding controls spacing
+    @include mobile {
+      min-height: 80px;         // Minimum for visual consistency
+      height: auto;             // Allow content to dictate height
+      max-height: none;         // Remove restriction to prevent text truncation
+      padding: 0.75rem;
+    }
 
-      @include mobile {
-        min-height: 80px;         // Minimum for visual consistency
-        height: auto;             // Allow content to dictate height
-        max-height: none;         // Remove restriction to prevent text truncation
-        padding: 0.75rem;
-      }
+    // Focus styles for accessibility (triggered via :focus-within from anchor)
+    &:focus-within {
+      outline: 3px solid $color-primary;
+      outline-offset: 2px;
+      box-shadow: $focus-ring-primary;
+    }
 
-      // Focus styles for accessibility
-      &:focus {
-        outline: 3px solid $color-primary;
-        outline-offset: 2px;
-        box-shadow: $focus-ring-primary;
-      }
+    // Hide focus ring for mouse users, show only for keyboard
+    &:has(.topic-card__link-overlay:focus:not(:focus-visible)) {
+      outline: none;
+      box-shadow: $shadow-card;
+    }
 
-      // Hide focus ring for mouse users, show only for keyboard
-      &:focus:not(:focus-visible) {
-        outline: none;
-        box-shadow: $shadow-card;
-      }
-
-      &:focus-visible {
-        outline: 3px solid $color-primary;
-        outline-offset: 2px;
-        box-shadow: $focus-ring-primary;
-      }
-
-      // Remove pointer events from child elements to prevent bubbling
-      * {
-        pointer-events: none;
-      }
+    // Remove pointer events from child elements (anchor overlay re-enables its own)
+    > *:not(.topic-card__link-overlay) {
+      pointer-events: none;
     }
 
     &__content {
@@ -296,4 +302,12 @@
   .topic-card__cta {
     transition: none;
   }
+}
+
+// --- Standard Layout Override ---
+// Break topic cards out of the 75ch max-width constraint applied to .node__content
+// in standard-layout pages (e.g., legal_topic). Without this, cards are ~346px
+// instead of the intended 380px max.
+.standard-layout .node__content:has(.field--name-field-topic-cards) {
+  max-width: none;
 }
