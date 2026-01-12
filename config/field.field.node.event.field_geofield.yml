@@ -8,11 +8,12 @@ dependencies:
   module:
     - geocoder_field
     - geofield
+    - tmgmt_content
 third_party_settings:
   geocoder_field:
     method: geocode
     weight: 0
-    field: field_event__location_address
+    field: moderation_state
     skip_not_empty_value: false
     disabled: false
     hidden: false
@@ -24,6 +25,8 @@ third_party_settings:
       handling: preserve
       status_message: true
       log: true
+  tmgmt_content:
+    excluded: false
 _core:
   default_config_hash: O-m7vx48rA12_CiBZRcZuSWoYJbC0IXTaOhwN0sGAnk
 id: node.event.field_geofield
