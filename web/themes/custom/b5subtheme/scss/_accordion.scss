@@ -1,6 +1,7 @@
 // Standardized Accordion Styles
 
-// Container styling - matching two-column-info
+// Container styling - matches FAQ section styling
+// Width constraint ensures accordions align with .content-body regardless of parent context
 .accordion-section {
   background-color: $color-gray-bg;
   border: 6px solid $color-primary;
@@ -8,7 +9,18 @@
   box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
   border-radius: 0.25rem;
   padding: 1rem;
-  
+
+  // Match .content-body width pattern exactly
+  width: 100%;
+  max-width: $reading-column-width;
+  margin-inline: auto;
+
+  // Wider accordions for donate and employment pages
+  .node--type-donate &,
+  .node--employment & {
+    max-width: 1080px;
+  }
+
   @include mobile {
     padding: 1rem;
     margin-bottom: 1.5rem;
@@ -21,17 +33,20 @@
 }
 
 /* This targets the top-level "Accordion Section" title */
+/* Using higher specificity instead of !important to override Drupal/CKEditor defaults */
 .accordion-section .accordion-section-title,
-.accordion-section-title {
-  font-size: 2.5rem !important;
-  color: $color-primary !important;
-  font-weight: 700 !important;
-  text-align: center !important;
-  margin-bottom: 1.5rem !important;
-  
+.paragraph--type-accordion-section .accordion-section-title,
+body .accordion-section .accordion-section-title,
+body .accordion-section-title {
+  font-size: 2.5rem;
+  color: $color-primary;
+  font-weight: $weight-title;
+  text-align: center;
+  margin-bottom: 1.5rem;
+
   @include mobile {
-    font-size: 1.5rem !important;
-    margin-bottom: 1rem !important;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
   }
 }
 
@@ -40,7 +55,7 @@
   border: none;
   border-bottom: 2px solid $color-primary;
   margin-bottom: 0.5rem;
-  transition: all 0.3s ease;
+  transition: $transition-base;
   background-color: transparent;
   
   &:hover {
@@ -64,13 +79,13 @@
 // Remove default accordion button styles
 .accordion-section .accordion-header .accordion-button {
   color: $color-primary;
-  font-weight: 600;
+  font-weight: $weight-button;
   font-size: 1.5rem;
   background: none;
   box-shadow: none;
   padding-left: 3rem;
   position: relative;
-  transition: all 0.3s ease;
+  transition: $transition-base;
 }
 
 // Override default accordion button after/before elements
@@ -82,11 +97,11 @@
 .accordion-section .accordion-header .accordion-button::before {
   font-family: "Font Awesome 6 Free";
   content: "\f067"; // Plus icon
-  font-weight: 700;
+  font-weight: $font-weight-bold;
   position: absolute;
   left: 0.75rem;
   color: $color-primary;
-  transition: all 0.3s ease;
+  transition: $transition-base;
 }
 
 // Change to minus when expanded
@@ -99,7 +114,7 @@
 // Style for expanded state
 .accordion-section .accordion-header .accordion-button:not(.collapsed) {
   color: $color-primary;
-  font-weight: 700;
+  font-weight: $font-weight-bold;
   background: none;
 }
 
@@ -127,16 +142,41 @@
 
 // Body styles
 .accordion-section .accordion-body {
-  color: #000000;
-  font-size: 1.25rem;
+  color: $color-black;
+  @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body); // Match .content-body
+  line-height: $content-line-height;
   padding: 1rem;
   animation: fadeIn 0.3s ease;
   overflow-x: auto; // Allow horizontal scroll if needed
   overflow-y: visible;
-  
+  text-align: left; // Left-align body text for readability
+
   @include mobile {
-    font-size: 1rem;
     padding: 1rem 0.75rem;
+  }
+
+  // Link styles - match site standards, exclude buttons
+  a:not(#{$button-not-selector}) {
+    color: $color-primary;
+    text-decoration: underline;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+
+  // Typography for nested content
+  p {
+    margin-bottom: 1rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul, ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
   }
 }
 
@@ -200,7 +240,7 @@
   // Match the primary button hover behavior from _buttons.scss
   .btn-primary {
     // Ensure consistent styling with site-wide buttons
-    font-weight: 600;
+    font-weight: $weight-button;
     
     &:hover,
     &:focus {

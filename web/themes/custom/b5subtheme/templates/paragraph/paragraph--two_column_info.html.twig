@@ -7,6 +7,18 @@
     - field_right_link_url (link field), field_right_link_text
 #}
 
+{# Button text mapping for mobile - shorter versions #}
+{% set button_text_map = {
+  'Volunteer Opportunities': 'Volunteer Now',
+  'Donation Opportunities': 'Donate Now'
+} %}
+
+{# Get button texts with mobile alternatives #}
+{% set left_btn_text = content.field_left_link_text.0['#context'].value|default(content.field_left_link_text.0|render|striptags|trim) %}
+{% set right_btn_text = content.field_right_link_text.0['#context'].value|default(content.field_right_link_text.0|render|striptags|trim) %}
+{% set left_btn_mobile = button_text_map[left_btn_text]|default(left_btn_text) %}
+{% set right_btn_mobile = button_text_map[right_btn_text]|default(right_btn_text) %}
+
 <div class="row justify-content-center brand-l col-padding-sm text-center mb-5">
   {# LEFT COLUMN #}
   <div class="col-md-5 column-border">
@@ -33,7 +45,8 @@
         <a class="btn btn-primary"
            style="--bs-btn-padding-y: .75rem; --bs-btn-padding-x: 1.25rem; --bs-btn-font-size: .75rem;"
            href="{{ content.field_left_link_url.0['#url'] }}">
-          {{ content.field_left_link_text.0 }}
+          <span class="d-none d-sm-inline">{{ content.field_left_link_text.0 }}</span>
+          <span class="d-sm-none">{{ left_btn_mobile }}</span>
         </a>
       </p>
     {% endif %}
@@ -69,7 +82,8 @@
         <a class="btn btn-primary"
            style="--bs-btn-padding-y: .75rem; --bs-btn-padding-x: 1.25rem; --bs-btn-font-size: .75rem;"
            href="{{ content.field_right_link_url.0['#url'] }}">
-          {{ content.field_right_link_text.0 }}
+          <span class="d-none d-sm-inline">{{ content.field_right_link_text.0 }}</span>
+          <span class="d-sm-none">{{ right_btn_mobile }}</span>
         </a>
       </p>
     {% endif %}

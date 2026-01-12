@@ -10,7 +10,7 @@
 {% set paragraph_id = paragraph.entity.id() %}
 {% set accordion_id = 'accordion-' ~ paragraph_id %}
 
-<div class="accordion-section mb-5 brand-l shadow-1 col-padding-sm p-3">
+<div class="accordion-section">
   {% if paragraph.field_title.value %}
     <h3 class="accordion-section-title mb-3 text-center">
       {{ paragraph.field_title.value }}

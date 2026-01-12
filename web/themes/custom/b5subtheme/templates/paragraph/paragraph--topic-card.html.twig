@@ -6,13 +6,62 @@
 {# Normalize the raw field value into a safe, lowercase class name #}
 {% set color = content.field_topic_color[0]['#markup']|clean_class %}
 
-{# Extract values for accessibility #}
-{% set topic_title = content.field_topic_title|render|striptags|trim %}
-{% set topic_description = content.field_topic_description|render|striptags|trim %}
+{# Extract raw field values directly to avoid HTML entity encoding issues #}
+{% set topic_title = paragraph.field_topic_title.value|trim %}
+{% set topic_description = paragraph.field_topic_description.value|striptags|trim %}
+{# Get URL from render array - properly resolves internal/external URLs #}
 {% set topic_url = content.field_topic_link[0]['#url'] %}
 
+{# Override URLs for specific cards #}
+{% set topic_title_upper = topic_title|upper %}
+{% if topic_title_upper == 'PHONE APPLICATION' %}
+  {% set topic_url = 'tel:208-746-7541' %}
+{% elseif topic_title_upper == 'IN-PERSON APPLICATION' %}
+  {% set topic_url = '/locations' %}
+{% endif %}
+
+{# Title mapping by paragraph ID - takes precedence #}
+{% set id_title_map = {
+  '23': 'ONLINE APP',
+  '24': 'PHONE APP',
+  '25': 'IN-PERSON APP',
+  '63': 'RISK DETECTOR',
+  '153': 'BOARD',
+  '154': 'FINANCIALS',
+  '399': 'REPORTS'
+} %}
+
+{# Title mapping for hover state - shorter versions (fallback) #}
+{% set title_map = {
+  'FREE LEGAL ASSISTANCE': 'LEGAL ASSISTANCE',
+  'SAFE & STABLE HOUSING': 'HOUSING',
+  'FAMILY SAFETY & STABILITY': 'FAMILY',
+  'ADVOCACY FOR OLDER ADULTS': 'SENIORS',
+  'HEALTH & ESSENTIAL BENEFITS': 'PUBLIC BENEFITS',
+  'CONSUMER PROTECTION': 'CONSUMER',
+  'INDIVIDUAL RIGHTS': 'INDIVIDUAL RIGHTS',
+  'TRIBAL RIGHTS & ADVOCACY': 'TRIBAL RIGHTS',
+  'AGRICULTURE WORKER SERVICES': 'FARMWORKERS',
+  'ONLINE APPLICATION': 'ONLINE APP',
+  'PHONE APPLICATION': 'PHONE APP',
+  'IN-PERSON APPLICATION': 'IN-PERSON APP',
+  'REPORTS & PUBLICATIONS': 'REPORTS',
+  'IDAHO SENIOR LEGAL RISK DETECTOR - ENGLISH': 'RISK DETECTOR ENGLISH',
+  'IDAHO SENIOR LEGAL RISK DETECTOR - ESPANOL': 'RISK DETECTOR SPANISH',
+  'SENIOR LEGAL RISK DETECTOR': 'RISK DETECTOR',
+  'FINANCIALS & REPORTS': 'FINANCIALS'
+} %}
+
+{# Get short title: ID map first, then title map, then full title #}
+{% set paragraph_id = paragraph.id() ~ '' %}
+{% set topic_title_short = id_title_map[paragraph_id] ?? title_map[topic_title_upper] ?? topic_title %}
+
 {# Create accessible label combining title and description #}
-{% set aria_label = topic_title ~ ': ' ~ topic_description ~ '. Click to learn more.' %}
+{% if topic_title_upper == 'PHONE APPLICATION' %}
+  {% set aria_label = topic_title ~ ': ' ~ topic_description ~ '. Click to call 208-746-7541.' %}
+{% else %}
+  {% set aria_label = topic_title ~ ': ' ~ topic_description ~ '. Click to learn more.' %}
+{% endif %}
 
 {# Build our classes array using the normalized color #}
 {% set classes = [
@@ -26,29 +75,31 @@
 {% set desc_id = card_id ~ '-description' %}
 {% set cta_id = card_id ~ '-cta' %}
 
-<article{{ attributes.addClass(classes) }} 
-         role="link" 
-         tabindex="0" 
+<article{{ attributes.addClass(classes) }}
          data-href="{{ topic_url }}"
-         aria-label="{{ aria_label }}"
          aria-labelledby="{{ title_id }}"
          aria-describedby="{{ desc_id }} {{ cta_id }}">
-  
+
+  {# Stretched anchor for native link behavior (right-click, middle-click, etc.) #}
+  <a href="{{ topic_url }}" class="topic-card__link-overlay" aria-label="{{ aria_label }}"></a>
+
   <div class="topic-card__content">
     <h2 class="topic-card__title" id="{{ title_id }}">
-      {{ content.field_topic_title }}
+      <span class="title-full">{{ topic_title }}</span>
+      <span class="title-short">{{ topic_title_short }}</span>
+      <span class="title-mobile">{{ topic_title_short }}</span>
     </h2>
     <div class="topic-card__description" id="{{ desc_id }}">
-      {{ content.field_topic_description }}
+      {{- topic_description -}}
     </div>
   </div>
-  
-  {# Screen reader content #}
-  <span class="sr-only" id="{{ cta_id }}">
+
+  {# Screen reader content - uses Bootstrap's .visually-hidden utility #}
+  <span class="visually-hidden" id="{{ cta_id }}">
     Click to learn more about {{ topic_title|lower }} legal services
   </span>
-  
+
   {# Visual CTA indicator hidden from screen readers #}
   <span class="topic-card__cta" aria-hidden="true">Learn More →</span>
-  
+
 </article>

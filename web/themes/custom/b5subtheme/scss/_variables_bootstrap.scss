@@ -1,9 +1,163 @@
-// Bootstrap variables (overrides).
+// =============================================================================
+// BOOTSTRAP OVERRIDES
+// Override specific Bootstrap defaults (colors, forms, tables, typography)
+// No CSS output - variables only
+//
+// NOTE: These variables must be defined BEFORE importing Bootswatch's variables
+// AND Bootstrap's variables to take effect. The import order in style.scss:
+//   1. variables_theme (tokens)
+//   2. variables_drupal
+//   3. variables_bootstrap (THIS FILE)
+//   4. bootswatch/lux/variables (uses !default, won't override)
+//   5. bootstrap/variables
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// COLOR OVERRIDES
+// Map theme tokens to Bootstrap's variable names
+// These MUST NOT use !default - we want to override Bootswatch's defaults
+// -----------------------------------------------------------------------------
+
+// Safe fallbacks (prevents build breaks if a token name changes)
+$ilas-color-primary: if(variable-exists("color-primary"), $color-primary, #1263a0);
+
+$ilas-color-success: if(variable-exists("color-success"), $color-success, #198754);
+$ilas-color-danger: if(variable-exists("color-danger"), $color-danger, #dc3545);
+$ilas-color-warning: if(variable-exists("color-warning"), $color-warning, #ffc107);
+$ilas-color-info: if(variable-exists("color-info"), $color-info, #0dcaf0);
+
+$ilas-color-white: if(variable-exists("color-white"), $color-white, #ffffff);
+$ilas-color-black: if(variable-exists("color-black"), $color-black, #000000);
+
+// Body color token fallback: prefer explicit $color-body, else fall back to gray/dark tokens
+$ilas-color-body: if(
+  variable-exists("color-body"),
+  $color-body,
+  if(variable-exists("color-gray-dark"), $color-gray-dark, #212529)
+);
+
+// Background fallback (optional): prefer white unless you have a specific bg token
+$ilas-body-bg: if(
+  variable-exists("color-body-bg"),
+  $color-body-bg,
+  if(variable-exists("color-white"), $color-white, #ffffff)
+);
+
+// Link hover fallback: prefer explicit token, else derive from primary
+$ilas-link-hover: if(
+  variable-exists("color-primary-dark"),
+  $color-primary-dark,
+  // Uses Bootstrap's color function (available because bootstrap/functions is imported first)
+  shade-color($ilas-color-primary, 20%)
+);
+
+// Primary brand color - overrides Bootswatch Lux's $primary: $gray-900
+$primary: $ilas-color-primary;
+
+// Semantic colors - map theme tokens to Bootstrap
+$success: $ilas-color-success;
+$danger: $ilas-color-danger;
+$warning: $ilas-color-warning;
+$info: $ilas-color-info;
+
+// Base body colors - overrides Bootswatch Lux defaults
+$body-bg: $ilas-body-bg;
+$body-color: $ilas-color-body;
+
+// Link colors
+$link-color: $primary;
+$link-hover-color: $ilas-link-hover;
+
+// Ensure Bootstrap's theme map uses your values everywhere
+$theme-colors: (
+  "primary": $primary,
+  "secondary": if(variable-exists("color-secondary"), $color-secondary, #6c757d),
+  "success": $success,
+  "info": $info,
+  "warning": $warning,
+  "danger": $danger,
+  "light": if(variable-exists("color-gray-light"), $color-gray-light, #f8f9fa),
+  "dark": if(variable-exists("color-gray-dark"), $color-gray-dark, #212529)
+);
+
+// -----------------------------------------------------------------------------
+// FONT WEIGHT OVERRIDES
+// Bootstrap uses these variables for component weights
+// We map them to our theme tokens for consistency
+// -----------------------------------------------------------------------------
+
+// Resolve theme weights from either token naming scheme:
+// - preferred: $weight-*
+// - alternate: $font-weight-*
+// - fallback: numeric defaults
+$ilas-weight-light: if(
+  variable-exists("weight-light"),
+  $weight-light,
+  if(variable-exists("font-weight-light"), $font-weight-light, 300)
+);
+
+$ilas-weight-regular: if(
+  variable-exists("weight-regular"),
+  $weight-regular,
+  if(variable-exists("font-weight-regular"), $font-weight-regular, 400)
+);
+
+$ilas-weight-medium: if(
+  variable-exists("weight-medium"),
+  $weight-medium,
+  if(variable-exists("font-weight-medium"), $font-weight-medium, 500)
+);
+
+$ilas-weight-semibold: if(
+  variable-exists("weight-semibold"),
+  $weight-semibold,
+  if(variable-exists("font-weight-semibold"), $font-weight-semibold, 600)
+);
+
+$ilas-weight-bold: if(
+  variable-exists("weight-bold"),
+  $weight-bold,
+  if(variable-exists("font-weight-bold"), $font-weight-bold, 700)
+);
+
+$ilas-weight-black: if(
+  variable-exists("weight-black"),
+  $weight-black,
+  if(variable-exists("font-weight-black"), $font-weight-black, 900)
+);
+
+// Bootstrap standard weight hooks
+$font-weight-lighter: $ilas-weight-light;
+$font-weight-light: $ilas-weight-light;
+$font-weight-normal: $ilas-weight-regular;
+$font-weight-bold: $ilas-weight-bold;
+$font-weight-bolder: $ilas-weight-black;
+
+// Extended weights (Bootstrap may not consume all of these directly, but your theme can)
+$font-weight-medium: $ilas-weight-medium;
+$font-weight-semibold: $ilas-weight-semibold;
+
+// Heading weights - all headings use the same weight for consistency
+$headings-font-weight: if(variable-exists("weight-heading"), $weight-heading, $ilas-weight-bold);
+
+// Component-specific weights
+$btn-font-weight: if(variable-exists("weight-button"), $weight-button, $ilas-weight-semibold);
+$nav-link-font-weight: if(variable-exists("weight-nav"), $weight-nav, $ilas-weight-semibold);
+$badge-font-weight: if(variable-exists("weight-label"), $weight-label, $ilas-weight-semibold);
+$alert-link-font-weight: if(variable-exists("weight-label"), $weight-label, $ilas-weight-semibold);
+$dt-font-weight: if(variable-exists("weight-label"), $weight-label, $ilas-weight-semibold);
+$legend-font-weight: if(variable-exists("weight-label"), $weight-label, $ilas-weight-semibold);
+$table-th-font-weight: if(variable-exists("weight-heading"), $weight-heading, $ilas-weight-bold);
+
+// NOTE: Bootstrap 5 doesn't consistently expose a $navbar-brand-font-weight variable.
+// If you want brand weight enforced, do it in your theme CSS on .navbar-brand.
+
+// -----------------------------------------------------------------------------
+// FORM / TABLE OVERRIDES
+// -----------------------------------------------------------------------------
+
 $form-text-margin-top: 0;
 $legend-font-size: 1rem;
-$table-cell-padding-x: .75rem;
 
-// Font overrides - Using Nunito Sans
-$font-family-sans-serif: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-$font-family-base: $font-family-sans-serif;
-$headings-font-family: $font-family-sans-serif;
+// Prefer spacing tokens if they exist
+$table-cell-padding-x: if(variable-exists("space-3"), $space-3, 0.75rem);

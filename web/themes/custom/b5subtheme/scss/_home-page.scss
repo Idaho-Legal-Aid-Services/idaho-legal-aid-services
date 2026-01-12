@@ -14,7 +14,7 @@
     position: relative;
     z-index: z('foreground');
     font-size: 3.5rem;
-    font-weight: bold;
+    font-weight: $weight-heading;
     text-align: center;
     margin: 0;
     color: $color-primary;
@@ -50,8 +50,10 @@
 
   .hero-sub-heading {
     font-size: 1.5rem;
+    line-height: 1.6;
     margin-bottom: 1rem;
     color: $color-black;
+    max-width: $reading-column-width;
 
     @include mobile {
       text-align: center;
@@ -118,7 +120,7 @@
   }
   @include mobile {
     min-height: 500px;
-    padding: 1rem 0;
+    padding: 3rem 0 1rem;
     justify-content: center;
   }
 
@@ -127,16 +129,18 @@
     position: absolute;
     left: 50%;
     top: 0;
-    width: 100vw;
+    // Compensate for scrollbar width and Gin toolbar offset to prevent horizontal overflow
+    // True full bleed: spans full viewport including behind admin toolbar
+    width: calc(100vw - var(--scrollbar-width, 0px));
     height: 100%;
-    margin-left: -50vw;
+    margin-left: calc(-50vw + var(--scrollbar-width, 0px) / 2 - var(--gin-toolbar-x-offset, 0px) / 2);
     background-image: url('/themes/custom/b5subtheme/images/curved-background (2400 x 600 px).svg');
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center center;
     z-index: -1;
     pointer-events: none;
-    
+
     @include mobile {
       background-image: url('/themes/custom/b5subtheme/images/curved-background (2400 x 600 px) (500 x 500 px).svg');
       background-size: cover;
@@ -159,7 +163,7 @@
 
   .section-heading {
     font-size: 2.5rem;
-    font-weight: 700;
+    font-weight: $weight-heading;
     margin: 0 0 3rem 0;
     color: $color-white;
     text-align: center;
@@ -180,13 +184,25 @@
     // Constrain the container to be wide enough for two large cards plus a gap
     max-width: 920px;
     width: 100%;
+
+    // Home page exception: wider cards (450px vs 320-380px default)
+    // Must be nested here for proper specificity over @extend
+    .topic-card-col {
+      flex: 0 0 450px;
+      min-width: 450px;
+      max-width: 450px;
+
+      @include mobile {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        max-width: clamp(280px, 85vw, 340px);
+      }
+    }
   }
 
   .topic-card-col {
     @extend .field__item;
-    // Allow cards to be flexible but aim for a large size
-    flex: 1 1 400px;
-    max-width: 450px;
   }
 }
 
@@ -206,7 +222,7 @@
   }
 
   .impact-title {
-    font-weight: 700;
+    font-weight: $weight-heading;
     font-size: 2.5rem;
     margin: 0 0 1.5rem 0;
     color: $color-primary;
@@ -225,7 +241,7 @@
     padding: 0;
     text-align: center;
     margin: 0 auto 2rem;
-    max-width: calc(100% - 4rem);
+    max-width: $reading-column-width;
     line-height: 1.4;
 
     @include mobile {
@@ -359,7 +375,7 @@
 
 
 /* Navigation improvements for smaller tablets */
-@media (max-width: 991.98px) {
+@media (max-width: #{$desktop-breakpoint - 0.02px}) {
   .navbar {
     .navbar-toggler {
       border: none;

@@ -15,37 +15,37 @@
       margin: 0;
       font-size: 2.5rem;
       color: $color-primary;
-      font-weight: 700;
+      font-weight: $weight-title;
 
       @include mobile {
         font-size: $font-size-mobile-subheader;
       }
     }
   }
-  
-  // Reduce main-content bottom margin for this page only
-  .main-content {
-    margin-bottom: 1rem !important;  // Override the default 3rem for better flow
-  }
-  
 
-  
-  // Reduce content-section padding for this page
-  .content-section {
-    padding: 1rem 0 !important;  // Override default 3rem padding
+  // Override CSS custom properties - no !important needed
+  .main-content {
+    --main-content-margin-bottom: 1rem;
   }
-  
-  // Make section-title match subtitle-section styling exactly
-  .content-section .section-title {
-    margin: 0 !important;  // Match subtitle margin
-    font-size: 2.5rem !important;
-    color: $color-primary !important;
-    font-weight: 700 !important;  // Match subtitle weight
-    text-align: center !important;
-    text-transform: uppercase !important;
-    
+
+  // Reduce content-section padding for this page
+  // Higher specificity via node class prefix - no !important needed
+  &.node--apply-for-help .content-section {
+    padding: 1rem 0;
+  }
+
+  // Section title styled to match subtitle
+  // Using doubled selector for specificity instead of !important
+  .content-section.content-section .section-title {
+    margin: 0;
+    font-size: 2.5rem;
+    color: $color-primary;
+    font-weight: $weight-heading;
+    text-align: center;
+    text-transform: uppercase;
+
     @include mobile {
-      font-size: $font-size-mobile-subheader !important;  // Match subtitle mobile size
+      font-size: $font-size-mobile-subheader;
     }
   }
 }

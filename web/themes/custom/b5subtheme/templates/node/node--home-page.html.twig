@@ -101,7 +101,10 @@
   <section class="impact-section">
     <div class="container">
       {% if content.field_impact_title is not empty %}
-        <h2 class="impact-title">{{ content.field_impact_title }}</h2>
+        <h2 class="impact-title">
+          <span class="d-none d-sm-inline">{{ content.field_impact_title }}</span>
+          <span class="d-sm-none">OUR IMPACT IN IDAHO</span>
+        </h2>
       {% endif %}
       
       {% if content.field_impact_quote is not empty %}

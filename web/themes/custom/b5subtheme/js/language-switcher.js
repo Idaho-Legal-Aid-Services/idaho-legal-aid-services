@@ -18,19 +18,11 @@
       const languageMenu = languageSwitcher.querySelector('.language-menu');
       let isOpen = false;
 
-      // Check if admin toolbar is present
-      const hasAdminToolbar = document.body.classList.contains('toolbar-tray-open') || 
-                              document.querySelector('#toolbar-administration') !== null ||
-                              document.body.classList.contains('toolbar-fixed') ||
-                              document.body.classList.contains('toolbar-horizontal') ||
-                              document.body.classList.contains('toolbar-vertical');
-
-      // Only show language switcher if admin toolbar is not present
-      if (!hasAdminToolbar) {
-        setTimeout(() => {
-          languageSwitcher.classList.add('show');
-        }, 500);
-      }
+      // Show language switcher after a short delay (allows page to settle)
+      // NOTE: Previously hidden on admin pages - now shown everywhere
+      setTimeout(() => {
+        languageSwitcher.classList.add('show');
+      }, 500);
 
       // Toggle menu on button click
       toggleButton.addEventListener('click', function(e) {

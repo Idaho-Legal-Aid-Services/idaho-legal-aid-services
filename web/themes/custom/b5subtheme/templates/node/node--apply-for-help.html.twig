@@ -16,8 +16,10 @@
 
   {# Main body content #}
   {% if content.field_body %}
-    <div class="main-content">
-      {{ content.field_body }}
+    <div class="container">
+      <div class="content-body">
+        {{ content.field_body }}
+      </div>
     </div>
   {% endif %}
 
@@ -50,13 +52,11 @@
     </section>
   {% endif %}
 
-  {# Legal body content #}
+  {# Legal body content - field template adds .content-body #}
   {% if content.field_apply_legal_body %}
-    <section class="content-section content-section--centered">
-      <div class="container">
-        {{ content.field_apply_legal_body }}
-      </div>
-    </section>
+    <div class="container">
+      {{ content.field_apply_legal_body }}
+    </div>
   {% endif %}
 
   {# Schedule field #}

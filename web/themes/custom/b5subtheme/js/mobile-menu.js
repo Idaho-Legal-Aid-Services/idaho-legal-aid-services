@@ -25,18 +25,56 @@
           return;
         }
 
+        // Get background content elements for inert handling
+        const mainContent = document.querySelector('main.main-content');
+        const header = document.querySelector('.site-header');
+        const footer = document.querySelector('footer');
+
+        // Check if browser supports inert attribute
+        const supportsInert = 'inert' in HTMLElement.prototype;
+
+        // Helper: Set background content as inert (prevents focus and AT interaction)
+        function setBackgroundInert(inert) {
+          const elements = [mainContent, header, footer];
+          elements.forEach(function(el) {
+            if (!el) return;
+            if (inert) {
+              if (supportsInert) {
+                el.setAttribute('inert', '');
+              } else {
+                // Fallback for browsers without inert support
+                el.setAttribute('aria-hidden', 'true');
+              }
+            } else {
+              if (supportsInert) {
+                el.removeAttribute('inert');
+              } else {
+                el.removeAttribute('aria-hidden');
+              }
+            }
+          });
+        }
+
         // Open mobile menu
         function openMobileMenu() {
           mobileMenuOverlay.classList.add('active');
           mobileMenuOverlay.setAttribute('aria-hidden', 'false');
           hamburgerButton.setAttribute('aria-expanded', 'true');
-          
+
           // Prevent body scrolling
           document.body.style.overflow = 'hidden';
           document.body.classList.add('mobile-menu-open');
-          
-          // Focus management
-          mobileMenuClose.focus();
+
+          // Make background content inert
+          setBackgroundInert(true);
+
+          // Focus first focusable element in menu panel
+          const firstFocusable = mobileMenuPanel.querySelector(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable) {
+            firstFocusable.focus();
+          }
         }
 
         // Close mobile menu
@@ -44,11 +82,14 @@
           mobileMenuOverlay.classList.remove('active');
           mobileMenuOverlay.setAttribute('aria-hidden', 'true');
           hamburgerButton.setAttribute('aria-expanded', 'false');
-          
+
           // Restore body scrolling
           document.body.style.overflow = '';
           document.body.classList.remove('mobile-menu-open');
-          
+
+          // Remove inert from background content
+          setBackgroundInert(false);
+
           // Return focus to hamburger button
           hamburgerButton.focus();
         }
@@ -82,6 +123,36 @@
         document.addEventListener('keydown', function(e) {
           if (e.key === 'Escape' && mobileMenuOverlay.classList.contains('active')) {
             closeMobileMenu();
+          }
+        });
+
+        // Focus trap - keep Tab cycling within menu when open
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Tab' || !mobileMenuOverlay.classList.contains('active')) {
+            return;
+          }
+
+          var focusableElements = mobileMenuPanel.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+
+          if (focusableElements.length === 0) return;
+
+          var firstFocusable = focusableElements[0];
+          var lastFocusable = focusableElements[focusableElements.length - 1];
+
+          if (e.shiftKey) {
+            // Shift + Tab: if on first element, wrap to last
+            if (document.activeElement === firstFocusable) {
+              e.preventDefault();
+              lastFocusable.focus();
+            }
+          } else {
+            // Tab: if on last element, wrap to first
+            if (document.activeElement === lastFocusable) {
+              e.preventDefault();
+              firstFocusable.focus();
+            }
           }
         });
 

@@ -8,92 +8,98 @@
 {{ attach_library('b5subtheme/custom-scripts') }}
 {{ attach_library('b5subtheme/mobile-menu') }}
 
-{# Header Section #}
-<header role="banner">
-  
+{# Header Section - Single sticky container #}
+<header class="site-header" role="banner">
+
   {# Utility Bar #}
-  <div class="utility-bar text-white fw-bold">
-    <div class="container position-relative">
-      {# Normal utility bar content #}
+  <div class="utility-bar">
+    <div class="container">
       <div class="utility-bar-content" id="utilityBarContent">
-        
+
         {# Legal Advice Hotline #}
-        <div class="d-flex align-items-center hotline flex-nowrap">
-          <a href="tel:+12087467541" class="text-white text-decoration-none d-flex align-items-center text-nowrap" aria-label="{{ 'Call Legal Advice Hotline at 208-746-7541'|t }}">
-            <i class="fa-solid fa-phone-volume me-1 me-md-2" aria-hidden="true"></i>
-            <span class="d-none d-md-inline">{{ 'Legal Advice Hotline:'|t }}&nbsp;</span>
+        <div class="hotline">
+          <a href="tel:+12087467541" aria-label="{{ 'Call Legal Advice Hotline at 208-746-7541'|t }}">
+            <i class="fa-solid fa-phone-volume" aria-hidden="true"></i>
+            <span class="d-none d-md-inline">{{ 'Legal Advice Hotline:'|t }}&nbsp;{{ '208-746-7541'|t }}</span>
             <span class="d-md-none">{{ 'Call Now'|t }}</span>
-            <span class="d-none d-md-inline">{{ '208-746-7541'|t }}</span>
           </a>
         </div>
-        
+
         {# Search #}
-        <div class="d-flex align-items-center search-col">
-          <button type="button" class="text-white text-decoration-none d-flex align-items-center bg-transparent border-0 search-trigger" id="searchToggle" data-search-trigger aria-label="{{ 'Open search'|t }}" aria-expanded="false" aria-controls="searchOverlay">
-            <i class="fa-solid fa-magnifying-glass me-1 me-md-2" aria-hidden="true"></i>
-            {{ 'Search'|t }}
+        <div class="search-col">
+          <button type="button" class="search-trigger" id="searchToggle" data-search-trigger aria-label="{{ 'Open search'|t }}" aria-expanded="false" aria-controls="searchOverlay">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span>{{ 'Search'|t }}</span>
           </button>
         </div>
-        
+
         {# Exit #}
-        <div class="d-flex align-items-center exit-link">
-          <a href="https://www.google.com" class="text-white text-decoration-none d-flex align-items-center" aria-label="{{ 'Exit site securely'|t }}">
-            <i class="fa-solid fa-arrow-right-from-bracket me-1 me-md-2" aria-hidden="true"></i>
-            {{ 'Exit'|t }}
+        <div class="exit-link">
+          <a href="https://www.google.com" aria-label="{{ 'Exit site securely'|t }}">
+            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+            <span>{{ 'Exit'|t }}</span>
           </a>
         </div>
-        
+
         {# Get Help #}
-        <div class="d-flex align-items-center get-help">
-          <button type="button" class="text-white text-decoration-none d-flex align-items-center bg-transparent border-0" id="helpToggle" aria-label="{{ 'Get help menu'|t }}" aria-expanded="false" aria-controls="helpOverlay">
-            <i class="fa-solid fa-heart me-1 me-md-2" aria-hidden="true"></i>
-            {{ 'Get Help'|t }}
+        <div class="get-help">
+          <button type="button" id="helpToggle" aria-label="{{ 'Get help menu'|t }}" aria-expanded="false" aria-controls="helpOverlay">
+            <i class="fa-solid fa-heart" aria-hidden="true"></i>
+            <span>{{ 'Get Help'|t }}</span>
           </button>
         </div>
-        
+
       </div>
-      
+
       {# Include search overlay #}
       {% include '@b5subtheme/includes/search-overlay.html.twig' %}
     </div>
   </div>
-  
+
   {# Main Navigation #}
-  <nav class="navbar navbar-expand-lg centered-logo-navbar" role="navigation" aria-label="{{ 'Main navigation'|t }}">
+  <nav class="navbar navbar-expand-xl centered-logo-navbar" role="navigation" aria-label="{{ 'Main navigation'|t }}">
     <div class="container">
-      
+
       {# Desktop: Split navigation with centered logo #}
-      <div class="d-none d-lg-flex split-navigation">
-        {# Left navigation - will show items 1-3 via CSS #}
+      <div class="d-none d-xl-grid split-navigation">
+        {# Left navigation: items 1-3 (built in preprocess) #}
         <div class="nav-section nav-left">
-          {{ drupal_menu('main') }}
+          {% if main_menu_left is defined %}
+            {{ main_menu_left }}
+          {% else %}
+            {{ drupal_menu('main') }}
+          {% endif %}
         </div>
-        
+
         {# Centered Logo #}
         <a href="{{ path('<front>') }}" class="navbar-brand site-logo" title="{{ 'Home'|t }}" rel="home">
           <img src="/themes/custom/b5subtheme/images/Primary Logo & Tagline(2)_0.svg" alt="{{ 'Idaho Legal Aid Services'|t }}" />
         </a>
-        
-        {# Right navigation - will show items 4-6 via CSS #}
+
+        {# Right navigation: items 4-6 (built in preprocess) #}
         <div class="nav-section nav-right">
-          {{ drupal_menu('main') }}
+          {% if main_menu_right is defined %}
+            {{ main_menu_right }}
+          {% else %}
+            {{ drupal_menu('main') }}
+          {% endif %}
         </div>
       </div>
-      
+
       {# Tablet/Mobile: Logo on left #}
-      <a href="{{ path('<front>') }}" class="navbar-brand site-logo d-lg-none" title="{{ 'Home'|t }}" rel="home">
+      <a href="{{ path('<front>') }}" class="navbar-brand site-logo d-xl-none" title="{{ 'Home'|t }}" rel="home">
         <img src="/themes/custom/b5subtheme/images/Primary Logo & Tagline(2)_0.svg" alt="{{ 'Idaho Legal Aid Services'|t }}" />
       </a>
-      
+
       {# Mobile toggle button - triggers custom slide-out menu #}
-      <button class="navbar-toggler d-lg-none" 
+      <button class="navbar-toggler d-xl-none"
               type="button"
               aria-controls="mobileMenuOverlay"
-              aria-expanded="false" 
+              aria-expanded="false"
               aria-label="{{ 'Toggle navigation'|t }}">
         <span class="navbar-toggler-icon"></span>
       </button>
-      
+
     </div>
   </nav>
 
@@ -105,30 +111,21 @@
     {{ page.breadcrumb }}
   {% endif %}
 
-  {# Determine layout type #}
-  {% set use_standard_layout = not is_front %}
-  {% set is_custom_content = false %}
-  
-  {# Check for custom content types - these handle their own layout #}
-  {% if node is defined and node.getType is defined %}
-    {% set custom_types = [
-      'apply_for_help',
-      'donate',
-      'employment_application',
-      'employment',
-      'office_information',
-      'office_locations',
-      'press_entry',
-      'press_room',
-      'resource'
-    ] %}
-    {% if node.getType() in custom_types %}
-      {% set use_standard_layout = false %}
-      {% set is_custom_content = true %}
-    {% endif %}
-  {% endif %}
-  
-  {# Manual override #}
+  {#
+    Layout control variables come from b5subtheme_preprocess_page():
+    - is_views_page: TRUE if this is a views page (detected by route)
+    - views_page_id: The view machine name (e.g., 'guides', 'forms')
+    - skip_page_header: TRUE if template handles its own curved header
+    - skip_page_footer: TRUE if template handles its own blue footer curve
+    - is_custom_layout: TRUE if using custom (non-standard) layout
+
+    This replaces fragile path-based checks like "current_path starts with /forms".
+  #}
+
+  {# Determine layout type using preprocess variables #}
+  {% set use_standard_layout = not is_front and not is_custom_layout %}
+
+  {# Manual override from node template (e.g., node--donate sets disable_standard_layout) #}
   {% if disable_standard_layout is defined and disable_standard_layout %}
     {% set use_standard_layout = false %}
   {% endif %}
@@ -151,12 +148,25 @@
 
   {# Standard Layout with Gray Curved Header #}
   {% if use_standard_layout %}
-    
+
     {# Gray Curved Header #}
     {% if node and node.getTitle() %}
       <section class="curved-page-header">
         <div class="container">
-          <h1 class="curved-page-header-title">{{ node.getTitle() }}</h1>
+          {% set title_lower = node.getTitle()|lower %}
+          {% if title_lower == 'about idaho legal aid services' %}
+            <h1 class="curved-page-header-title">
+              <span class="d-none d-sm-inline">{{ node.getTitle() }}</span>
+              <span class="d-sm-none">ABOUT ILAS</span>
+            </h1>
+          {% elseif title_lower == 'employment opportunities' %}
+            <h1 class="curved-page-header-title">
+              <span class="d-none d-sm-inline">{{ node.getTitle() }}</span>
+              <span class="d-sm-none">CAREERS</span>
+            </h1>
+          {% else %}
+            <h1 class="curved-page-header-title">{{ node.getTitle() }}</h1>
+          {% endif %}
         </div>
       </section>
     {% endif %}
@@ -190,29 +200,42 @@
     </div>
 
   {% else %}
-    
+
     {# Custom Content Types - Include curved header/footer but no container wrapper #}
-    {% if is_custom_content %}
-      
-      {# Gray Curved Header #}
-      {% if node and node.getTitle() %}
+    {# is_custom_layout is set in b5subtheme_preprocess_page() based on node type or view ID #}
+    {% if is_custom_layout %}
+
+      {# Gray Curved Header (skip for content types/views that render their own) #}
+      {# skip_page_header is set in preprocess for home_page, views with own headers, etc. #}
+      {% if not skip_page_header and node and node.getTitle() %}
         <section class="curved-page-header">
           <div class="container">
-            <h1 class="curved-page-header-title">{{ node.getTitle() }}</h1>
+            {% set title_lower_custom = node.getTitle()|lower %}
+            {% if title_lower_custom == 'employment opportunities' %}
+              <h1 class="curved-page-header-title">
+                <span class="d-none d-sm-inline">{{ node.getTitle() }}</span>
+                <span class="d-sm-none">CAREERS</span>
+              </h1>
+            {% else %}
+              <h1 class="curved-page-header-title">{{ node.getTitle() }}</h1>
+            {% endif %}
           </div>
         </section>
       {% endif %}
-      
+
       {# Render content directly #}
       {{ page.content }}
-      
-      {# Blue Section Below #}
-      <div class="curved-section-blue">
-        <div class="curved-section-container">
-          {# Additional content can go here #}
+
+      {# Blue Section Below (skip for content types that have their own) #}
+      {# skip_page_footer is set in preprocess for home_page, donate, etc. #}
+      {% if not skip_page_footer %}
+        <div class="curved-section-blue">
+          <div class="curved-section-container">
+            {# Additional content can go here #}
+          </div>
         </div>
-      </div>
-      
+      {% endif %}
+
     {% else %}
       {# Other non-standard pages (like front page) #}
       <div class="container">

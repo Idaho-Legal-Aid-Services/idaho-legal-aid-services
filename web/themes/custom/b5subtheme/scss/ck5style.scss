@@ -1,18 +1,46 @@
-// CKEditor 5 styles
-// Import necessary components without duplicating font imports
+// =============================================================================
+// CKEditor 5 Styles
+// Provides WYSIWYG editor styling to match frontend output
+//
+// NOTE: This file has a different import order than style.scss because it's
+// scoped inside .ck-content and doesn't need all the global setup.
+// =============================================================================
+
 .ck-content {
-  // Import variables without font @import
-  @import 'variables_drupal';
-  @import 'variables_bootswatch';
-  @import 'variables_bootstrap';
+  // 1. Bootstrap functions (required for variable manipulation)
+  @import '~bootstrap/scss/functions';
+
+  // 2. Theme variables (same order as style.scss)
   @import 'variables_theme';
+  @import 'variables_drupal';
+  @import '~bootswatch/dist/lux/variables';
+  @import 'variables_bootstrap';
+
+  // 3. Bootstrap core variables and mixins
+  @import '~bootstrap/scss/variables';
+  @import '~bootstrap/scss/variables-dark';
+  @import '~bootstrap/scss/maps';
+  @import '~bootstrap/scss/mixins';
+  @import '~bootstrap/scss/utilities';
+
+  // 4. Custom mixins
   @import 'mixins';
-  
-  // Include bootstrap
-  @import '~bootstrap/scss/bootstrap';
-  @import 'bootswatch';
-  
-  // Import only necessary component styles
+
+  // 5. Bootstrap components needed for editor content
+  @import '~bootstrap/scss/root';
+  @import '~bootstrap/scss/reboot';
+  @import '~bootstrap/scss/type';
+  @import '~bootstrap/scss/images';
+  @import '~bootstrap/scss/tables';
+  @import '~bootstrap/scss/buttons';
+  @import '~bootstrap/scss/accordion';
+  @import '~bootstrap/scss/helpers';
+  @import '~bootstrap/scss/utilities/api';
+
+  // 6. Bootswatch theme overrides
+  @import '~bootswatch/dist/lux/bootswatch';
+
+  // 7. Custom component styles for editor content
   @import 'buttons';
   @import 'accordion';
 }

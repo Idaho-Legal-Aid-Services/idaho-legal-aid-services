@@ -1,0 +1,93 @@
+// =============================================================================
+// ADMIN THEME OVERRIDES
+// Scoped fixes for Drupal admin UI that don't affect front-end
+// File: _admin.scss
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// ISSUE 2: Local Task Tabs Centering
+// Drupal local tasks (View/Edit tabs) should be centered horizontally.
+// On mobile (<768px) they stack vertically; on md+ they should center.
+// -----------------------------------------------------------------------------
+.block-local-tasks-block,
+.block--local-tasks,
+nav[aria-label="Primary tabs"],
+nav[aria-label="Secondary tabs"] {
+  width: 100%;
+}
+
+ul.nav.nav-tabs.primary {
+  @media (min-width: $tablet-breakpoint) {
+    justify-content: center;
+  }
+
+  margin: $local-tasks-primary-margin;
+  width: 100%;
+  flex-wrap: wrap;
+
+  @media (max-width: #{$tablet-breakpoint - 0.02px}) {
+    justify-content: flex-start;
+  }
+}
+
+ul.nav.nav-tabs.secondary {
+  @media (min-width: $tablet-breakpoint) {
+    justify-content: center;
+  }
+
+  margin: $local-tasks-secondary-margin;
+}
+
+ul.nav-tabs.primary,
+ul.nav-tabs.secondary {
+  .nav-item {
+    flex-shrink: 0;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+
+    &.active,
+    &.is-active {
+      font-weight: $font-weight-semibold;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ISSUE 4: Back-to-Top / Ed11y Overlap Prevention
+// Uses :has() selector to detect Ed11y presence and offset back-to-top.
+// -----------------------------------------------------------------------------
+$ed11y-bar-height: 48px;
+$ed11y-offset-gap: 12px;
+$ed11y-total-offset: $ed11y-bar-height + $ed11y-offset-gap;
+
+@supports selector(:has(*)) {
+  :root:has(ed11y-element-panel) {
+    .back-to-top {
+      bottom: calc(2rem + #{$ed11y-total-offset});
+
+      @include mobile {
+        bottom: calc(1.5rem + #{$ed11y-total-offset});
+      }
+
+      @include tablet {
+        bottom: calc(1.75rem + #{$ed11y-total-offset});
+      }
+    }
+  }
+
+  :root:has(.ed11y-pin-left) {
+    .back-to-top {
+      bottom: 2rem;
+
+      @include mobile {
+        bottom: 1.5rem;
+      }
+
+      @include tablet {
+        bottom: 1.75rem;
+      }
+    }
+  }
+}

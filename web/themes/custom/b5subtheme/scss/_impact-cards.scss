@@ -42,10 +42,11 @@
   z-index: 1;
 
   @include mobile {
-    width: 300px;
-    height: 120px;
-    min-height: 120px;
-    max-height: 120px;
+    width: 100%;
+    max-width: clamp(280px, 85vw, 340px); // Scales with viewport, matches topic cards
+    min-height: 100px;            // Minimum for visual consistency
+    height: auto;                 // Allow content to dictate height
+    max-height: none;             // Remove restriction to prevent text truncation
     border-width: 3px;
     perspective: none;
     
@@ -153,7 +154,7 @@
     
     &:not(.is-flipped):hover {
       border-color: $color-primary;
-      box-shadow: 0 0 10px 3px rgba(18,99,160,0.4);
+      box-shadow: $shadow-glow-primary;
       
       .card-front {
         background-color: $color-white;
@@ -199,92 +200,91 @@
   /* Gray card variant */
   &.impact-card--gray {
     .card-front {
-      background-color: #5a5a5a;
+      background-color: $color-gray-card;
       color: $color-white;
     }
-    
+
     &:not(.is-flipped):hover {
-      border-color: #5a5a5a;
-      box-shadow: 0 0 10px 3px rgba(90,90,90,0.4);
-      
-      .card-front { 
-        background-color: $color-white; 
-        color: #5a5a5a; 
+      border-color: $color-gray-card;
+      box-shadow: 0 0 10px 3px rgba($color-gray-card, 0.4);
+
+      .card-front {
+        background-color: $color-white;
+        color: $color-gray-card;
       }
-      
-      .impact-card__title { 
-        color: #5a5a5a; 
+
+      .impact-card__title {
+        color: $color-gray-card;
       }
-      
-      .impact-card__link  { 
-        color: #5a5a5a; 
+
+      .impact-card__link {
+        color: $color-gray-card;
       }
-      
+
       /* Show underline under impact number on hover */
       .impact-card__description p:first-child {
         &::after {
           width: 80%;
         }
       }
-      
+
       @include mobile {
         border-color: $color-gray-border;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        box-shadow: $shadow-card;
         transform: none;
-        
-        .card-front { 
-          background-color: #5a5a5a; 
-          color: $color-white; 
+
+        .card-front {
+          background-color: $color-gray-card;
+          color: $color-white;
         }
-        
-        .impact-card__title { 
-          color: inherit; 
+
+        .impact-card__title {
+          color: inherit;
         }
-        
-        .impact-card__link  { 
-          color: inherit; 
+
+        .impact-card__link {
+          color: inherit;
         }
       }
     }
-    
+
     &.is-flipped {
-      
-      .card-back  { 
-        color: #5a5a5a; 
+      .card-back {
+        color: $color-gray-card;
       }
-      
-      .impact-card__back-heading { 
-        color: #5a5a5a; 
+
+      .impact-card__back-heading {
+        color: $color-gray-card;
       }
-      
+
       .impact-card__back-close {
-        background: #5a5a5a;
-        border-color: #5a5a5a;
-        
+        background: $color-gray-card;
+        border-color: $color-gray-card;
+
         &:hover {
           background: $color-white;
-          color: #5a5a5a;
+          color: $color-gray-card;
           transform: translateY(-3px);
-          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-        
+
         // Remove outline for mouse users
         &:focus:not(:focus-visible) {
           outline: none;
         }
-        
+
         // Show outline only for keyboard navigation
         &:focus-visible {
-          outline: 2px solid #5a5a5a; 
+          outline: 2px solid $color-gray-card;
         }
       }
-      
+
       // Hover state for gray flipped cards
       &:hover {
         .card-back {
           .impact-card__back-heading,
           .impact-card__back-detail {
-            color: #5a5a5a;
+            color: $color-gray-card;
           }
         }
       }
@@ -294,7 +294,7 @@
   /* Flipped card hover state - matches topic cards */
   &.is-flipped:hover {
     transform: none;
-    box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+    box-shadow: $shadow-glow-gray;
     border-color: $color-primary;
     
     .card-back {
@@ -341,10 +341,10 @@
     color: inherit;
     text-transform: capitalize;
     font-size: 1.8rem;
-    font-weight: 700;
+    font-weight: $weight-heading;
     margin: 0 0 0.75rem 0;
     line-height: 1.2;
-    transition: all 0.3s ease;
+    transition: $transition-base;
     
     @include mobile {
       font-size: 1.1rem;
@@ -378,59 +378,60 @@
     }
     
     // Override clearfix and ensure proper alignment
+    // Nested p selectors under .field.clearfix for higher specificity (avoids !important)
     .field.clearfix {
       text-align: left;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       width: 100%;
-    }
-    
-    // Style the first paragraph as the impact number
-    p:first-child {
-      margin: 0 !important;
-      font-size: 54px !important;
-      font-weight: 700 !important;
-      line-height: 1.1 !important;
-      transition: transform .3s ease, color .3s ease;
-      position: relative;
-      text-align: left !important;
-      align-self: flex-start !important;
-      
-      /* Underline on hover (desktop only) */
-      &::after {
-        content: '';
-        position: absolute;
-        left: 0;
-        bottom: -8px;
-        width: 0;
-        height: 3px;
-        background: currentColor;
-        transition: width 0.3s ease;
-        
+
+      // Style the first paragraph as the impact number
+      p:first-child {
+        margin: 0;
+        font-size: 3.375rem; // 54px equivalent
+        font-weight: $weight-heading;
+        line-height: 1.1;
+        transition: transform .3s ease, color .3s ease;
+        position: relative;
+        text-align: left;
+        align-self: flex-start;
+
+        /* Underline on hover (desktop only) */
+        &::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          bottom: -8px;
+          width: 0;
+          height: 3px;
+          background: currentColor;
+          transition: width 0.3s ease;
+
+          @include mobile {
+            display: none;
+          }
+        }
+
         @include mobile {
-          display: none;
+          font-size: 2rem; // 32px equivalent
+          line-height: 1.0;
         }
       }
-      
-      @include mobile {
-        font-size: 32px !important;
-        line-height: 1.0 !important;
-      }
-    }
-    
-    // Style subsequent paragraphs as the impact text
-    p:not(:first-child) {
-      margin: 0.75rem 0 0 0 !important;
-      align-self: flex-start !important;
-      text-align: left !important;
-      width: 100% !important;
-      font-size: 30px !important;
-      transition: color .3s ease;
-      
-      @include mobile {
-        font-size: 18px !important;
-        margin-top: 0.5rem !important;
+
+      // Style subsequent paragraphs as the impact text
+      p:not(:first-child) {
+        margin: 0.75rem 0 0 0;
+        align-self: flex-start;
+        text-align: left;
+        width: 100%;
+        font-size: 1.875rem; // 30px equivalent
+        transition: color .3s ease;
+
+        @include mobile {
+          font-size: 1.125rem; // 18px equivalent
+          margin-top: 0.5rem;
+        }
       }
     }
   }
@@ -438,12 +439,12 @@
   .impact-number {
     display: inline-block;
     margin: 0;
-    font-size: 54px;
-    font-weight: 700;
+    font-size: 3.375rem; // 54px equivalent
+    font-weight: $weight-heading;
     line-height: 1.1;
     transition: transform .3s ease, color .3s ease;
     position: relative;
-    
+
     /* Underline on hover (desktop only) */
     &::after {
       content: '';
@@ -455,14 +456,14 @@
       background: currentColor;
       transform: translateX(-50%);
       transition: width 0.3s ease;
-      
+
       @include mobile {
         display: none;
       }
     }
-    
+
     @include mobile {
-      font-size: 32px;
+      font-size: 2rem; // 32px equivalent
       line-height: 1.0;
     }
   }
@@ -472,11 +473,11 @@
     align-self: flex-start;
     text-align: left;
     width: 100%;
-    font-size: 30px;
+    font-size: 1.875rem; // 30px equivalent
     transition: color .3s ease;
-    
+
     @include mobile {
-      font-size: 18px;
+      font-size: 1.125rem; // 18px equivalent
       margin-top: 0.5rem;
     }
   }
@@ -484,7 +485,7 @@
   .impact-card__back-heading {
     font-size: 1.5rem;
     text-align: center;
-    font-weight: 700;
+    font-weight: $weight-heading;
     color: $color-primary;
     margin: 0;
   }
@@ -508,10 +509,10 @@
     border: 3px solid $color-primary;
     cursor: pointer;
     font-size: 0.9rem;
-    font-weight: bold;
+    font-weight: $weight-heading;
     padding: 0.4rem 0.8rem;
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition: $transition-base;
     z-index: 2;
     display: inline-flex;
     align-items: center;
@@ -575,5 +576,35 @@
 @include desktop {
   .field--name-field-impact-cards > .field__item:nth-child(odd) {
     transform: translateY(0.75rem);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .impact-card,
+  .impact-card .card-inner,
+  .impact-card .card-front,
+  .impact-card .card-back,
+  .impact-card__title,
+  .impact-card__description p,
+  .impact-card__back-close,
+  .impact-number,
+  .impact-text,
+  .impact-card__description p:first-child::after {
+    transition: none;
+  }
+
+  // Disable flip animation entirely
+  .impact-card.is-flipped .card-inner {
+    transform: none;
+  }
+
+  .impact-card .card-back {
+    transform: none;
+    position: static;
+  }
+
+  .impact-card.is-flipped .card-front {
+    display: none;
   }
 }

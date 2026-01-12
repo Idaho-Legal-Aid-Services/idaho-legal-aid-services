@@ -6,6 +6,9 @@
  * Displays the main content followed by the filterable press entries listing.
  * Uses standard page layout with curved header and footer (handled by page.html.twig).
  *
+ * Note: The reports_publications content type uses its own template
+ * (node--reports-publications.html.twig), so no path-based view selection is needed here.
+ *
  * Available variables:
  * - content: Rendered content fields
  * - attributes: HTML attributes for the article element
@@ -15,9 +18,9 @@
 
 <article{{ attributes.addClass('node', 'node--press-room') }}>
 
-  {# Main content using standard .main-content class for consistent styling #}
+  {# Main content - field template adds .content-body #}
   {% if content.field_main_content %}
-    <div class="main-content">
+    <div class="container">
       {{ content.field_main_content }}
     </div>
   {% endif %}
@@ -25,13 +28,7 @@
   {# Press Room Listing Section #}
   <section class="press-room-listing-section">
     <div class="container">
-      {# Use reports_publications_listing for that page, otherwise press_room_listing #}
-      {% set current_path = path('<current>') %}
-      {% if '/reports-publications' in current_path %}
-        {{ drupal_view('reports_publications_listing', 'block_1') }}
-      {% else %}
-        {{ drupal_view('press_room_listing', 'block_1') }}
-      {% endif %}
+      {{ drupal_view('press_room_listing', 'block_1') }}
     </div>
   </section>
 

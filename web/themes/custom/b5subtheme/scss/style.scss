@@ -13,11 +13,13 @@
 
 // -----------------------------------------------------------------------------
 // 2. VARIABLE OVERRIDES (must come BEFORE Bootstrap variables)
+// Order matters: tokens first, then Bootstrap overrides, then Bootswatch
+// Bootswatch uses !default so our overrides take precedence
 // -----------------------------------------------------------------------------
-@import 'variables_drupal';
-@import 'variables_bootswatch';
-@import 'variables_bootstrap';
-@import 'variables_theme';
+@import 'variables_theme';      // Design tokens (font-weights, colors, spacing)
+@import 'variables_drupal';     // Drupal-specific (uses tokens)
+@import 'variables_bootstrap';  // Bootstrap overrides - BEFORE Bootswatch!
+@import '~bootswatch/dist/lux/variables';  // Bootswatch !default won't override
 
 // -----------------------------------------------------------------------------
 // 3. BOOTSTRAP VARIABLES AND MAPS
@@ -82,7 +84,7 @@
 // -----------------------------------------------------------------------------
 // 8. BOOTSWATCH THEME (after Bootstrap components)
 // -----------------------------------------------------------------------------
-@import 'bootswatch';
+@import '~bootswatch/dist/lux/bootswatch';
 
 // -----------------------------------------------------------------------------
 // 9. FONT AWESOME (selective - only icon styles actually used)
@@ -95,6 +97,9 @@
 // =============================================================================
 // 10. CUSTOM COMPONENT IMPORTS
 // =============================================================================
+
+// Base styles (page layout, sticky footer pattern)
+@import 'base';
 
 // Header and navigation
 @import 'header';
@@ -151,3 +156,6 @@
 // Utilities
 @import 'back-to-top';
 @import 'language-switcher';
+
+// Admin/Toolbar overrides (must load after Bootswatch)
+@import 'admin';

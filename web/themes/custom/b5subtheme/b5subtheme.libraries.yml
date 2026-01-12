@@ -16,6 +16,7 @@ custom-scripts:
   dependencies:
     - core/jquery
     - core/drupal
+    - core/once
 
 
 
@@ -54,7 +55,6 @@ dropdown-menu:
   js:
     js/dropdown-menu.js: {}
   dependencies:
-    - core/jquery
     - core/drupal
     - core/once
     - bootstrap5/dropdown
@@ -91,6 +91,7 @@ scroll-behaviors:
     js/scroll-behaviors.js: { weight: -10 }
   dependencies:
     - core/drupal
+    - core/once
 
 resources:
   version: 1.0
@@ -145,16 +146,24 @@ forms:
   css:
     theme:
       css/style.css: {}
+  js:
+    js/topic-nav.js: {}
   dependencies:
     - b5subtheme/global-styling
+    - core/drupal
+    - core/once
 
 guides:
   version: 1.0
   css:
     theme:
       css/style.css: {}
+  js:
+    js/topic-nav.js: {}
   dependencies:
     - b5subtheme/global-styling
+    - core/drupal
+    - core/once
 
 hero-rotator:
   version: 1.0

@@ -13,7 +13,7 @@
   --guides-bg-alt: #{$color-gray-bg};
   --guides-text: #{$color-black};
   --guides-text-muted: #{$color-gray-text};
-  --guides-border: #e9ecef;
+  --guides-border: #{$color-gray-border-light};
 
   // Spacing
   --guides-gap: 1.5rem;
@@ -44,7 +44,7 @@
 
 
 /*──────────── 3) Intro Section (below curved header) ────────────*/
-// Matches .main-content styling from _layout-components.scss
+// Uses .content-body styling - container provides gutters
 .guides-intro-section {
   position: relative;
   z-index: z('overlay');
@@ -55,18 +55,13 @@
     position: relative;
     z-index: z('overlay');
     margin: 0 auto 3rem auto;
-    padding: 0 1rem;
-    max-width: 1200px;
+    padding: 0; // Container provides gutters
+    max-width: $reading-column-width; // Optimal reading width
     @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
     line-height: 1.6;
     text-transform: none;
     color: $color-black;
     text-align: center;
-
-    @include mobile {
-      margin: 0 !important;
-      padding: 0 !important;
-    }
 
     p {
       margin-bottom: 1rem;
@@ -76,7 +71,8 @@
       }
     }
 
-    a {
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
       color: $color-primary;
       text-decoration: underline;
 
@@ -88,55 +84,149 @@
 }
 
 
-/*──────────── 4) Main Content Area (matches main-content style) ────────────*/
+/*──────────── 3b) Topic Navigation Filter ────────────*/
+// Jump-to-topic dropdown matching press-room-filter style
+.guides-filter-section {
+  padding: 0 0 1.5rem;
+
+  @include mobile {
+    padding: 0 0 1rem;
+  }
+}
+
+.guides-filter {
+  max-width: 500px;
+  margin: 0 auto;
+
+  @include mobile {
+    max-width: 100%;
+  }
+
+  // Inner container with styling
+  &__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacer-sm;
+    align-items: flex-end;
+    justify-content: center;
+    padding: $spacer;
+    background-color: $color-gray-bg;
+    border-radius: $border-radius-lg;
+    box-shadow: $box-shadow-sm;
+    border: 2px solid $color-primary;
+
+    @include mobile {
+      flex-direction: column;
+      padding: $spacer-sm;
+    }
+  }
+
+  &__select {
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+
+    label {
+      font-size: 1.1rem;
+      font-weight: $font-weight-bold;
+      color: $color-primary;
+      margin-bottom: $spacer-sm;
+      display: block;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+
+      @include mobile {
+        font-size: 1rem;
+      }
+    }
+
+    select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      border: 2px solid $color-gray-border;
+      border-radius: $border-radius;
+      background-color: $color-white;
+      transition: $transition-fast;
+      cursor: pointer;
+
+      &:focus {
+        border-color: $color-primary;
+        box-shadow: 0 0 0 3px rgba($color-primary, 0.15);
+        outline: none;
+      }
+    }
+  }
+
+  &__actions {
+    flex-shrink: 0;
+
+    @include mobile {
+      width: 100%;
+    }
+  }
+
+  &__button {
+    display: inline-block;
+    font-family: $font-family-sans-serif;
+    font-weight: $font-weight-semibold;
+    text-align: center;
+    white-space: nowrap;
+    border: 2px solid $color-primary;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    border-radius: $border-radius;
+    transition: $transition-base;
+    cursor: pointer;
+    background-color: $color-primary;
+    color: $color-white;
+
+    @include mobile {
+      width: 100%;
+    }
+
+    &:hover,
+    &:focus {
+      background-color: $color-white;
+      border-color: $color-primary;
+      color: $color-primary;
+      transform: translateY(-1px);
+      box-shadow: $shadow-pressed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
+    }
+  }
+}
+
+
+/*──────────── 4) Main Content Area ────────────*/
+// Container for grid/list content - container provides gutters
 .guides-main-content {
   @extend %centered-container;
   position: relative;
   z-index: z('overlay');
   margin: 0 auto 3rem auto;
-  padding: 0 1rem;
+  padding: 0; // Container provides gutters
   max-width: 1200px;
-  @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
-  line-height: 1.6;
-  text-transform: none;
-  color: $color-black;
 
-  @include mobile {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  // Style common body field elements (matching .main-content)
-  p {
-    margin-bottom: 1rem;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-
-  ul, ol {
-    margin: 1rem 0;
-    padding-left: 2rem;
-  }
-
-  h2, h3, h4, h5, h6 {
-    margin: 1.5rem 0 1rem;
-    font-weight: 600;
-  }
-
-  a {
-    color: $color-primary;
-    text-decoration: underline;
-
-    &:hover {
-      text-decoration: none;
-    }
+  // Reduced margin for topic pages (item listings)
+  .guides-by-topic & {
+    margin-bottom: 1.5rem;
   }
 }
 
 .guides-content {
   padding: 2rem 0 3rem;
+
+  // Reduced padding for topic pages
+  .guides-by-topic & {
+    padding-bottom: 2rem;
+  }
 }
 
 
@@ -154,7 +244,7 @@
   @include mobile {
     grid-template-columns: 1fr;
     justify-items: center;
-    padding: 0 0.75rem;
+    padding: 0; // Container provides gutters - see CONTAINER CONTRACT in _variables_theme.scss
     gap: 1rem;
   }
 }
@@ -174,15 +264,15 @@
   color: $color-primary;
   border: 6px solid $color-primary;
   border-radius: $border-radius;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: $shadow-card;
   padding: 0;
   overflow: hidden;
 
   @include mobile {
     border-width: 3px;
-    height: 100px;
-    min-height: 100px;
-    max-height: 100px;
+    min-height: 80px;             // Minimum for visual consistency
+    height: auto;                 // Allow content to dictate height
+    max-height: none;             // Remove restriction to prevent text truncation
   }
 
   // Hover state (matches topic-card hover) - desktop only
@@ -190,7 +280,7 @@
     &:hover {
       z-index: 10;
       background-color: $color-white;
-      box-shadow: 0 0 10px 3px rgba(90, 90, 90, 0.4);
+      box-shadow: $shadow-glow-gray;
     }
   }
 
@@ -198,7 +288,7 @@
   &:focus-within {
     outline: 3px solid $color-primary;
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgba(18, 99, 160, 0.2);
+    box-shadow: $focus-ring-primary;
   }
 
   // The clickable link that fills the entire card
@@ -215,7 +305,8 @@
     cursor: pointer;
 
     @include mobile {
-      height: 100px;
+      height: auto;               // Allow content to dictate height
+      min-height: 80px;           // Match parent card minimum
       padding: 0.75rem;
     }
 
@@ -231,13 +322,21 @@
 
   // Title styling - centered
   .guide-category-title {
-    font-size: 1.375rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: $weight-heading;
     margin: 0;
-    transition: all 0.3s ease;
+    transition: $transition-base;
     text-align: center;
     line-height: 1.3;
     color: $color-primary;
+    // Prevent long words from overflowing
+    overflow-wrap: anywhere;
+    word-break: break-word; // Fallback for older browsers
+    hyphens: auto;
+
+    @include mobile {
+      font-size: 1.1rem;
+    }
   }
 
   // Description styling - centered
@@ -254,7 +353,10 @@
 /*──────────── 6) Topic Page Back Button ────────────*/
 .guides-back-nav {
   margin-top: 2rem;
-  text-align: left;
+  max-width: $reading-column-width; // Match item list width for alignment
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left; // Button aligns to left edge of centered container
 
   .btn {
     display: inline-flex;
@@ -274,6 +376,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--guides-gap);
+  max-width: $reading-column-width; // Optimal reading width
+  margin: 0 auto; // Center the list
 }
 
 .guide-item-card {
@@ -284,6 +388,8 @@
   padding: var(--guides-card-padding);
   box-shadow: var(--guides-shadow-sm);
   transition: var(--guides-transition);
+  width: 100%; // Fill available width within centered container
+  text-align: center; // Center all content
 
   &:hover,
   &:focus-within {
@@ -294,10 +400,11 @@
 
   .guide-item-title {
     font-size: 1.25rem;
-    font-weight: 700;
+    font-weight: $weight-heading;
     color: var(--guides-primary);
     margin: 0 0 0.5rem;
     line-height: 1.3;
+    text-align: center;
   }
 
   .guide-item-description {
@@ -305,6 +412,8 @@
     line-height: 1.5;
     color: var(--guides-text);
     margin: 0 0 1rem;
+    max-width: $reading-column-width;
+    text-align: center;
   }
 
   .guide-item-download {
@@ -325,10 +434,10 @@
       border: 2px solid $color-primary;
       padding: 0.625rem 1.25rem;
       border-radius: 4px;
-      font-weight: 600;
+      font-weight: $weight-button;
       font-size: 0.9375rem;
       text-decoration: none;
-      transition: all 0.3s ease;
+      transition: $transition-base;
 
       &:hover,
       &:focus {
@@ -336,7 +445,7 @@
         border-color: $color-primary;
         color: $color-primary;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: $shadow-hover;
       }
 
       &:focus-visible {
@@ -347,7 +456,7 @@
       // File type indicator
       &::before {
         font-family: "Font Awesome 6 Free";
-        font-weight: 900;
+        font-weight: $weight-icon;
         content: "\f019"; // Download icon
       }
     }
@@ -373,7 +482,7 @@
     color: var(--guides-text-muted);
 
     .guide-item-label {
-      font-weight: 600;
+      font-weight: $weight-label;
       color: var(--guides-text);
     }
 
@@ -395,7 +504,7 @@
 
     a {
       color: var(--guides-primary);
-      font-weight: 600;
+      font-weight: $weight-body-emphasis;
 
       &:hover,
       &:focus {
@@ -410,6 +519,16 @@
 .guides-pager {
   margin-top: 2rem;
 
+  // Hide empty pager containers
+  &:empty {
+    display: none;
+  }
+
+  // Hide pager when it only has one page (just current page indicator)
+  &:has(.pager__items:only-child .pager__item:only-child) {
+    display: none;
+  }
+
   .pager {
     display: flex;
     justify-content: center;
@@ -418,6 +537,12 @@
     list-style: none;
     padding: 0;
     margin: 0;
+
+    // Hide empty pager lists
+    &:empty,
+    .pager__items:empty {
+      display: none;
+    }
 
     .pager__item {
       a,
@@ -431,7 +556,7 @@
         border: 1px solid var(--guides-border);
         border-radius: var(--guides-card-radius);
         color: var(--guides-primary);
-        font-weight: 600;
+        font-weight: $weight-nav;
         text-decoration: none;
         transition: var(--guides-transition);
 
@@ -472,16 +597,16 @@
   }
 
   .guide-item-card {
-    border: 1px solid #000;
+    border: 1px solid $color-black;
     page-break-inside: avoid;
     box-shadow: none;
   }
 
   .guide-category-card {
-    border: 2px solid #000;
+    border: 2px solid $color-black;
     page-break-inside: avoid;
     box-shadow: none;
-    background: #fff;
+    background: $color-white;
   }
 
   .curved-page-header {

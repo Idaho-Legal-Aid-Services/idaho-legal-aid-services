@@ -2,65 +2,157 @@
  * General Content Styles & Curved Backgrounds (Standardized)
  ***********************************************/
 
-/* Main Content Styling */
-.main-content {
+/* ==========================================================================
+ * MAIN CONTENT STYLING
+ * ==========================================================================
+ * Two distinct elements share content styling responsibilities:
+ *
+ * 1. main.main-content (page.html.twig)
+ *    The outer page wrapper. NO horizontal padding so full-bleed backgrounds
+ *    can reach viewport edges (like the footer).
+ *
+ * 2. .content-body (node templates)
+ *    Inner content areas for typography and spacing. Has horizontal padding
+ *    when NOT inside a Bootstrap .container.
+ * ========================================================================== */
+
+// ===========================================================================
+// OUTER WRAPPER: <main class="main-content">
+// Full-width, no horizontal padding for full-bleed support
+// ===========================================================================
+main.main-content {
+  // CSS custom properties for easy page-specific overrides
+  --main-content-margin-bottom: 3rem;
+
+  position: relative;
+  z-index: z('overlay');
+  width: 100%;
+  margin-bottom: var(--main-content-margin-bottom);
+  // NO padding-top - let individual sections/headers manage their own spacing
+  // NO horizontal padding - allows full-bleed backgrounds like footer
+}
+
+// ===========================================================================
+// INNER CONTENT: .content-body in node templates
+// Typography and spacing for content areas
+//
+// CONTRACT:
+// - .container owns gutters (horizontal padding)
+// - .content-body owns typography (fonts, links, spacing)
+// - .content-body should always be inside a .container
+// ===========================================================================
+.content-body {
+  --content-body-margin-bottom: 1rem;
+
   @extend %centered-container;
   position: relative;
   z-index: z('overlay');
-  margin: 0 auto 3rem auto;
-  padding: 0 1rem;
-  max-width: 1200px;
+  margin: 0 auto var(--content-body-margin-bottom) auto;
+  padding: 0; // Container provides gutters
+  max-width: $reading-column-width; // Optimal reading width (~65-85 characters)
   @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
-  line-height: 1.6;
+  line-height: $content-line-height;
   text-transform: none;
   color: $color-black;
   text-align: center;
-  
-  @include mobile {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
+
   /* Style common body field elements */
   p {
     margin-bottom: 1rem;
-    
+
     &:last-child {
       margin-bottom: 0;
     }
   }
-  
+
   ul, ol {
     margin: 1rem 0;
     padding-left: 2rem;
   }
-  
+
   h2, h3, h4, h5, h6 {
     margin: 1.5rem 0 1rem;
-    font-weight: 600;
+    font-weight: $weight-heading;
   }
-  
-  a {
+
+  // Link styles - exclude buttons to prevent underline inheritance
+  // Buttons are handled separately in _buttons.scss
+  a:not(#{$button-not-selector}) {
     color: $color-primary;
     text-decoration: underline;
-    
+
     &:hover {
       text-decoration: none;
     }
   }
 }
 
-.standard-layout .main-content {
-  margin-bottom: 3rem;
-  padding: 0 1rem;
+// ===========================================================================
+// READING COLUMN UTILITY CLASS
+// Apply to any component that should match .content-body width
+// Use this for accordions, FAQ sections, and other styled containers
+// ===========================================================================
+.reading-column {
+  max-width: $reading-column-width;
+  margin-inline: auto;
+  width: 100%;
 }
+
+// ===========================================================================
+// STANDARD LAYOUT: Typography for pages without custom templates
+// Applied to content in .standard-layout wrapper (see page.html.twig)
+// ===========================================================================
+.standard-layout {
+  // Provide typography for default node content
+  .node__content {
+    max-width: $reading-column-width;
+    margin-inline: auto;
+    @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
+    line-height: $content-line-height;
+    color: $color-black;
+    text-align: center;
+
+    p {
+      margin-bottom: 1rem;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul, ol {
+      margin: 1rem 0;
+      padding-left: 2rem;
+    }
+
+    h2, h3, h4, h5, h6 {
+      margin: 1.5rem 0 1rem;
+      font-weight: $weight-heading;
+
+      &.topic-card__title {
+        margin: 0 0 $spacer-sm 0;
+      }
+    }
+
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
+      color: $color-primary;
+      text-decoration: underline;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+}
+
 
 /* Add new utility classes for the new fields */
 .page-subheader {
   @extend %centered-container;
   @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
   margin-top: 1rem;
-  line-height: 1.6;
+  line-height: $content-line-height;
   text-transform: none;
   color: $color-black;
   text-align: center;
@@ -71,24 +163,24 @@
   @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
   max-width: 800px;
   margin-top: 1rem;
-  color: #000000;
+  color: $color-black;
   text-align: center;
   font-style: italic;
   padding: 1.5rem;
-  
+
   @include mobile {
     margin-top: 0.5rem;
     padding: 1rem;
   }
-  
+
   .quote-author {
     @include responsive-typography(1.25rem, false, $font-size-mobile-body);
     display: block;
     margin-top: 1rem;
     font-style: normal;
-    font-weight: 700;
+    font-weight: $weight-heading;
     color: $color-primary;
-    
+
     @include mobile {
       margin-top: 0.75rem;
     }
@@ -108,7 +200,7 @@
     @include responsive-typography(3.5rem, 2.5rem, $font-size-mobile-header);
     position: relative;
     z-index: z('foreground');
-    font-weight: bold;
+    font-weight: $weight-title;
     text-align: center;
     margin: 0;
     color: $color-primary;
@@ -120,11 +212,11 @@
     @include responsive-typography(1.8rem, 1.6rem, $font-size-mobile-subheader);
     position: relative;
     z-index: 3;
-    font-weight: normal;
+    font-weight: $weight-body;
     text-align: center;
     margin: 1rem 0 0;
-    color: #5a5a5a; /* Gray subtitle */
-    
+    color: $color-black;
+
     @include mobile {
       margin-top: 0.5rem;
     }
@@ -142,46 +234,47 @@
 .content-section {
   padding: 1rem 0;
   position: relative;
-  
+
   &--primary {
     @include full-bleed-bg($color-primary, z('background'));
     color: $color-white;
-    
+
     .section-title {
       color: $color-white;
     }
-    
-    a {
+
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
       color: $color-white;
       text-decoration: underline;
-      
+
       &:hover {
         text-decoration: none;
       }
     }
   }
-  
+
   &--gray {
     @include full-bleed-bg($color-gray-bg, z('background'));
   }
-  
+
   &--centered {
     text-align: center;
   }
-  
+
   &--cta {
     padding: 4rem 0;
     text-align: center;
-    
+
     @include mobile {
       padding: 2.5rem 0;
     }
-    
+
     .btn {
       margin-top: 2rem;
     }
   }
-  
+
   > * {
     position: relative;
     z-index: z('foreground');
@@ -190,10 +283,10 @@
 
 .section-title {
   @include responsive-typography(2.5rem, 2.25rem, $font-size-mobile-subheader);
-  font-weight: 600;
+  font-weight: $weight-subtitle;
   margin-bottom: 2rem;
   color: $color-primary;
-  
+
   @include mobile {
     margin-bottom: 1.5rem;
   }
@@ -206,22 +299,24 @@
   border: 6px solid $color-primary;
   padding: 2rem;
   margin-bottom: 2rem;
-  
+
   @include mobile {
     padding: 1.5rem;
     border-width: 4px;
   }
-  
+
+  // Title weight set via specificity - no !important needed
+  // The .info-card__title selector is specific enough
   &__title {
     @include responsive-typography(2.5rem, 2.2rem, $font-size-mobile-subheader);
-    font-weight: 700 !important;
+    font-weight: $weight-title;
     margin: 0 0 1.5rem 0;
     color: $color-primary;
     text-align: center;
     text-transform: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    
+
     @include mobile {
       margin-bottom: 1rem;
     }
@@ -230,28 +325,44 @@
 
 .info-list {
   margin: 0;
-  
+  text-align: center;
+  @include responsive-typography(1.5rem, 1.4rem, $font-size-mobile-body);
+  line-height: $content-line-height;
+
   dt {
-    font-weight: 600;
+    @include responsive-typography(1.5rem, 1.25rem, 1.15rem);
+    font-weight: $weight-subtitle;
     color: $color-primary;
     margin-top: 1rem;
-    
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+
     &:first-child {
       margin-top: 0;
     }
   }
-  
+
   dd {
     margin-left: 0;
     margin-bottom: 0;
-    color: $color-gray-text;
+    color: $color-black;
+
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
+      color: $color-primary;
+      text-decoration: underline;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
   }
 }
 
 .lead {
   @include responsive-typography(1.25rem, false, $font-size-mobile-body);
-  line-height: 1.6;
-  font-weight: 300;
+  line-height: $content-line-height;
+  font-weight: $weight-lead;
 }
 
 .centered-list-wrapper {
@@ -259,7 +370,7 @@
   justify-content: center;
   width: 100%;
   padding: 1rem 0;
-  
+
   ul, ol {
     @extend %centered-container;
     text-align: left;
@@ -267,20 +378,20 @@
     margin: 1rem 0;
     padding-left: 2rem;
     max-width: 600px;
-    
+
     @include mobile {
       padding-left: 1.5rem;
     }
-    
+
     li {
       margin-bottom: 0.5rem;
-      
+
       &:last-child {
         margin-bottom: 0;
       }
     }
   }
-  
+
   ul ul, ol ol, ul ol, ol ul {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
@@ -293,22 +404,22 @@
   max-width: 800px;
   margin-bottom: .5rem;
   @include responsive-typography(1.125rem);
-  line-height: 1.6;
+  line-height: $content-line-height;
   color: $color-black;
   text-align: center;
-  
+
   @include tablet {
     padding: 0 1.5rem;
   }
-  
+
   @include mobile {
     padding: 0 1rem;
   }
-  
+
   h2, h3 {
     color: $color-primary;
   }
-  
+
   .field--name-field-apply-schedule table,
   table {
     @extend %centered-container;
@@ -327,38 +438,38 @@
     th,
     td {
       padding: 0.75rem;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid $color-gray-border-light;
       @include responsive-typography(1.125rem, false, 1rem);
-      
+
       p {
         margin: 0 !important;
         padding: 0 !important;
       }
-      
+
       @include mobile {
         padding: 0.5rem;
       }
     }
-    
+
     th {
-      font-weight: 700;
+      font-weight: $weight-heading;
       @include responsive-typography(1.25rem, false, $font-size-mobile-body);
       text-transform: uppercase;
-      color: #555;
-      background-color: #f8f9fa;
+      color: $color-gray-card;
+      background-color: $color-gray-light;
     }
-    
+
     tbody tr:last-child td {
       border-bottom: none;
     }
-    
+
     tbody {
       border: none !important;
     }
-    
+
     strong {
-      color: #d9534f;
-      font-weight: 700;
+      color: $color-danger;
+      font-weight: $weight-heading;
     }
   }
 }

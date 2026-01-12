@@ -6,9 +6,14 @@
  */
 
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
 use Drupal\Core\Site\Settings;
+use Drupal\Core\Menu\MenuTreeParameters;
+use Drupal\Component\Render\FormattableMarkup;
+use Drupal\block\Entity\Block;
+use Drupal\node\NodeInterface;
+use Drupal\media\MediaInterface;
+use Drupal\file\FileInterface;
 
 /**
  * Implements hook_preprocess_image().
@@ -16,7 +21,7 @@ use Drupal\Core\Site\Settings;
  * Adds native lazy loading to images for better Core Web Vitals.
  * Skips hero images and above-the-fold content to preserve LCP.
  */
-function b5subtheme_preprocess_image(&$variables) {
+function b5subtheme_preprocess_image(array &$variables): void {
   _b5subtheme_add_lazy_loading($variables);
 }
 
@@ -25,7 +30,7 @@ function b5subtheme_preprocess_image(&$variables) {
  *
  * Adds native lazy loading to responsive images.
  */
-function b5subtheme_preprocess_responsive_image(&$variables) {
+function b5subtheme_preprocess_responsive_image(array &$variables): void {
   _b5subtheme_add_lazy_loading($variables);
 }
 
@@ -35,7 +40,7 @@ function b5subtheme_preprocess_responsive_image(&$variables) {
  * @param array $variables
  *   The image variables array.
  */
-function _b5subtheme_add_lazy_loading(array &$variables) {
+function _b5subtheme_add_lazy_loading(array &$variables): void {
   // Skip if loading attribute already set.
   if (!empty($variables['attributes']['loading'])) {
     return;
@@ -46,7 +51,7 @@ function _b5subtheme_add_lazy_loading(array &$variables) {
   if (!empty($variables['attributes']['class'])) {
     $classes = (array) $variables['attributes']['class'];
     foreach ($skip_classes as $skip_class) {
-      if (in_array($skip_class, $classes)) {
+      if (in_array($skip_class, $classes, TRUE)) {
         // Explicitly set eager loading for above-fold images.
         $variables['attributes']['loading'] = 'eager';
         $variables['attributes']['fetchpriority'] = 'high';
@@ -71,11 +76,14 @@ function _b5subtheme_add_lazy_loading(array &$variables) {
 }
 
 /**
- * Implements hook_preprocess_field().
+ * Implements hook_preprocess_field__image().
  *
- * Marks hero/featured images as high priority (no lazy loading).
+ * Marks hero/featured image fields as high priority (no lazy loading).
+ *
+ * Note: This runs only for fields whose machine name is literally "image".
+ * If you want this for all image fields, handle it in b5subtheme_preprocess_field().
  */
-function b5subtheme_preprocess_field__image(&$variables) {
+function b5subtheme_preprocess_field__image(array &$variables): void {
   $field_name = $variables['field_name'] ?? '';
 
   // Hero and featured images should load immediately (above the fold).
@@ -86,15 +94,15 @@ function b5subtheme_preprocess_field__image(&$variables) {
     'field_logo',
   ];
 
-  if (in_array($field_name, $priority_fields)) {
-    // Mark all images in this field as high priority.
+  if (in_array($field_name, $priority_fields, TRUE)) {
     foreach ($variables['items'] as &$item) {
-      if (isset($item['content']['#item_attributes'])) {
+      // For image formatter item attributes.
+      if (isset($item['content']['#item_attributes']) && is_array($item['content']['#item_attributes'])) {
         $item['content']['#item_attributes']['loading'] = 'eager';
         $item['content']['#item_attributes']['fetchpriority'] = 'high';
       }
-      // For responsive images.
-      if (isset($item['content']['#attributes'])) {
+      // For responsive image or direct attributes.
+      if (isset($item['content']['#attributes']) && is_array($item['content']['#attributes'])) {
         $item['content']['#attributes']['loading'] = 'eager';
         $item['content']['#attributes']['fetchpriority'] = 'high';
       }
@@ -103,33 +111,153 @@ function b5subtheme_preprocess_field__image(&$variables) {
 }
 
 /**
- * Implements hook_theme_suggestions_HOOK_alter().
+ * Implements hook_theme_suggestions_HOOK_alter() for page templates.
  */
-function b5subtheme_theme_suggestions_page_alter(array &$suggestions, array $variables) {
-  // Add content type suggestions.
+function b5subtheme_theme_suggestions_page_alter(array &$suggestions, array $variables): void {
   $node = \Drupal::routeMatch()->getParameter('node');
-  if ($node instanceof \Drupal\node\NodeInterface) {
-    $content_type = $node->bundle();
-    $suggestions[] = 'page__' . $content_type;
-
-    // Add cache metadata for proper invalidation.
-    $variables['#cache']['contexts'][] = 'route';
-    $variables['#cache']['tags'][] = 'node:' . $node->id();
+  if ($node instanceof NodeInterface) {
+    $suggestions[] = 'page__' . $node->bundle();
   }
 }
 
 /**
  * Implements hook_preprocess_HOOK() for page templates.
  */
-function b5subtheme_preprocess_page(&$variables) {
-  // Add custom variables to page template.
+function b5subtheme_preprocess_page(array &$variables): void {
+  // Site name.
   $variables['site_name'] = \Drupal::config('system.site')->get('name');
+
+  // Initialize layout control variables with sensible defaults.
+  // These replace fragile path-based checks in Twig templates.
+  $variables['is_views_page'] = FALSE;
+  $variables['views_page_id'] = NULL;
+  $variables['views_page_display'] = NULL;
+  $variables['skip_page_header'] = FALSE;
+  $variables['skip_page_footer'] = FALSE;
+  $variables['is_custom_layout'] = FALSE;
+
+  // Detect views pages by route, not path string matching.
+  // This is more robust than checking if path "starts with /forms" etc.
+  $route_match = \Drupal::routeMatch();
+  $route_name = $route_match->getRouteName();
+
+  if ($route_name && strpos($route_name, 'view.') === 0) {
+    $variables['is_views_page'] = TRUE;
+
+    // Extract view ID and display from route name (e.g., "view.guides.page_1").
+    $route_parts = explode('.', $route_name);
+    if (count($route_parts) >= 2) {
+      $variables['views_page_id'] = $route_parts[1] ?? NULL;
+      $variables['views_page_display'] = $route_parts[2] ?? NULL;
+    }
+
+    // Views that render their own header (skip page-level header).
+    $views_with_own_header = [
+      'guides',
+      'guides_categories',
+      'forms',
+      'forms_categories',
+      'resources_by_service',
+      'search',
+    ];
+
+    if (in_array($variables['views_page_id'], $views_with_own_header, TRUE)) {
+      $variables['skip_page_header'] = TRUE;
+      $variables['is_custom_layout'] = TRUE;
+    }
+  }
+
+  // Detect node-based layout requirements.
+  $node = $route_match->getParameter('node');
+  if ($node instanceof NodeInterface) {
+    $bundle = $node->bundle();
+
+    // Content types that handle their own complete layout (header + footer).
+    $self_layout_types = ['home_page'];
+    if (in_array($bundle, $self_layout_types, TRUE)) {
+      $variables['skip_page_header'] = TRUE;
+      $variables['skip_page_footer'] = TRUE;
+      $variables['is_custom_layout'] = TRUE;
+    }
+
+    // Content types that use custom layout but still want page-level header/footer.
+    $custom_layout_types = [
+      'apply_for_help',
+      'donate',
+      'employment_application',
+      'employment',
+      'office_information',
+      'office_locations',
+      'press_entry',
+      'press_room',
+      'reports_publications',
+      'resource',
+    ];
+    if (in_array($bundle, $custom_layout_types, TRUE)) {
+      $variables['is_custom_layout'] = TRUE;
+    }
+
+    // Content types that render their own blue footer curve.
+    // Note: donate previously had its own footer but now uses page-level footer
+    // to reduce duplication. Only home_page needs its own footer (different class).
+    // $types_with_own_footer is empty - kept for documentation.
+    // If a node type needs its own footer, add it here and render in its template.
+  }
+
+  // Split the main menu into left/right chunks for the centered logo layout.
+  $menu_name = 'main';
+  $left_count = 3;
+
+  try {
+    $menu_tree = \Drupal::menuTree();
+    $parameters = (new MenuTreeParameters())
+      ->onlyEnabledLinks()
+      ->setMaxDepth(2);
+
+    $tree = $menu_tree->load($menu_name, $parameters);
+    $tree = $menu_tree->transform($tree, [
+      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
+      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
+    ]);
+
+    $left_tree = array_slice($tree, 0, $left_count);
+    $right_tree = array_slice($tree, $left_count);
+
+    $variables['main_menu_left'] = $menu_tree->build($left_tree);
+    $variables['main_menu_right'] = $menu_tree->build($right_tree);
+
+    // Add stable classes for styling.
+    foreach (['main_menu_left', 'main_menu_right'] as $key) {
+      if (!isset($variables[$key]) || !is_array($variables[$key])) {
+        continue;
+      }
+      $existing = $variables[$key]['#attributes']['class'] ?? [];
+      if (!is_array($existing)) {
+        $existing = [$existing];
+      }
+      $variables[$key]['#attributes']['class'] = array_values(array_unique(array_merge(
+        $existing,
+        ['menu--split', 'navbar-nav']
+      )));
+    }
+
+    // Build mobile menu items for the mobile-menu.html.twig include.
+    // The include inherits variables from page.html.twig context.
+    $mobile_build = $menu_tree->build($tree);
+    $variables['mobile_menu_items'] = $mobile_build['#items'] ?? [];
+  }
+  catch (\Throwable $e) {
+    // Fail safely—page still renders even if menu splitting fails for any reason.
+    $variables['main_menu_left'] = NULL;
+    $variables['main_menu_right'] = NULL;
+    $variables['mobile_menu_items'] = [];
+  }
 }
 
 /**
  * Implements hook_preprocess_HOOK() for node templates.
  */
-function b5subtheme_preprocess_node(&$variables) {
+function b5subtheme_preprocess_node(array &$variables): void {
   $node = $variables['node'];
   $variables['content_type'] = $node->getType();
   $variables['view_mode'] = $variables['elements']['#view_mode'];
@@ -164,12 +292,10 @@ function b5subtheme_preprocess_node(&$variables) {
  * @param \Drupal\node\NodeInterface $node
  *   The home page node.
  */
-function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
-  // Initialize hero rotator data.
+function _b5subtheme_preprocess_home_page_hero(array &$variables, NodeInterface $node): void {
   $variables['hero_images_data'] = [];
   $variables['hero_images_count'] = 0;
 
-  // Check if the hero image field exists and has values.
   if (!$node->hasField('field_hero_image') || $node->get('field_hero_image')->isEmpty()) {
     return;
   }
@@ -186,21 +312,16 @@ function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
     return;
   }
 
-  /** @var \Drupal\Core\File\FileUrlGeneratorInterface $file_url_generator */
   $file_url_generator = \Drupal::service('file_url_generator');
-  /** @var \Drupal\image\ImageStyleInterface $image_style */
   $image_style = \Drupal::entityTypeManager()->getStorage('image_style')->load('large');
 
   $hero_images = [];
   foreach ($media_items as $media) {
-    // Skip invalid media entities.
-    if (!$media instanceof \Drupal\media\MediaInterface) {
+    if (!$media instanceof MediaInterface) {
       continue;
     }
 
-    // Get the source field (usually field_media_image for image media).
     $source_field = $media->getSource()->getConfiguration()['source_field'] ?? 'field_media_image';
-
     if (!$media->hasField($source_field) || $media->get($source_field)->isEmpty()) {
       continue;
     }
@@ -210,42 +331,29 @@ function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
       continue;
     }
 
-    // Get the file entity.
     $file = $image_field->entity;
-    if (!$file instanceof \Drupal\file\FileInterface) {
+    if (!$file instanceof FileInterface) {
       continue;
     }
 
     $uri = $file->getFileUri();
     $mime_type = $file->getMimeType();
 
-    // Get the image URL.
-    // SVGs are vector graphics and cannot be processed by image styles.
-    // Use the original file URL for SVGs, styled URL for raster images.
-    $image_url = '';
     $is_svg = ($mime_type === 'image/svg+xml');
-
     if ($is_svg) {
-      // SVGs: use original file URL (no image style processing).
       $image_url = $file_url_generator->generateAbsoluteString($uri);
     }
     elseif ($image_style) {
-      // Raster images: use styled URL.
       $image_url = $image_style->buildUrl($uri);
     }
     else {
-      // Fallback to original file URL if style doesn't exist.
       $image_url = $file_url_generator->generateAbsoluteString($uri);
     }
 
-    // Get alt text from the image field.
     $alt = $image_field->alt ?? '';
-
-    // Get image dimensions from the field.
     $width = $image_field->width ?? '';
     $height = $image_field->height ?? '';
 
-    // Add to hero images array.
     $hero_images[] = [
       'url' => $image_url,
       'alt' => $alt,
@@ -255,10 +363,8 @@ function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
     ];
   }
 
-  // Only pass data if we have valid images.
   if (!empty($hero_images)) {
     $variables['hero_images_data'] = $hero_images;
-    // Attach the hero rotator library.
     $variables['#attached']['library'][] = 'b5subtheme/hero-rotator';
   }
 }
@@ -266,10 +372,9 @@ function _b5subtheme_preprocess_home_page_hero(array &$variables, $node) {
 /**
  * Implements hook_preprocess_HOOK() for block templates.
  */
-function b5subtheme_preprocess_block(&$variables) {
-  // Add block region to block variables.
+function b5subtheme_preprocess_block(array &$variables): void {
   if (isset($variables['elements']['#id'])) {
-    $block = \Drupal\block\Entity\Block::load($variables['elements']['#id']);
+    $block = Block::load($variables['elements']['#id']);
     if ($block) {
       $variables['region'] = $block->getRegion();
     }
@@ -279,7 +384,7 @@ function b5subtheme_preprocess_block(&$variables) {
 /**
  * Implements hook_preprocess_HOOK() for field templates.
  */
-function b5subtheme_preprocess_field(&$variables) {
+function b5subtheme_preprocess_field(array &$variables): void {
   $element = $variables['element'];
   $variables['bundle'] = $element['#bundle'];
   $variables['entity_type'] = $element['#entity_type'];
@@ -288,69 +393,21 @@ function b5subtheme_preprocess_field(&$variables) {
 /**
  * Implements hook_form_alter().
  */
-function b5subtheme_form_alter(&$form, FormStateInterface $form_state, $form_id) {
-  // Add custom form modifications here.
-  if ($form_id == 'search_block_form') {
+function b5subtheme_form_alter(array &$form, FormStateInterface $form_state, $form_id): void {
+  if ($form_id === 'search_block_form') {
     $form['keys']['#attributes']['placeholder'] = t('Search...');
-  }
-}
-
-/**
- * Implements hook_preprocess_HOOK() for menu templates.
- */
-function b5subtheme_preprocess_menu(&$variables) {
-  // Only process the main menu.
-  if (isset($variables['menu_name']) && $variables['menu_name'] == 'main') {
-    // Get the full menu tree with all children.
-    $menu_tree = \Drupal::service('menu.link_tree');
-
-    // Set parameters to load all items with children.
-    $parameters = new \Drupal\Core\Menu\MenuTreeParameters();
-    $parameters->setMinDepth(1);
-    $parameters->setMaxDepth(2); // Load 2 levels.
-    $parameters->onlyEnabledLinks();
-
-    // Load the tree.
-    $tree = $menu_tree->load('main', $parameters);
-
-    // Apply manipulators.
-    $manipulators = [
-      ['callable' => 'menu.default_tree_manipulators:checkNodeAccess'],
-      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
-      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
-    ];
-    $tree = $menu_tree->transform($tree, $manipulators);
-
-    // Build the tree.
-    $build = $menu_tree->build($tree);
-
-    // Replace the items with our fully loaded tree.
-    if (!empty($build['#items'])) {
-      $variables['items'] = $build['#items'];
-
-      // Ensure all parent items are marked as expanded.
-      foreach ($variables['items'] as &$item) {
-        if (!empty($item['below'])) {
-          $item['is_expanded'] = TRUE;
-        }
-      }
-    }
   }
 }
 
 /**
  * Implements hook_preprocess_HOOK() for html templates.
  */
-function b5subtheme_preprocess_html(&$variables) {
-  // Get the language manager and path matcher services.
+function b5subtheme_preprocess_html(array &$variables): void {
   $language_manager = \Drupal::languageManager();
   $languages = $language_manager->getLanguages();
   $current_language = $language_manager->getCurrentLanguage();
-  $route_match = \Drupal::routeMatch();
 
-  // Build language links array.
   $language_links = [];
-
   if (count($languages) > 1) {
     foreach ($languages as $language) {
       $language_links[$language->getId()] = [
@@ -363,68 +420,52 @@ function b5subtheme_preprocess_html(&$variables) {
     }
   }
 
-  // Add variables to template.
   $variables['language_links'] = $language_links;
   $variables['language'] = $current_language;
 
-  // Expose Google Analytics (GA4) ID from settings.php to Twig.
+  // Expose GA4 ID from settings.php to Twig.
   $variables['google_tag_id'] = Settings::get('google_tag_id');
 
-  // Add invisible JSON-LD BreadcrumbList schema for SEO.
+  // Add JSON-LD BreadcrumbList schema for SEO.
   _b5subtheme_add_breadcrumb_schema($variables);
 }
 
 /**
  * Adds BreadcrumbList JSON-LD schema to the page head.
  *
- * This is invisible to users - only search engines read it.
- * Helps Google understand site hierarchy for rich search results.
- *
  * @param array $variables
  *   The variables array from hook_preprocess_html.
  */
-function _b5subtheme_add_breadcrumb_schema(array &$variables) {
-  // Skip on admin pages.
+function _b5subtheme_add_breadcrumb_schema(array &$variables): void {
   if (\Drupal::service('router.admin_context')->isAdminRoute()) {
     return;
   }
 
-  // Get the breadcrumb from Drupal's breadcrumb manager.
   $breadcrumb_manager = \Drupal::service('breadcrumb');
   $route_match = \Drupal::routeMatch();
   $breadcrumb = $breadcrumb_manager->build($route_match);
   $links = $breadcrumb->getLinks();
 
-  // Get current page URL.
   $request = \Drupal::request();
   $base_url = $request->getSchemeAndHttpHost();
   $current_url = $base_url . $request->getRequestUri();
-  // Remove query strings for cleaner canonical URL.
   $current_url = strtok($current_url, '?');
 
-  // Build the BreadcrumbList schema.
   $breadcrumb_items = [];
   $position = 1;
-
-  // Track last valid URL to prevent duplicate current page entries.
   $last_valid_url = '';
 
   foreach ($links as $link) {
     $url = $link->getUrl();
     $text = $link->getText();
-
-    // Handle string or TranslatableMarkup text.
     $name = is_object($text) ? $text->__toString() : (string) $text;
 
-    // Skip empty names.
-    if (empty($name)) {
+    if ($name === '') {
       continue;
     }
 
-    // Get the absolute URL, handling special Drupal route types.
     $absolute_url = '';
     if ($url->isRouted()) {
-      // Skip placeholder menu items (<nolink>) that have no actual URL.
       $route_name = $url->getRouteName();
       if (in_array($route_name, ['<nolink>', '<none>', '<button>'], TRUE)) {
         continue;
@@ -438,7 +479,6 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
       }
     }
 
-    // Google requires 'item' URL - skip entries without valid URLs.
     if (empty($absolute_url)) {
       continue;
     }
@@ -449,23 +489,19 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
       'name' => $name,
       'item' => $absolute_url,
     ];
+
     $last_valid_url = $absolute_url;
     $position++;
   }
 
-  // Get current page title for potential final breadcrumb item.
   $current_title = '';
   if (isset($variables['head_title']['title'])) {
     $title = $variables['head_title']['title'];
     $current_title = is_object($title) ? $title->__toString() : (string) $title;
-    // Remove site name suffix if present.
     $current_title = preg_replace('/\s*\|\s*Idaho Legal Aid Services$/', '', $current_title);
-    // Also handle other separator patterns.
     $current_title = preg_replace('/\s*\|\s*[^|]+$/', '', $current_title);
   }
 
-  // Only add current page if it's not already the last breadcrumb item.
-  // This prevents duplicates when breadcrumb manager includes current page.
   if (!empty($current_title) && $last_valid_url !== $current_url) {
     $breadcrumb_items[] = [
       '@type' => 'ListItem',
@@ -475,7 +511,6 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
     ];
   }
 
-  // Need at least 2 items for a meaningful breadcrumb.
   if (count($breadcrumb_items) < 2) {
     return;
   }
@@ -487,7 +522,10 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
     'itemListElement' => $breadcrumb_items,
   ];
 
-  // Attach JSON-LD to the page head (invisible to users).
+  // Attach JSON-LD to the page head.
+  if (!isset($variables['page']) || !is_array($variables['page'])) {
+    $variables['page'] = [];
+  }
   $variables['page']['#attached']['html_head'][] = [
     [
       '#type' => 'html_tag',
@@ -504,30 +542,25 @@ function _b5subtheme_add_breadcrumb_schema(array &$variables) {
  *
  * Converts media file URIs to download links in search results.
  */
-function b5subtheme_preprocess_views_view_field(&$variables) {
+function b5subtheme_preprocess_views_view_field(array &$variables): void {
   $view = $variables['view'];
   $field = $variables['field'];
 
-  // Only process the 'name' field in the 'search' view.
-  if ($view->id() !== 'search' || $field->options['id'] !== 'name') {
+  if ($view->id() !== 'search' || ($field->options['id'] ?? '') !== 'name') {
     return;
   }
 
-  // Get the search result item to access raw indexed data.
   $row = $variables['row'];
   if (!isset($row->_item)) {
     return;
   }
 
-  /** @var \Drupal\search_api\Item\ItemInterface $item */
   $item = $row->_item;
 
-  // Only process media entities.
   if ($item->getDatasourceId() !== 'entity:media') {
     return;
   }
 
-  // Get the file URI from the indexed field.
   $uri_field = $item->getField('media_file_url');
   if (!$uri_field) {
     return;
@@ -543,57 +576,166 @@ function b5subtheme_preprocess_views_view_field(&$variables) {
     return;
   }
 
-  // Convert URI to URL.
   $url = \Drupal::service('file_url_generator')->generateString($uri);
 
-  // Get the current output (media name).
   $name = $variables['output'];
   if (is_object($name) && method_exists($name, '__toString')) {
     $name = $name->__toString();
   }
 
-  // Build the link markup directly to avoid double-encoding.
-  $variables['output'] = new \Drupal\Component\Render\FormattableMarkup(
-    '<a href="@url" class="file-download-link" target="_blank">@name</a>',
+  $variables['output'] = new FormattableMarkup(
+    '<a href="@url" class="file-download-link" target="_blank" rel="noopener">@name</a>',
     ['@url' => $url, '@name' => $name]
   );
 }
-
 
 /**
  * Implements hook_preprocess_views_view().
  *
  * Adds "Page X of Y" pager info for the search view.
+ * Adds topic navigation options for forms/guides category views.
  */
-function b5subtheme_preprocess_views_view(&$variables) {
+function b5subtheme_preprocess_views_view(array &$variables): void {
   $view = $variables['view'];
+  $view_id = $view->id();
 
-  // Only process the search view.
-  if ($view->id() !== 'search') {
+  // Search view pager info.
+  if ($view_id === 'search') {
+    $pager = $view->getPager();
+    if ($pager) {
+      $current_page = $pager->getCurrentPage();
+      $items_per_page = $pager->getItemsPerPage();
+      $total_items = $pager->getTotalItems();
+
+      if ($items_per_page > 0 && $total_items > 0) {
+        $total_pages = (int) ceil($total_items / $items_per_page);
+        $variables['pager_info'] = [
+          'current' => $current_page + 1,
+          'total' => $total_pages,
+          'total_items' => $total_items,
+        ];
+      }
+    }
     return;
   }
 
-  // Get pager information.
-  $pager = $view->getPager();
-  if (!$pager) {
-    return;
+  // Forms/Guides category views - add topic navigation options.
+  if ($view_id === 'forms_categories') {
+    $variables['topic_nav_options'] = _b5subtheme_get_document_topics('form', 'field_show_on_forms_page');
+    $variables['topic_nav_base_path'] = '/forms';
+    $variables['topic_nav_label'] = t('Jump to Topic');
+    $variables['topic_nav_id'] = 'forms-topic-nav';
+  }
+  elseif ($view_id === 'guides_categories') {
+    $variables['topic_nav_options'] = _b5subtheme_get_document_topics('guide', 'field_show_on_guides_page');
+    $variables['topic_nav_base_path'] = '/guides';
+    $variables['topic_nav_label'] = t('Jump to Topic');
+    $variables['topic_nav_id'] = 'guides-topic-nav';
+  }
+}
+
+/**
+ * Gets topics that have documents of a specific type.
+ *
+ * @param string $document_type
+ *   The document type ('form' or 'guide').
+ * @param string $show_field
+ *   The field name that controls visibility (e.g., 'field_show_on_forms_page').
+ *
+ * @return array
+ *   Array of topic options with 'tid', 'name', and 'url_slug' keys.
+ */
+function _b5subtheme_get_document_topics(string $document_type, string $show_field): array {
+  $options = [];
+
+  try {
+    $database = \Drupal::database();
+
+    // Query topics that:
+    // 1. Are published
+    // 2. Have the show_on_*_page field set to TRUE
+    // 3. Have at least one published document media item of the correct type.
+    $query = $database->select('taxonomy_term_field_data', 't');
+    $query->fields('t', ['tid', 'name']);
+    $query->condition('t.vid', 'topics');
+    $query->condition('t.status', 1);
+
+    // Join the show_on field.
+    $query->innerJoin(
+      'taxonomy_term__' . $show_field,
+      'show_field',
+      't.tid = show_field.entity_id AND show_field.' . $show_field . '_value = 1'
+    );
+
+    // Join to media via document_topics field.
+    $query->innerJoin(
+      'media__field_document_topics',
+      'dt',
+      't.tid = dt.field_document_topics_target_id'
+    );
+
+    // Join to media field data to check status.
+    $query->innerJoin(
+      'media_field_data',
+      'm',
+      'dt.entity_id = m.mid AND m.status = 1'
+    );
+
+    // Join to document type field to filter by form/guide.
+    $query->innerJoin(
+      'media__field_document_type',
+      'doc_type',
+      'dt.entity_id = doc_type.entity_id AND doc_type.field_document_type_value = :doc_type',
+      [':doc_type' => $document_type]
+    );
+
+    // Group by term and order alphabetically.
+    $query->groupBy('t.tid');
+    $query->groupBy('t.name');
+    $query->orderBy('t.name', 'ASC');
+
+    $results = $query->execute()->fetchAll();
+
+    foreach ($results as $row) {
+      // Create URL-friendly slug from topic name.
+      $slug = _b5subtheme_create_url_slug($row->name);
+      $options[] = [
+        'tid' => $row->tid,
+        'name' => $row->name,
+        'url_slug' => $slug,
+      ];
+    }
+  }
+  catch (\Exception $e) {
+    // Log error but don't break the page.
+    \Drupal::logger('b5subtheme')->error('Error fetching document topics: @message', ['@message' => $e->getMessage()]);
   }
 
-  $current_page = $pager->getCurrentPage();
-  $items_per_page = $pager->getItemsPerPage();
-  $total_items = $pager->getTotalItems();
+  return $options;
+}
 
-  // Calculate total pages.
-  if ($items_per_page > 0 && $total_items > 0) {
-    $total_pages = (int) ceil($total_items / $items_per_page);
-    $current_page_display = $current_page + 1; // Pages are 0-indexed.
+/**
+ * Creates a URL-friendly slug from a string.
+ *
+ * @param string $string
+ *   The string to convert.
+ *
+ * @return string
+ *   URL-friendly slug.
+ */
+function _b5subtheme_create_url_slug(string $string): string {
+  // Convert to lowercase.
+  $slug = strtolower($string);
+  // Replace spaces and underscores with hyphens.
+  $slug = preg_replace('/[\s_]+/', '-', $slug);
+  // Remove special characters except hyphens.
+  $slug = preg_replace('/[^a-z0-9\-]/', '', $slug);
+  // Remove multiple consecutive hyphens.
+  $slug = preg_replace('/-+/', '-', $slug);
+  // Trim hyphens from ends.
+  $slug = trim($slug, '-');
 
-    $variables['pager_info'] = [
-      'current' => $current_page_display,
-      'total' => $total_pages,
-      'total_items' => $total_items,
-    ];
-  }
+  return $slug;
 }
 
 /**
@@ -603,10 +745,9 @@ function b5subtheme_preprocess_views_view(&$variables) {
  * This fixes the Gin toolbar not appearing on front-end pages because
  * the @gin Twig namespace doesn't resolve when b5subtheme is active.
  */
-function b5subtheme_theme_registry_alter(&$theme_registry) {
+function b5subtheme_theme_registry_alter(array &$theme_registry): void {
   $theme_path = \Drupal::service('extension.list.theme')->getPath('b5subtheme');
 
-  // Override navigation template path if it exists in our theme.
   if (isset($theme_registry['navigation'])) {
     $template_path = $theme_path . '/templates/navigation';
     if (file_exists($template_path . '/navigation.html.twig')) {
@@ -614,7 +755,6 @@ function b5subtheme_theme_registry_alter(&$theme_registry) {
     }
   }
 
-  // Also override the navigation--gin suggestion.
   if (isset($theme_registry['navigation__gin'])) {
     $template_path = $theme_path . '/templates/navigation';
     if (file_exists($template_path . '/navigation--gin.html.twig')) {

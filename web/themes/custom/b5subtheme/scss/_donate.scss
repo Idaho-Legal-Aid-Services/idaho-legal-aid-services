@@ -21,7 +21,7 @@
       position: relative;
       z-index: z('foreground');
       font-size: 3.5rem;
-      font-weight: bold;
+      font-weight: $weight-title;
       text-align: center;
       margin: 0;
       color: $color-primary;
@@ -38,50 +38,8 @@
     }
   }
 
-  .main-content {
-    margin-bottom: 3rem;
-    padding: 0 1rem;
-    font-size: 1.5rem;
-    line-height: 1.6;
-    text-transform: none;
-    color: $color-black;
-    text-align: center;
-    
-    @include tablet {
-      font-size: 1.4rem;
-    }
-    
-    @include mobile {
-      font-size: $font-size-mobile-body;
-    }
-    
-    p {
-      margin-bottom: 1rem;
-      
-      &:last-child {
-        margin-bottom: 0;
-      }
-    }
-    
-    ul, ol {
-      margin: 1rem 0;
-      padding-left: 2rem;
-    }
-    
-    h2, h3, h4, h5, h6 {
-      margin: 1.5rem 0 1rem;
-      font-weight: 600;
-    }
-    
-    a {
-      color: $color-primary;
-      text-decoration: underline;
-      
-      &:hover {
-        text-decoration: none;
-      }
-    }
-  }
+  // .main-content inherits all base styles from _layout-components.scss
+  // No overrides needed for donate page - uses default values
 
   .donate-body {
     margin-bottom: 3rem;
@@ -91,6 +49,8 @@
     text-transform: none;
     color: $color-black;
     text-align: center;
+    max-width: $reading-column-width;
+    margin-inline: auto;
     
     @include tablet {
       font-size: 1.4rem;
@@ -115,13 +75,14 @@
     
     h2, h3, h4, h5, h6 {
       margin: 1.5rem 0 1rem;
-      font-weight: 600;
+      font-weight: $weight-heading;
     }
     
-    a {
+    // Link styles - exclude buttons to prevent underline inheritance
+    a:not(#{$button-not-selector}) {
       color: $color-primary;
       text-decoration: underline;
-      
+
       &:hover {
         text-decoration: none;
       }
@@ -130,11 +91,10 @@
 
   .resource-sections {
     margin-bottom: 3rem;
-    // Remove any padding constraints to match standard pages
-    
+
     .paragraph {
       margin-bottom: 2rem;
-      
+
       &:last-child {
         margin-bottom: 0;
       }
@@ -148,7 +108,7 @@
     background: $color-gray-bg;
     border: 6px solid $color-primary;
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    box-shadow: $shadow-elevated;
     
     
     @include mobile {
@@ -162,7 +122,7 @@
       text-transform: none;
       font-size: 2.5rem;
       color: $color-primary;
-      font-weight: 700;
+      font-weight: $weight-title;
       margin-bottom: 1.5rem;
       
       @include mobile {
@@ -178,7 +138,7 @@
         // Match accordion-section-title style
         font-size: 2.5rem;
         color: $color-primary;
-        font-weight: bold;
+        font-weight: $weight-heading;
         text-align: center;
         margin-top: 0;
         margin-bottom: 1.5rem;
@@ -240,7 +200,7 @@
             background-color: $color-white;
             border-color: $color-primary;
             color: $color-primary;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: $shadow-hover;
           }
         }
       }
@@ -258,8 +218,8 @@
         }
         
         label {
-          font-weight: 500;
-          color: #333;
+          font-weight: $weight-nav-dropdown;
+          color: $color-black;
           white-space: nowrap;
           
           @include mobile {
@@ -278,7 +238,7 @@
           &:focus {
             outline: none;
             border-color: $color-primary;
-            box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+            box-shadow: $focus-ring-primary;
           }
         }
       }
@@ -290,7 +250,7 @@
       h4 {
         font-size: 1.1rem;
         margin-bottom: 1rem;
-        color: #333;
+        color: $color-black;
         
         @include mobile {
           font-size: $font-size-mobile-subheader;
@@ -317,7 +277,7 @@
             background-color: $color-white !important;
             border-color: $color-primary !important;
             color: $color-primary !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: $shadow-hover;
             
             // Ensure hover state matches active state
             &:hover,
@@ -381,7 +341,7 @@
       padding: 3rem;
       border: 6px solid $color-primary;
       border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      box-shadow: $shadow-elevated;
       position: relative;
       
       @include mobile {
@@ -433,7 +393,7 @@
         border: 2px solid $color-primary;
         border-radius: 8px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: $transition-base;
         background: $color-white;
         min-height: 60px;
         touch-action: manipulation;
@@ -446,7 +406,7 @@
         // Enhanced focus states for accessibility
         &:focus-within {
           border-color: $color-primary;
-          box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+          box-shadow: $focus-ring-primary;
         }
         
         input[type="checkbox"] {
@@ -498,10 +458,10 @@
       display: flex;
       align-items: center;
       padding: 1.5rem;
-      border: 2px solid #e0e0e0;
+      border: 2px solid $color-gray-border-light;
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: $transition-base;
       background: $color-white;
       min-height: 60px; // Enhanced touch target
       touch-action: manipulation;
@@ -514,7 +474,7 @@
       // Enhanced focus states for accessibility
       &:focus-within {
         border-color: $color-primary;
-        box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+        box-shadow: $focus-ring-primary;
       }
       
       input[type="checkbox"] {
@@ -573,10 +533,10 @@
         display: flex;
         align-items: center;
         padding: 0.75rem 1rem;
-        border: 1px solid #e0e0e0;
+        border: 1px solid $color-gray-border-light;
         border-radius: 4px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: $transition-base;
         
         &:hover {
           background-color: $color-gray-bg;
@@ -608,22 +568,22 @@
       .form-control {
         width: 100%;
         padding: 0.75rem;
-        border: 2px solid #e0e0e0;
+        border: 2px solid $color-gray-border-light;
         border-radius: 4px;
         font-size: 1rem;
-        
+
         &:focus {
           outline: none;
           border-color: $color-primary;
-          box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+          box-shadow: $focus-ring-primary;
         }
       }
-      
+
       textarea.form-control {
         resize: vertical;
         min-height: 100px;
       }
-      
+
       .mt-3 {
         margin-top: 1rem;
       }
@@ -694,43 +654,43 @@
     .form-group {
       flex: 1;
       margin-bottom: 1rem;
-      
+
       label {
         display: block;
         margin-bottom: 0.5rem;
-        font-weight: 600;
-        color: $color-gray-dark;
+        font-weight: $weight-label;
+        color: $color-black;
       }
       
       .form-control {
         width: 100%;
         padding: 0.75rem;
-        border: 2px solid #e0e0e0;
+        border: 2px solid $color-gray-border-light;
         border-radius: 4px;
         font-size: 1rem;
-        transition: all 0.3s ease;
-        
+        transition: $transition-base;
+
         &:focus {
           outline: none;
           border-color: $color-primary;
-          box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+          box-shadow: $focus-ring-primary;
         }
-        
+
         &:required:valid {
           border-color: $color-success;
         }
-        
+
         // Enhanced validation states
         &.is-invalid {
           border-color: $color-danger !important;
           box-shadow: 0 0 0 2px rgba($color-danger, 0.2) !important;
-          
+
           &:focus {
             border-color: $color-danger;
             box-shadow: 0 0 0 3px rgba($color-danger, 0.25);
           }
         }
-        
+
         &[aria-invalid="true"] {
           border-color: $color-danger;
         }
@@ -752,7 +712,7 @@
       
       .progress {
         height: 8px;
-        background-color: #e0e0e0;
+        background-color: $color-gray-border-light;
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 0.5rem;
@@ -825,13 +785,13 @@
         color: darken($color-danger, 20%);
         background-color: lighten($color-danger, 35%);
         border-color: lighten($color-danger, 15%);
-        
+
         &::before {
           background-color: $color-danger;
         }
-        
+
         strong {
-          font-weight: 600;
+          font-weight: $weight-body-emphasis;
           color: darken($color-danger, 30%);
         }
         
@@ -850,13 +810,13 @@
         color: darken($color-warning, 30%);
         background-color: lighten($color-warning, 25%);
         border-color: lighten($color-warning, 10%);
-        
+
         &::before {
           background-color: $color-warning;
         }
-        
+
         strong {
-          font-weight: 600;
+          font-weight: $weight-body-emphasis;
           color: darken($color-warning, 40%);
         }
         
