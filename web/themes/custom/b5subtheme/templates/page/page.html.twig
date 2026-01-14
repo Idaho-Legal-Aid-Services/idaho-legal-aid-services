@@ -16,34 +16,31 @@
     <div class="container">
       <div class="utility-bar-content" id="utilityBarContent">
 
-        {# Legal Advice Hotline #}
-        <div class="hotline">
-          <a href="tel:+12087467541" aria-label="{{ 'Call Legal Advice Hotline at 208-746-7541'|t }}">
+        {# LEFT: Hotline info #}
+        <div class="utility-bar-left">
+          <a href="tel:+12087467541" class="utility-link utility-hotline" aria-label="{{ 'Call Legal Advice Line at 208-746-7541'|t }}">
             <i class="fa-solid fa-phone-volume" aria-hidden="true"></i>
-            <span class="d-none d-md-inline">{{ 'Legal Advice Hotline:'|t }}&nbsp;{{ '208-746-7541'|t }}</span>
+            <span class="d-none d-md-inline">{{ 'Legal Advice Line:'|t }}&nbsp;{{ '208-746-7541'|t }}</span>
             <span class="d-md-none">{{ 'Call Now'|t }}</span>
           </a>
         </div>
 
-        {# Search #}
-        <div class="search-col">
-          <button type="button" class="search-trigger" id="searchToggle" data-search-trigger aria-label="{{ 'Open search'|t }}" aria-expanded="false" aria-controls="searchOverlay">
+        {# RIGHT: Actions clustered #}
+        <div class="utility-bar-right">
+          {# Search - overlay trigger #}
+          <button type="button" class="utility-link utility-action search-trigger" id="searchToggle" data-search-trigger aria-label="{{ 'Open search'|t }}" aria-expanded="false" aria-controls="searchOverlay">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <span>{{ 'Search'|t }}</span>
           </button>
-        </div>
 
-        {# Exit #}
-        <div class="exit-link">
-          <a href="https://www.google.com" aria-label="{{ 'Exit site securely'|t }}">
+          {# Exit #}
+          <a href="https://www.google.com" class="utility-link utility-exit" aria-label="{{ 'Exit site securely'|t }}">
             <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
             <span>{{ 'Exit'|t }}</span>
           </a>
-        </div>
 
-        {# Get Help #}
-        <div class="get-help">
-          <button type="button" id="helpToggle" aria-label="{{ 'Get help menu'|t }}" aria-expanded="false" aria-controls="helpOverlay">
+          {# Get Help - overlay trigger, styled as CTA #}
+          <button type="button" class="utility-link utility-action utility-cta" id="helpToggle" aria-label="{{ 'Get help menu'|t }}" aria-expanded="false" aria-controls="helpOverlay">
             <i class="fa-solid fa-heart" aria-hidden="true"></i>
             <span>{{ 'Get Help'|t }}</span>
           </button>
@@ -57,11 +54,11 @@
   </div>
 
   {# Main Navigation #}
-  <nav class="navbar navbar-expand-xl centered-logo-navbar" role="navigation" aria-label="{{ 'Main navigation'|t }}">
+  <nav class="navbar navbar-expand-lg centered-logo-navbar" role="navigation" aria-label="{{ 'Main navigation'|t }}">
     <div class="container">
 
-      {# Desktop: Split navigation with centered logo #}
-      <div class="d-none d-xl-grid split-navigation">
+      {# Desktop: Split navigation with centered logo (visible at lg breakpoint: 992px+) #}
+      <div class="d-none d-lg-grid split-navigation">
         {# Left navigation: items 1-3 (built in preprocess) #}
         <div class="nav-section nav-left">
           {% if main_menu_left is defined %}
@@ -86,13 +83,13 @@
         </div>
       </div>
 
-      {# Tablet/Mobile: Logo on left #}
-      <a href="{{ path('<front>') }}" class="navbar-brand site-logo d-xl-none" title="{{ 'Home'|t }}" rel="home">
+      {# Tablet/Mobile: Logo on left (hidden at lg breakpoint: 992px+) #}
+      <a href="{{ path('<front>') }}" class="navbar-brand site-logo d-lg-none" title="{{ 'Home'|t }}" rel="home">
         <img src="/themes/custom/b5subtheme/images/Primary Logo & Tagline(2)_0.svg" alt="{{ 'Idaho Legal Aid Services'|t }}" />
       </a>
 
-      {# Mobile toggle button - triggers custom slide-out menu #}
-      <button class="navbar-toggler d-xl-none"
+      {# Mobile toggle button - triggers custom slide-out menu (hidden at lg: 992px+) #}
+      <button class="navbar-toggler d-lg-none"
               type="button"
               aria-controls="mobileMenuOverlay"
               aria-expanded="false"

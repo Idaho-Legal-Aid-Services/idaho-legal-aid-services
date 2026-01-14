@@ -196,6 +196,16 @@ main.main-content {
   @include full-bleed-bg($color-gray-bg, z('background'));
   @include curved-bottom($color-white, $curve-height-desktop, $curve-height-mobile, z('background'), $curve-border-width solid $color-gray-border);
 
+  // Tighter horizontal padding on mobile for longer titles
+  @include mobile {
+    padding-left: 0;
+    padding-right: 0;
+
+    .container {
+      --bs-gutter-x: 1rem; // 8px on each side (half of 1rem)
+    }
+  }
+
   .curved-page-header-title {
     @include responsive-typography(3.5rem, 2.5rem, $font-size-mobile-header);
     position: relative;
@@ -205,7 +215,7 @@ main.main-content {
     margin: 0;
     color: $color-primary;
     white-space: normal;
-    word-break: break-word;
+    overflow-wrap: break-word; // Only break words as last resort
   }
 
   .curved-page-header-subtitle {

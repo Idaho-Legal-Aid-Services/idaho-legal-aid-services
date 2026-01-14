@@ -213,7 +213,7 @@
 
   Drupal.behaviors.utilityBarHover = {
     attach: function (context, settings) {
-      var selector = '.utility-bar .hotline > a, .utility-bar .search-col > button, .utility-bar .exit-link > a, .utility-bar .get-help > button';
+      var selector = '.utility-bar .utility-link';
 
       once('utility-bar-hover', selector, context).forEach(function (item) {
         // Mouse enter - add hover class

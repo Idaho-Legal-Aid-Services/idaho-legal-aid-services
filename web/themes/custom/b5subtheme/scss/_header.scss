@@ -34,10 +34,12 @@ $transition-speed: 0.3s;
   font-size: 1rem;
 
   .container {
-    padding: 0.5rem 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
 
     @include mobile {
-      padding: 0.25rem 0;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
     }
   }
 
@@ -53,66 +55,114 @@ $transition-speed: 0.3s;
     }
   }
 
-  .hotline,
-  .search-col,
-  .exit-link,
-  .get-help {
-    > a,
-    > button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.25rem;
-      color: $color-white;
-      padding: 0.5rem 0.75rem;
-      line-height: 1.1;
-      border-radius: 4px;
-      transition: background-color $transition-speed ease, color $transition-speed ease;
+  .utility-bar-left,
+  .utility-bar-right {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0; // helps flex items behave
+  }
+
+  .utility-bar-right {
+    justify-content: flex-end;
+    gap: 1rem;
+
+    @include mobile {
+      gap: 0.5rem; // tighter cluster on mobile
+    }
+  }
+
+  // Base styling for all utility bar items (links and buttons)
+  .utility-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+
+    color: $color-white;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+
+    padding: 0.5rem 0.75rem;
+    line-height: 1.1;
+
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: $font-weight-medium;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+
+    transition: background-color $transition-speed ease, color $transition-speed ease;
+
+    i {
+      font-size: 1rem;
+    }
+
+    &:hover {
+      background-color: $color-white;
+      color: $color-primary;
       text-decoration: none;
-      font-weight: $font-weight-medium;
-      letter-spacing: 0.03em;
-      background: transparent;
-      border: none;
-      font-family: inherit;
-      font-size: inherit;
-      cursor: pointer;
+    }
 
-      &, * {
-        color: $color-white;
-      }
+    &:focus-visible {
+      background-color: $color-white;
+      color: $color-primary;
+      text-decoration: none;
 
-      &:hover {
-        background-color: $color-white;
-        text-decoration: none;
+      // keep focus visible even on white hover background
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
+    }
 
-        &, *, &.text-white {
-          color: $color-primary;
-        }
-      }
-
-      &:focus-visible {
-        background-color: $color-white;
-        text-decoration: none;
-        outline: 2px solid $color-white;
-        outline-offset: 2px;
-
-        &, *, &.text-white {
-          color: $color-primary;
-        }
-      }
+    @include mobile {
+      // Keep 44px target but reduce horizontal footprint
+      min-height: 44px;
+      padding: 0.5rem; // was 0.625rem 0.75rem
 
       i {
-        font-size: 1rem;
+        font-size: 0.9rem;
       }
+    }
+  }
 
-      @include mobile {
-        font-size: 0.8rem;
-        min-height: 44px;
-        padding: 0.625rem 0.75rem;
+  // CTA: "Get Help" pops as inverted pill
+  .utility-cta {
+    background-color: $color-white;
+    color: $color-primary;
+    font-weight: $font-weight-semibold;
+    border-radius: 999px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
 
-        i { font-size: 0.9rem; }
-        span { white-space: nowrap; }
-      }
+    &:hover,
+    &:focus-visible {
+      background-color: rgba($color-white, 0.92);
+      color: $color-primary;
+    }
+
+    @include mobile {
+      // Give CTA slightly more comfortable padding than the icon-only buttons
+      padding: 0.5rem 0.65rem;
+    }
+  }
+
+  // Extra small screens (iPhone SE / 375px) — icons only for non-CTA actions
+  // Keeps "Get Help" label visible.
+  @media (max-width: 389px) {
+    .utility-bar-right {
+      gap: 0.25rem;
+    }
+
+    // Hide text for Search + Exit (keep icons). CTA keeps text.
+    .utility-bar-right .utility-link:not(.utility-cta) span {
+      display: none;
+    }
+
+    // Optional: tighten non-CTA action buttons further
+    .utility-bar-right .utility-link:not(.utility-cta) {
+      padding: 0.5rem;
+      min-width: 44px; // ensures tappable square
     }
   }
 }
@@ -123,10 +173,16 @@ $transition-speed: 0.3s;
 .centered-logo-navbar {
   background-color: $color-white;
   --bs-navbar-padding-y: 0;
+  --bs-navbar-brand-margin-end: 0;
   padding: 1rem 0;
   overflow: visible;
   transition: padding $transition-speed ease, box-shadow $transition-speed ease;
   box-shadow: none;
+
+  a.navbar-brand.site-logo {
+    margin: 0;
+    padding: 0;
+  }
 
   // Base logo size (mobile-first)
   .site-logo img {
@@ -153,7 +209,7 @@ $transition-speed: 0.3s;
     padding: 0.5rem 1rem;
     font-weight: $font-weight-medium;
     text-transform: uppercase;
-    font-size: 0.875rem;
+    font-size: 1rem;
     letter-spacing: 0.06em;
     line-height: 1.15;
     border-radius: 4px;
@@ -184,9 +240,9 @@ $transition-speed: 0.3s;
   }
 
   // ===================================
-  // Desktop Layout (>=1200px) - Grid-based centered logo
+  // Desktop Layout (>=992px) - Grid-based centered logo
   // ===================================
-  @media (min-width: $large-desktop-breakpoint) {
+  @media (min-width: $desktop-breakpoint) {
     .site-logo img {
       height: 120px;
     }
@@ -201,7 +257,16 @@ $transition-speed: 0.3s;
       grid-template-columns: 1fr auto 1fr; // left | logo | right
       align-items: center;
       width: 100%;
-      column-gap: 1rem;
+      column-gap: 2rem; // space around logo (left↔logo and logo↔right)
+    }
+
+    // Center the logo and neutralize global `.navbar-brand { margin-right: 2rem; }`
+    .split-navigation > a.navbar-brand.site-logo {
+      justify-self: center;
+      margin: 0 !important;
+      margin-inline-end: 0 !important;
+      padding: 0;
+      line-height: 0;
     }
 
     .nav-section {
@@ -209,6 +274,7 @@ $transition-speed: 0.3s;
     }
 
     // Target either Bootstrap-style markup (.navbar-nav) or Drupal menu markup (.menu).
+    // Use gap for item spacing (replaces global `.nav-item { margin-right: 2rem; }`).
     .nav-section > ul,
     .nav-section .navbar-nav,
     .nav-section .menu {
@@ -219,7 +285,14 @@ $transition-speed: 0.3s;
       margin: 0;
       padding: 0;
       list-style: none;
-      gap: 0.5rem; // Consistent spacing between items
+      gap: 2rem;
+    }
+
+    // Neutralize global `.nav-item { margin-right: 2rem; }` within this navbar only
+    .nav-section .nav-item,
+    .nav-section li {
+      margin-right: 0 !important;
+      margin-inline-end: 0 !important;
     }
 
     // Left nav: push items toward logo (right edge of column)
@@ -241,24 +314,25 @@ $transition-speed: 0.3s;
     }
   }
 
-  // Large screens adjustments
-  @media (min-width: $nav-expanded-breakpoint) {
+  // Large screens adjustments (1200px+)
+  @media (min-width: $large-desktop-breakpoint) {
     .nav-link {
-      font-size: 1.1rem;
+      font-size: 1.0625rem;
     }
   }
 
-  // Medium desktop screens
-  @media (min-width: $large-desktop-breakpoint) and (max-width: #{$nav-expanded-breakpoint - 0.02px}) {
-    .nav-link {
-      font-size: 0.95rem;
-      padding: 0.5rem 0.75rem;
+  // Small desktop screens (992px - 1199px only)
+  @media (min-width: $desktop-breakpoint) and (max-width: #{$large-desktop-breakpoint - 0.02px}) {
+    .split-navigation {
+      padding-inline: 1rem;
     }
+    // (nav-left padding tweak removed per request)
   }
 
-  // Tablet Layout (768px-1199px)
+
+  // Tablet Layout (768px-991px)
   @include tablet {
-    padding: 1.5rem 0;
+    padding: 0.875rem 0;
 
     .site-logo img {
       height: 80px;
@@ -267,7 +341,7 @@ $transition-speed: 0.3s;
 
   // Mobile Layout (<768px)
   @include mobile {
-    padding: 1rem 0;
+    padding: 0.75rem 0;
 
     .site-logo img {
       height: 70px;
@@ -333,8 +407,8 @@ $transition-speed: 0.3s;
     }
   }
 
-  // Desktop dropdown styling (>=1200px)
-  @media (min-width: $large-desktop-breakpoint) {
+  // Desktop dropdown styling (>=992px)
+  @media (min-width: $desktop-breakpoint) {
     .dropdown-menu {
       position: absolute;
       top: 100%;
@@ -359,8 +433,8 @@ $transition-speed: 0.3s;
     }
   }
 
-  // Tablet & Mobile dropdown (<1200px)
-  @media (max-width: #{$large-desktop-breakpoint - 0.02px}) {
+  // Tablet & Mobile dropdown (<992px)
+  @media (max-width: #{$desktop-breakpoint - 0.02px}) {
     .dropdown-menu {
       position: static;
       width: 100%;

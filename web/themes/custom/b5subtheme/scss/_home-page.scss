@@ -10,6 +10,15 @@
   @include full-bleed-bg($color-gray-bg, z('background'));
   @include curved-bottom($color-white, $curve-height-desktop, $curve-height-mobile, z('background'), $curve-border-width solid $color-gray-border);
 
+  @include mobile {
+    padding-left: 0;
+    padding-right: 0;
+
+    .container {
+      --bs-gutter-x: 1rem;
+    }
+  }
+
   .curved-page-header-title {
     position: relative;
     z-index: z('foreground');

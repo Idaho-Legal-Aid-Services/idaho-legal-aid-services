@@ -40,33 +40,43 @@
     
     <div class="amount-selection">
       <div class="amount-buttons">
-        <button class="amount-btn" data-amount="25">$25</button>
-        <button class="amount-btn" data-amount="50">$50</button>
-        <button class="amount-btn" data-amount="100">$100</button>
-        <button class="amount-btn" data-amount="250">$250</button>
-        <button class="amount-btn" data-amount="500">$500</button>
-        <button class="amount-btn" data-amount="1000">$1,000</button>
+        <button class="amount-btn" data-amount="25" aria-pressed="false" type="button">$25</button>
+        <button class="amount-btn" data-amount="50" aria-pressed="false" type="button">$50</button>
+        <button class="amount-btn" data-amount="100" aria-pressed="false" type="button">$100</button>
+        <button class="amount-btn" data-amount="250" aria-pressed="false" type="button">$250</button>
+        <button class="amount-btn" data-amount="500" aria-pressed="false" type="button">$500</button>
+        <button class="amount-btn" data-amount="1000" aria-pressed="false" type="button">$1,000</button>
       </div>
-      
+
       <div class="custom-amount">
         <label for="custom-amount-input">Custom Amount:</label>
-        <input type="number" id="custom-amount-input" placeholder="Enter amount" min="1">
+        <div class="input-group">
+          <span class="input-group-text">$</span>
+          <input type="text"
+                 id="custom-amount-input"
+                 inputmode="decimal"
+                 pattern="[0-9]*\.?[0-9]*"
+                 placeholder="Enter amount"
+                 aria-describedby="custom-amount-error">
+        </div>
+        <span id="custom-amount-error" class="error-message" role="alert" aria-live="polite"></span>
       </div>
     </div>
-    
+
     <div class="donation-frequency">
       <h4>Donation Frequency</h4>
       <div class="frequency-options">
-        <button class="frequency-btn active" data-frequency="one-time">One-time</button>
-        <button class="frequency-btn" data-frequency="monthly">Monthly</button>
-        <button class="frequency-btn" data-frequency="quarterly">Quarterly</button>
+        <button class="frequency-btn active" data-frequency="one-time" aria-pressed="true" type="button">One-time</button>
+        <button class="frequency-btn" data-frequency="monthly" aria-pressed="false" type="button">Monthly</button>
+        <button class="frequency-btn" data-frequency="quarterly" aria-pressed="false" type="button">Quarterly</button>
       </div>
     </div>
-    
+
     <a href="https://donorbox.org/ilas" class="donate-button" target="_blank">
       Donate Now
     </a>
-    
+    <p class="donation-summary" aria-live="polite"></p>
+
     <div class="secure-notice">
       <i class="fas fa-lock"></i>
       Secure donation processing powered by Donorbox
