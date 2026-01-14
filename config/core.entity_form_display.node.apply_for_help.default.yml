@@ -5,6 +5,7 @@ dependencies:
   config:
     - field.field.node.apply_for_help.field_apply_legal_body
     - field.field.node.apply_for_help.field_apply_legal_title
+    - field.field.node.apply_for_help.field_apply_post_cards_body
     - field.field.node.apply_for_help.field_apply_schedule
     - field.field.node.apply_for_help.field_body
     - field.field.node.apply_for_help.field_subtitle
@@ -28,7 +29,7 @@ content:
     third_party_settings: {  }
   field_apply_legal_body:
     type: text_textarea
-    weight: 14
+    weight: 15
     region: content
     settings:
       rows: 5
@@ -42,9 +43,17 @@ content:
       size: 60
       placeholder: ''
     third_party_settings: {  }
+  field_apply_post_cards_body:
+    type: text_textarea
+    weight: 13
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
   field_apply_schedule:
     type: text_textarea
-    weight: 15
+    weight: 16
     region: content
     settings:
       rows: 5
@@ -60,7 +69,7 @@ content:
     third_party_settings: {  }
   field_subtitle:
     type: text_textfield
-    weight: 13
+    weight: 14
     region: content
     settings:
       size: 60

@@ -43,6 +43,15 @@
     </section>
   {% endif %}
 
+  {# Post cards body content #}
+  {% if content.field_apply_post_cards_body %}
+    <div class="container">
+      <div class="content-body">
+        {{ content.field_apply_post_cards_body }}
+      </div>
+    </div>
+  {% endif %}
+
   {# Subtitle field #}
   {% if content.field_subtitle %}
     <section class="subtitle-section text-center">

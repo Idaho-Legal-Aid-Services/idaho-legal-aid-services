@@ -1,0 +1,22 @@
+uuid: 22ed68e2-24be-4707-90a5-f887d32ef1ba
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_apply_post_cards_body
+    - node.type.apply_for_help
+  module:
+    - text
+id: node.apply_for_help.field_apply_post_cards_body
+field_name: field_apply_post_cards_body
+entity_type: node
+bundle: apply_for_help
+label: 'Post Cards Body'
+description: 'Full HTML text field displayed below topic cards.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

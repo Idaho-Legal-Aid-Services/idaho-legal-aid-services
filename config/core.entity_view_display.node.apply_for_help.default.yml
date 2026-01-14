@@ -5,6 +5,7 @@ dependencies:
   config:
     - field.field.node.apply_for_help.field_apply_legal_body
     - field.field.node.apply_for_help.field_apply_legal_title
+    - field.field.node.apply_for_help.field_apply_post_cards_body
     - field.field.node.apply_for_help.field_apply_schedule
     - field.field.node.apply_for_help.field_body
     - field.field.node.apply_for_help.field_subtitle
@@ -25,6 +26,13 @@ content:
     settings: {  }
     third_party_settings: {  }
     weight: 0
+    region: content
+  field_apply_post_cards_body:
+    type: text_default
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 6
     region: content
   field_apply_legal_title:
     type: text_default
