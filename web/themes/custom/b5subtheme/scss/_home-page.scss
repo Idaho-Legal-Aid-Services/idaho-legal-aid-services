@@ -102,7 +102,7 @@
       object-position: center;
       display: block;
       border-radius: 32px;
-      border: 1px solid $color-primary;
+      border: 6px solid $color-primary;
 
       @include mobile {
         max-height: 250px;
