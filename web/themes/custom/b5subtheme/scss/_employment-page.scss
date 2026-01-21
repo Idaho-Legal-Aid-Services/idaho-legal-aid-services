@@ -204,9 +204,9 @@
     gap: $spacer-xl;
 
     @include mobile {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, 1fr);
       justify-items: center;
-      gap: $spacer-lg;
+      gap: $spacer-sm;
     }
   }
 }
@@ -254,10 +254,10 @@
 
   @include mobile {
     width: 100%;
-    max-width: 315px;
+    max-width: none;
     height: auto;
-    min-height: 80px;
-    padding: $spacer-sm;
+    min-height: 70px;
+    padding: $spacer-xs;
     border-width: 3px;
   }
 }

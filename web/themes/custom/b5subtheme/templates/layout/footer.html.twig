@@ -179,11 +179,14 @@
       <div class="row">
         <div class="col text-center">
           <nav class="footer-legal-nav" aria-label="Legal policies">
-            <a href="/privacy-policy">{{ 'Privacy Policy'|t }}</a>
+            <a href="/privacy-policy">
+              <span class="d-none d-md-inline">{{ 'Privacy Policy'|t }}</span>
+              <span class="d-md-none">{{ 'Privacy'|t }}</span>
+            </a>
             <span class="footer-separator">|</span>
             <a href="/complaint-procedures">
               <span class="d-none d-md-inline">{{ 'Client Grievance Procedure'|t }}</span>
-              <span class="d-md-none">{{ 'Grievance Process'|t }}</span>
+              <span class="d-md-none">{{ 'Grievances'|t }}</span>
             </a>
             <span class="footer-separator">|</span>
             <a href="/nondiscrimination-policy">

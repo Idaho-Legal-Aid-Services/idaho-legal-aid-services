@@ -207,7 +207,7 @@ main.main-content {
   }
 
   .curved-page-header-title {
-    @include responsive-typography(3.5rem, 2.5rem, $font-size-mobile-header);
+    @include responsive-typography(3.5rem, 2.5rem, 2rem);
     position: relative;
     z-index: z('foreground');
     font-weight: $weight-title;

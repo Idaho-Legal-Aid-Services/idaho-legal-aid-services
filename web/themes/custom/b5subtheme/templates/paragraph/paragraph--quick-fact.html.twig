@@ -15,6 +15,15 @@
 #}
 
 {% set color_class = paragraph.field_stat_color.value|default('blue') %}
+{% set label = paragraph.field_stat_label.value %}
+
+{# Mobile label mappings - shorter versions for small screens #}
+{% set mobile_labels = {
+  'Client Matters Resolved in 2024': 'Cases Resolved in 2024',
+  'Monetary Relief Secured for Clients': 'OF CLIENT FUNDS RECOVERED',
+  'Offices Statewide Across Idaho': 'SERVICE OFFICES STATEWIDE',
+} %}
+{% set mobile_label = mobile_labels[label] ?? label %}
 
 {% set classes = [
   'quick-fact',
@@ -26,7 +35,8 @@
     {{ paragraph.field_stat_number.value }}
   </div>
   <div class="quick-fact__label">
-    {{ paragraph.field_stat_label.value }}
+    <span class="d-none d-md-inline">{{ label }}</span>
+    <span class="d-md-none">{{ mobile_label }}</span>
   </div>
   {% if paragraph.field_stat_detail.value %}
     <div class="quick-fact__detail">

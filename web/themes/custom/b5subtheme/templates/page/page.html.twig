@@ -161,6 +161,11 @@
               <span class="d-none d-sm-inline">{{ node.getTitle() }}</span>
               <span class="d-sm-none">CAREERS</span>
             </h1>
+          {% elseif title_lower == 'nondiscrimination policy' %}
+            <h1 class="curved-page-header-title">
+              <span class="d-none d-sm-inline">{{ node.getTitle() }}</span>
+              <span class="d-sm-none">EQUAL ACCESS</span>
+            </h1>
           {% else %}
             <h1 class="curved-page-header-title">{{ node.getTitle() }}</h1>
           {% endif %}
