@@ -193,8 +193,12 @@
           transition: $transition-base;
 
           @include mobile {
-            min-height: 52px; // Larger for fat-finger tolerance
-            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: $btn-font-size-mobile;
+            padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+            min-height: 44px;
           }
 
           &.active {
@@ -362,7 +366,12 @@
           transition: $transition-base;
 
           @include mobile {
-            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: $btn-font-size-mobile;
+            padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+            min-height: 44px;
           }
 
           &.active {
@@ -405,8 +414,12 @@
       touch-action: manipulation;
 
       @include mobile {
-        font-size: $font-size-mobile-body;
-        min-height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: $btn-font-size-mobile;
+        padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+        min-height: 44px;
       }
 
       // Enhanced focus visibility
@@ -769,7 +782,13 @@
         flex-direction: column;
 
         .btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 100%;
+          font-size: $btn-font-size-mobile;
+          padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+          min-height: 44px;
         }
       }
     }

@@ -209,3 +209,20 @@ $header-height: 80px;
 $footer-bg: $color-gray-bg;
 $card-hover-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 $button-hover-scale: 1.05;
+
+// =============================================================================
+// BUTTON TOKENS
+// Standardized button sizing for consistency across the site
+// =============================================================================
+
+// Desktop button sizing (base)
+$btn-font-size: 1rem;
+$btn-padding-y: 0.75rem;
+$btn-padding-x: 1.25rem;
+
+// Mobile button sizing
+// Applied via @include mobile in _buttons.scss base .btn class
+// All buttons inherit these unless explicitly overridden
+$btn-font-size-mobile: 0.875rem;      // 14px - slightly smaller for mobile
+$btn-padding-y-mobile: 0.5rem;        // 8px vertical
+$btn-padding-x-mobile: 1rem;          // 16px horizontal

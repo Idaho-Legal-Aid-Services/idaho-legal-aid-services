@@ -473,6 +473,11 @@
       background-color: $color-primary;
       color: $color-white;
 
+      @include mobile {
+        font-size: $btn-font-size-mobile;
+        padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+      }
+
       &:hover,
       &:focus {
         background-color: $color-white;
@@ -694,6 +699,11 @@
         color: $color-white;
         transition: $transition-base;
         cursor: pointer;
+
+        @include mobile {
+          font-size: $btn-font-size-mobile;
+          padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+        }
 
         i {
           font-size: 0.875rem;

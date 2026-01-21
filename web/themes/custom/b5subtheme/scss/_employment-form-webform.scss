@@ -152,7 +152,7 @@ $webform-transition: $transition-base;
     .webform-multiple-add {
       text-align: center;
       margin-top: 1rem;
-      
+
       .webform-button--add {
         background-color: transparent;
         color: $color-primary;
@@ -161,14 +161,19 @@ $webform-transition: $transition-base;
         padding: 0.75rem 1.5rem;
         font-weight: $weight-button;
         transition: $webform-transition;
-        
+
         &:hover {
           background-color: $color-primary;
           color: $color-white;
         }
-        
+
         &::before {
           content: "+ ";
+        }
+
+        @include mobile {
+          font-size: $btn-font-size-mobile;
+          padding: $btn-padding-y-mobile $btn-padding-x-mobile;
         }
       }
     }
@@ -182,24 +187,29 @@ $webform-transition: $transition-base;
       font-weight: $weight-button;
       transition: $webform-transition;
       border: 2px solid;
-      
+
+      @include mobile {
+        font-size: $btn-font-size-mobile;
+        padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+      }
+
       &.webform-button--previous {
         background-color: transparent;
         color: $color-gray-border;
         border-color: $color-gray-border;
-        
+
         &:hover {
           background-color: $color-gray-border;
           color: $color-white;
         }
       }
-      
+
       &.webform-button--next,
       &.webform-button--submit {
         background-color: $color-primary;
         color: $color-white;
         border-color: $color-primary;
-        
+
         &:hover {
           background-color: darken($color-primary, 10%);
           transform: translateY(-1px);
@@ -280,6 +290,11 @@ $webform-transition: $transition-base;
     &:hover {
       background-color: $color-primary;
       color: $color-white;
+    }
+
+    @include mobile {
+      font-size: $btn-font-size-mobile;
+      padding: $btn-padding-y-mobile $btn-padding-x-mobile;
     }
   }
 }

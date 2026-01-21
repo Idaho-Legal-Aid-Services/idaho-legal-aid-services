@@ -213,10 +213,15 @@
 
 // Mobile adjustments
 @include mobile {
+  // Override Bootstrap's calc(1.3rem + 0.6vw) on h2.accordion-header
+  .accordion-section h2.accordion-header {
+    font-size: 1.25rem;
+  }
+
   .accordion-section .accordion-header .accordion-button {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     padding-left: 2.5rem;
-    
+
     &::before {
       left: 0.5rem;
     }

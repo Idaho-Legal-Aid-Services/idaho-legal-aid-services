@@ -376,6 +376,7 @@ $announcement-btn-text: #ffffff;
     .btn {
       width: 100%;
       max-width: 280px;
+      // font-size and padding inherited from base .btn via tokens
     }
   }
 }

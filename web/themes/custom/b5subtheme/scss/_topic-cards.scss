@@ -80,6 +80,13 @@
           box-shadow: $shadow-glow-primary;
         }
       }
+
+      // Mobile: fade gradient matches blue background
+      @include mobile {
+        .topic-card__description::after {
+          background: linear-gradient(to bottom, transparent, $color-primary);
+        }
+      }
     }
 
     &--gray {
@@ -96,6 +103,13 @@
         &:hover,
         &:focus-within {
           box-shadow: $shadow-glow-gray;
+        }
+      }
+
+      // Mobile: fade gradient matches gray background
+      @include mobile {
+        .topic-card__description::after {
+          background: linear-gradient(to bottom, transparent, $color-gray-bg);
         }
       }
     }
@@ -255,12 +269,17 @@
       pointer-events: none;
       font-size: 1.2rem;
       line-height: 1.5;
-      // LINE CLAMP: When revealed on hover, limit to 3 lines
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      text-overflow: ellipsis;
       transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+
+      // LINE CLAMP: Applied to first child inside (Drupal wraps field content in p or div)
+      > *:first-child {
+        margin: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
       // Fade gradient overlay (belt and suspenders with line-clamp)
       &::after {
@@ -283,11 +302,15 @@
         visibility: visible;
         margin-top: 0.5rem;
         font-size: $font-size-mobile-body;
-        -webkit-line-clamp: 2;
         color: inherit;
 
-        &::after {
-          display: none; // No fade needed on mobile
+        > *:first-child {
+          -webkit-line-clamp: 2;
+        }
+
+        // Mobile: show fade gradient when clamped (permanent, no hover needed)
+        &.is-clamped::after {
+          opacity: 1;
         }
       }
     }

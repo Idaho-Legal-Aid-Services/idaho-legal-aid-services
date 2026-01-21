@@ -86,14 +86,22 @@
     {% if files_data|length %}
       <div class="daa-downloads" role="group" aria-label="Download files">
         {% for file in files_data %}
+          {# Create clean display name: remove common prefixes, extension, format nicely #}
+          {% set clean_name = file.name
+            |replace({'idaho-legal-aid-services-': '', 'idaho-legal-aid-': '', 'ilas-': ''})
+            |replace({'.pdf': '', '.PDF': '', '.doc': '', '.docx': '', '.xls': '', '.xlsx': ''})
+            |replace({'-': ' '})
+            |trim
+            |upper
+          %}
           <a href="{{ file.url }}"
              class="btn btn-primary daa-downloads__item"
              target="_blank"
              rel="noopener noreferrer"
              download
-             title="{{ file.name }}"
+             title="Download {{ file.name }}"
              aria-label="Download {{ file.name }} ({{ (file.size / 1024 / 1024)|round(2) }} MB)">
-            <span class="daa-downloads__name">{{ file.name }}</span>
+            <span class="daa-downloads__name">{{ clean_name }}</span>
             <span class="daa-downloads__size visually-hidden">{{ (file.size / 1024 / 1024)|round(2) }} MB</span>
           </a>
         {% endfor %}

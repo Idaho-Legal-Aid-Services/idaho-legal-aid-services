@@ -17,11 +17,29 @@
 {# Title #}
 <h3 class="form-item-title">{{ clean_name }}</h3>
 
-{# Download link #}
+{# Download link - extract URL from rendered field and create clean button #}
 {% if fields.field_media_document is defined %}
-  <div class="form-item-download">
-    {{ fields.field_media_document.content }}
-  </div>
+  {% set rendered_field = fields.field_media_document.content|render|trim %}
+  {# Extract href from the rendered anchor tag #}
+  {% set href_match = rendered_field|replace({'<a href="': '###HREF###'})|split('###HREF###') %}
+  {% if href_match|length > 1 %}
+    {% set file_url = href_match[1]|split('"')[0] %}
+    <div class="form-item-download">
+      <a href="{{ file_url }}"
+         class="form-item-download__btn"
+         download
+         target="_blank"
+         rel="noopener noreferrer"
+         title="Download {{ clean_name }}">
+        <span class="form-item-download__text">DOWNLOAD FORM</span>
+      </a>
+    </div>
+  {% else %}
+    {# Fallback to original rendering if URL extraction fails #}
+    <div class="form-item-download">
+      {{ fields.field_media_document.content }}
+    </div>
+  {% endif %}
 {% endif %}
 
 {# Last updated #}

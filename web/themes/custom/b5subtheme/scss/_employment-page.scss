@@ -25,19 +25,14 @@
 }
 
 /* ========== Jump Navigation ========== */
+// Jump nav provides quick access to job categories on desktop.
+// Hidden on mobile - users scroll naturally through the shorter viewport,
+// and partial visibility of buttons was confusing.
 .employment-page__jump-nav {
   margin-bottom: $spacer-xl;
 
   @include mobile {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-
-    // Hide scrollbar but keep functionality
-    &::-webkit-scrollbar {
-      display: none;
-    }
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    display: none;
   }
 }
 
@@ -105,12 +100,26 @@
   margin-top: $spacer-xl;
   margin-bottom: $spacer;
   text-align: center;
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    i {
+      flex-shrink: 0;
+    }
+
+    // Mobile sizing inherited from base .btn via tokens
+    // ($btn-font-size-mobile, $btn-padding-y-mobile, $btn-padding-x-mobile)
+  }
 }
 
 /* ========== Quick Facts Section (Full-bleed with curved blue background) ========== */
 .employment-page__quick-facts-section {
   position: relative;
-  padding: 7rem 0 8rem; // Extra padding to show full curves
+  padding: 7.25rem 0 8.5rem; // Extra padding to show full curves
   margin-bottom: $spacer-xl; // White space before next section
   overflow: hidden; // Prevent subpixel bleed
   background: $color-white; // Match section below
@@ -759,9 +768,11 @@
 
     @include mobile {
       padding: $spacer $spacer $spacer 2.5rem;
+      font-size: 1.1rem;
 
       &::before {
         left: 0.5rem;
+        font-size: 1.1rem;
       }
     }
   }
@@ -839,6 +850,15 @@
 
   @include mobile {
     gap: 0.375rem;
+  }
+}
+
+// Secondary row (Employment Type, Bar, Bilingual, Exempt) hidden on mobile.
+// Primary row (Location, Arrangement, Salary, Deadline) provides the essential
+// info for mobile users scanning job listings. Full details available on expand.
+.job-badges__row--secondary {
+  @include mobile {
+    display: none;
   }
 }
 
@@ -1088,6 +1108,7 @@
     @include mobile {
       width: 100%;
       justify-content: center;
+      // font-size and padding inherited from base .btn via tokens
     }
   }
 }
@@ -1125,11 +1146,17 @@
     @include mobile {
       width: 100%;
       justify-content: center;
+      // font-size and padding inherited from base .btn via tokens
+      // This also overrides .btn-lg sizing on mobile
     }
   }
 }
 
 /* ========== EEO Statement ========== */
+// EEO section is intentionally de-emphasized as supporting legal content.
+// The H2 remains semantically correct for document outline/accessibility,
+// but is styled smaller (1.25rem vs 2.5rem) to avoid competing with
+// primary content like job listings and benefits.
 .employment-page__eeo {
   padding: 0.75rem 1.5rem;
   background-color: $color-gray-bg;
@@ -1140,6 +1167,7 @@
     padding: 0.5rem 1rem;
   }
 
+  // Smaller heading - visual de-emphasis while keeping H2 semantics
   .section-title {
     font-size: 1.25rem;
     margin-bottom: $spacer-sm;
@@ -1170,7 +1198,7 @@
 
 /* ========== Section Title (shared) ========== */
 .section-title {
-  @include responsive-typography(2.5rem, 2rem, 1.75rem);
+  @include responsive-typography(2.5rem, 2rem, 1.5rem);
   font-weight: $weight-title;
   color: $color-primary;
   margin-top: 1.5rem;
@@ -1234,6 +1262,9 @@
   }
 }
 
+// NOTE: sticky-jobs-bar__cta uses custom sizing, NOT the standard button tokens.
+// This is intentional - it follows the utility-cta pattern from _header.scss.
+// Future standardization of utility/pill buttons is on a separate course.
 .sticky-jobs-bar__cta {
   @include button-no-underline;
   display: inline-flex;
@@ -1275,9 +1306,10 @@
   }
 
   @include mobile {
-    width: 100%;
-    padding: 0.75rem 1.25rem;
-    font-size: 0.95rem;
+    // Auto width instead of 100% - prevents oversized button
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem; // Matches mobile button token
 
     &:hover,
     &:focus {

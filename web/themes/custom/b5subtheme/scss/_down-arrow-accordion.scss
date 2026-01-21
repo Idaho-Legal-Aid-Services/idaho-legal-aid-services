@@ -199,27 +199,25 @@
     padding: 0 $spacer-xs;
   }
   
-  // Download button item - matches form/guide download button styling
+  // Download button item - uses standard button tokens
   &__item {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     background: $color-primary;
     color: $color-white;
     border: 2px solid $color-primary;
-    padding: 0.625rem 1.25rem; // Match form/guide download buttons
+    padding: $btn-padding-y $btn-padding-x;
     border-radius: 4px;
     font-weight: $weight-button;
-    font-size: 0.9375rem; // Match form/guide download buttons (15px)
+    font-size: $btn-font-size;
     text-decoration: none;
     transition: $transition-base;
-    white-space: nowrap;
 
-    // Mobile + tablet: match standard .btn max-width, truncate long filenames
     @media (max-width: #{$desktop-breakpoint - 0.02}) {
-      max-width: 225px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: $btn-font-size-mobile;
+      padding: $btn-padding-y-mobile $btn-padding-x-mobile;
     }
 
     &:hover,
@@ -249,35 +247,30 @@
     &::before {
       font-family: "Font Awesome 6 Free";
       font-weight: $weight-icon;
-      content: "\f019"; // Download icon
-      flex-shrink: 0; // Prevent icon from shrinking
+      content: "\f019";
+      flex-shrink: 0;
     }
 
     // File type specific icons
-    &[href$=".pdf"]::before {
-      content: "\f1c1"; // PDF icon
+    &[href$=".pdf"]::before,
+    &[href$=".PDF"]::before {
+      content: "\f1c1";
     }
 
     &[href$=".doc"]::before,
     &[href$=".docx"]::before {
-      content: "\f1c2"; // Word icon
+      content: "\f1c2";
     }
 
     &[href$=".xls"]::before,
     &[href$=".xlsx"]::before {
-      content: "\f1c3"; // Excel icon
+      content: "\f1c3";
     }
   }
 
-  // Button text - truncate long filenames on mobile + tablet
+  // Button text (clean display name from template)
   &__name {
     display: block;
-
-    @media (max-width: #{$desktop-breakpoint - 0.02}) {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
   }
 }
 

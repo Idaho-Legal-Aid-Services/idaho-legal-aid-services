@@ -81,6 +81,7 @@
       @include mobile {
         max-width: 250px;
         margin: 0 auto;
+        // font-size and padding inherited from base .btn via tokens
       }
     }
   }
@@ -107,6 +108,7 @@
       @include mobile {
         max-height: 250px;
         margin: 0 auto;
+        border: 3px solid $color-primary;
       }
     }
   }
@@ -130,7 +132,7 @@
   }
   @include mobile {
     min-height: 500px;
-    padding: 3rem 0 1rem;
+    padding: 1rem 0 1rem;
     justify-content: center;
   }
 

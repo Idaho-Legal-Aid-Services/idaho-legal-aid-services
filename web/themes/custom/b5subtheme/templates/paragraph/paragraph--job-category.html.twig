@@ -93,7 +93,8 @@
                     {% set has_row1 = job_location or job_arrangement or job_salary or job_deadline or is_new_posting %}
                     {% set has_row2 = job_type or (job_bar and is_attorney_category) or job_bilingual or job_exemption %}
 
-                    <div class="job-badges">
+                    {# aria-hidden: badges are visual supplements; job details available in expanded accordion body #}
+                    <div class="job-badges" aria-hidden="true">
                       {# ================================================================ #}
                       {# ROW 1 (Primary): Location, Work Arrangement, Salary, Deadline   #}
                       {# ================================================================ #}
@@ -182,7 +183,7 @@
                           {% if job_bar and is_attorney_category %}
                             <span class="job-badge job-badge--bar">
                               <i class="fas fa-gavel" aria-hidden="true"></i>
-                              Idaho Bar (≤3mo)
+                              Idaho Bar
                             </span>
                           {% endif %}
 
@@ -218,7 +219,9 @@
               {# Apply Now button in header - visible only when collapsed #}
               {% if is_job_posting %}
                 <div class="job-category__header-apply">
-                  <a href="/eapplication?job={{ job.uuid.value }}" class="btn btn-primary">
+                  <a href="/eapplication?job={{ job.uuid.value }}"
+                     class="btn btn-primary"
+                     aria-label="{{ 'Apply for %title% position'|t|replace({'%title%': job.field_accordion_title.value}) }}">
                     Apply Now
                     <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                   </a>
@@ -243,9 +246,10 @@
                       <div class="job-category__file">
                         <a href="{{ file_url(file.uri.value) }}"
                            class="btn btn-primary"
-                           target="_blank">
+                           target="_blank"
+                           aria-label="{{ 'Download job description PDF'|t }}">
                           <i class="fas fa-file-pdf me-2" aria-hidden="true"></i>
-                          Download Job Description
+                          <span class="d-none d-md-inline">Download </span>Job Description
                         </a>
                       </div>
                     {% else %}
@@ -256,7 +260,9 @@
                     {# Deep links to application form with job UUID for prefill + locking #}
                     {% if is_job_posting %}
                       <div class="job-category__apply">
-                        <a href="/eapplication?job={{ job.uuid.value }}" class="btn btn-primary btn-lg">
+                        <a href="/eapplication?job={{ job.uuid.value }}"
+                           class="btn btn-primary btn-lg"
+                           aria-label="{{ 'Apply for %title% position'|t|replace({'%title%': job.field_accordion_title.value}) }}">
                           Apply Now
                           <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                         </a>

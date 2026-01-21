@@ -31,16 +31,26 @@
         /**
          * Update sticky bar visibility based on observed elements.
          * Show bar when: intro CTA is NOT visible AND job listings are NOT visible
+         * Also manages tabindex to prevent focus when bar is hidden.
          */
         function updateVisibility() {
           var shouldShow = !introCtaVisible && !jobListingsVisible;
+          var focusableElements = stickyBar.querySelectorAll('a, button');
 
           if (shouldShow) {
             stickyBar.classList.add('is-visible');
             stickyBar.setAttribute('aria-hidden', 'false');
+            // Restore focusability when visible
+            focusableElements.forEach(function (el) {
+              el.removeAttribute('tabindex');
+            });
           } else {
             stickyBar.classList.remove('is-visible');
             stickyBar.setAttribute('aria-hidden', 'true');
+            // Prevent focus when hidden
+            focusableElements.forEach(function (el) {
+              el.setAttribute('tabindex', '-1');
+            });
           }
         }
 
@@ -85,6 +95,9 @@
         // Start observing
         introObserver.observe(introCta);
         listingsObserver.observe(jobListings);
+
+        // Set initial state (hidden with tabindex=-1) before observers fire
+        updateVisibility();
 
         /**
          * Handle smooth scroll when clicking the sticky bar CTA.

@@ -10,12 +10,20 @@
   .content-section{
     padding-top: 0;
   }
+
+  // Mobile: 4-line clamp to show Hours + Phone, hide Counties Served
+  @include mobile {
+    .topic-card__description > *:first-child {
+      -webkit-line-clamp: 4;
+    }
+  }
+
   // Topic cards wrapper
   .office-info-topic-cards-wrapper {
     padding: 0rem 1rem;
     max-width: 1200px;
     margin: 0 auto;
-    
+
     // Topic cards use main styles from _topic-cards.scss
   }
 

@@ -39,7 +39,12 @@
 .guides-curved-header {
   // Uses the existing .curved-page-header styles from _layout-components.scss
   // This class is added alongside .curved-page-header in the template
-  // No additional styles needed here - inherits from base
+
+  .curved-page-header-title {
+    @include mobile {
+      font-size: 2rem;
+    }
+  }
 }
 
 
@@ -180,6 +185,11 @@
     cursor: pointer;
     background-color: $color-primary;
     color: $color-white;
+
+    @include mobile {
+      font-size: $btn-font-size-mobile;
+      padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+    }
 
     &:hover,
     &:focus {
@@ -414,32 +424,26 @@
   .guide-item-download {
     margin-bottom: 0.75rem;
 
-    // Hide Drupal's default file icon (we use Font Awesome instead)
-    .file {
-      padding-left: 0;
-      background-image: none;
-    }
-
-    a {
+    // Clean button structure from template
+    &__btn {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
       background: $color-primary;
       color: $color-white;
       border: 2px solid $color-primary;
-      padding: 0.625rem 1.25rem;
+      padding: $btn-padding-y $btn-padding-x;
       border-radius: 4px;
       font-weight: $weight-button;
-      font-size: 0.9375rem;
+      font-size: $btn-font-size;
       text-decoration: none;
+      text-transform: uppercase;
       transition: $transition-base;
 
-      // Mobile + tablet: match standard .btn max-width, truncate long filenames
       @media (max-width: #{$desktop-breakpoint - 0.02}) {
-        max-width: 225px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: $btn-font-size-mobile;
+        padding: $btn-padding-y-mobile $btn-padding-x-mobile;
       }
 
       &:hover,
@@ -456,11 +460,62 @@
         outline-offset: 2px;
       }
 
-      // File type indicator
+      // File type indicator (icon)
       &::before {
         font-family: "Font Awesome 6 Free";
         font-weight: $weight-icon;
-        content: "\f019"; // Download icon
+        content: "\f019"; // Default download icon
+      }
+
+      // File type specific icons
+      &[href$=".pdf"]::before,
+      &[href$=".PDF"]::before {
+        content: "\f1c1"; // PDF icon
+      }
+
+      &[href$=".doc"]::before,
+      &[href$=".docx"]::before {
+        content: "\f1c2"; // Word icon
+      }
+
+      &[href$=".xls"]::before,
+      &[href$=".xlsx"]::before {
+        content: "\f1c3"; // Excel icon
+      }
+    }
+
+    // Fallback: legacy Drupal file field rendering (if URL extraction fails)
+    .file {
+      padding-left: 0;
+      background-image: none;
+    }
+
+    // Fallback anchor styling
+    > a:not(.guide-item-download__btn) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: $color-primary;
+      color: $color-white;
+      border: 2px solid $color-primary;
+      padding: $btn-padding-y $btn-padding-x;
+      border-radius: 4px;
+      font-weight: $weight-button;
+      font-size: $btn-font-size;
+      text-decoration: none;
+      transition: $transition-base;
+
+      @media (max-width: #{$desktop-breakpoint - 0.02}) {
+        font-size: $btn-font-size-mobile;
+        padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+      }
+
+      &:hover,
+      &:focus {
+        background: $color-white;
+        border-color: $color-primary;
+        color: $color-primary;
       }
     }
 

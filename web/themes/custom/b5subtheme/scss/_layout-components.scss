@@ -292,7 +292,7 @@ main.main-content {
 }
 
 .section-title {
-  @include responsive-typography(2.5rem, 2.25rem, $font-size-mobile-subheader);
+  @include responsive-typography(2.5rem, 2.25rem, 1.5rem);
   font-weight: $weight-subtitle;
   margin-bottom: 2rem;
   color: $color-primary;
