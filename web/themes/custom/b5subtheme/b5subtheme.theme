@@ -10,6 +10,7 @@ use Drupal\Core\Url;
 use Drupal\Core\Site\Settings;
 use Drupal\Core\Menu\MenuTreeParameters;
 use Drupal\Component\Render\FormattableMarkup;
+use Drupal\Component\Utility\Html;
 use Drupal\block\Entity\Block;
 use Drupal\node\NodeInterface;
 use Drupal\media\MediaInterface;
@@ -291,6 +292,75 @@ function b5subtheme_preprocess_node(array &$variables): void {
         'href' => '/' . $theme_path . '/images/curved-background-blue (2400 x 900 px).svg',
       ],
       TRUE,
+    ];
+
+    // Prepare content sections for tabbed display.
+    _b5subtheme_preprocess_employment_tabs($variables, $node);
+  }
+}
+
+/**
+ * Prepares content sections as tabbed data for the employment page.
+ *
+ * @param array $variables
+ *   The node template variables.
+ * @param \Drupal\node\NodeInterface $node
+ *   The employment node.
+ */
+function _b5subtheme_preprocess_employment_tabs(array &$variables, NodeInterface $node): void {
+  $variables['content_sections_tabs'] = [];
+
+  if (!$node->hasField('field_content_sections') || $node->get('field_content_sections')->isEmpty()) {
+    return;
+  }
+
+  $paragraphs = $node->get('field_content_sections')->referencedEntities();
+
+  foreach ($paragraphs as $index => $paragraph) {
+    $title = $paragraph->get('field_section_title')->value ?? '';
+    $body = $paragraph->get('field_section_body')->value ?? '';
+    $style = $paragraph->get('field_section_style')->value ?? 'default';
+    $section_id = $paragraph->get('field_section_id')->value ?? '';
+
+    // Generate a clean ID from title if not provided.
+    if (empty($section_id)) {
+      $section_id = Html::cleanCssIdentifier(strtolower($title));
+    }
+
+    // Generate short tab labels for mobile/tablet.
+    $tab_label = $title;
+    $tab_label_short = $title;
+
+    // Map long titles to shorter versions for tabs.
+    $tab_labels = [
+      'What Sets ILAS Apart' => 'What Sets Us Apart',
+      'For Attorneys: A Different Kind of Practice' => 'Attorney Practice',
+      'Support Staff Roles: The Work That Makes Everything Possible' => 'Support Staff Careers',
+    ];
+
+    if (isset($tab_labels[$title])) {
+      $tab_label = $tab_labels[$title];
+      $tab_label_short = $tab_labels[$title];
+    }
+
+    // Assign icons based on content.
+    $icons = [
+      'What Sets ILAS Apart' => 'fa-building',
+      'For Attorneys: A Different Kind of Practice' => 'fa-gavel',
+      'Support Staff Roles: The Work That Makes Everything Possible' => 'fa-users',
+    ];
+
+    $icon = $icons[$title] ?? 'fa-file-alt';
+
+    $variables['content_sections_tabs'][] = [
+      'id' => $section_id,
+      'title' => $title,
+      'tab_label' => $tab_label,
+      'tab_label_short' => $tab_label_short,
+      'icon' => $icon,
+      'body' => $body,
+      'style' => $style,
+      'is_first' => $index === 0,
     ];
   }
 }

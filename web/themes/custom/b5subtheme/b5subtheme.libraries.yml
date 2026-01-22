@@ -101,6 +101,15 @@ sticky-jobs-bar:
     - core/drupal
     - core/once
 
+content-tabs:
+  version: 1.0
+  js:
+    js/content-tabs.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - bootstrap5/tab
+
 resources:
   version: 1.0
   js:

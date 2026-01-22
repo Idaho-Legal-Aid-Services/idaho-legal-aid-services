@@ -26,46 +26,48 @@
 
 /* ========== Jump Navigation ========== */
 // Jump nav provides quick access to job categories on desktop.
-// Hidden on mobile - users scroll naturally through the shorter viewport,
-// and partial visibility of buttons was confusing.
+// Redesigned as pills for job categories + differentiated link for "Our Hiring Process".
+// Hidden on mobile - users scroll naturally through the shorter viewport.
 .employment-page__jump-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacer;
   margin-bottom: $spacer-xl;
+  flex-wrap: wrap;
 
   @include mobile {
     display: none;
   }
 }
 
+// Pill list container
 .jump-nav-list {
   display: flex;
-  justify-content: center;
-  gap: $spacer;
+  align-items: center;
+  gap: $spacer-sm;
   list-style: none;
   margin: 0;
   padding: 0;
-
-  @include mobile {
-    justify-content: flex-start;
-    gap: $spacer-sm;
-    min-width: max-content;
-  }
+  flex-wrap: wrap;
 }
 
-.jump-nav-link {
+// Job category pills - filled primary blue, inverts on hover
+.jump-nav-pill {
   @include button-no-underline;
-  display: inline-block;
-  padding: 0.75rem 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
   background-color: $color-primary;
   color: $color-white;
+  font-size: 1rem;
   font-weight: $weight-button;
   border: 2px solid $color-primary;
-  border-radius: 4px;
+  border-radius: 24px; // Softer, more refined radius
   transition: $transition-base;
   white-space: nowrap;
-  min-height: 48px;
-  min-width: 185px;
-  text-align: center;
-  text-transform: uppercase;
+  min-height: 44px;
 
   &:hover,
   &:focus {
@@ -73,8 +75,8 @@
     color: $color-primary;
     border-color: $color-primary;
     text-decoration: none;
-    transform: translateY(-2px);
-    box-shadow: $shadow-hover;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba($color-primary, 0.3);
   }
 
   &:focus-visible {
@@ -82,16 +84,55 @@
     outline-offset: 2px;
   }
 
-  @include mobile {
-    padding: $spacer-sm $spacer;
-    font-size: 0.9rem;
-    min-height: 44px;
+  // Active state (when section is in viewport - future JS enhancement)
+  &.is-active {
+    background-color: $color-white;
+    color: $color-primary;
+    box-shadow: 0 2px 6px rgba($color-primary, 0.35);
+  }
+}
 
-    &:hover,
-    &:focus {
-      transform: none;
-      box-shadow: none;
-    }
+// Vertical separator between job pills and hiring process link
+// CSS vertical line - cleaner than a pipe character
+.jump-nav-separator {
+  width: 1px;
+  height: 24px;
+  background-color: $color-gray-border;
+  margin: 0 $spacer;
+  flex-shrink: 0;
+}
+
+// "Our Hiring Process" - outline pill style, differentiated but cohesive
+// Hover inverts to white bg/blue text (same as filled pills)
+.jump-nav-process-link {
+  @include button-no-underline;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
+  background-color: transparent;
+  color: $color-primary;
+  font-size: 1rem;
+  font-weight: $weight-button;
+  border: 2px solid $color-primary;
+  border-radius: 24px; // Match job pills
+  transition: $transition-base;
+  white-space: nowrap;
+  min-height: 44px;
+
+  &:hover,
+  &:focus {
+    background-color: $color-white;
+    color: $color-primary;
+    border-color: $color-primary;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba($color-primary, 0.3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
   }
 }
 
@@ -334,6 +375,248 @@
   text-align: left;
 }
 
+/* ========== Content Sections - Tabbed Interface ========== */
+.employment-page__sections-tabbed {
+  margin-bottom: $spacer-xl;
+  padding: $spacer-xl 0;
+
+  .section-title {
+    margin-bottom: $spacer-xl;
+  }
+}
+
+/* ========== Tab Navigation ========== */
+.content-tabs-nav {
+  margin-bottom: $spacer-xl;
+
+  @include mobile {
+    // Horizontal scroll on mobile
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-left: calc(-1 * #{$gutter-page-x});
+    margin-right: calc(-1 * #{$gutter-page-x});
+    padding-left: $gutter-page-x;
+    padding-right: $gutter-page-x;
+
+    // Hide scrollbar but keep functionality
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+.content-tabs.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: $spacer;
+  border-bottom: 4px solid $color-gray-border-light;
+  padding-bottom: 0;
+  margin: 0;
+  list-style: none;
+
+  @include mobile {
+    justify-content: flex-start;
+    gap: $spacer-sm;
+    min-width: max-content;
+    padding-bottom: 0;
+  }
+
+  // Nest tab styles for higher specificity over Bootstrap
+  .nav-link.content-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacer-sm;
+    padding: $spacer $spacer-lg;
+    background-color: transparent; // Transparent so nav border shows through
+    color: $color-gray-text;
+    font-size: 1.1rem;
+    font-weight: $weight-button;
+    border: none;
+    border-bottom: 4px solid transparent;
+    border-radius: 0;
+    margin-bottom: -4px; // Overlap the nav border
+    transition: $transition-base;
+    white-space: nowrap;
+    min-height: 56px;
+
+    &:hover,
+    &:focus {
+      color: $color-primary;
+      background-color: rgba($color-primary, 0.05);
+      border-bottom-color: rgba($color-primary, 0.3);
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: -2px;
+    }
+
+    &.active {
+      color: $color-primary;
+      background-color: $color-gray-bg;
+      border-bottom-color: $color-gray-bg; // Match background to "connect" tab to content
+      font-weight: $font-weight-bold;
+
+      .content-tab__icon {
+        color: $color-primary;
+      }
+    }
+
+    @include tablet {
+      padding: $spacer;
+      font-size: 1rem;
+    }
+
+    @include mobile {
+      padding: $spacer-sm $spacer;
+      font-size: 0.9rem;
+      min-height: 48px;
+      border-bottom-width: 3px;
+      margin-bottom: -3px;
+    }
+  }
+}
+
+.content-tab__icon {
+  font-size: 1.25rem;
+  color: $color-gray-text;
+  transition: $transition-base;
+
+  @include mobile {
+    font-size: 1rem;
+  }
+}
+
+.content-tab__label-full {
+  display: inline;
+
+  @include mobile {
+    display: none;
+  }
+}
+
+.content-tab__label-short {
+  display: none;
+
+  @include mobile {
+    display: inline;
+  }
+}
+
+/* ========== Tab Panels ========== */
+.content-tab-panel {
+  // Individual panel - Bootstrap handles show/hide
+
+  // Fade animation enhancement
+  &.fade {
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  // Panel content wrapper
+  .content-section {
+    margin-bottom: 0;
+    padding: $spacer-lg 0;
+
+    &--highlighted {
+      background-color: $color-gray-bg;
+      border-left: 6px solid $color-primary;
+      padding: $spacer-lg $spacer-xl;
+      margin-left: -$spacer;
+      margin-right: -$spacer;
+      border-radius: 0 4px 4px 0;
+
+      @include mobile {
+        border-left-width: 4px;
+        padding: $spacer-lg $spacer;
+        margin-left: calc(-1 * #{$gutter-page-x});
+        margin-right: calc(-1 * #{$gutter-page-x});
+      }
+    }
+  }
+
+  // Section title inside panel (h3 since h2 is the overall section)
+  .content-section__title {
+    @include responsive-typography(1.75rem, 1.5rem, 1.35rem);
+    font-weight: $weight-title;
+    color: $color-primary;
+    margin-bottom: $spacer-lg;
+    text-align: center;
+  }
+}
+
+/* ========== Content Section Body Enhancements ========== */
+// Enhanced typography styles for content sections
+// Callout classes (callout-info, callout-highlight, pull-quote, callout-stat, check-list)
+// are now in _callouts.scss for site-wide reuse
+
+.content-section__body {
+  // Callout-highlight breakout effect (specific to content sections)
+  .callout-highlight {
+    margin-left: calc(-1 * #{$spacer}); // Break out slightly
+    margin-right: calc(-1 * #{$spacer});
+
+    @include mobile {
+      margin-left: 0;
+      margin-right: 0;
+    }
+  }
+
+  // Enhanced subheading styles within body
+  h3 {
+    @include responsive-typography(1.5rem, 1.35rem, 1.25rem);
+    font-weight: $weight-title;
+    color: $color-primary;
+    margin-top: $spacer-xl;
+    margin-bottom: $spacer;
+    padding-bottom: $spacer-sm;
+    border-bottom: 2px solid rgba($color-primary, 0.2);
+  }
+
+  h4 {
+    @include responsive-typography(1.25rem, 1.15rem, 1.1rem);
+    font-weight: $weight-subtitle;
+    color: $color-gray-muted;
+    margin-top: $spacer-lg;
+    margin-bottom: $spacer-sm;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  // Bulleted list enhancements
+  ul {
+    li {
+      margin-bottom: $spacer-sm;
+
+      &::marker {
+        color: $color-primary;
+      }
+    }
+  }
+}
+
+/* ========== Print Styles for Tabs ========== */
+@media print {
+  .content-tabs-nav {
+    display: none;
+  }
+
+  .content-tab-panels {
+    // Show all panels when printing
+    .tab-pane {
+      display: block !important;
+      opacity: 1 !important;
+
+      &:not(:last-child) {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid $color-gray-border;
+      }
+    }
+  }
+}
+
 /* ========== Benefits Snapshot ========== */
 .employment-page__benefits {
   margin-bottom: $spacer-xl;
@@ -477,6 +760,22 @@
     margin: $spacer-sm 0;
     padding-left: 1.5rem;
     text-align: left;
+
+    // Centered list fix: when list or content is centered, move marker inside
+    &.text-align-center,
+    &:has(.text-align-center) {
+      list-style-position: inside;
+      padding-left: 0;
+      text-align: center;
+
+      li {
+        padding-left: 0;
+
+        p {
+          display: inline;
+        }
+      }
+    }
   }
 
   li {
@@ -605,6 +904,12 @@
   display: flex;
   align-items: flex-end;
   gap: $spacer;
+  // Match accordion body right padding so Apply Now aligns when expanded
+  padding-right: $spacer-lg;
+
+  @include mobile {
+    padding-right: $spacer;
+  }
 
   // Accordion header grows to fill space, but leaves room for Apply button
   .accordion-header {
@@ -628,34 +933,29 @@
   position: relative;
 
   .btn {
-    display: inline-flex;
-    align-items: center;
-    font-weight: $weight-button;
-    background-color: $color-primary;
-    color: $color-white;
-    border-color: $color-primary;
+    @include btn-primary-invert;
     white-space: nowrap;
-
-    i {
-      flex-shrink: 0;
-      color: $color-white;
-    }
-
-    &:hover,
-    &:focus {
-      background-color: $color-white;
-      color: $color-primary;
-      border-color: $color-primary;
-
-      i {
-        color: $color-primary;
-      }
-    }
   }
 
-  // Hide on mobile - user expands to see Apply button in body
+  // Compact icon button on mobile - still accessible via aria-label
   @include mobile {
-    display: none;
+    margin-bottom: $spacer-sm; // Reduced margin for mobile
+
+    .btn {
+      // Icon-only button styling
+      padding: 0.5rem 0.75rem;
+      min-width: 44px; // Touch target
+      min-height: 44px;
+      justify-content: center;
+
+      i {
+        margin-left: 0; // Remove ms-2 margin when text is hidden
+      }
+    }
+
+    .job-category__apply-text {
+      display: none; // Hide text on mobile; aria-label provides accessible name
+    }
   }
 }
 
@@ -814,239 +1114,7 @@
   }
 }
 
-/* ========== Job Badges ========== */
-// Badge Design System - Two Row Layout
-//
-// Row 1 (Primary): Location, Work Arrangement, Salary, Deadline
-// Row 2 (Secondary): Employment Type, Bar Requirement, Bilingual, FLSA Exemption
-//
-// Contrast-safe colors (all pass WCAG AA 4.5:1):
-// - Green (new): #2d855a on white text
-// - Orange (urgent): #cc6b00 on white text
-// - Red (closed): #c82333 on white text
-// - Purple accent: #6f42c1
-
-.job-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-
-  // Semantic colors
-  --badge-purple: #6f42c1;
-  --badge-purple-tint: #f3eef8;
-  --badge-green: #2d855a;
-  --badge-blue-new: #0b5ed7;
-  --badge-orange: #cc6b00;
-  --badge-red: #c82333;
-  --badge-blue-tint: #{rgba($color-primary, 0.08)};
-  --badge-green-tint: #{rgba(#2d855a, 0.08)};
-}
-
-// Row containers
-.job-badges__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-
-  @include mobile {
-    gap: 0.375rem;
-  }
-}
-
-// Secondary row (Employment Type, Bar, Bilingual, Exempt) hidden on mobile.
-// Primary row (Location, Arrangement, Salary, Deadline) provides the essential
-// info for mobile users scanning job listings. Full details available on expand.
-.job-badges__row--secondary {
-  @include mobile {
-    display: none;
-  }
-}
-
-// ==========================================================================
-// BASE BADGE STYLES (shared)
-// ==========================================================================
-.job-badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 4px;
-  border-style: solid;
-  border-color: transparent; // Default, overridden by variants
-  white-space: nowrap;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
-  transition: $transition-fast;
-
-  i {
-    flex-shrink: 0;
-  }
-}
-
-// ==========================================================================
-// ROW 1 BADGES - Primary row (Location, Work Arrangement, Salary, Deadline)
-// Desktop: 16px, 700 weight, 2px border, 14px icon, 6px 14px padding
-// Mobile: 13px, 700 weight, 12px icon, 4px 10px padding
-// ==========================================================================
-.job-badges__row--primary .job-badge {
-  font-size: 1rem; // 16px
-  font-weight: $font-weight-bold; // 700
-  padding: 6px 14px;
-  border-width: 2px; // Only set width, not color (let variants handle color)
-  gap: 8px;
-
-  i {
-    font-size: 0.875rem; // 14px
-  }
-
-  @include mobile {
-    font-size: 0.8125rem; // 13px
-    font-weight: $font-weight-bold; // 700
-    padding: 4px 10px;
-
-    i {
-      font-size: 0.75rem; // 12px
-    }
-  }
-}
-
-// ==========================================================================
-// ROW 2 BADGES - Secondary row (Employment Type, Bar, Bilingual, Exempt)
-// Desktop: 15px, 600 weight, 1px border, 12px icon, 6px 14px padding
-// Mobile: 12px, 600 weight, 12px icon, 4px 10px padding
-// ==========================================================================
-.job-badges__row--secondary .job-badge {
-  font-size: 0.9375rem; // 15px
-  font-weight: $font-weight-semibold; // 600
-  padding: 6px 14px;
-  border-width: 1px; // Only set width, not color (let variants handle color)
-  gap: 8px;
-
-  i {
-    font-size: 0.75rem; // 12px
-  }
-
-  @include mobile {
-    font-size: 0.75rem; // 12px
-    font-weight: $font-weight-semibold; // 600
-    padding: 4px 10px;
-
-    i {
-      font-size: 0.75rem; // 12px
-    }
-  }
-}
-
-// ==========================================================================
-// BADGE COLOR VARIANTS
-// ==========================================================================
-
-// Location - Filled blue (Row 1)
-.job-badge--location {
-  background-color: $color-primary;
-  color: $color-white;
-  border-color: $color-primary;
-
-  i { color: $color-white; }
-}
-
-// Work Arrangement - Tinted blue (Row 1)
-.job-badge--arrangement {
-  background-color: var(--badge-blue-tint);
-  color: $color-primary;
-  border-color: $color-primary;
-
-  i { color: $color-primary; }
-}
-
-// Salary - Tinted green (Row 1)
-.job-badge--salary {
-  background-color: var(--badge-green-tint);
-  color: var(--badge-green);
-  border-color: var(--badge-green);
-
-  i { color: var(--badge-green); }
-}
-
-// Deadline - New posting (within 7 days) - Blue (Row 1)
-.job-badge--new {
-  background-color: var(--badge-blue-new);
-  color: $color-white;
-  border-color: var(--badge-blue-new);
-
-  i { color: $color-white; }
-}
-
-// Deadline - Closing soon (within 3 days) - Orange (Row 1)
-.job-badge--urgent {
-  background-color: var(--badge-orange);
-  color: $color-white;
-  border-color: var(--badge-orange);
-
-  i { color: $color-white; }
-}
-
-// Deadline - Closed - Red (Row 1)
-.job-badge--closed {
-  background-color: var(--badge-red);
-  color: $color-white;
-  border-color: var(--badge-red);
-
-  i { color: $color-white; }
-}
-
-// Deadline - Standard (neutral) (Row 1)
-.job-badge--deadline {
-  background-color: $color-gray-bg;
-  color: $color-gray-muted;
-  border-color: $color-gray-border;
-
-  i { color: $color-gray-text; }
-}
-
-// Employment Type - Outline blue (Row 2)
-.job-badge--employment-type {
-  background-color: transparent;
-  color: $color-primary;
-  border-color: $color-primary;
-
-  i { color: $color-primary; }
-}
-
-// Idaho Bar - Tinted purple (Row 2)
-.job-badge--bar {
-  background-color: var(--badge-purple-tint);
-  color: var(--badge-purple);
-  border-color: var(--badge-purple);
-
-  i { color: var(--badge-purple); }
-}
-
-// Bilingual Required - Solid purple (Row 2)
-.job-badge--bilingual-required {
-  background-color: var(--badge-purple);
-  color: $color-white;
-  border-color: var(--badge-purple);
-
-  i { color: $color-white; }
-}
-
-// Bilingual Preferred - Tinted purple with dashed border (Row 2)
-.job-badge--bilingual-preferred {
-  background-color: var(--badge-purple-tint);
-  color: var(--badge-purple);
-  border-color: var(--badge-purple);
-  border-style: dashed;
-
-  i { color: var(--badge-purple); }
-}
-
-// FLSA Exemption - Light gray (Row 2)
-.job-badge--exempt {
-  background-color: $color-gray-light;
-  color: $color-gray-text;
-  border-color: transparent;
-
-  i { color: $color-gray-text; }
-}
+// Job badges styles extracted to _job-badges.scss for maintainability
 
 .job-category__empty {
   color: $color-body;
@@ -1081,34 +1149,15 @@
 
 .job-category__file {
   .btn {
-    display: inline-flex;
-    align-items: center;
-    font-weight: $weight-button;
-    background-color: $color-primary;
-    color: $color-white;
-    border-color: $color-primary;
+    @include btn-primary-invert;
 
     i {
       margin-right: 0.5rem;
-      flex-shrink: 0;
-      color: $color-white;
-    }
-
-    &:hover,
-    &:focus {
-      background-color: $color-white;
-      color: $color-primary;
-      border-color: $color-primary;
-
-      i {
-        color: $color-primary;
-      }
     }
 
     @include mobile {
       width: 100%;
       justify-content: center;
-      // font-size and padding inherited from base .btn via tokens
     }
   }
 }
@@ -1120,34 +1169,11 @@
 
 .job-category__apply {
   .btn {
-    display: inline-flex;
-    align-items: center;
-    font-weight: $weight-button;
-    background-color: $color-primary;
-    color: $color-white;
-    border-color: $color-primary;
-
-    i {
-      flex-shrink: 0;
-      color: $color-white;
-    }
-
-    &:hover,
-    &:focus {
-      background-color: $color-white;
-      color: $color-primary;
-      border-color: $color-primary;
-
-      i {
-        color: $color-primary;
-      }
-    }
+    @include btn-primary-invert;
 
     @include mobile {
       width: 100%;
       justify-content: center;
-      // font-size and padding inherited from base .btn via tokens
-      // This also overrides .btn-lg sizing on mobile
     }
   }
 }
@@ -1322,10 +1348,14 @@
 /* ========== Reduced Motion Support ========== */
 @media (prefers-reduced-motion: reduce) {
   .quick-fact,
-  .jump-nav-link,
+  .jump-nav-pill,
+  .jump-nav-process-link,
   .benefit-card,
   .sticky-jobs-bar,
-  .sticky-jobs-bar__cta {
+  .sticky-jobs-bar__cta,
+  .content-tab,
+  .content-tab__icon,
+  .content-tab-panel.fade {
     transition: none;
   }
 

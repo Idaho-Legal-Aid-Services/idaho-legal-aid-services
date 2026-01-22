@@ -23327,6 +23327,148 @@ main.main-content {
   text-decoration: none;
 }
 
+.content-body ul.text-align-center,
+.content-body ol.text-align-center,
+.standard-layout .node__content ul.text-align-center,
+.standard-layout .node__content ol.text-align-center,
+.field--name-body ul.text-align-center,
+.field--name-body ol.text-align-center,
+.accordion-body ul.text-align-center,
+.accordion-body ol.text-align-center {
+  list-style-position: inside;
+  padding-left: 0;
+  text-align: center;
+}
+.content-body ul.text-align-center li,
+.content-body ol.text-align-center li,
+.standard-layout .node__content ul.text-align-center li,
+.standard-layout .node__content ol.text-align-center li,
+.field--name-body ul.text-align-center li,
+.field--name-body ol.text-align-center li,
+.accordion-body ul.text-align-center li,
+.accordion-body ol.text-align-center li {
+  padding-left: 0;
+}
+.content-body ul.text-align-center li p,
+.content-body ol.text-align-center li p,
+.standard-layout .node__content ul.text-align-center li p,
+.standard-layout .node__content ol.text-align-center li p,
+.field--name-body ul.text-align-center li p,
+.field--name-body ol.text-align-center li p,
+.accordion-body ul.text-align-center li p,
+.accordion-body ol.text-align-center li p {
+  display: inline;
+}
+.content-body ul:has(.text-align-center),
+.content-body ol:has(.text-align-center),
+.standard-layout .node__content ul:has(.text-align-center),
+.standard-layout .node__content ol:has(.text-align-center),
+.field--name-body ul:has(.text-align-center),
+.field--name-body ol:has(.text-align-center),
+.accordion-body ul:has(.text-align-center),
+.accordion-body ol:has(.text-align-center) {
+  list-style-position: inside;
+  padding-left: 0;
+  text-align: center;
+}
+.content-body ul:has(.text-align-center) li,
+.content-body ol:has(.text-align-center) li,
+.standard-layout .node__content ul:has(.text-align-center) li,
+.standard-layout .node__content ol:has(.text-align-center) li,
+.field--name-body ul:has(.text-align-center) li,
+.field--name-body ol:has(.text-align-center) li,
+.accordion-body ul:has(.text-align-center) li,
+.accordion-body ol:has(.text-align-center) li {
+  padding-left: 0;
+}
+.content-body ul:has(.text-align-center) li p,
+.content-body ol:has(.text-align-center) li p,
+.standard-layout .node__content ul:has(.text-align-center) li p,
+.standard-layout .node__content ol:has(.text-align-center) li p,
+.field--name-body ul:has(.text-align-center) li p,
+.field--name-body ol:has(.text-align-center) li p,
+.accordion-body ul:has(.text-align-center) li p,
+.accordion-body ol:has(.text-align-center) li p {
+  display: inline;
+}
+.content-body ul.text-align-center ul, .content-body ul.text-align-center ol,
+.content-body ol.text-align-center ul,
+.content-body ol.text-align-center ol,
+.content-body ul:has(.text-align-center) ul,
+.content-body ul:has(.text-align-center) ol,
+.content-body ol:has(.text-align-center) ul,
+.content-body ol:has(.text-align-center) ol,
+.standard-layout .node__content ul.text-align-center ul,
+.standard-layout .node__content ul.text-align-center ol,
+.standard-layout .node__content ol.text-align-center ul,
+.standard-layout .node__content ol.text-align-center ol,
+.standard-layout .node__content ul:has(.text-align-center) ul,
+.standard-layout .node__content ul:has(.text-align-center) ol,
+.standard-layout .node__content ol:has(.text-align-center) ul,
+.standard-layout .node__content ol:has(.text-align-center) ol,
+.field--name-body ul.text-align-center ul,
+.field--name-body ul.text-align-center ol,
+.field--name-body ol.text-align-center ul,
+.field--name-body ol.text-align-center ol,
+.field--name-body ul:has(.text-align-center) ul,
+.field--name-body ul:has(.text-align-center) ol,
+.field--name-body ol:has(.text-align-center) ul,
+.field--name-body ol:has(.text-align-center) ol,
+.accordion-body ul.text-align-center ul,
+.accordion-body ul.text-align-center ol,
+.accordion-body ol.text-align-center ul,
+.accordion-body ol.text-align-center ol,
+.accordion-body ul:has(.text-align-center) ul,
+.accordion-body ul:has(.text-align-center) ol,
+.accordion-body ol:has(.text-align-center) ul,
+.accordion-body ol:has(.text-align-center) ol {
+  list-style-position: inside;
+  padding-left: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.content-body .check-list.text-align-center,
+.content-body .check-list:has(.text-align-center),
+.standard-layout .node__content .check-list.text-align-center,
+.standard-layout .node__content .check-list:has(.text-align-center),
+.field--name-body .check-list.text-align-center,
+.field--name-body .check-list:has(.text-align-center),
+.accordion-body .check-list.text-align-center,
+.accordion-body .check-list:has(.text-align-center) {
+  text-align: center;
+}
+.content-body .check-list.text-align-center li,
+.content-body .check-list:has(.text-align-center) li,
+.standard-layout .node__content .check-list.text-align-center li,
+.standard-layout .node__content .check-list:has(.text-align-center) li,
+.field--name-body .check-list.text-align-center li,
+.field--name-body .check-list:has(.text-align-center) li,
+.accordion-body .check-list.text-align-center li,
+.accordion-body .check-list:has(.text-align-center) li {
+  padding-left: 0;
+}
+.content-body .check-list.text-align-center li::before,
+.content-body .check-list:has(.text-align-center) li::before,
+.standard-layout .node__content .check-list.text-align-center li::before,
+.standard-layout .node__content .check-list:has(.text-align-center) li::before,
+.field--name-body .check-list.text-align-center li::before,
+.field--name-body .check-list:has(.text-align-center) li::before,
+.accordion-body .check-list.text-align-center li::before,
+.accordion-body .check-list:has(.text-align-center) li::before {
+  position: static;
+  margin-right: 0.5rem;
+}
+.content-body .check-list.text-align-center li p,
+.content-body .check-list:has(.text-align-center) li p,
+.standard-layout .node__content .check-list.text-align-center li p,
+.standard-layout .node__content .check-list:has(.text-align-center) li p,
+.field--name-body .check-list.text-align-center li p,
+.field--name-body .check-list:has(.text-align-center) li p,
+.accordion-body .check-list.text-align-center li p,
+.accordion-body .check-list:has(.text-align-center) li p {
+  display: inline;
+}
+
 /* Add new utility classes for the new fields */
 .page-subheader {
   font-size: 1.5rem;
@@ -23518,7 +23660,7 @@ main.main-content {
 }
 @media (max-width: 767.98px) {
   .curved-section-blue::before {
-    height: 150px;
+    height: 250px;
   }
 }
 .curved-section-blue::after {
@@ -25061,7 +25203,7 @@ main.main-content {
 }
 @media (max-width: 767.98px) {
   .final-blue-curve-section::before {
-    height: 150px;
+    height: 250px;
   }
 }
 .final-blue-curve-section::after {
@@ -25674,7 +25816,7 @@ main.main-content {
 }
 @media (max-width: 767.98px) {
   .node--type-donate.donate-page .curved-section-blue::before {
-    height: 150px;
+    height: 250px;
   }
 }
 .node--type-donate.donate-page .curved-section-blue::after {
@@ -27514,7 +27656,12 @@ ul.pager__items {
 
 /* ========== Jump Navigation ========== */
 .employment-page__jump-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 @media (max-width: 767.98px) {
   .employment-page__jump-nav {
@@ -27524,62 +27671,89 @@ ul.pager__items {
 
 .jump-nav-list {
   display: flex;
-  justify-content: center;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.5rem;
   list-style: none;
   margin: 0;
   padding: 0;
-}
-@media (max-width: 767.98px) {
-  .jump-nav-list {
-    justify-content: flex-start;
-    gap: 0.5rem;
-    min-width: -moz-max-content;
-    min-width: max-content;
-  }
+  flex-wrap: wrap;
 }
 
-.jump-nav-link {
+.jump-nav-pill {
   text-decoration: none;
-  display: inline-block;
-  padding: 0.75rem 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
   background-color: #1263a0;
   color: #ffffff;
+  font-size: 1rem;
   font-weight: 600;
   border: 2px solid #1263a0;
-  border-radius: 4px;
+  border-radius: 24px;
   transition: all 0.3s ease-in-out;
   white-space: nowrap;
-  min-height: 48px;
-  min-width: 185px;
-  text-align: center;
-  text-transform: uppercase;
+  min-height: 44px;
 }
-.jump-nav-link:link, .jump-nav-link:visited, .jump-nav-link:hover, .jump-nav-link:focus, .jump-nav-link:focus-visible, .jump-nav-link:active {
+.jump-nav-pill:link, .jump-nav-pill:visited, .jump-nav-pill:hover, .jump-nav-pill:focus, .jump-nav-pill:focus-visible, .jump-nav-pill:active {
   text-decoration: none;
 }
-.jump-nav-link:hover, .jump-nav-link:focus {
+.jump-nav-pill:hover, .jump-nav-pill:focus {
   background-color: #ffffff;
   color: #1263a0;
   border-color: #1263a0;
   text-decoration: none;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(18, 99, 160, 0.3);
 }
-.jump-nav-link:focus-visible {
+.jump-nav-pill:focus-visible {
   outline: 2px solid #1263a0;
   outline-offset: 2px;
 }
-@media (max-width: 767.98px) {
-  .jump-nav-link {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    min-height: 44px;
-  }
-  .jump-nav-link:hover, .jump-nav-link:focus {
-    transform: none;
-    box-shadow: none;
-  }
+.jump-nav-pill.is-active {
+  background-color: #ffffff;
+  color: #1263a0;
+  box-shadow: 0 2px 6px rgba(18, 99, 160, 0.35);
+}
+
+.jump-nav-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #868e96;
+  margin: 0 1rem;
+  flex-shrink: 0;
+}
+
+.jump-nav-process-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.25rem;
+  background-color: transparent;
+  color: #1263a0;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid #1263a0;
+  border-radius: 24px;
+  transition: all 0.3s ease-in-out;
+  white-space: nowrap;
+  min-height: 44px;
+}
+.jump-nav-process-link:link, .jump-nav-process-link:visited, .jump-nav-process-link:hover, .jump-nav-process-link:focus, .jump-nav-process-link:focus-visible, .jump-nav-process-link:active {
+  text-decoration: none;
+}
+.jump-nav-process-link:hover, .jump-nav-process-link:focus {
+  background-color: #ffffff;
+  color: #1263a0;
+  border-color: #1263a0;
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(18, 99, 160, 0.3);
+}
+.jump-nav-process-link:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: 2px;
 }
 
 /* ========== View Open Positions CTA ========== */
@@ -27835,6 +28009,246 @@ ul.pager__items {
   }
 }
 
+/* ========== Content Sections - Tabbed Interface ========== */
+.employment-page__sections-tabbed {
+  margin-bottom: 2rem;
+  padding: 2rem 0;
+}
+.employment-page__sections-tabbed .section-title {
+  margin-bottom: 2rem;
+}
+
+/* ========== Tab Navigation ========== */
+.content-tabs-nav {
+  margin-bottom: 2rem;
+}
+@media (max-width: 767.98px) {
+  .content-tabs-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-left: calc(-1 * 0.75rem);
+    margin-right: calc(-1 * 0.75rem);
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .content-tabs-nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.content-tabs.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  border-bottom: 4px solid #e9ecef;
+  padding-bottom: 0;
+  margin: 0;
+  list-style: none;
+}
+@media (max-width: 767.98px) {
+  .content-tabs.nav-tabs {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    min-width: -moz-max-content;
+    min-width: max-content;
+    padding-bottom: 0;
+  }
+}
+.content-tabs.nav-tabs .nav-link.content-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: transparent;
+  color: #6c757d;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-bottom: 4px solid transparent;
+  border-radius: 0;
+  margin-bottom: -4px;
+  transition: all 0.3s ease-in-out;
+  white-space: nowrap;
+  min-height: 56px;
+}
+.content-tabs.nav-tabs .nav-link.content-tab:hover, .content-tabs.nav-tabs .nav-link.content-tab:focus {
+  color: #1263a0;
+  background-color: rgba(18, 99, 160, 0.05);
+  border-bottom-color: rgba(18, 99, 160, 0.3);
+}
+.content-tabs.nav-tabs .nav-link.content-tab:focus-visible {
+  outline: 2px solid #1263a0;
+  outline-offset: -2px;
+}
+.content-tabs.nav-tabs .nav-link.content-tab.active {
+  color: #1263a0;
+  background-color: #f0f2f5;
+  border-bottom-color: #f0f2f5;
+  font-weight: 700;
+}
+.content-tabs.nav-tabs .nav-link.content-tab.active .content-tab__icon {
+  color: #1263a0;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .content-tabs.nav-tabs .nav-link.content-tab {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .content-tabs.nav-tabs .nav-link.content-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    min-height: 48px;
+    border-bottom-width: 3px;
+    margin-bottom: -3px;
+  }
+}
+
+.content-tab__icon {
+  font-size: 1.25rem;
+  color: #6c757d;
+  transition: all 0.3s ease-in-out;
+}
+@media (max-width: 767.98px) {
+  .content-tab__icon {
+    font-size: 1rem;
+  }
+}
+
+.content-tab__label-full {
+  display: inline;
+}
+@media (max-width: 767.98px) {
+  .content-tab__label-full {
+    display: none;
+  }
+}
+
+.content-tab__label-short {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .content-tab__label-short {
+    display: inline;
+  }
+}
+
+/* ========== Tab Panels ========== */
+.content-tab-panel.fade {
+  transition: opacity 0.2s ease-in-out;
+}
+.content-tab-panel .content-section {
+  margin-bottom: 0;
+  padding: 1.5rem 0;
+}
+.content-tab-panel .content-section--highlighted {
+  background-color: #f0f2f5;
+  border-left: 6px solid #1263a0;
+  padding: 1.5rem 2rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  border-radius: 0 4px 4px 0;
+}
+@media (max-width: 767.98px) {
+  .content-tab-panel .content-section--highlighted {
+    border-left-width: 4px;
+    padding: 1.5rem 1rem;
+    margin-left: calc(-1 * 0.75rem);
+    margin-right: calc(-1 * 0.75rem);
+  }
+}
+.content-tab-panel .content-section__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1263a0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .content-tab-panel .content-section__title {
+    font-size: 1.5rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .content-tab-panel .content-section__title {
+    font-size: 1.35rem;
+  }
+}
+
+/* ========== Content Section Body Enhancements ========== */
+.content-section__body .callout-highlight {
+  margin-left: calc(-1 * 1rem);
+  margin-right: calc(-1 * 1rem);
+}
+@media (max-width: 767.98px) {
+  .content-section__body .callout-highlight {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.content-section__body h3, .content-section__body .h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1263a0;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(18, 99, 160, 0.2);
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .content-section__body h3, .content-section__body .h3 {
+    font-size: 1.35rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .content-section__body h3, .content-section__body .h3 {
+    font-size: 1.25rem;
+  }
+}
+.content-section__body h4, .content-section__body .h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #495057;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .content-section__body h4, .content-section__body .h4 {
+    font-size: 1.15rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .content-section__body h4, .content-section__body .h4 {
+    font-size: 1.1rem;
+  }
+}
+.content-section__body ul li {
+  margin-bottom: 0.5rem;
+}
+.content-section__body ul li::marker {
+  color: #1263a0;
+}
+
+/* ========== Print Styles for Tabs ========== */
+@media print {
+  .content-tabs-nav {
+    display: none;
+  }
+  .content-tab-panels .tab-pane {
+    display: block !important;
+    opacity: 1 !important;
+  }
+  .content-tab-panels .tab-pane:not(:last-child) {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #868e96;
+  }
+}
 /* ========== Benefits Snapshot ========== */
 .employment-page__benefits {
   margin-bottom: 2rem;
@@ -27976,6 +28390,17 @@ ul.pager__items {
   padding-left: 1.5rem;
   text-align: left;
 }
+.benefit-card__summary ul.text-align-center, .benefit-card__summary ul:has(.text-align-center), .benefit-card__summary ol.text-align-center, .benefit-card__summary ol:has(.text-align-center) {
+  list-style-position: inside;
+  padding-left: 0;
+  text-align: center;
+}
+.benefit-card__summary ul.text-align-center li, .benefit-card__summary ul:has(.text-align-center) li, .benefit-card__summary ol.text-align-center li, .benefit-card__summary ol:has(.text-align-center) li {
+  padding-left: 0;
+}
+.benefit-card__summary ul.text-align-center li p, .benefit-card__summary ul:has(.text-align-center) li p, .benefit-card__summary ol.text-align-center li p, .benefit-card__summary ol:has(.text-align-center) li p {
+  display: inline;
+}
 .benefit-card__summary li {
   margin-bottom: 0.25rem;
 }
@@ -28097,6 +28522,12 @@ ul.pager__items {
   display: flex;
   align-items: flex-end;
   gap: 1rem;
+  padding-right: 1.5rem;
+}
+@media (max-width: 767.98px) {
+  .job-category__header-row {
+    padding-right: 1rem;
+  }
 }
 .job-category__header-row .accordion-header {
   flex: 1;
@@ -28136,6 +28567,18 @@ ul.pager__items {
 }
 @media (max-width: 767.98px) {
   .job-category__header-apply {
+    margin-bottom: 0.5rem;
+  }
+  .job-category__header-apply .btn, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__header-apply .amount-btn, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__header-apply .frequency-btn, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .job-category__header-apply .donate-button {
+    padding: 0.5rem 0.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  .job-category__header-apply .btn i, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn i, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__header-apply .amount-btn i, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn i, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__header-apply .frequency-btn i, .job-category__header-apply .node--type-donate.donate-page .custom-donation-form .donate-button i, .node--type-donate.donate-page .custom-donation-form .job-category__header-apply .donate-button i {
+    margin-left: 0;
+  }
+  .job-category__header-apply .job-category__apply-text {
     display: none;
   }
 }
@@ -28286,204 +28729,6 @@ ul.pager__items {
   }
 }
 
-/* ========== Job Badges ========== */
-.job-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  --badge-purple: #6f42c1;
-  --badge-purple-tint: #f3eef8;
-  --badge-green: #2d855a;
-  --badge-blue-new: #0b5ed7;
-  --badge-orange: #cc6b00;
-  --badge-red: #c82333;
-  --badge-blue-tint: rgba(18, 99, 160, 0.08);
-  --badge-green-tint: rgba(45, 133, 90, 0.08);
-}
-
-.job-badges__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-@media (max-width: 767.98px) {
-  .job-badges__row {
-    gap: 0.375rem;
-  }
-}
-
-@media (max-width: 767.98px) {
-  .job-badges__row--secondary {
-    display: none;
-  }
-}
-
-.job-badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 4px;
-  border-style: solid;
-  border-color: transparent;
-  white-space: nowrap;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
-  transition: all 0.15s ease-in-out;
-}
-.job-badge i {
-  flex-shrink: 0;
-}
-
-.job-badges__row--primary .job-badge {
-  font-size: 1rem;
-  font-weight: 700;
-  padding: 6px 14px;
-  border-width: 2px;
-  gap: 8px;
-}
-.job-badges__row--primary .job-badge i {
-  font-size: 0.875rem;
-}
-@media (max-width: 767.98px) {
-  .job-badges__row--primary .job-badge {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    padding: 4px 10px;
-  }
-  .job-badges__row--primary .job-badge i {
-    font-size: 0.75rem;
-  }
-}
-
-.job-badges__row--secondary .job-badge {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-width: 1px;
-  gap: 8px;
-}
-.job-badges__row--secondary .job-badge i {
-  font-size: 0.75rem;
-}
-@media (max-width: 767.98px) {
-  .job-badges__row--secondary .job-badge {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 4px 10px;
-  }
-  .job-badges__row--secondary .job-badge i {
-    font-size: 0.75rem;
-  }
-}
-
-.job-badge--location {
-  background-color: #1263a0;
-  color: #ffffff;
-  border-color: #1263a0;
-}
-.job-badge--location i {
-  color: #ffffff;
-}
-
-.job-badge--arrangement {
-  background-color: var(--badge-blue-tint);
-  color: #1263a0;
-  border-color: #1263a0;
-}
-.job-badge--arrangement i {
-  color: #1263a0;
-}
-
-.job-badge--salary {
-  background-color: var(--badge-green-tint);
-  color: var(--badge-green);
-  border-color: var(--badge-green);
-}
-.job-badge--salary i {
-  color: var(--badge-green);
-}
-
-.job-badge--new {
-  background-color: var(--badge-blue-new);
-  color: #ffffff;
-  border-color: var(--badge-blue-new);
-}
-.job-badge--new i {
-  color: #ffffff;
-}
-
-.job-badge--urgent {
-  background-color: var(--badge-orange);
-  color: #ffffff;
-  border-color: var(--badge-orange);
-}
-.job-badge--urgent i {
-  color: #ffffff;
-}
-
-.job-badge--closed {
-  background-color: var(--badge-red);
-  color: #ffffff;
-  border-color: var(--badge-red);
-}
-.job-badge--closed i {
-  color: #ffffff;
-}
-
-.job-badge--deadline {
-  background-color: #f0f2f5;
-  color: #495057;
-  border-color: #868e96;
-}
-.job-badge--deadline i {
-  color: #6c757d;
-}
-
-.job-badge--employment-type {
-  background-color: transparent;
-  color: #1263a0;
-  border-color: #1263a0;
-}
-.job-badge--employment-type i {
-  color: #1263a0;
-}
-
-.job-badge--bar {
-  background-color: var(--badge-purple-tint);
-  color: var(--badge-purple);
-  border-color: var(--badge-purple);
-}
-.job-badge--bar i {
-  color: var(--badge-purple);
-}
-
-.job-badge--bilingual-required {
-  background-color: var(--badge-purple);
-  color: #ffffff;
-  border-color: var(--badge-purple);
-}
-.job-badge--bilingual-required i {
-  color: #ffffff;
-}
-
-.job-badge--bilingual-preferred {
-  background-color: var(--badge-purple-tint);
-  color: var(--badge-purple);
-  border-color: var(--badge-purple);
-  border-style: dashed;
-}
-.job-badge--bilingual-preferred i {
-  color: var(--badge-purple);
-}
-
-.job-badge--exempt {
-  background-color: #f8f9fa;
-  color: #6c757d;
-  border-color: transparent;
-}
-.job-badge--exempt i {
-  color: #6c757d;
-}
-
 .job-category__empty {
   color: #212529;
   font-style: italic;
@@ -28526,7 +28771,6 @@ ul.pager__items {
   border-color: #1263a0;
 }
 .job-category__file .btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn i, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__file .amount-btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn i, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__file .frequency-btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donate-button i, .node--type-donate.donate-page .custom-donation-form .job-category__file .donate-button i {
-  margin-right: 0.5rem;
   flex-shrink: 0;
   color: #ffffff;
 }
@@ -28537,6 +28781,9 @@ ul.pager__items {
 }
 .job-category__file .btn:hover i, .job-category__file .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:hover i, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__file .amount-btn:hover i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:hover i, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__file .frequency-btn:hover i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donate-button:hover i, .node--type-donate.donate-page .custom-donation-form .job-category__file .donate-button:hover i, .job-category__file .btn:focus i, .job-category__file .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn:focus i, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__file .amount-btn:focus i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn:focus i, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__file .frequency-btn:focus i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donate-button:focus i, .node--type-donate.donate-page .custom-donation-form .job-category__file .donate-button:focus i {
   color: #1263a0;
+}
+.job-category__file .btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn i, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__file .amount-btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn i, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__file .frequency-btn i, .job-category__file .node--type-donate.donate-page .custom-donation-form .donate-button i, .node--type-donate.donate-page .custom-donation-form .job-category__file .donate-button i {
+  margin-right: 0.5rem;
 }
 @media (max-width: 767.98px) {
   .job-category__file .btn, .job-category__file .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .amount-btn, .node--type-donate.donate-page .custom-donation-form .amount-selection .amount-buttons .job-category__file .amount-btn, .job-category__file .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .frequency-btn, .node--type-donate.donate-page .custom-donation-form .donation-frequency .frequency-options .job-category__file .frequency-btn, .job-category__file .node--type-donate.donate-page .custom-donation-form .donate-button, .node--type-donate.donate-page .custom-donation-form .job-category__file .donate-button {
@@ -28734,10 +28981,14 @@ ul.pager__items {
 /* ========== Reduced Motion Support ========== */
 @media (prefers-reduced-motion: reduce) {
   .quick-fact,
-  .jump-nav-link,
+  .jump-nav-pill,
+  .jump-nav-process-link,
   .benefit-card,
   .sticky-jobs-bar,
-  .sticky-jobs-bar__cta {
+  .sticky-jobs-bar__cta,
+  .content-tab,
+  .content-tab__icon,
+  .content-tab-panel.fade {
     transition: none;
   }
   .sticky-jobs-bar {
@@ -28754,6 +29005,353 @@ ul.pager__items {
     display: none;
   }
 }
+.job-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  --badge-purple: #6f42c1;
+  --badge-purple-tint: #f3eef8;
+  --badge-green: #2d855a;
+  --badge-blue-new: #0b5ed7;
+  --badge-orange: #cc6b00;
+  --badge-red: #c82333;
+  --badge-blue-tint: rgba(18, 99, 160, 0.08);
+  --badge-green-tint: rgba(45, 133, 90, 0.08);
+}
+
+.job-badges__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+@media (max-width: 767.98px) {
+  .job-badges__row {
+    gap: 0.375rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .job-badges__row--secondary {
+    display: none;
+  }
+}
+
+.job-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  border-style: solid;
+  border-color: transparent;
+  white-space: nowrap;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  transition: all 0.15s ease-in-out;
+}
+.job-badge i {
+  flex-shrink: 0;
+}
+
+.job-badges__row--primary .job-badge {
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-width: 2px;
+  gap: 8px;
+}
+.job-badges__row--primary .job-badge i {
+  font-size: 0.875rem;
+}
+@media (max-width: 767.98px) {
+  .job-badges__row--primary .job-badge {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    padding: 4px 10px;
+  }
+  .job-badges__row--primary .job-badge i {
+    font-size: 0.75rem;
+  }
+}
+
+.job-badges__row--secondary .job-badge {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-width: 1px;
+  gap: 8px;
+}
+.job-badges__row--secondary .job-badge i {
+  font-size: 0.75rem;
+}
+@media (max-width: 767.98px) {
+  .job-badges__row--secondary .job-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+  }
+  .job-badges__row--secondary .job-badge i {
+    font-size: 0.75rem;
+  }
+}
+
+.job-badge--location {
+  background-color: #1263a0;
+  color: #ffffff;
+  border-color: #1263a0;
+}
+.job-badge--location i {
+  color: #ffffff;
+}
+
+.job-badge--arrangement {
+  background-color: var(--badge-blue-tint);
+  color: #1263a0;
+  border-color: #1263a0;
+}
+.job-badge--arrangement i {
+  color: #1263a0;
+}
+
+.job-badge--salary {
+  background-color: var(--badge-green-tint);
+  color: var(--badge-green);
+  border-color: var(--badge-green);
+}
+.job-badge--salary i {
+  color: var(--badge-green);
+}
+
+.job-badge--new {
+  background-color: var(--badge-blue-new);
+  color: #ffffff;
+  border-color: var(--badge-blue-new);
+}
+.job-badge--new i {
+  color: #ffffff;
+}
+
+.job-badge--urgent {
+  background-color: var(--badge-orange);
+  color: #ffffff;
+  border-color: var(--badge-orange);
+}
+.job-badge--urgent i {
+  color: #ffffff;
+}
+
+.job-badge--closed {
+  background-color: var(--badge-red);
+  color: #ffffff;
+  border-color: var(--badge-red);
+}
+.job-badge--closed i {
+  color: #ffffff;
+}
+
+.job-badge--deadline {
+  background-color: #f0f2f5;
+  color: #495057;
+  border-color: #868e96;
+}
+.job-badge--deadline i {
+  color: #6c757d;
+}
+
+.job-badge--employment-type {
+  background-color: transparent;
+  color: #1263a0;
+  border-color: #1263a0;
+}
+.job-badge--employment-type i {
+  color: #1263a0;
+}
+
+.job-badge--bar {
+  background-color: var(--badge-purple-tint);
+  color: var(--badge-purple);
+  border-color: var(--badge-purple);
+}
+.job-badge--bar i {
+  color: var(--badge-purple);
+}
+
+.job-badge--bilingual-required {
+  background-color: var(--badge-purple);
+  color: #ffffff;
+  border-color: var(--badge-purple);
+}
+.job-badge--bilingual-required i {
+  color: #ffffff;
+}
+
+.job-badge--bilingual-preferred {
+  background-color: var(--badge-purple-tint);
+  color: var(--badge-purple);
+  border-color: var(--badge-purple);
+  border-style: dashed;
+}
+.job-badge--bilingual-preferred i {
+  color: var(--badge-purple);
+}
+
+.job-badge--exempt {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border-color: transparent;
+}
+.job-badge--exempt i {
+  color: #6c757d;
+}
+
+.callout-info {
+  background-color: #f0f2f5;
+  border: 4px solid #1263a0;
+  padding: 1.5rem 2rem;
+  margin: 2rem 0;
+  border-radius: 4px;
+}
+@media (max-width: 767.98px) {
+  .callout-info {
+    border-width: 3px;
+    padding: 1.5rem 1rem;
+    margin: 1.5rem 0;
+  }
+}
+.callout-info p:last-child {
+  margin-bottom: 0;
+}
+
+.callout-highlight {
+  background-color: #1263a0;
+  color: #ffffff;
+  padding: 1.5rem 2rem;
+  margin: 2rem 0;
+  border-radius: 4px;
+}
+@media (max-width: 767.98px) {
+  .callout-highlight {
+    padding: 1.5rem 1rem;
+  }
+}
+.callout-highlight p:last-child {
+  margin-bottom: 0;
+}
+.callout-highlight strong {
+  color: #ffffff;
+}
+.callout-highlight a {
+  color: #ffffff;
+  text-decoration: underline;
+}
+.callout-highlight a:hover {
+  text-decoration: none;
+}
+
+.pull-quote,
+blockquote.pull-quote {
+  font-size: 1.5rem;
+  font-style: italic;
+  color: #1263a0;
+  background-color: #f0f2f5;
+  border-left: 6px solid #1263a0;
+  padding: 1.5rem 2rem;
+  margin: 2rem 0;
+  border-radius: 0 4px 4px 0;
+}
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .pull-quote,
+  blockquote.pull-quote {
+    font-size: 1.35rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .pull-quote,
+  blockquote.pull-quote {
+    font-size: 1.15rem;
+  }
+}
+@media (max-width: 767.98px) {
+  .pull-quote,
+  blockquote.pull-quote {
+    border-left-width: 4px;
+    padding: 1.5rem 1rem;
+    margin: 1.5rem 0;
+  }
+}
+.pull-quote cite,
+.pull-quote .quote-author,
+blockquote.pull-quote cite,
+blockquote.pull-quote .quote-author {
+  display: block;
+  margin-top: 1rem;
+  font-style: normal;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #212529;
+}
+.pull-quote cite::before,
+.pull-quote .quote-author::before,
+blockquote.pull-quote cite::before,
+blockquote.pull-quote .quote-author::before {
+  content: "— ";
+}
+
+.callout-stat {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background-color: #f0f2f5;
+  border: 4px solid #1263a0;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  border-radius: 4px;
+}
+@media (max-width: 767.98px) {
+  .callout-stat {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+}
+.callout-stat .stat-number {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #1263a0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+@media (max-width: 767.98px) {
+  .callout-stat .stat-number {
+    font-size: 2.5rem;
+  }
+}
+.callout-stat .stat-label {
+  font-size: 1.1rem;
+  color: #212529;
+}
+@media (max-width: 767.98px) {
+  .callout-stat .stat-label {
+    font-size: 1rem;
+  }
+}
+
+.check-list {
+  list-style: none;
+  padding-left: 0;
+}
+.check-list li {
+  position: relative;
+  padding-left: 2rem;
+  margin-bottom: 0.5rem;
+}
+.check-list li::before {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: absolute;
+  left: 0;
+  color: #38a169;
+}
+
 /* _help-overlay.scss */
 /**********************************************
  * HELP OVERLAY: FADE + SLIDE FROM RIGHT

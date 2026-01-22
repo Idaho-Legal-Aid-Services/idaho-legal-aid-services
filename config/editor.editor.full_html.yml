@@ -12,21 +12,28 @@ settings:
   toolbar:
     items:
       - heading
+      - style
+      - '|'
       - bold
       - underline
       - italic
+      - '|'
       - numberedList
       - bulletedList
+      - blockQuote
+      - '|'
       - alignment
       - insertTable
-      - sourceEditing
-      - codeBlock
       - link
-      - code
+      - '|'
       - drupalInsertImage
       - imce_image
       - drupalMedia
       - imce_link
+      - '|'
+      - sourceEditing
+      - codeBlock
+      - code
   plugins:
     ckeditor5_alignment:
       enabled_alignments:
@@ -34,6 +41,20 @@ settings:
         - justify
         - left
         - right
+    ckeditor5_style:
+      styles:
+        -
+          label: 'Info Callout'
+          element: '<p class="callout-info">'
+        -
+          label: 'Highlight Callout'
+          element: '<p class="callout-highlight">'
+        -
+          label: 'Pull Quote'
+          element: '<blockquote class="pull-quote">'
+        -
+          label: 'Check List'
+          element: '<ul class="check-list">'
     ckeditor5_codeBlock:
       languages:
         -

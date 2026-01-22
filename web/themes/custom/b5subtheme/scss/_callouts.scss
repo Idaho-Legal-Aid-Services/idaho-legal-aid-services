@@ -1,0 +1,166 @@
+// =============================================================================
+// CALLOUT STYLES
+// Reusable callout components for rich text content
+//
+// Used in:
+// - Employment page content sections
+// - CKEditor WYSIWYG preview (ck5style.scss)
+// - Any content area with class-based callouts
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Callout - Info style
+// Gray background with full blue border box
+// -----------------------------------------------------------------------------
+.callout-info {
+  background-color: $color-gray-bg;
+  border: 4px solid $color-primary;
+  padding: $spacer-lg $spacer-xl;
+  margin: $spacer-xl 0;
+  border-radius: 4px;
+
+  @include mobile {
+    border-width: 3px;
+    padding: $spacer-lg $spacer;
+    margin: $spacer-lg 0;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Callout - Highlight style
+// Blue background with white text
+// -----------------------------------------------------------------------------
+.callout-highlight {
+  background-color: $color-primary;
+  color: $color-white;
+  padding: $spacer-lg $spacer-xl;
+  margin: $spacer-xl 0;
+  border-radius: 4px;
+
+  @include mobile {
+    padding: $spacer-lg $spacer;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  strong {
+    color: $color-white;
+  }
+
+  a {
+    color: $color-white;
+    text-decoration: underline;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Pull Quote style
+// For testimonials or key statements
+// -----------------------------------------------------------------------------
+.pull-quote,
+blockquote.pull-quote {
+  @include responsive-typography(1.5rem, 1.35rem, 1.15rem);
+  font-style: italic;
+  color: $color-primary;
+  background-color: $color-gray-bg;
+  border-left: 6px solid $color-primary;
+  padding: $spacer-lg $spacer-xl;
+  margin: $spacer-xl 0;
+  border-radius: 0 4px 4px 0;
+
+  @include mobile {
+    border-left-width: 4px;
+    padding: $spacer-lg $spacer;
+    margin: $spacer-lg 0;
+  }
+
+  cite,
+  .quote-author {
+    display: block;
+    margin-top: $spacer;
+    font-style: normal;
+    font-size: 1rem;
+    font-weight: $weight-subtitle;
+    color: $color-body;
+
+    &::before {
+      content: "— ";
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Callout - Stat style
+// For numbers/statistics with large number + label
+// -----------------------------------------------------------------------------
+.callout-stat {
+  display: flex;
+  align-items: center;
+  gap: $spacer-lg;
+  background-color: $color-gray-bg;
+  border: 4px solid $color-primary;
+  padding: $spacer-lg;
+  margin: $spacer-xl 0;
+  border-radius: 4px;
+
+  @include mobile {
+    flex-direction: column;
+    text-align: center;
+    gap: $spacer;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+    font-weight: $weight-heading;
+    color: $color-primary;
+    line-height: 1;
+    flex-shrink: 0;
+
+    @include mobile {
+      font-size: 2.5rem;
+    }
+  }
+
+  .stat-label {
+    font-size: 1.1rem;
+    color: $color-body;
+
+    @include mobile {
+      font-size: 1rem;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Check List style
+// Bulleted list with checkmark icons
+// -----------------------------------------------------------------------------
+.check-list {
+  list-style: none;
+  padding-left: 0;
+
+  li {
+    position: relative;
+    padding-left: 2rem;
+    margin-bottom: $spacer-sm;
+
+    &::before {
+      content: '\f00c'; // fa-check
+      font-family: "Font Awesome 6 Free";
+      font-weight: 900;
+      position: absolute;
+      left: 0;
+      color: $color-success;
+    }
+  }
+}

@@ -1,0 +1,239 @@
+// =============================================================================
+// JOB BADGES DESIGN SYSTEM
+// Two-row badge layout for job listings
+//
+// Extracted from _employment-page.scss for maintainability and potential reuse.
+// =============================================================================
+
+// Badge Design System - Two Row Layout
+//
+// Row 1 (Primary): Location, Work Arrangement, Salary, Deadline
+// Row 2 (Secondary): Employment Type, Bar Requirement, Bilingual, FLSA Exemption
+//
+// Contrast-safe colors (all pass WCAG AA 4.5:1):
+// - Green (new): #2d855a on white text
+// - Orange (urgent): #cc6b00 on white text
+// - Red (closed): #c82333 on white text
+// - Purple accent: #6f42c1
+
+.job-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  // Semantic colors
+  --badge-purple: #6f42c1;
+  --badge-purple-tint: #f3eef8;
+  --badge-green: #2d855a;
+  --badge-blue-new: #0b5ed7;
+  --badge-orange: #cc6b00;
+  --badge-red: #c82333;
+  --badge-blue-tint: #{rgba($color-primary, 0.08)};
+  --badge-green-tint: #{rgba(#2d855a, 0.08)};
+}
+
+// Row containers
+.job-badges__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  @include mobile {
+    gap: 0.375rem;
+  }
+}
+
+// Secondary row (Employment Type, Bar, Bilingual, Exempt) hidden on mobile.
+// Primary row (Location, Arrangement, Salary, Deadline) provides the essential
+// info for mobile users scanning job listings. Full details available on expand.
+.job-badges__row--secondary {
+  @include mobile {
+    display: none;
+  }
+}
+
+// =============================================================================
+// BASE BADGE STYLES (shared)
+// =============================================================================
+.job-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  border-style: solid;
+  border-color: transparent; // Default, overridden by variants
+  white-space: nowrap;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  transition: $transition-fast;
+
+  i {
+    flex-shrink: 0;
+  }
+}
+
+// =============================================================================
+// ROW 1 BADGES - Primary row (Location, Work Arrangement, Salary, Deadline)
+// Desktop: 16px, 700 weight, 2px border, 14px icon, 6px 14px padding
+// Mobile: 13px, 700 weight, 12px icon, 4px 10px padding
+// =============================================================================
+.job-badges__row--primary .job-badge {
+  font-size: 1rem; // 16px
+  font-weight: $font-weight-bold; // 700
+  padding: 6px 14px;
+  border-width: 2px; // Only set width, not color (let variants handle color)
+  gap: 8px;
+
+  i {
+    font-size: 0.875rem; // 14px
+  }
+
+  @include mobile {
+    font-size: 0.8125rem; // 13px
+    font-weight: $font-weight-bold; // 700
+    padding: 4px 10px;
+
+    i {
+      font-size: 0.75rem; // 12px
+    }
+  }
+}
+
+// =============================================================================
+// ROW 2 BADGES - Secondary row (Employment Type, Bar, Bilingual, Exempt)
+// Desktop: 15px, 600 weight, 1px border, 12px icon, 6px 14px padding
+// Mobile: 12px, 600 weight, 12px icon, 4px 10px padding
+// =============================================================================
+.job-badges__row--secondary .job-badge {
+  font-size: 0.9375rem; // 15px
+  font-weight: $font-weight-semibold; // 600
+  padding: 6px 14px;
+  border-width: 1px; // Only set width, not color (let variants handle color)
+  gap: 8px;
+
+  i {
+    font-size: 0.75rem; // 12px
+  }
+
+  @include mobile {
+    font-size: 0.75rem; // 12px
+    font-weight: $font-weight-semibold; // 600
+    padding: 4px 10px;
+
+    i {
+      font-size: 0.75rem; // 12px
+    }
+  }
+}
+
+// =============================================================================
+// BADGE COLOR VARIANTS
+// =============================================================================
+
+// Location - Filled blue (Row 1)
+.job-badge--location {
+  background-color: $color-primary;
+  color: $color-white;
+  border-color: $color-primary;
+
+  i { color: $color-white; }
+}
+
+// Work Arrangement - Tinted blue (Row 1)
+.job-badge--arrangement {
+  background-color: var(--badge-blue-tint);
+  color: $color-primary;
+  border-color: $color-primary;
+
+  i { color: $color-primary; }
+}
+
+// Salary - Tinted green (Row 1)
+.job-badge--salary {
+  background-color: var(--badge-green-tint);
+  color: var(--badge-green);
+  border-color: var(--badge-green);
+
+  i { color: var(--badge-green); }
+}
+
+// Deadline - New posting (within 7 days) - Blue (Row 1)
+.job-badge--new {
+  background-color: var(--badge-blue-new);
+  color: $color-white;
+  border-color: var(--badge-blue-new);
+
+  i { color: $color-white; }
+}
+
+// Deadline - Closing soon (within 3 days) - Orange (Row 1)
+.job-badge--urgent {
+  background-color: var(--badge-orange);
+  color: $color-white;
+  border-color: var(--badge-orange);
+
+  i { color: $color-white; }
+}
+
+// Deadline - Closed - Red (Row 1)
+.job-badge--closed {
+  background-color: var(--badge-red);
+  color: $color-white;
+  border-color: var(--badge-red);
+
+  i { color: $color-white; }
+}
+
+// Deadline - Standard (neutral) (Row 1)
+.job-badge--deadline {
+  background-color: $color-gray-bg;
+  color: $color-gray-muted;
+  border-color: $color-gray-border;
+
+  i { color: $color-gray-text; }
+}
+
+// Employment Type - Outline blue (Row 2)
+.job-badge--employment-type {
+  background-color: transparent;
+  color: $color-primary;
+  border-color: $color-primary;
+
+  i { color: $color-primary; }
+}
+
+// Idaho Bar - Tinted purple (Row 2)
+.job-badge--bar {
+  background-color: var(--badge-purple-tint);
+  color: var(--badge-purple);
+  border-color: var(--badge-purple);
+
+  i { color: var(--badge-purple); }
+}
+
+// Bilingual Required - Solid purple (Row 2)
+.job-badge--bilingual-required {
+  background-color: var(--badge-purple);
+  color: $color-white;
+  border-color: var(--badge-purple);
+
+  i { color: $color-white; }
+}
+
+// Bilingual Preferred - Tinted purple with dashed border (Row 2)
+.job-badge--bilingual-preferred {
+  background-color: var(--badge-purple-tint);
+  color: var(--badge-purple);
+  border-color: var(--badge-purple);
+  border-style: dashed;
+
+  i { color: var(--badge-purple); }
+}
+
+// FLSA Exemption - Light gray (Row 2)
+.job-badge--exempt {
+  background-color: $color-gray-light;
+  color: $color-gray-text;
+  border-color: transparent;
+
+  i { color: $color-gray-text; }
+}

@@ -217,12 +217,13 @@
               </h4>
 
               {# Apply Now button in header - visible only when collapsed #}
+              {# Shows full text on desktop, icon-only on mobile for space efficiency #}
               {% if is_job_posting %}
                 <div class="job-category__header-apply">
                   <a href="/eapplication?job={{ job.uuid.value }}"
                      class="btn btn-primary"
                      aria-label="{{ 'Apply for %title% position'|t|replace({'%title%': job.field_accordion_title.value}) }}">
-                    Apply Now
+                    <span class="job-category__apply-text">Apply Now</span>
                     <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                   </a>
                 </div>
@@ -249,7 +250,7 @@
                            target="_blank"
                            aria-label="{{ 'Download job description PDF'|t }}">
                           <i class="fas fa-file-pdf me-2" aria-hidden="true"></i>
-                          <span class="d-none d-md-inline">Download </span>Job Description
+                          <span class="d-none d-md-inline">Download Job Description</span>
                         </a>
                       </div>
                     {% else %}

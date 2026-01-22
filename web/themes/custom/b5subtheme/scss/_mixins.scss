@@ -31,6 +31,34 @@ $button-not-selector: '.btn, .button, .form-submit, [role="button"]' !default;
   }
 }
 
+// Mixin: Primary button with invert hover
+// Used for action buttons (Apply, Download, etc.) that invert colors on hover
+// Includes icon color handling for Font Awesome icons
+@mixin btn-primary-invert {
+  display: inline-flex;
+  align-items: center;
+  font-weight: $weight-button;
+  background-color: $color-primary;
+  color: $color-white;
+  border-color: $color-primary;
+
+  i {
+    flex-shrink: 0;
+    color: $color-white;
+  }
+
+  &:hover,
+  &:focus {
+    background-color: $color-white;
+    color: $color-primary;
+    border-color: $color-primary;
+
+    i {
+      color: $color-primary;
+    }
+  }
+}
+
 // Mixin: Style links while excluding buttons
 // Use this for content areas where links should be underlined but buttons should not
 // Example usage:
@@ -67,7 +95,7 @@ $section-padding-y-mobile: 2rem !default;
 
 // Bottom blue curve specific
 $blue-curve-bg-height-desktop: 300px !default;
-$blue-curve-bg-height-mobile: 150px !default;
+$blue-curve-bg-height-mobile: 250px !default;
 $blue-curve-cutout-height-desktop: 50px !default;
 $blue-curve-cutout-height-mobile: 35px !default;
 $blue-curve-container-max-width: 1200px !default;

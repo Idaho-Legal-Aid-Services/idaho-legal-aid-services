@@ -146,6 +146,95 @@ main.main-content {
   }
 }
 
+// ===========================================================================
+// CENTERED LIST FIX
+// Fix for CKEditor 5 list alignment: when a list or its content is centered,
+// move the marker inside so it centers with the text.
+//
+// Handles two scenarios:
+// 1. Class on list element: ul.text-align-center, ol.text-align-center
+// 2. Class on content inside list: ul:has(.text-align-center)
+//
+// Scoped to content containers to avoid affecting nav menus, admin UI, etc.
+// ===========================================================================
+.content-body,
+.standard-layout .node__content,
+.field--name-body,
+.accordion-body {
+  // Direct class on list element (ul.text-align-center or ol.text-align-center)
+  ul.text-align-center,
+  ol.text-align-center {
+    list-style-position: inside;
+    padding-left: 0;
+    text-align: center;
+
+    li {
+      // Reset any left padding that might be inherited
+      padding-left: 0;
+
+      // Make paragraphs inline so they stay on same line as marker
+      p {
+        display: inline;
+      }
+    }
+  }
+
+  // Centered content inside list items (li > p.text-align-center)
+  // Uses :has() to detect centered content and apply marker fix
+  ul:has(.text-align-center),
+  ol:has(.text-align-center) {
+    list-style-position: inside;
+    padding-left: 0;
+    text-align: center;
+
+    li {
+      padding-left: 0;
+
+      p {
+        display: inline;
+      }
+    }
+  }
+
+  // Handle nested lists within centered lists
+  ul.text-align-center,
+  ol.text-align-center,
+  ul:has(.text-align-center),
+  ol:has(.text-align-center) {
+    ul, ol {
+      // Nested lists inherit centering behavior
+      list-style-position: inside;
+      padding-left: 0;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  // =========================================================================
+  // Centered Check-List Fix
+  // Check-lists use custom ::before pseudo-elements (not native markers),
+  // so we need different handling: make the checkmark inline instead of
+  // absolutely positioned.
+  // =========================================================================
+  .check-list.text-align-center,
+  .check-list:has(.text-align-center) {
+    text-align: center;
+
+    li {
+      padding-left: 0;
+
+      &::before {
+        position: static;
+        margin-right: 0.5rem;
+      }
+
+      p {
+        display: inline;
+      }
+    }
+  }
+}
+
 
 /* Add new utility classes for the new fields */
 .page-subheader {

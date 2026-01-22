@@ -130,19 +130,40 @@
         {% endif %}
 
         {# Jump Links Navigation #}
+        {# Job category pills (filled) + "Our Hiring Process" (outline) with CSS separator #}
         {% if node.field_job_listings|length > 0 %}
         <nav class="employment-page__jump-nav" aria-label="Job categories">
           <ul class="jump-nav-list">
             {% for category in node.field_job_listings %}
               {% if category.entity %}
-                <li>
-                  <a href="#{{ category.entity.field_category_id.value }}" class="jump-nav-link">
-                    {{ category.entity.field_category_name.value }}
-                  </a>
-                </li>
+                {% set cat_id = category.entity.field_category_id.value %}
+                {% set cat_name = category.entity.field_category_name.value %}
+                {# Check if this is the hiring process section (not a job category) #}
+                {% set is_hiring_process = cat_id == 'hiring-process' or cat_id == 'our-hiring-process' or cat_name|lower matches '/hiring process/' %}
+                {% if not is_hiring_process %}
+                  <li>
+                    <a href="#{{ cat_id }}" class="jump-nav-pill">
+                      {{ cat_name }}
+                    </a>
+                  </li>
+                {% endif %}
               {% endif %}
             {% endfor %}
           </ul>
+          {# Separator + "Our Hiring Process" outline pill #}
+          {% for category in node.field_job_listings %}
+            {% if category.entity %}
+              {% set cat_id = category.entity.field_category_id.value %}
+              {% set cat_name = category.entity.field_category_name.value %}
+              {% set is_hiring_process = cat_id == 'hiring-process' or cat_id == 'our-hiring-process' or cat_name|lower matches '/hiring process/' %}
+              {% if is_hiring_process %}
+                <span class="jump-nav-separator" aria-hidden="true"></span>
+                <a href="#{{ cat_id }}" class="jump-nav-process-link">
+                  {{ cat_name }}
+                </a>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
         </nav>
         {% endif %}
 
@@ -151,11 +172,56 @@
       </section>
     {% endif %}
 
-    {# ===== 4. CONTENT SECTIONS ===== #}
-    {% if content.field_content_sections|render|trim %}
-      <div class="employment-page__sections">
-        {{ content.field_content_sections }}
-      </div>
+    {# ===== 4. CONTENT SECTIONS (Tabbed Interface) ===== #}
+    {% if content_sections_tabs|length > 0 %}
+      {{ attach_library('b5subtheme/content-tabs') }}
+      <section class="employment-page__sections-tabbed" id="about-working-here">
+        <h2 class="section-title text-center">About Working at ILAS</h2>
+
+        {# Tab Navigation #}
+        <nav class="content-tabs-nav" aria-label="Content sections">
+          <ul class="nav nav-tabs content-tabs" id="contentSectionTabs" role="tablist">
+            {% for section in content_sections_tabs %}
+              <li class="nav-item" role="presentation">
+                <button class="nav-link content-tab{% if section.is_first %} active{% endif %}"
+                        id="tab-{{ section.id }}"
+                        data-bs-toggle="tab"
+                        data-bs-target="#panel-{{ section.id }}"
+                        type="button"
+                        role="tab"
+                        aria-controls="panel-{{ section.id }}"
+                        aria-selected="{{ section.is_first ? 'true' : 'false' }}">
+                  <i class="fas {{ section.icon }} content-tab__icon" aria-hidden="true"></i>
+                  <span class="content-tab__label">
+                    <span class="content-tab__label-full">{{ section.tab_label }}</span>
+                    <span class="content-tab__label-short">{{ section.tab_label_short }}</span>
+                  </span>
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+        </nav>
+
+        {# Tab Panels #}
+        <div class="tab-content content-tab-panels" id="contentSectionTabsContent">
+          {% for section in content_sections_tabs %}
+            <div class="tab-pane fade{% if section.is_first %} show active{% endif %} content-tab-panel"
+                 id="panel-{{ section.id }}"
+                 role="tabpanel"
+                 aria-labelledby="tab-{{ section.id }}"
+                 tabindex="0">
+
+              <div class="content-section content-section--{{ section.style }}">
+                <h3 class="content-section__title">{{ section.title }}</h3>
+                <div class="content-section__body content-body">
+                  {{ section.body|raw }}
+                </div>
+              </div>
+
+            </div>
+          {% endfor %}
+        </div>
+      </section>
     {% endif %}
 
     {# ===== 5. BENEFITS SNAPSHOT ===== #}
