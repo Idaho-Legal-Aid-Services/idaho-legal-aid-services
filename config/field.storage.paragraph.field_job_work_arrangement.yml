@@ -16,7 +16,7 @@ settings:
       label: 'Hybrid Eligible'
     -
       value: onsite
-      label: 'On-site'
+      label: On-site
   allowed_values_function: ''
 module: options
 locked: false

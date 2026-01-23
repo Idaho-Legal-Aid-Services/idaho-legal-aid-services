@@ -1,0 +1,72 @@
+disclaimer_text: 'I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'
+enable_global_widget: true
+enable_faq: true
+enable_resources: true
+enable_logging: true
+log_retention_days: 90
+excluded_paths:
+  - /admin
+  - /user/login
+  - /user/password
+canonical_urls:
+  apply: '/apply-for-help'
+  hotline: '/Legal-Advice-Line'
+  offices: '/contact/offices'
+  donate: '/donate'
+  feedback: '/get-involved/feedback'
+  resources: '/what-we-do/resources'
+  forms: '/forms'
+  guides: '/guides'
+  senior_risk_detector: '/resources/legal-risk-detector'
+  faq: '/faq'
+  services: '/services'
+  service_areas:
+    housing: '/legal-help/housing'
+    family: '/legal-help/family'
+    seniors: '/legal-help/seniors'
+    health: '/legal-help/health'
+    consumer: '/legal-help/consumer'
+    civil_rights: '/legal-help/civil-rights'
+faq_node_path: '/faq'
+welcome_message: 'Hello! I can help you find information on our website. What are you looking for today?'
+escalation_message: 'For personalized legal assistance, please contact our Legal Advice Line or apply for help.'
+policy_keywords:
+  legal_advice:
+    - 'should i'
+    - 'what are my chances'
+    - 'is it legal'
+    - 'can i sue'
+    - 'statute'
+    - 'law says'
+    - 'my rights'
+    - 'will i win'
+    - 'case outcome'
+    - 'legal advice'
+    - 'advise me'
+    - 'what should i do'
+  pii_indicators:
+    - '@'
+    - 'my name is'
+    - 'my address'
+    - 'social security'
+    - 'ssn'
+    - 'phone number'
+    - 'date of birth'
+    - 'case number'
+
+# LLM Enhancement Settings (Option 2)
+# Disabled by default - enable after configuring API credentials
+llm:
+  enabled: false
+  provider: 'gemini_api'  # 'gemini_api' or 'vertex_ai'
+  model: 'gemini-1.5-flash'
+  api_key: ''  # For gemini_api provider
+  project_id: ''  # For vertex_ai provider
+  location: 'us-central1'  # For vertex_ai provider
+  service_account_json: ''  # Optional: service account JSON for vertex_ai
+  max_tokens: 150
+  temperature: 0.3
+  enhance_faq: true  # Summarize FAQ results
+  enhance_resources: true  # Summarize resource results
+  enhance_greetings: false  # Generate personalized greetings
+  fallback_on_error: true  # Use rule-based response if LLM fails

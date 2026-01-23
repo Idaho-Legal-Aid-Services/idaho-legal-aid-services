@@ -6,6 +6,7 @@ dependencies:
     - field.field.paragraph.accordion_item.field_accordion_body
     - field.field.paragraph.accordion_item.field_accordion_file
     - field.field.paragraph.accordion_item.field_accordion_title
+    - field.field.paragraph.accordion_item.field_anchor_id
     - field.field.paragraph.accordion_item.field_job_bilingual
     - field.field.paragraph.accordion_item.field_job_date_posted
     - field.field.paragraph.accordion_item.field_job_employment_type
@@ -36,6 +37,14 @@ content:
       rows: 5
       placeholder: ''
     third_party_settings: {  }
+  field_anchor_id:
+    type: string_textfield
+    weight: 3
+    region: content
+    settings:
+      size: 40
+      placeholder: 'e.g., about-us (optional)'
+    third_party_settings: {  }
   field_accordion_file:
     type: media_library_widget
     weight: 2
@@ -60,12 +69,6 @@ content:
   field_job_date_posted:
     type: datetime_default
     weight: 10
-    region: content
-    settings: {  }
-    third_party_settings: {  }
-  field_position_family:
-    type: options_select
-    weight: 9
     region: content
     settings: {  }
     third_party_settings: {  }
@@ -95,6 +98,13 @@ content:
       size: 60
       placeholder: 'e.g., Boise, ID or Remote'
     third_party_settings: {  }
+  field_job_open_until_filled:
+    type: boolean_checkbox
+    weight: 11
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
   field_job_salary_range:
     type: string_textfield
     weight: 14
@@ -109,16 +119,15 @@ content:
     region: content
     settings: {  }
     third_party_settings: {  }
-  field_job_open_until_filled:
-    type: boolean_checkbox
-    weight: 11
-    region: content
-    settings:
-      display_label: true
-    third_party_settings: {  }
   field_job_work_arrangement:
     type: options_select
     weight: 15
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_position_family:
+    type: options_select
+    weight: 9
     region: content
     settings: {  }
     third_party_settings: {  }

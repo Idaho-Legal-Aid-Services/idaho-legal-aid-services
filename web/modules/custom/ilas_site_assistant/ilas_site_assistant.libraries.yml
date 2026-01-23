@@ -1,0 +1,23 @@
+widget:
+  version: 1.0
+  css:
+    theme:
+      css/assistant-widget.css: {}
+  js:
+    js/assistant-widget.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+
+page:
+  version: 1.0
+  css:
+    theme:
+      css/assistant-widget.css: {}
+  js:
+    js/assistant-widget.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once

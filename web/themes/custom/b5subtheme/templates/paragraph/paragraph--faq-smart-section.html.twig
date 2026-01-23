@@ -6,6 +6,11 @@
     - field_faq_section_title (overall title for the FAQ section)
     - field_faq_items (references to the "faq_item" paragraphs)
     - field_search_placeholder (custom placeholder text for search)
+
+  Features:
+    - Semantic anchor IDs for deep-linking (field_anchor_id or auto-generated)
+    - FAQPage schema.org markup for SEO
+    - Search functionality with live results
 #}
 
 {% set paragraph_id = paragraph.entity.id() %}
@@ -76,27 +81,46 @@
   <div class="accordion faq-accordion" id="{{ accordion_id }}">
     {% for item in content.field_faq_items %}
       {% if item['#paragraph'] is defined %}
-        {% set item_id = 'faq-' ~ item['#paragraph'].id() %}
+        {% set faq_para = item['#paragraph'] %}
+        {% set entity_id = faq_para.id() %}
 
-        <div class="accordion-item faq-item">
-          <h2 class="accordion-header" id="heading-{{ item_id }}">
+        {# Generate anchor ID: use field_anchor_id if set, otherwise auto-generate from question #}
+        {% set custom_anchor = faq_para.field_anchor_id.value|default('') %}
+        {% if custom_anchor %}
+          {% set item_anchor = custom_anchor %}
+        {% else %}
+          {# Auto-generate slug from question text #}
+          {% set question_text = faq_para.field_faq_question.value|default('faq-' ~ entity_id) %}
+          {% set item_anchor = question_text
+            |lower
+            |replace({' ': '-', '/': '-', "'": '', '"': '', '?': '', ':': '', '(': '', ')': '', ',': '', '.': '', '!': ''})
+            |slice(0, 80)
+            |trim('-') %}
+        {% endif %}
+
+        {# Internal IDs for Bootstrap collapse (use entity ID for uniqueness) #}
+        {% set collapse_id = 'collapse-faq-' ~ entity_id %}
+        {% set heading_id = 'heading-faq-' ~ entity_id %}
+
+        <div class="accordion-item faq-item" id="{{ item_anchor }}" data-faq-anchor="{{ item_anchor }}">
+          <h2 class="accordion-header" id="{{ heading_id }}">
             <button class="accordion-button collapsed" type="button"
                     data-bs-toggle="collapse"
-                    data-bs-target="#collapse-{{ item_id }}"
+                    data-bs-target="#{{ collapse_id }}"
                     aria-expanded="false"
-                    aria-controls="collapse-{{ item_id }}">
-              {% if item['#paragraph'].field_faq_question.value %}
-                {{ item['#paragraph'].field_faq_question.value }}
+                    aria-controls="{{ collapse_id }}">
+              {% if faq_para.field_faq_question.value %}
+                {{ faq_para.field_faq_question.value }}
               {% endif %}
             </button>
           </h2>
-          <div id="collapse-{{ item_id }}"
+          <div id="{{ collapse_id }}"
                class="accordion-collapse collapse"
-               aria-labelledby="heading-{{ item_id }}"
+               aria-labelledby="{{ heading_id }}"
                data-bs-parent="#{{ accordion_id }}">
             <div class="accordion-body">
-              {% if item['#paragraph'].field_faq_answer.value %}
-                {{ item['#paragraph'].field_faq_answer|view }}
+              {% if faq_para.field_faq_answer.value %}
+                {{ faq_para.field_faq_answer|view }}
               {% endif %}
             </div>
           </div>
@@ -105,3 +129,6 @@
     {% endfor %}
   </div>
 </div>
+
+{{ attach_library('b5subtheme/smart-faq') }}
+{{ attach_library('b5subtheme/accordion-deeplink') }}

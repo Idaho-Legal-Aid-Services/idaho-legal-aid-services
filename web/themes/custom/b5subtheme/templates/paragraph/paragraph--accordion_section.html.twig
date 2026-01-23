@@ -8,6 +8,7 @@
 
   Features:
     - Auto-generates an ID from the title for jump link anchors
+    - Semantic anchor IDs for individual items (field_anchor_id or auto-generated)
     - Uses Bootstrap 5 accordion components
 #}
 
@@ -29,21 +30,39 @@
     {% for item_wrapper in content.field_accordion_items %}
       {% if item_wrapper['#paragraph'] is defined %}
         {% set item = item_wrapper['#paragraph'] %}
-        {% set item_id = 'item-' ~ item.id() %}
+        {% set entity_id = item.id() %}
 
-        <div class="accordion-item">
-          <h2 class="accordion-header" id="heading-{{ item_id }}">
+        {# Generate anchor ID: use field_anchor_id if set, otherwise auto-generate from title #}
+        {% set custom_anchor = item.field_anchor_id.value|default('') %}
+        {% if custom_anchor %}
+          {% set item_anchor = custom_anchor %}
+        {% else %}
+          {# Auto-generate slug from title text #}
+          {% set title_text = item.field_accordion_title.value|default('item-' ~ entity_id) %}
+          {% set item_anchor = title_text
+            |lower
+            |replace({' ': '-', '/': '-', "'": '', '"': '', '?': '', ':': '', '(': '', ')': '', ',': '', '.': '', '!': ''})
+            |slice(0, 80)
+            |trim('-') %}
+        {% endif %}
+
+        {# Internal IDs for Bootstrap collapse (use entity ID for uniqueness) #}
+        {% set collapse_id = 'collapse-' ~ entity_id %}
+        {% set heading_id = 'heading-' ~ entity_id %}
+
+        <div class="accordion-item" id="{{ item_anchor }}" data-accordion-anchor="{{ item_anchor }}">
+          <h2 class="accordion-header" id="{{ heading_id }}">
             <button class="accordion-button collapsed" type="button"
                     data-bs-toggle="collapse"
-                    data-bs-target="#collapse-{{ item_id }}"
+                    data-bs-target="#{{ collapse_id }}"
                     aria-expanded="false"
-                    aria-controls="collapse-{{ item_id }}">
+                    aria-controls="{{ collapse_id }}">
               {{ item.field_accordion_title.value }}
             </button>
           </h2>
-          <div id="collapse-{{ item_id }}"
+          <div id="{{ collapse_id }}"
                class="accordion-collapse collapse"
-               aria-labelledby="heading-{{ item_id }}"
+               aria-labelledby="{{ heading_id }}"
                data-bs-parent="#{{ accordion_id }}">
             <div class="accordion-body">
               {# Body content #}
@@ -76,3 +95,5 @@
     {% endfor %}
   </div>
 </div>
+
+{{ attach_library('b5subtheme/accordion-deeplink') }}

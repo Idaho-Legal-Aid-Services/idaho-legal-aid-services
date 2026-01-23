@@ -1,0 +1,8 @@
+administer ilas site assistant:
+  title: 'Administer ILAS Site Assistant'
+  description: 'Configure settings for the ILAS Site Assistant chatbot.'
+  restrict access: true
+
+view ilas site assistant reports:
+  title: 'View ILAS Site Assistant Reports'
+  description: 'Access analytics and usage reports for the Site Assistant.'

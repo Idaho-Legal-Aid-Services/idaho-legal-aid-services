@@ -1,0 +1,19 @@
+uuid: 37a591c1-a790-46a6-862f-25b5c3bb5b7a
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_anchor_id
+    - paragraphs.paragraphs_type.accordion_item
+id: paragraph.accordion_item.field_anchor_id
+field_name: field_anchor_id
+entity_type: paragraph
+bundle: accordion_item
+label: 'Anchor ID'
+description: 'Optional URL anchor for deep-linking (e.g., "about-us"). Leave blank to auto-generate from title. Use lowercase letters, numbers, and hyphens only.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

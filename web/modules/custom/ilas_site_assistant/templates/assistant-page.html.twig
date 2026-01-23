@@ -1,0 +1,79 @@
+{#
+/**
+ * @file
+ * Template for the ILAS Site Assistant dedicated page.
+ *
+ * Available variables:
+ * - disclaimer: The disclaimer text to display.
+ * - suggestions: Array of quick action suggestions.
+ * - config: Configuration array with welcome_message and canonical_urls.
+ */
+#}
+<div class="ilas-assistant-page" id="ilas-assistant-page">
+  <div class="assistant-container">
+    <header class="assistant-header">
+      <h1 class="visually-hidden">{{ 'ILAS Site Assistant'|t }}</h1>
+      <div class="assistant-icon" aria-hidden="true">
+        <i class="fas fa-comment-dots"></i>
+      </div>
+      <p class="assistant-tagline">{{ 'Find information, forms, guides, and more'|t }}</p>
+    </header>
+
+    {% if disclaimer %}
+    <div class="assistant-disclaimer" role="note" aria-label="{{ 'Important notice'|t }}">
+      <i class="fas fa-info-circle" aria-hidden="true"></i>
+      <span>{{ disclaimer }}</span>
+    </div>
+    {% endif %}
+
+    <div class="assistant-chat" id="assistant-chat" role="log" aria-live="polite" aria-label="{{ 'Chat messages'|t }}">
+      {# Messages will be inserted here by JavaScript #}
+    </div>
+
+    <div class="assistant-suggestions" id="assistant-suggestions" aria-label="{{ 'Quick actions'|t }}">
+      <p class="suggestions-label">{{ 'Quick actions:'|t }}</p>
+      <div class="suggestions-grid">
+        {% for suggestion in suggestions %}
+        <button type="button"
+                class="suggestion-btn"
+                data-action="{{ suggestion.action }}"
+                {% if suggestion.url %}data-url="{{ suggestion.url }}"{% endif %}
+                aria-label="{{ suggestion.label }}">
+          <i class="fas fa-{{ suggestion.icon }}" aria-hidden="true"></i>
+          <span>{{ suggestion.label }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <form class="assistant-input-form" id="assistant-input-form" aria-label="{{ 'Send a message'|t }}">
+      <div class="input-wrapper">
+        <label for="assistant-input" class="visually-hidden">{{ 'Type your question'|t }}</label>
+        <input type="text"
+               id="assistant-input"
+               class="assistant-input"
+               placeholder="{{ 'Type your question...'|t }}"
+               autocomplete="off"
+               maxlength="500"
+               aria-describedby="input-hint">
+        <span id="input-hint" class="visually-hidden">{{ 'Press Enter to send your message'|t }}</span>
+        <button type="submit" class="assistant-send-btn" aria-label="{{ 'Send message'|t }}">
+          <i class="fas fa-paper-plane" aria-hidden="true"></i>
+        </button>
+      </div>
+    </form>
+
+    <footer class="assistant-footer">
+      <p class="footer-text">
+        {{ 'Need personal assistance?'|t }}
+        <a href="{{ config.canonical_urls.hotline }}" class="footer-link" data-assistant-track="hotline_click">
+          {{ 'Call our Hotline'|t }}
+        </a>
+        {{ 'or'|t }}
+        <a href="{{ config.canonical_urls.apply }}" class="footer-link" data-assistant-track="apply_click">
+          {{ 'Apply for Help'|t }}
+        </a>
+      </p>
+    </footer>
+  </div>
+</div>

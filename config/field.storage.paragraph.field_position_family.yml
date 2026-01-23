@@ -19,7 +19,7 @@ settings:
       label: 'Staff Attorney'
     -
       value: paralegal
-      label: 'Paralegal'
+      label: Paralegal
     -
       value: legal_assistant
       label: 'Legal Assistant'

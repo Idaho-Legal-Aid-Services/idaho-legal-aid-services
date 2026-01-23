@@ -50,6 +50,15 @@ down-arrow-accordion:
     - core/once
     - bootstrap5/collapse
 
+accordion-deeplink:
+  version: 1.0
+  js:
+    js/accordion-deeplink.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - bootstrap5/collapse
+
 dropdown-menu:
   version: 1.0
   js:

@@ -1,0 +1,48 @@
+ilas_site_assistant.page:
+  path: '/assistant'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantPageController::page'
+    _title: 'ILAS Site Assistant'
+  requirements:
+    _permission: 'access content'
+
+ilas_site_assistant.api.message:
+  path: '/assistant/api/message'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantApiController::message'
+  methods: [POST]
+  requirements:
+    _permission: 'access content'
+    _csrf_request_header_token: 'TRUE'
+
+ilas_site_assistant.api.suggest:
+  path: '/assistant/api/suggest'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantApiController::suggest'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+
+ilas_site_assistant.api.faq:
+  path: '/assistant/api/faq'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantApiController::faq'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+
+ilas_site_assistant.admin.settings:
+  path: '/admin/config/ilas/site-assistant'
+  defaults:
+    _form: '\Drupal\ilas_site_assistant\Form\AssistantSettingsForm'
+    _title: 'ILAS Site Assistant Settings'
+  requirements:
+    _permission: 'administer ilas site assistant'
+
+ilas_site_assistant.admin.report:
+  path: '/admin/reports/ilas-assistant'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantReportController::report'
+    _title: 'ILAS Site Assistant Report'
+  requirements:
+    _permission: 'view ilas site assistant reports'

@@ -1,0 +1,19 @@
+uuid: eb5a2865-4fd3-4d11-98dd-dd2e227a7d3c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_anchor_id
+    - paragraphs.paragraphs_type.faq_item
+id: paragraph.faq_item.field_anchor_id
+field_name: field_anchor_id
+entity_type: paragraph
+bundle: faq_item
+label: 'Anchor ID'
+description: 'Optional URL anchor for deep-linking (e.g., "eviction-rights"). Leave blank to auto-generate from question text. Use lowercase letters, numbers, and hyphens only.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

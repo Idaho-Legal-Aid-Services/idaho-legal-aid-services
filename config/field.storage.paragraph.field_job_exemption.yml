@@ -13,7 +13,7 @@ settings:
   allowed_values:
     -
       value: exempt
-      label: 'Exempt'
+      label: Exempt
     -
       value: non_exempt
       label: 'Non Exempt'

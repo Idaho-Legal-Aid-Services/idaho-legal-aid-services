@@ -6,6 +6,7 @@ dependencies:
     - field.field.paragraph.accordion_item.field_accordion_body
     - field.field.paragraph.accordion_item.field_accordion_file
     - field.field.paragraph.accordion_item.field_accordion_title
+    - field.field.paragraph.accordion_item.field_anchor_id
     - field.field.paragraph.accordion_item.field_job_date_posted
     - field.field.paragraph.accordion_item.field_job_valid_through
     - field.field.paragraph.accordion_item.field_job_location
@@ -46,6 +47,7 @@ hidden:
   entity_print_view_epub: true
   entity_print_view_pdf: true
   entity_print_view_word_docx: true
+  field_anchor_id: true
   field_job_date_posted: true
   field_job_employment_type: true
   field_job_location: true

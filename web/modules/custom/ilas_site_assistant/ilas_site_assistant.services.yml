@@ -1,0 +1,28 @@
+services:
+  ilas_site_assistant.intent_router:
+    class: Drupal\ilas_site_assistant\Service\IntentRouter
+    arguments: ['@config.factory', '@ilas_site_assistant.topic_resolver']
+
+  ilas_site_assistant.topic_resolver:
+    class: Drupal\ilas_site_assistant\Service\TopicResolver
+    arguments: ['@entity_type.manager', '@cache.default']
+
+  ilas_site_assistant.faq_index:
+    class: Drupal\ilas_site_assistant\Service\FaqIndex
+    arguments: ['@entity_type.manager', '@cache.default', '@config.factory', '@language_manager']
+
+  ilas_site_assistant.resource_finder:
+    class: Drupal\ilas_site_assistant\Service\ResourceFinder
+    arguments: ['@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager']
+
+  ilas_site_assistant.analytics_logger:
+    class: Drupal\ilas_site_assistant\Service\AnalyticsLogger
+    arguments: ['@database', '@config.factory', '@datetime.time']
+
+  ilas_site_assistant.policy_filter:
+    class: Drupal\ilas_site_assistant\Service\PolicyFilter
+    arguments: ['@config.factory']
+
+  ilas_site_assistant.llm_enhancer:
+    class: Drupal\ilas_site_assistant\Service\LlmEnhancer
+    arguments: ['@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter']

@@ -1,0 +1,12 @@
+name: 'ILAS Site Assistant'
+type: module
+description: 'A site-scoped chatbot assistant for Idaho Legal Aid Services that helps users find resources, FAQs, and navigate to appropriate services without providing legal advice.'
+package: Custom
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - drupal:taxonomy
+  - drupal:user
+  - drupal:views
+  - drupal:search_api
+  - drupal:paragraphs

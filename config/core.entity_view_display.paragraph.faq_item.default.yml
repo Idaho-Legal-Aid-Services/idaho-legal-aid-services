@@ -3,6 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.field.paragraph.faq_item.field_anchor_id
     - field.field.paragraph.faq_item.field_faq_answer
     - field.field.paragraph.faq_item.field_faq_question
     - paragraphs.paragraphs_type.faq_item
@@ -29,4 +30,5 @@ content:
     weight: 0
     region: content
 hidden:
+  field_anchor_id: true
   search_api_excerpt: true

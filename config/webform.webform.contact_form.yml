@@ -19,7 +19,21 @@ id: contact_form
 title: Contact
 description: '<p>A basic site-wide contact form for your website. Submissions are stored as well as emailed to the site administrator.</p>'
 categories: {  }
-elements: "name:\n  '#type': textfield\n  '#title': Name\n  '#required': true\nemail:\n  '#type': email\n  '#title': Email\n  '#required': true\nmessage:\n  '#type': textarea\n  '#title': Message\n  '#required': true\ncaptcha:\n  '#type': captcha"
+elements: |-
+  name:
+    '#type': textfield
+    '#title': Name
+    '#required': true
+  email:
+    '#type': email
+    '#title': Email
+    '#required': true
+  message:
+    '#type': textarea
+    '#title': Message
+    '#required': true
+  captcha:
+    '#type': captcha
 css: ''
 javascript: ''
 settings:
@@ -243,4 +257,3 @@ handlers:
       parameters: {  }
       debug: false
 variants: {  }
-

@@ -41,35 +41,6 @@ settings:
         - justify
         - left
         - right
-    ckeditor5_style:
-      styles:
-        -
-          label: 'Info Callout'
-          element: '<p class="callout-info">'
-        -
-          label: 'Highlight Callout'
-          element: '<p class="callout-highlight">'
-        -
-          label: 'Warning Callout'
-          element: '<p class="callout-warning">'
-        -
-          label: 'Danger Callout'
-          element: '<p class="callout-danger">'
-        -
-          label: 'Pull Quote'
-          element: '<blockquote class="pull-quote">'
-        -
-          label: 'Check List'
-          element: '<ul class="check-list">'
-        -
-          label: 'Stat Callout'
-          element: '<div class="callout-stat">'
-        -
-          label: 'Stat Number'
-          element: '<span class="stat-number">'
-        -
-          label: 'Stat Label'
-          element: '<span class="stat-label">'
     ckeditor5_codeBlock:
       languages:
         -
@@ -139,6 +110,35 @@ settings:
       allowed_tags:
         - '<script>'
         - '<iframe>'
+    ckeditor5_style:
+      styles:
+        -
+          label: 'Info Callout'
+          element: '<p class="callout-info">'
+        -
+          label: 'Highlight Callout'
+          element: '<p class="callout-highlight">'
+        -
+          label: 'Warning Callout'
+          element: '<p class="callout-warning">'
+        -
+          label: 'Danger Callout'
+          element: '<p class="callout-danger">'
+        -
+          label: 'Pull Quote'
+          element: '<blockquote class="pull-quote">'
+        -
+          label: 'Check List'
+          element: '<ul class="check-list">'
+        -
+          label: 'Stat Callout'
+          element: '<div class="callout-stat">'
+        -
+          label: 'Stat Number'
+          element: '<span class="stat-number">'
+        -
+          label: 'Stat Label'
+          element: '<span class="stat-label">'
     media_media:
       allow_view_mode_override: false
 image_upload:

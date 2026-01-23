@@ -1,0 +1,118 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for ILAS Site Assistant module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function ilas_site_assistant_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.ilas_site_assistant':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The ILAS Site Assistant is a site-scoped chatbot that helps users find FAQs, resources, forms, and guides without providing legal advice.') . '</p>';
+      $output .= '<h3>' . t('Features') . '</h3>';
+      $output .= '<ul>';
+      $output .= '<li>' . t('FAQ search and display') . '</li>';
+      $output .= '<li>' . t('Resource/Form/Guide finder by topic') . '</li>';
+      $output .= '<li>' . t('Service area navigation') . '</li>';
+      $output .= '<li>' . t('Policy enforcement (no legal advice)') . '</li>';
+      $output .= '<li>' . t('Privacy-first analytics') . '</li>';
+      $output .= '</ul>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function ilas_site_assistant_theme($existing, $type, $theme, $path) {
+  return [
+    'ilas_site_assistant_page' => [
+      'variables' => [
+        'disclaimer' => NULL,
+        'suggestions' => [],
+        'config' => [],
+      ],
+      'template' => 'assistant-page',
+    ],
+    'ilas_site_assistant_widget' => [
+      'variables' => [
+        'disclaimer' => NULL,
+        'config' => [],
+      ],
+      'template' => 'assistant-widget',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_page_attachments().
+ */
+function ilas_site_assistant_page_attachments(array &$attachments) {
+  $config = \Drupal::config('ilas_site_assistant.settings');
+
+  // Only attach widget if enabled globally.
+  if (!$config->get('enable_global_widget')) {
+    return;
+  }
+
+  // Get current path to exclude certain pages.
+  $current_path = \Drupal::service('path.current')->getPath();
+  $excluded_paths = $config->get('excluded_paths') ?? [];
+
+  foreach ($excluded_paths as $path) {
+    if (strpos($current_path, $path) === 0) {
+      return;
+    }
+  }
+
+  // Attach the widget library.
+  $attachments['#attached']['library'][] = 'ilas_site_assistant/widget';
+
+  // Pass configuration to JavaScript.
+  $attachments['#attached']['drupalSettings']['ilasSiteAssistant'] = [
+    'apiBase' => '/assistant/api',
+    'csrfToken' => \Drupal::csrfToken()->get('rest'),
+    'disclaimer' => $config->get('disclaimer_text') ?? t('I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'),
+    'enableFaq' => $config->get('enable_faq') ?? TRUE,
+    'enableResources' => $config->get('enable_resources') ?? TRUE,
+    'canonicalUrls' => ilas_site_assistant_get_canonical_urls(),
+  ];
+}
+
+/**
+ * Returns the canonical URLs for the site assistant.
+ *
+ * @return array
+ *   Array of canonical URLs keyed by identifier.
+ */
+function ilas_site_assistant_get_canonical_urls() {
+  $config = \Drupal::config('ilas_site_assistant.settings');
+
+  return $config->get('canonical_urls') ?? [
+    'apply' => '/apply-for-help',
+    'hotline' => '/Legal-Advice-Line',
+    'offices' => '/contact/offices',
+    'donate' => '/donate',
+    'feedback' => '/get-involved/feedback',
+    'resources' => '/what-we-do/resources',
+    'forms' => '/forms',
+    'guides' => '/guides',
+    'senior_risk_detector' => '/resources/legal-risk-detector',
+    'faq' => '/faq',
+    'services' => '/services',
+    'service_areas' => [
+      'housing' => '/legal-help/housing',
+      'family' => '/legal-help/family',
+      'seniors' => '/legal-help/seniors',
+      'health' => '/legal-help/health',
+      'consumer' => '/legal-help/consumer',
+      'civil_rights' => '/legal-help/civil-rights',
+    ],
+  ];
+}

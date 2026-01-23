@@ -1,0 +1,155 @@
+ilas_site_assistant.settings:
+  type: config_object
+  label: 'ILAS Site Assistant settings'
+  mapping:
+    disclaimer_text:
+      type: string
+      label: 'Disclaimer text'
+    enable_global_widget:
+      type: boolean
+      label: 'Enable global widget'
+    enable_faq:
+      type: boolean
+      label: 'Enable FAQ answers'
+    enable_resources:
+      type: boolean
+      label: 'Enable resource/form/guide search'
+    enable_logging:
+      type: boolean
+      label: 'Enable analytics logging'
+    log_retention_days:
+      type: integer
+      label: 'Log retention days'
+    excluded_paths:
+      type: sequence
+      label: 'Excluded paths'
+      sequence:
+        type: string
+        label: 'Path'
+    canonical_urls:
+      type: mapping
+      label: 'Canonical URLs'
+      mapping:
+        apply:
+          type: string
+          label: 'Apply for Help URL'
+        hotline:
+          type: string
+          label: 'Hotline URL'
+        offices:
+          type: string
+          label: 'Offices URL'
+        donate:
+          type: string
+          label: 'Donate URL'
+        feedback:
+          type: string
+          label: 'Feedback URL'
+        resources:
+          type: string
+          label: 'Resources URL'
+        forms:
+          type: string
+          label: 'Forms URL'
+        guides:
+          type: string
+          label: 'Guides URL'
+        senior_risk_detector:
+          type: string
+          label: 'Senior Risk Detector URL'
+        faq:
+          type: string
+          label: 'FAQ URL'
+        services:
+          type: string
+          label: 'Services URL'
+        service_areas:
+          type: mapping
+          label: 'Service area URLs'
+          mapping:
+            housing:
+              type: string
+              label: 'Housing URL'
+            family:
+              type: string
+              label: 'Family URL'
+            seniors:
+              type: string
+              label: 'Seniors URL'
+            health:
+              type: string
+              label: 'Health URL'
+            consumer:
+              type: string
+              label: 'Consumer URL'
+            civil_rights:
+              type: string
+              label: 'Civil Rights URL'
+    faq_node_path:
+      type: string
+      label: 'FAQ node path'
+    welcome_message:
+      type: string
+      label: 'Welcome message'
+    escalation_message:
+      type: string
+      label: 'Escalation message'
+    policy_keywords:
+      type: mapping
+      label: 'Policy keywords'
+      mapping:
+        legal_advice:
+          type: sequence
+          label: 'Legal advice keywords'
+          sequence:
+            type: string
+            label: 'Keyword'
+        pii_indicators:
+          type: sequence
+          label: 'PII indicator keywords'
+          sequence:
+            type: string
+            label: 'Keyword'
+    llm:
+      type: mapping
+      label: 'LLM Enhancement Settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable LLM enhancement'
+        provider:
+          type: string
+          label: 'LLM provider (gemini_api or vertex_ai)'
+        model:
+          type: string
+          label: 'Model name'
+        api_key:
+          type: string
+          label: 'Gemini API key'
+        project_id:
+          type: string
+          label: 'Google Cloud project ID'
+        location:
+          type: string
+          label: 'Vertex AI location'
+        service_account_json:
+          type: string
+          label: 'Service account JSON'
+        max_tokens:
+          type: integer
+          label: 'Maximum output tokens'
+        temperature:
+          type: float
+          label: 'Temperature (0.0-1.0)'
+        enhance_faq:
+          type: boolean
+          label: 'Enhance FAQ responses'
+        enhance_resources:
+          type: boolean
+          label: 'Enhance resource responses'
+        enhance_greetings:
+          type: boolean
+          label: 'Enhance greeting responses'
+        fallback_on_error:
+          type: boolean
+          label: 'Fallback to rule-based on LLM error'

@@ -3,6 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.field.paragraph.faq_item.field_anchor_id
     - field.field.paragraph.faq_item.field_faq_answer
     - field.field.paragraph.faq_item.field_faq_question
     - paragraphs.paragraphs_type.faq_item
@@ -13,6 +14,14 @@ targetEntityType: paragraph
 bundle: faq_item
 mode: default
 content:
+  field_anchor_id:
+    type: string_textfield
+    weight: 2
+    region: content
+    settings:
+      size: 40
+      placeholder: 'e.g., eviction-rights (optional)'
+    third_party_settings: {  }
   field_faq_answer:
     type: text_textarea
     weight: 1

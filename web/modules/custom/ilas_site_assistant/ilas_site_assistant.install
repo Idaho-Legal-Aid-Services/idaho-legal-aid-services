@@ -1,0 +1,125 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the ILAS Site Assistant module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function ilas_site_assistant_schema() {
+  $schema = [];
+
+  // Aggregated analytics table (no PII).
+  $schema['ilas_site_assistant_stats'] = [
+    'description' => 'Stores aggregated non-PII analytics for the Site Assistant.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'event_type' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Type of event (chat_open, topic_selected, resource_click, etc.)',
+      ],
+      'event_value' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'description' => 'Event value (topic name, URL path, etc.) - no PII',
+      ],
+      'count' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+        'description' => 'Aggregated count for this event type/value combination.',
+      ],
+      'date' => [
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'description' => 'Date in YYYY-MM-DD format.',
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'event_date' => ['event_type', 'date'],
+      'event_value' => ['event_type', 'event_value'],
+    ],
+    'unique keys' => [
+      'event_date_value' => ['event_type', 'event_value', 'date'],
+    ],
+  ];
+
+  // Sanitized "no_answer" queries for content gap analysis.
+  $schema['ilas_site_assistant_no_answer'] = [
+    'description' => 'Stores sanitized queries that had no matching results.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'query_hash' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => 'Hash of sanitized query for deduplication.',
+      ],
+      'sanitized_query' => [
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+        'description' => 'Truncated, sanitized query text (no PII).',
+      ],
+      'count' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ],
+      'first_seen' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Unix timestamp when first recorded.',
+      ],
+      'last_seen' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Unix timestamp when last recorded.',
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'query_hash' => ['query_hash'],
+    ],
+    'indexes' => [
+      'count' => ['count'],
+      'last_seen' => ['last_seen'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function ilas_site_assistant_install() {
+  \Drupal::messenger()->addStatus(t('ILAS Site Assistant installed. Configure at /admin/config/ilas/site-assistant'));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function ilas_site_assistant_uninstall() {
+  // Remove configuration.
+  \Drupal::configFactory()->getEditable('ilas_site_assistant.settings')->delete();
+}
