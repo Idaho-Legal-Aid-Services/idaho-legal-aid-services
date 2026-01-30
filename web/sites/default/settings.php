@@ -71,18 +71,72 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
 
 
 /**
- * SMTP password override via environment variable.
+ * Helper: retrieve a secret value.
  *
- * The symfony_mailer_lite SMTP transport password is injected at runtime
- * from the SMTP_PASSWORD environment variable. This keeps the credential
- * out of exported config YAML and version control.
+ * On Pantheon: uses pantheon_get_secret() (natively available on the platform).
+ *   Secrets MUST be type "runtime", scope "web".
+ * Locally (DDEV): falls back to getenv(), so you can set values in .ddev/.env.
  *
- * On Pantheon: set via Site Dashboard → Secrets, key "SMTP_PASSWORD", scope "Web".
+ * @param string $name
+ *   The secret name (same key used in Pantheon Dashboard and in .ddev/.env).
+ *
+ * @return string|false
+ *   The secret value, or FALSE if not set.
+ */
+function _ilas_get_secret(string $name) {
+  // Pantheon runtime secrets (type: runtime, scope: web).
+  if (function_exists('pantheon_get_secret')) {
+    $val = pantheon_get_secret($name);
+    if ($val !== FALSE && $val !== '') {
+      return $val;
+    }
+  }
+  // Local / DDEV fallback: read from environment variable.
+  return getenv($name);
+}
+
+/**
+ * SMTP password override.
+ *
+ * On Pantheon: type "runtime", scope "web", key "SMTP_PASSWORD".
  * Locally (DDEV): add SMTP_PASSWORD=<value> to .ddev/.env, then ddev restart.
  */
-$smtp_pass = getenv('SMTP_PASSWORD');
+$smtp_pass = _ilas_get_secret('SMTP_PASSWORD');
 if ($smtp_pass) {
   $config['symfony_mailer_lite.symfony_mailer_lite_transport.smtp']['configuration']['pass'] = $smtp_pass;
+}
+
+/**
+ * Cloudflare Turnstile keys override.
+ *
+ * The Turnstile module stores its site key and secret key inside the Key
+ * module's config entity "cloudflare_turnstile_keys". The config provider is
+ * "config", which reads from key_provider_settings.key_value (a JSON string).
+ * By overriding that JSON at runtime, `drush cim` cannot wipe the keys.
+ *
+ * On Pantheon: type "runtime", scope "web":
+ *   TURNSTILE_SITE_KEY
+ *   TURNSTILE_SECRET_KEY
+ * Locally (DDEV): add to .ddev/.env, then ddev restart.
+ */
+$turnstile_site_key   = _ilas_get_secret('TURNSTILE_SITE_KEY');
+$turnstile_secret_key = _ilas_get_secret('TURNSTILE_SECRET_KEY');
+if ($turnstile_site_key || $turnstile_secret_key) {
+  $config['key.key.cloudflare_turnstile_keys']['key_provider_settings']['key_value'] = json_encode([
+    'site_key'   => $turnstile_site_key ?: '',
+    'secret_key' => $turnstile_secret_key ?: '',
+  ]);
+}
+
+/**
+ * TMGMT Google Translate API key override.
+ *
+ * On Pantheon: type "runtime", scope "web", key "TMGMT_GOOGLE_API_KEY".
+ * Locally (DDEV): add TMGMT_GOOGLE_API_KEY=<value> to .ddev/.env, then ddev restart.
+ */
+$tmgmt_google_key = _ilas_get_secret('TMGMT_GOOGLE_API_KEY');
+if ($tmgmt_google_key) {
+  $config['tmgmt.translator.google']['settings']['api_key'] = $tmgmt_google_key;
 }
 
 /**

@@ -316,13 +316,16 @@ class EmploymentApplicationController extends ControllerBase {
       return TRUE;
     }
 
-    // If deadline is set, check if it's in the future
-    $deadlineTimestamp = strtotime($validThrough);
-    if ($deadlineTimestamp && $deadlineTimestamp >= $now) {
-      return TRUE; // Deadline hasn't passed yet
+    // If deadline is set, check if it's in the future.
+    // The field stores date-only values (Y-m-d), so strtotime() returns
+    // midnight UTC on the deadline day. To keep the job active through the
+    // entire calendar day, compare against the start of the NEXT day.
+    $dayAfterDeadline = strtotime($validThrough . ' +1 day');
+    if ($dayAfterDeadline && $dayAfterDeadline > $now) {
+      return TRUE; // Still within the deadline day
     }
 
-    // Deadline has passed and job is not open_until_filled
+    // Deadline day has fully passed and job is not open_until_filled
     return FALSE;
   }
 
