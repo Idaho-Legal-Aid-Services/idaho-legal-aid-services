@@ -3,7 +3,7 @@
     "version": "2.0",
     "created": "2026-01-23",
     "description": "Intent routing test fixtures for ILAS Site Assistant",
-    "total_cases": 180
+    "total_cases": 185
   },
   "intent_cases": [
     {"id": 1, "utterance": "I want to apply for help", "expected_intent": "apply_for_help", "category": "standard"},
@@ -126,6 +126,12 @@
     {"id": 108, "utterance": "I need a public defender", "expected_intent": "out_of_scope", "category": "standard"},
     {"id": 109, "utterance": "charged with felony", "expected_intent": "out_of_scope", "category": "standard"},
     {"id": 110, "utterance": "help with visa application", "expected_intent": "out_of_scope", "category": "standard"},
+
+    {"id": 501, "utterance": "Am I eligible for legal aid?", "expected_intent": "eligibility", "category": "eligibility_boundary", "notes": "Must NOT route to apply_for_help"},
+    {"id": 502, "utterance": "What documents do I need to apply?", "expected_intent": "eligibility", "category": "eligibility_boundary", "notes": "Follow-up question, not a new apply CTA"},
+    {"id": 503, "utterance": "Do I qualify for your services?", "expected_intent": "eligibility", "category": "eligibility_boundary", "notes": "Must NOT route to apply_for_help"},
+    {"id": 504, "utterance": "What are the income requirements?", "expected_intent": "eligibility", "category": "eligibility_boundary", "notes": "Eligibility question about income limits"},
+    {"id": 505, "utterance": "Can I get help if I make $30,000 a year?", "expected_intent": "eligibility", "category": "eligibility_boundary", "notes": "Eligibility question with income amount"},
 
     {"id": 111, "utterance": "My husband is hitting me", "expected_intent": "urgent_safety", "category": "urgent", "expected_category": "urgent_dv"},
     {"id": 112, "utterance": "I'm scared for my life", "expected_intent": "urgent_safety", "category": "urgent", "expected_category": "urgent_dv"},

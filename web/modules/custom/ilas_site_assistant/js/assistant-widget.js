@@ -92,13 +92,16 @@
     /**
      * Call after appending a new message to the container.
      * Conditionally scrolls or shows the jump button.
+     *
+     * @param {HTMLElement} [messageEl] - The newly appended message element.
+     *   Used to detect tall messages and scroll to their top instead of the
+     *   container bottom.
      */
-    onNewContent: function () {
-      // Check position BEFORE the browser has a chance to lay out the new content.
+    onNewContent: function (messageEl) {
       // Use the cached isAtBottom from the last scroll event, which reflects
       // the state just before the append.
       if (this.isAtBottom) {
-        this._scrollToBottomRaf();
+        this._scrollToBottomRaf(messageEl || null);
       } else {
         this.hasNewContent = true;
         this._showJumpBtn();
@@ -107,15 +110,34 @@
 
     /**
      * Scroll container to bottom using requestAnimationFrame to wait for layout.
+     *
+     * When a message element is provided and is taller than the visible area,
+     * scrolls to the top of that message so the user sees the beginning.
+     * Otherwise scrolls to the container bottom as usual.
+     *
+     * @param {HTMLElement|null} messageEl - The newly appended message element.
      */
-    _scrollToBottomRaf: function () {
+    _scrollToBottomRaf: function (messageEl) {
       var self = this;
       requestAnimationFrame(function () {
-        self.container.scrollTop = self.container.scrollHeight;
-        self.isAtBottom = true;
-        if (SCROLL_DEBUG) {
-          console.log('[ScrollManager] auto-scrolled to bottom');
+        if (messageEl && messageEl.offsetHeight > self.container.clientHeight) {
+          // Message is taller than the visible area: scroll to show its
+          // beginning so the user can start reading from the top.
+          var rect = messageEl.getBoundingClientRect();
+          var containerRect = self.container.getBoundingClientRect();
+          self.container.scrollTop += rect.top - containerRect.top;
+          if (SCROLL_DEBUG) {
+            console.log('[ScrollManager] scrolled to top of tall message');
+          }
+        } else {
+          // Message fits within viewport: scroll to bottom as usual.
+          self.container.scrollTop = self.container.scrollHeight;
+          if (SCROLL_DEBUG) {
+            console.log('[ScrollManager] auto-scrolled to bottom');
+          }
         }
+        // Re-evaluate position after programmatic scroll.
+        self._checkIsAtBottom();
       });
     },
 
@@ -922,8 +944,10 @@
       }
 
       // Conditionally scroll: only if user is near bottom.
+      // Pass the message element so the scroll manager can detect tall
+      // messages and scroll to their top instead of the container bottom.
       if (this.scrollManager) {
-        this.scrollManager.onNewContent();
+        this.scrollManager.onNewContent(messageEl);
       } else {
         // Fallback for edge case where scroll manager isn't ready.
         chat.scrollTop = chat.scrollHeight;
@@ -976,7 +1000,7 @@
 
       // Conditionally scroll.
       if (this.scrollManager) {
-        this.scrollManager.onNewContent();
+        this.scrollManager.onNewContent(typing);
       } else {
         chat.scrollTop = chat.scrollHeight;
       }

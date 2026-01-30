@@ -392,8 +392,38 @@ class AssistantApiController extends ControllerBase {
       return new JsonResponse($response_data);
     }
 
-    // Route the intent.
-    $intent = $this->intentRouter->route($user_message, $context);
+    // Quick-action short-circuit: when the request comes from a suggestion
+    // button click, bypass all classifiers/routers and use the action directly.
+    // This prevents NavigationIntent, Disambiguator, or TopicRouter from
+    // hijacking deterministic button clicks (e.g. "Apply" returning FAQ).
+    $quick_action_intents = [
+      'apply' => 'apply_for_help',
+      'hotline' => 'legal_advice_line',
+      'forms' => 'forms_finder',
+      'guides' => 'guides_finder',
+      'faq' => 'faq',
+      'topics' => 'services_overview',
+    ];
+    $quick_action = $context['quickAction'] ?? NULL;
+    if ($quick_action && isset($quick_action_intents[$quick_action])) {
+      $intent = [
+        'type' => $quick_action_intents[$quick_action],
+        'confidence' => 1.0,
+        'source' => 'quick_action',
+        'extraction' => [],
+      ];
+
+      if ($debug_mode) {
+        $debug_meta['intent_selected'] = $intent['type'];
+        $debug_meta['intent_source'] = 'quick_action';
+        $debug_meta['intent_confidence'] = 1.0;
+        $debug_meta['processing_stages'][] = 'quick_action_shortcircuit';
+      }
+    }
+    else {
+      // Route the intent via normal classification pipeline.
+      $intent = $this->intentRouter->route($user_message, $context);
+    }
 
     if ($debug_mode) {
       $debug_meta['intent_selected'] = $intent['type'];
@@ -430,7 +460,9 @@ class AssistantApiController extends ControllerBase {
     }
 
     // Handle gate decision.
-    if ($gate_decision['decision'] === FallbackGate::DECISION_FALLBACK_LLM && $this->llmEnhancer->isEnabled()) {
+    // Never override quick-action intents — they are deterministic button clicks.
+    $is_quick_action = ($intent['source'] ?? '') === 'quick_action';
+    if (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_FALLBACK_LLM && $this->llmEnhancer->isEnabled()) {
       // Try LLM classification for low-confidence cases.
       $llm_intent = $this->llmEnhancer->classifyIntent($user_message, $intent['type']);
       if ($llm_intent !== 'unknown' && $llm_intent !== $intent['type']) {
@@ -444,7 +476,7 @@ class AssistantApiController extends ControllerBase {
         }
       }
     }
-    elseif ($gate_decision['decision'] === FallbackGate::DECISION_CLARIFY) {
+    elseif (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_CLARIFY) {
       // Force clarification response.
       $intent = ['type' => 'clarify', 'original_intent' => $intent['type'], 'extraction' => $intent['extraction'] ?? []];
 

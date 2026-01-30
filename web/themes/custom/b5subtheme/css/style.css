@@ -35059,7 +35059,9 @@ html {
   position: sticky;
   bottom: 8px;
   z-index: 2;
-  display: inline-flex;
+  display: flex;
+  width: -moz-max-content;
+  width: max-content;
   margin: 0.5rem auto 0;
   align-items: center;
   gap: 0.25rem;
@@ -35449,6 +35451,57 @@ html {
   .cta-button {
     min-height: 44px;
   }
+}
+
+.apply-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.apply-method {
+  padding: 0.75rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.25rem;
+  background: #ffffff;
+}
+.apply-method__heading {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1263a0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.apply-method__heading i {
+  font-size: 0.9rem;
+}
+.apply-method__desc {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #212529;
+}
+.apply-method__secondary-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #1263a0;
+  text-decoration: underline;
+}
+.apply-method__secondary-link:hover {
+  color: rgb(12.8426966292, 70.6348314607, 114.1573033708);
+}
+.apply-method .cta-button {
+  margin-top: 0.125rem;
+}
+
+.apply-followup {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #6c757d;
 }
 
 .escalation-actions {

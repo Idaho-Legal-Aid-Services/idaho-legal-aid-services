@@ -68,7 +68,6 @@ class AssistantPageController extends ControllerBase {
         'label' => $this->t('Apply for Help'),
         'icon' => 'hands-helping',
         'action' => 'apply',
-        'url' => $canonical_urls['apply'],
       ],
       [
         'label' => $this->t('Call Hotline'),

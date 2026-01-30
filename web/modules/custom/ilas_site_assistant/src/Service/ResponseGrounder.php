@@ -19,7 +19,7 @@ class ResponseGrounder {
     'hotline' => [
       'number' => '(208) 746-7541',
       'toll_free' => '1-866-345-0106',
-      'hours' => 'Monday-Thursday 9am-4pm, Friday 9am-12pm',
+      'hours' => 'Monday–Wednesday, 10:00 a.m.–1:30 p.m. Mountain (9:00 a.m.–12:30 p.m. Pacific). Phone intakes are closed Thursday/Friday.',
     ],
     'offices' => [
       'boise' => [

@@ -37,14 +37,6 @@ content:
       rows: 5
       placeholder: ''
     third_party_settings: {  }
-  field_anchor_id:
-    type: string_textfield
-    weight: 3
-    region: content
-    settings:
-      size: 40
-      placeholder: 'e.g., about-us (optional)'
-    third_party_settings: {  }
   field_accordion_file:
     type: media_library_widget
     weight: 2
@@ -59,6 +51,14 @@ content:
     settings:
       size: 60
       placeholder: ''
+    third_party_settings: {  }
+  field_anchor_id:
+    type: string_textfield
+    weight: 3
+    region: content
+    settings:
+      size: 40
+      placeholder: 'e.g., about-us (optional)'
     third_party_settings: {  }
   field_job_bilingual:
     type: options_select

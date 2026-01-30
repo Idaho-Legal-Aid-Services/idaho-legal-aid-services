@@ -46,6 +46,9 @@ Disallow: /composer/Template/README.txt
 Disallow: /modules/README.txt
 Disallow: /sites/README.txt
 Disallow: /themes/README.txt
+# Entity Print / PDF routes (not used publicly, block bot crawling)
+Disallow: /print/
+Disallow: /entityprint/
 # Paths (clean URLs)
 Disallow: /admin/
 Disallow: /comment/reply/

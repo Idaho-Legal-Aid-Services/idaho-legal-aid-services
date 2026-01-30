@@ -11,5 +11,5 @@ auto_accept: true
 weight: -10
 plugin: google
 settings:
-  api_key: ***REDACTED***
+  api_key: ''
 remote_languages_mappings: {  }

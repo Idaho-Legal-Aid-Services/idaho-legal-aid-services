@@ -268,7 +268,10 @@
   bottom: 8px;
   z-index: 2;
   // Center horizontally within the chat container.
-  display: inline-flex;
+  // display: flex (block-level) + width: max-content + margin: auto
+  // ensures the button shrink-wraps its content and centers via auto margins.
+  display: flex;
+  width: max-content;
   margin: $spacer-sm auto 0;
   align-items: center;
   gap: $spacer-xs;
@@ -693,6 +696,67 @@
   @include mobile {
     min-height: 44px;
   }
+}
+
+// =============================================================================
+// APPLY CTA – Three application methods (online / phone / in-person)
+// =============================================================================
+.apply-methods {
+  display: flex;
+  flex-direction: column;
+  gap: $spacer-sm * 1.5;
+  margin-top: $spacer-sm;
+}
+
+.apply-method {
+  padding: $spacer-sm * 1.5;
+  border: 1px solid $color-gray-border-light;
+  border-radius: $border-radius-sm;
+  background: $color-white;
+
+  &__heading {
+    margin: 0 0 $spacer-sm * 0.5;
+    font-size: 1rem;
+    font-weight: $weight-button;
+    color: $color-primary;
+    display: flex;
+    align-items: center;
+    gap: $spacer-sm * 0.5;
+
+    i {
+      font-size: 0.9rem;
+    }
+  }
+
+  &__desc {
+    margin: 0 0 $spacer-sm;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: $color-body;
+  }
+
+  &__secondary-link {
+    display: inline-block;
+    margin-top: $spacer-sm * 0.5;
+    font-size: 0.85rem;
+    color: $color-primary;
+    text-decoration: underline;
+
+    &:hover {
+      color: darken($color-primary, 10%);
+    }
+  }
+
+  // Space the CTA button and secondary link.
+  .cta-button {
+    margin-top: $spacer-sm * 0.25;
+  }
+}
+
+.apply-followup {
+  margin-top: $spacer-sm;
+  font-size: 0.9rem;
+  color: $color-gray-text;
 }
 
 // Escalation Actions

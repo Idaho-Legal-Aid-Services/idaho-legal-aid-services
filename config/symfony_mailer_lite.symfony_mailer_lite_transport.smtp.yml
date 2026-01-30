@@ -7,7 +7,7 @@ label: 'Gmail SMTP'
 plugin: smtp
 configuration:
   user: noreply@idaholegalaid.org
-  pass: ***REDACTED***
+  pass: ''
   pass_key: ''
   use_key_module: false
   host: smtp.gmail.com

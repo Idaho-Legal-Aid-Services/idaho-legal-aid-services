@@ -125,4 +125,53 @@ class ApplyCtaResponseTest extends TestCase {
     $this->assertStringContainsString('legalserver.org', $urls['online_application']);
   }
 
+  /**
+   * Tests that apply response type is never 'faq'.
+   *
+   * Regression: Clicking Apply must return CTA, never FAQ dump.
+   */
+  public function testApplyNeverReturnsFaqType(): void {
+    $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
+    $this->assertNotEquals('faq', $response['type'],
+      'apply_for_help must never return type=faq');
+
+    $response = $this->builder->buildFromIntent(['type' => 'apply']);
+    $this->assertNotEquals('faq', $response['type'],
+      'apply (legacy) must never return type=faq');
+  }
+
+  /**
+   * Tests that apply response includes all three canonical URLs.
+   *
+   * Regression: The CTA must include online app, phone, and office links.
+   */
+  public function testApplyResponseIncludesAllThreeLinks(): void {
+    $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
+
+    // Primary action must be the online application (LegalServer).
+    $this->assertStringContainsString('legalserver.org', $response['primary_action']['url'],
+      'Primary action must link to LegalServer online intake');
+
+    // Secondary actions must include phone and office.
+    $secondary_urls = array_column($response['secondary_actions'], 'url');
+    $this->assertContains('tel:208-746-7541', $secondary_urls,
+      'Secondary actions must include phone number');
+    $this->assertContains('/contact/offices', $secondary_urls,
+      'Secondary actions must include offices link');
+  }
+
+  /**
+   * Tests that eligibility intent does NOT return apply_cta type.
+   *
+   * Regression: "Am I eligible?" and "What documents do I need?" should
+   * route to eligibility/FAQ, not to the Apply CTA.
+   */
+  public function testEligibilityIsNotApplyCta(): void {
+    $response = $this->builder->buildFromIntent(['type' => 'eligibility']);
+
+    $this->assertNotEquals('apply_cta', $response['type'],
+      'eligibility intent must not return type=apply_cta');
+    $this->assertEquals('eligibility', $response['type']);
+  }
+
 }

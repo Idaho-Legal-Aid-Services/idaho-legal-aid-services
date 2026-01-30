@@ -1,4 +1,0 @@
-# Keep directory but ignore all report files
-*.json
-*.md
-!.gitignore

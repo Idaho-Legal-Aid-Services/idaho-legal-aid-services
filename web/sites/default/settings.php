@@ -66,6 +66,22 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
 
 
 /**
+ * SMTP password override via environment variable.
+ *
+ * The symfony_mailer_lite SMTP transport password is injected at runtime
+ * from the SMTP_PASSWORD environment variable. This keeps the credential
+ * out of exported config YAML and version control.
+ *
+ * On Pantheon, set it via:
+ *   terminus secret:set <site>.<env> SMTP_PASSWORD <value> --scope=web
+ * Locally (DDEV), add to .ddev/.env or export before `ddev start`.
+ */
+$smtp_pass = getenv('SMTP_PASSWORD');
+if ($smtp_pass) {
+  $config['symfony_mailer_lite.symfony_mailer_lite_transport.smtp']['configuration']['pass'] = $smtp_pass;
+}
+
+/**
  * Include DDEV settings if present.
  * Safe: this file doesn't exist on Pantheon.
  */

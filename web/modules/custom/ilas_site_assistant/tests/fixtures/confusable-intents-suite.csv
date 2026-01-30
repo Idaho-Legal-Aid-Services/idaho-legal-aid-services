@@ -33,3 +33,6 @@
 "ayuda","ambiguous","Ask clarifying question","","no","Spanish: help (too vague)","apply,services"
 "formularios","ambiguous","Ask clarifying question","","no","Spanish: forms (which?)","forms"
 "como puedo aplicar para ayuda y tambien necesito formularios","multi_intent","/apply-for-help","/forms","no","Spanish multi-intent","apply,forms"
+"am I eligible","eligibility","/apply-for-help","","no","Eligibility question - NOT apply CTA","apply_for_help"
+"what documents do I need to apply","eligibility","/apply-for-help","","no","Eligibility follow-up - NOT apply CTA","apply_for_help,faq"
+"do I qualify for help","eligibility","/apply-for-help","","no","Eligibility question - NOT apply CTA","apply_for_help"
