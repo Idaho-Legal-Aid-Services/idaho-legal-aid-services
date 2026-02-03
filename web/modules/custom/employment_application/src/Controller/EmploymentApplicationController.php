@@ -590,6 +590,14 @@ class EmploymentApplicationController extends ControllerBase {
         \Drupal::logger('employment_application')->info('Processing FormData submission with files');
 
         // =================================================================
+        // CSRF VALIDATION
+        // =================================================================
+        if (!$this->validateCsrfToken($request)) {
+          \Drupal::logger('employment_application')->warning('Invalid CSRF token from @ip', ['@ip' => $ip]);
+          return $this->errorResponse('Invalid security token.', Response::HTTP_FORBIDDEN);
+        }
+
+        // =================================================================
         // JOB UUID VALIDATION (TAMPER-RESISTANT)
         // =================================================================
         $jobUuid = $request->request->get('job_uuid', '');
@@ -647,6 +655,14 @@ class EmploymentApplicationController extends ControllerBase {
             'success' => TRUE,
             'message' => 'Application submitted successfully.',
           ]);
+        }
+
+        // =================================================================
+        // CSRF VALIDATION (JSON)
+        // =================================================================
+        if (!$this->validateCsrfTokenFromJson($jsonData)) {
+          \Drupal::logger('employment_application')->warning('Invalid CSRF token (JSON) from @ip', ['@ip' => $ip]);
+          return $this->errorResponse('Invalid security token.', Response::HTTP_FORBIDDEN);
         }
 
         // =================================================================

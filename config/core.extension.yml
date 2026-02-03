@@ -50,7 +50,7 @@ module:
   editor: 0
   editor_advanced_link: 0
   editoria11y: 0
-  employment_application: 0
+  employment_application: 1
   entity_reference_revisions: 0
   field: 0
   field_group: 0
