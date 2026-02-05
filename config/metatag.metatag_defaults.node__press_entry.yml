@@ -6,17 +6,17 @@ id: node__press_entry
 label: 'Content: Press Entry'
 tags:
   title: '[node:title] | Press Room | [site:name]'
-  description: '[node:field_body:summary|[node:title]. Press release from Idaho Legal Aid Services — a nonprofit law firm providing free civil legal help to low-income Idahoans.]'
+  description: '[node:field_seo_description|node:field_body:summary]'
   og_type: article
   og_title: '[node:title]'
-  og_description: '[node:field_body:summary|[node:title]. Press release from Idaho Legal Aid Services.]'
-  twitter_cards_description: '[node:field_body:summary|[node:title]. Press release from Idaho Legal Aid Services.]'
+  og_description: '[node:field_seo_description|node:field_body:summary]'
+  twitter_cards_description: '[node:field_seo_description|node:field_body:summary]'
   schema_article_type: NewsArticle
   schema_article_id: '[node:url]#article'
   schema_article_name: '[node:title]'
   schema_article_headline: '[node:title]'
-  schema_article_description: '[node:field_body:summary|[node:title]. Press release from Idaho Legal Aid Services.]'
-  schema_article_image: '[node:field_featured_image:entity:field_media_image:url|node:field_seo_image:entity:field_media_image:url|https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg]'
+  schema_article_description: '[node:field_seo_description|node:field_body:summary]'
+  schema_article_image: '[node:field_featured_image:entity:field_media_image:url|node:field_seo_image:entity:field_media_image:url]'
   schema_article_date_published: '[node:field_publication_date:date:custom:c|node:created:custom:c]'
   schema_article_date_modified: '[node:changed:custom:c]'
   schema_article_author: 'a:2:{s:5:"@type";s:12:"Organization";s:3:"@id";s:42:"https://idaholegalaid.org/#organization";}'
@@ -24,3 +24,8 @@ tags:
   schema_article_main_entity_of_page: '[node:url]'
   schema_article_is_accessible_for_free: 'True'
   schema_article_article_section: 'Press Room'
+  schema_web_page_type: WebPage
+  schema_web_page_id: '[node:url]#webpage'
+  schema_web_page_name: '[node:title]'
+  schema_web_page_description: '[node:field_seo_description|node:field_body:summary]'
+  schema_web_page_is_part_of: 'a:2:{s:5:"@type";s:7:"WebSite";s:3:"@id";s:38:"https://idaholegalaid.org/#website";}'

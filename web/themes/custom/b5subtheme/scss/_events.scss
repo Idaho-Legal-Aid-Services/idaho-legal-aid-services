@@ -57,12 +57,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-width: 140px;
     padding: 0.625rem 1.5rem;
     font-family: $font-family-sans-serif;
     font-weight: $font-weight-semibold;
     font-size: 1rem;
     text-decoration: none;
     text-transform: uppercase;
+    text-align: center;
     letter-spacing: 0.03em;
     border: 2px solid $color-primary;
     transition: $transition-base;

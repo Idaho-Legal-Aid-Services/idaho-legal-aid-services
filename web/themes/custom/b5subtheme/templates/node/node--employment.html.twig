@@ -72,6 +72,16 @@
           {% set job_posting = job_posting|merge({'employmentType': job_item.field_job_employment_type.value}) %}
         {% endif %}
 
+        {% if job_item.field_job_salary_range.value %}
+          {% set job_posting = job_posting|merge({
+            'baseSalary': {
+              '@type': 'MonetaryAmount',
+              'currency': 'USD',
+              'value': job_item.field_job_salary_range.value
+            }
+          }) %}
+        {% endif %}
+
         {% set job_postings = job_postings|merge([job_posting]) %}
       {% endif %}
     {% endfor %}

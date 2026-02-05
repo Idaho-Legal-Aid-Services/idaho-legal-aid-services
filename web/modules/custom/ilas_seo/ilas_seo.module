@@ -6,6 +6,7 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\node\NodeInterface;
 
 /**
  * Implements hook_page_attachments_alter().
@@ -101,14 +102,18 @@ function ilas_seo_page_attachments_alter(array &$attachments) {
 /**
  * Implements hook_metatags_alter().
  *
- * Ensures metatag module respects our noindex rules.
+ * Fixes schema.org structured data and ensures metatag correctness:
+ * - Converts SmartDate Unix timestamps to ISO 8601 for Event schema.
+ * - Sets conditional eventAttendanceMode based on event format field.
+ * - Builds properly structured location schema for events.
+ * - Ensures Article/NewsArticle schema always has an image property.
+ * - Enforces noindex for search/pagination/auto-translated pages.
  */
 function ilas_seo_metatags_alter(array &$metatags, array &$context) {
   $request = \Drupal::request();
   $route_name = \Drupal::routeMatch()->getRouteName();
 
-  // Same logic as above - check if we should noindex.
-  // Note: /forms and /guides main pages are indexed (in sitemap).
+  // --- Noindex enforcement ---
   $noindex_routes = [
     'view.search.page_1',
     'view.site_search.page_1',
@@ -117,13 +122,11 @@ function ilas_seo_metatags_alter(array &$metatags, array &$context) {
 
   $should_noindex = in_array($route_name, $noindex_routes);
 
-  // Check pagination.
   $page = $request->query->get('page');
   if (!empty($page) && is_numeric($page) && (int) $page > 0) {
     $should_noindex = TRUE;
   }
 
-  // Noindex auto-translated language paths.
   $current_language = \Drupal::languageManager()->getCurrentLanguage()->getId();
   if (in_array($current_language, ['sw', 'nl'], TRUE)) {
     $should_noindex = TRUE;
@@ -132,4 +135,231 @@ function ilas_seo_metatags_alter(array &$metatags, array &$context) {
   if ($should_noindex) {
     $metatags['robots'] = 'noindex, follow';
   }
+
+  // --- Schema fixes (require entity context) ---
+  $entity = $context['entity'] ?? NULL;
+  if (!$entity instanceof NodeInterface) {
+    return;
+  }
+
+  $bundle = $entity->bundle();
+
+  // === Fix Event schema (dates, attendance mode, location) ===
+  if ($bundle === 'event') {
+    _ilas_seo_fix_event_schema($metatags, $entity);
+  }
+
+  // === Fix Article/NewsArticle image ===
+  if (in_array($bundle, ['press_entry', 'resource', 'news'], TRUE)) {
+    _ilas_seo_fix_article_image($metatags, $entity);
+  }
+}
+
+/**
+ * Fixes Event schema: dates to ISO 8601, attendance mode, and location.
+ *
+ * @param array $metatags
+ *   The metatag values array (pre-token-replacement).
+ * @param \Drupal\node\NodeInterface $node
+ *   The event node entity.
+ */
+function _ilas_seo_fix_event_schema(array &$metatags, NodeInterface $node): void {
+  // --- Fix dates: read SmartDate field directly, format as ISO 8601 ---
+  if ($node->hasField('field_event__date') && !$node->get('field_event__date')->isEmpty()) {
+    $date_item = $node->get('field_event__date')->first();
+    $timezone_string = $date_item->timezone ?? 'America/Boise';
+    $timezone = new \DateTimeZone($timezone_string);
+
+    $start_value = $date_item->value;
+    if (is_numeric($start_value)) {
+      $dt = new \DateTime('@' . (int) $start_value);
+      $dt->setTimezone($timezone);
+      $metatags['schema_event_start_date'] = $dt->format('c');
+    }
+
+    $end_value = $date_item->end_value;
+    if (is_numeric($end_value)) {
+      $dt = new \DateTime('@' . (int) $end_value);
+      $dt->setTimezone($timezone);
+      $metatags['schema_event_end_date'] = $dt->format('c');
+    }
+  }
+
+  // --- Fix attendance mode based on event format field ---
+  $format = 'in_person';
+  if ($node->hasField('field_event__format') && !$node->get('field_event__format')->isEmpty()) {
+    $format = $node->get('field_event__format')->value;
+  }
+
+  switch ($format) {
+    case 'online':
+      $metatags['schema_event_event_attendance_mode'] = 'OnlineEventAttendanceMode';
+      // Build VirtualLocation with join URL from the event link field.
+      $virtual_url = $node->toUrl()->setAbsolute()->toString();
+      if ($node->hasField('field_event__link') && !$node->get('field_event__link')->isEmpty()) {
+        $link_item = $node->get('field_event__link')->first();
+        $link_url = $link_item->getUrl();
+        if ($link_url) {
+          $virtual_url = $link_url->setAbsolute()->toString();
+        }
+      }
+      $metatags['schema_event_location'] = serialize([
+        '@type' => 'VirtualLocation',
+        'url' => $virtual_url,
+      ]);
+      break;
+
+    case 'hybrid':
+      $metatags['schema_event_event_attendance_mode'] = 'MixedEventAttendanceMode';
+      // For hybrid: build an array with both physical Place and VirtualLocation.
+      $locations = [];
+
+      // Physical location.
+      $place = _ilas_seo_build_event_place($node);
+      if ($place) {
+        $locations[] = $place;
+      }
+
+      // Virtual location.
+      $virtual_url = $node->toUrl()->setAbsolute()->toString();
+      if ($node->hasField('field_event__link') && !$node->get('field_event__link')->isEmpty()) {
+        $link_item = $node->get('field_event__link')->first();
+        $link_url = $link_item->getUrl();
+        if ($link_url) {
+          $virtual_url = $link_url->setAbsolute()->toString();
+        }
+      }
+      $locations[] = [
+        '@type' => 'VirtualLocation',
+        'url' => $virtual_url,
+      ];
+
+      $metatags['schema_event_location'] = serialize($locations);
+      break;
+
+    default:
+      // In-person (default).
+      $metatags['schema_event_event_attendance_mode'] = 'OfflineEventAttendanceMode';
+      $place = _ilas_seo_build_event_place($node);
+      if ($place) {
+        $metatags['schema_event_location'] = serialize($place);
+      }
+      break;
+  }
+
+  // --- Fix event image fallback ---
+  $image_url = _ilas_seo_get_node_image_url($node);
+  if ($image_url) {
+    $metatags['schema_event_image'] = $image_url;
+  }
+}
+
+/**
+ * Builds a Place schema array from an event node's location fields.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The event node.
+ *
+ * @return array|null
+ *   A Place schema array, or NULL if no location data is available.
+ */
+function _ilas_seo_build_event_place(NodeInterface $node): ?array {
+  $location_name = '';
+  if ($node->hasField('field_event__location_name') && !$node->get('field_event__location_name')->isEmpty()) {
+    $location_name = $node->get('field_event__location_name')->value;
+  }
+
+  $place = [
+    '@type' => 'Place',
+    'name' => $location_name,
+  ];
+
+  // Build structured PostalAddress from Address module field.
+  if ($node->hasField('field_event__location_address') && !$node->get('field_event__location_address')->isEmpty()) {
+    $address = $node->get('field_event__location_address')->first();
+    $postal_address = [
+      '@type' => 'PostalAddress',
+      'addressCountry' => $address->country_code ?: 'US',
+    ];
+
+    if (!empty($address->address_line1)) {
+      $postal_address['streetAddress'] = $address->address_line1;
+      if (!empty($address->address_line2)) {
+        $postal_address['streetAddress'] .= ', ' . $address->address_line2;
+      }
+    }
+    if (!empty($address->locality)) {
+      $postal_address['addressLocality'] = $address->locality;
+    }
+    if (!empty($address->administrative_area)) {
+      $postal_address['addressRegion'] = $address->administrative_area;
+    }
+    if (!empty($address->postal_code)) {
+      $postal_address['postalCode'] = $address->postal_code;
+    }
+
+    $place['address'] = $postal_address;
+  }
+
+  // Only return if we have at least a name or address.
+  if (empty($location_name) && !isset($place['address'])) {
+    return NULL;
+  }
+
+  return $place;
+}
+
+/**
+ * Ensures Article/NewsArticle schema has an image property.
+ *
+ * Sets the schema_article_image directly from the entity's media fields,
+ * bypassing token resolution which may fail for some field configurations.
+ *
+ * @param array $metatags
+ *   The metatag values array.
+ * @param \Drupal\node\NodeInterface $node
+ *   The article node entity.
+ */
+function _ilas_seo_fix_article_image(array &$metatags, NodeInterface $node): void {
+  $image_url = _ilas_seo_get_node_image_url($node);
+  if ($image_url) {
+    $metatags['schema_article_image'] = $image_url;
+  }
+  elseif (empty($metatags['schema_article_image'])) {
+    // Fallback to organization logo if no image is available.
+    $metatags['schema_article_image'] = 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg';
+  }
+}
+
+/**
+ * Extracts the absolute URL of a node's featured/SEO image.
+ *
+ * Checks field_seo_image first, then field_featured_image.
+ *
+ * @param \Drupal\node\NodeInterface $node
+ *   The node entity.
+ *
+ * @return string|null
+ *   The absolute image URL, or NULL if no image is available.
+ */
+function _ilas_seo_get_node_image_url(NodeInterface $node): ?string {
+  $image_fields = ['field_seo_image', 'field_featured_image'];
+
+  foreach ($image_fields as $field_name) {
+    if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+      continue;
+    }
+
+    $media = $node->get($field_name)->entity;
+    if (!$media || !$media->hasField('field_media_image') || $media->get('field_media_image')->isEmpty()) {
+      continue;
+    }
+
+    $file = $media->get('field_media_image')->entity;
+    if ($file) {
+      return \Drupal::service('file_url_generator')->generateAbsoluteString($file->getFileUri());
+    }
+  }
+
+  return NULL;
 }

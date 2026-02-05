@@ -12,13 +12,12 @@ tags:
   og_site_name: '[site:name]'
   og_url: '[current-page:url:absolute]'
   og_description: 'Free civil legal assistance for low-income Idahoans from Idaho Legal Aid Services.'
+  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg'
+  og_image_alt: 'Idaho Legal Aid Services'
   og_locale: en_US
   referrer: strict-origin-when-cross-origin
   rights: 'Copyright ©[date:html_year] Idaho Legal Aid Services. All rights reserved.'
-  shortlink: '[current-page:url:unaliased]'
   title: '[current-page:title] | [site:name]'
-  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg'
-  og_image_alt: 'Idaho Legal Aid Services'
   twitter_cards_type: summary
   twitter_cards_site: '@IdahoLegalAid'
   twitter_cards_description: 'Free civil legal assistance for low-income Idahoans from Idaho Legal Aid Services.'

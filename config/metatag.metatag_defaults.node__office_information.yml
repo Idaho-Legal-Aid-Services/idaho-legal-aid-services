@@ -7,6 +7,7 @@ label: 'Content: Office Information'
 tags:
   title: '[node:title] | Office Locations | [site:name]'
   description: 'Contact Idaho Legal Aid Services [node:title] for free legal assistance. Open Monday-Friday 8:30am-4:30pm. Serving [node:field_county].'
+  og_type: website
   schema_organization_type: LegalService
   schema_organization_additional_type: LocalBusiness
   schema_organization_id: '[node:url]#organization'

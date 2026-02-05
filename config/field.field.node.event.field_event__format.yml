@@ -1,0 +1,23 @@
+uuid: b2c3d4e5-f6a7-8901-bcde-f12345678902
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_event__format
+    - node.type.event
+  module:
+    - options
+id: node.event.field_event__format
+field_name: field_event__format
+entity_type: node
+bundle: event
+label: 'Event Format'
+description: 'Select how this event will be held. Controls schema.org eventAttendanceMode for Google rich results. For online events, include a join URL in the Event Link field.'
+required: true
+translatable: false
+default_value:
+  -
+    value: in_person
+default_value_callback: ''
+settings: {  }
+field_type: list_string
