@@ -6,3 +6,8 @@ administer ilas site assistant:
 view ilas site assistant reports:
   title: 'View ILAS Site Assistant Reports'
   description: 'Access analytics and usage reports for the Site Assistant.'
+
+view ilas site assistant conversations:
+  title: 'View Site Assistant Conversation Logs'
+  description: 'Access PII-redacted conversation logs for QA/debugging. Contains sensitive user queries.'
+  restrict access: true

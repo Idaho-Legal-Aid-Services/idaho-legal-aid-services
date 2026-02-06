@@ -19,6 +19,7 @@
 #}
 
 {# Get field values #}
+{% set pub_date_raw = node.field_publication_date.date ? node.field_publication_date.date|date('Y-m-d') : '' %}
 {% set pub_date = node.field_publication_date.date ? node.field_publication_date.date|date('F j, Y') : '' %}
 {% set byline = node.field_byline.value|default('ILAS Communications') %}
 {% set topic_name = node.field_press_topic.entity ? node.field_press_topic.entity.name.value : '' %}
@@ -35,7 +36,9 @@
       {# Date and Author - left aligned #}
       <div class="press-entry-meta">
         {% if pub_date %}
-          <span class="press-entry-date">{{ pub_date }}</span>
+          <span class="press-entry-date">
+            <time datetime="{{ pub_date_raw }}">{{ pub_date }}</time>
+          </span>
         {% endif %}
         {% if pub_date and byline %}
           <span class="press-entry-separator">|</span>

@@ -23,37 +23,56 @@
 
 {{ attach_library('b5subtheme/sticky-jobs-bar') }}
 
-{# ========== JobPosting Schema (preserved from original) ========== #}
+{# ========== JobPosting Schema for Google Jobs ========== #}
+{#
+  Location type logic based on field_job_work_arrangement:
+  - 'hybrid' = TELECOMMUTE + physical Place (mixed/hybrid)
+  - 'onsite' = physical Place only (in-person)
+  - empty/other = physical Place only (default to in-person)
+
+  Note: If fully remote jobs are added, add 'remote' value to
+  field_job_work_arrangement and handle with TELECOMMUTE only (no Place).
+#}
 {% set job_postings = [] %}
 {% for category in node.field_job_listings %}
   {% if category.entity %}
     {% for item_ref in category.entity.field_category_jobs %}
       {% if item_ref.entity and item_ref.entity.field_job_date_posted.value %}
         {% set job_item = item_ref.entity %}
+        {% set work_arrangement = job_item.field_job_work_arrangement.value|default('') %}
+
+        {# Base job posting structure #}
         {% set job_posting = {
           '@type': 'JobPosting',
           'title': job_item.field_accordion_title.value,
-          'description': job_item.field_accordion_body.value|striptags,
+          'description': job_item.field_accordion_body.value,
           'datePosted': job_item.field_job_date_posted.value,
           'hiringOrganization': {
             '@type': 'NGO',
             '@id': 'https://idaholegalaid.org/#organization',
             'name': 'Idaho Legal Aid Services',
             'sameAs': 'https://idaholegalaid.org',
-            'logo': 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg'
-          },
-          'jobLocationType': 'TELECOMMUTE',
-          'applicantLocationRequirements': {
-            '@type': 'State',
-            'name': 'Idaho'
+            'logo': 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
           }
         } %}
 
-        {# Add optional fields if populated #}
+        {# Add jobLocationType for hybrid jobs (allows remote work) #}
+        {% if work_arrangement == 'hybrid' %}
+          {% set job_posting = job_posting|merge({
+            'jobLocationType': 'TELECOMMUTE',
+            'applicantLocationRequirements': {
+              '@type': 'State',
+              'name': 'Idaho'
+            }
+          }) %}
+        {% endif %}
+
+        {# Add optional validThrough #}
         {% if job_item.field_job_valid_through.value %}
           {% set job_posting = job_posting|merge({'validThrough': job_item.field_job_valid_through.value}) %}
         {% endif %}
 
+        {# Add jobLocation for all jobs with a location (in-person or hybrid) #}
         {% if job_item.field_job_location.value %}
           {% set job_posting = job_posting|merge({
             'jobLocation': {
@@ -68,16 +87,22 @@
           }) %}
         {% endif %}
 
+        {# Add employment type #}
         {% if job_item.field_job_employment_type.value %}
           {% set job_posting = job_posting|merge({'employmentType': job_item.field_job_employment_type.value}) %}
         {% endif %}
 
+        {# Add salary using QuantitativeValue structure per Google's spec #}
         {% if job_item.field_job_salary_range.value %}
           {% set job_posting = job_posting|merge({
             'baseSalary': {
               '@type': 'MonetaryAmount',
               'currency': 'USD',
-              'value': job_item.field_job_salary_range.value
+              'value': {
+                '@type': 'QuantitativeValue',
+                'value': job_item.field_job_salary_range.value,
+                'unitText': 'YEAR'
+              }
             }
           }) %}
         {% endif %}
@@ -88,10 +113,13 @@
   {% endif %}
 {% endfor %}
 
-{# Output JobPosting schema if we have any job listings #}
+{# Output JobPosting schema with proper @context wrapper #}
 {% if job_postings|length > 0 %}
 <script type="application/ld+json">
-{{ job_postings|json_encode(constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_PRETTY_PRINT'))|raw }}
+{
+  "@context": "https://schema.org",
+  "@graph": {{ job_postings|json_encode(constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_PRETTY_PRINT'))|raw }}
+}
 </script>
 {% endif %}
 

@@ -61,16 +61,14 @@ function ilas_seo_page_attachments_alter(array &$attachments) {
     $should_noindex = TRUE;
   }
 
-  // Check for exposed filter parameters on views.
-  // Common filter parameters that indicate a filtered/faceted page.
+  // Check for exposed filter parameters that indicate a filtered/faceted page.
+  // These parameters should trigger noindex regardless of route type to prevent
+  // crawl waste on parameterized URLs.
   $filter_params = ['keys', 'search', 'category', 'topic', 'type', 'sort_by', 'sort_order'];
   foreach ($filter_params as $param) {
     if ($request->query->has($param)) {
-      // Only noindex if it's a views page with filters.
-      if (str_starts_with($route_name ?? '', 'view.')) {
-        $should_noindex = TRUE;
-        break;
-      }
+      $should_noindex = TRUE;
+      break;
     }
   }
 
@@ -149,9 +147,33 @@ function ilas_seo_metatags_alter(array &$metatags, array &$context) {
     _ilas_seo_fix_event_schema($metatags, $entity);
   }
 
-  // === Fix Article/NewsArticle image ===
-  if (in_array($bundle, ['press_entry', 'resource', 'news'], TRUE)) {
+  // === Fix Article/NewsArticle image, inLanguage, and about property ===
+  if (in_array($bundle, ['press_entry', 'resource', 'news', 'legal_content'], TRUE)) {
     _ilas_seo_fix_article_image($metatags, $entity);
+    // Add inLanguage for better multi-language schema understanding.
+    $metatags['schema_article_in_language'] = $entity->language()->getId();
+
+    // Fix 'about' property to use Thing structure (resource and legal_content).
+    if (in_array($bundle, ['resource', 'legal_content'], TRUE)) {
+      $about_name = '';
+      if ($entity->hasField('field_service_areas') && !$entity->get('field_service_areas')->isEmpty()) {
+        $term = $entity->get('field_service_areas')->entity;
+        if ($term) {
+          $about_name = $term->label();
+        }
+      }
+      if (!empty($about_name)) {
+        $metatags['schema_article_about'] = serialize([
+          '@type' => 'Thing',
+          'name' => $about_name,
+        ]);
+      }
+    }
+  }
+
+  // === Add mainEntityOfPage to Event schema ===
+  if ($bundle === 'event') {
+    $metatags['schema_event_main_entity_of_page'] = $entity->toUrl()->setAbsolute()->toString();
   }
 }
 
@@ -327,7 +349,7 @@ function _ilas_seo_fix_article_image(array &$metatags, NodeInterface $node): voi
   }
   elseif (empty($metatags['schema_article_image'])) {
     // Fallback to organization logo if no image is available.
-    $metatags['schema_article_image'] = 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg';
+    $metatags['schema_article_image'] = 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png';
   }
 }
 

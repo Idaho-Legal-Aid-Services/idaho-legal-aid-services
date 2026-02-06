@@ -15,3 +15,31 @@ links:
     path: /events
     priority: '0.7'
     changefreq: daily
+  -
+    path: /press-room
+    priority: '0.7'
+    changefreq: daily
+  -
+    path: /what-we-do/resource
+    priority: '0.8'
+    changefreq: weekly
+  -
+    path: /about-idaho-legal-aid-services
+    priority: '0.5'
+    changefreq: monthly
+  -
+    path: /donate
+    priority: '0.6'
+    changefreq: monthly
+  -
+    path: /apply-for-help
+    priority: '0.8'
+    changefreq: monthly
+  -
+    path: /contact/offices
+    priority: '0.6'
+    changefreq: monthly
+  -
+    path: /careers/employment-opportunities
+    priority: '0.6'
+    changefreq: weekly

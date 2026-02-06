@@ -122,3 +122,16 @@ function ilas_site_assistant_get_canonical_urls() {
   // Merge so that missing keys (e.g. online_application) always have a value.
   return array_merge($defaults, $urls);
 }
+
+/**
+ * Implements hook_cron().
+ */
+function ilas_site_assistant_cron() {
+  // Clean up expired analytics data.
+  \Drupal::service('ilas_site_assistant.analytics_logger')->cleanupOldData();
+
+  // Clean up expired conversation logs.
+  if (\Drupal::hasService('ilas_site_assistant.conversation_logger')) {
+    \Drupal::service('ilas_site_assistant.conversation_logger')->cleanup();
+  }
+}

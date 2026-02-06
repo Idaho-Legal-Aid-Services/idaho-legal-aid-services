@@ -183,6 +183,23 @@
     isOpen: false,
     isPageMode: false,
     messageHistory: [],
+    conversationId: null,
+
+    /**
+     * Generate an ephemeral conversation ID (UUID v4).
+     *
+     * Lives only in this browser tab's JS state. Not persisted.
+     */
+    generateConversationId: function () {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      // Fallback for older browsers.
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    },
 
     /**
      * Initialize the assistant.
@@ -190,6 +207,7 @@
     init: function (config) {
       this.config = config;
       this.isPageMode = config.pageMode || false;
+      this.conversationId = this.generateConversationId();
 
       if (this.isPageMode) {
         this.initPageMode();
@@ -508,6 +526,7 @@
         method: 'POST',
         body: JSON.stringify({
           message: message,
+          conversation_id: this.conversationId,
           context: {
             history: this.messageHistory.slice(-5),
           },
@@ -577,6 +596,7 @@
         method: 'POST',
         body: JSON.stringify({
           message: message,
+          conversation_id: this.conversationId,
           context: { quickAction: action },
         }),
       })

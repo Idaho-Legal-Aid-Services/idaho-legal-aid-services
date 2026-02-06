@@ -16,7 +16,7 @@ tags:
   schema_article_name: '[node:title]'
   schema_article_headline: '[node:title]'
   schema_article_description: '[node:field_seo_description|node:field_body:summary]'
-  schema_article_image: '[node:field_featured_image:entity:field_media_image:url|node:field_seo_image:entity:field_media_image:url]'
+  schema_article_image: '[node:field_seo_image:entity:field_media_image:url|node:field_featured_image:entity:field_media_image:url]'
   schema_article_date_published: '[node:field_publication_date:date:custom:c|node:created:custom:c]'
   schema_article_date_modified: '[node:changed:custom:c]'
   schema_article_author: 'a:2:{s:5:"@type";s:12:"Organization";s:3:"@id";s:42:"https://idaholegalaid.org/#organization";}'

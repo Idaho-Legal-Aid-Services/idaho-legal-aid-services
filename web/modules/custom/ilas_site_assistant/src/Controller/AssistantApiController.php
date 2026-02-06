@@ -18,6 +18,8 @@ use Drupal\ilas_site_assistant\Service\SafetyResponseTemplates;
 use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
+use Drupal\Core\Flood\FloodInterface;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -126,6 +128,20 @@ class AssistantApiController extends ControllerBase {
   protected $performanceMonitor;
 
   /**
+   * The flood service for rate limiting.
+   *
+   * @var \Drupal\Core\Flood\FloodInterface
+   */
+  protected $flood;
+
+  /**
+   * The cache backend for conversation state.
+   *
+   * @var \Drupal\Core\Cache\CacheBackendInterface
+   */
+  protected $conversationCache;
+
+  /**
    * Constructs an AssistantApiController object.
    */
   public function __construct(
@@ -164,7 +180,7 @@ class AssistantApiController extends ControllerBase {
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
-    return new static(
+    $instance = new static(
       $container->get('config.factory'),
       $container->get('ilas_site_assistant.intent_router'),
       $container->get('ilas_site_assistant.faq_index'),
@@ -180,6 +196,9 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.out_of_scope_response_templates') ? $container->get('ilas_site_assistant.out_of_scope_response_templates') : NULL,
       $container->has('ilas_site_assistant.performance_monitor') ? $container->get('ilas_site_assistant.performance_monitor') : NULL
     );
+    $instance->flood = $container->get('flood');
+    $instance->conversationCache = $container->get('cache.default');
+    return $instance;
   }
 
   /**
@@ -192,10 +211,32 @@ class AssistantApiController extends ControllerBase {
    *   JSON response with assistant reply.
    */
   public function message(Request $request) {
+    // Rate limiting — keyed by client IP.
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $ip = $request->getClientIp();
+    $flood_id = 'ilas_assistant:' . $ip;
+    $per_min = (int) ($config->get('rate_limit_per_minute') ?? 15);
+    $per_hr = (int) ($config->get('rate_limit_per_hour') ?? 120);
+
+    if (!$this->flood->isAllowed('ilas_assistant_min', $per_min, 60, $flood_id)) {
+      return new JsonResponse([
+        'error' => 'Too many requests. Please wait a moment before trying again.',
+        'type' => 'rate_limit',
+      ], 429, ['Retry-After' => '60']);
+    }
+    if (!$this->flood->isAllowed('ilas_assistant_hr', $per_hr, 3600, $flood_id)) {
+      return new JsonResponse([
+        'error' => 'You have reached the hourly limit. Please try again later.',
+        'type' => 'rate_limit',
+      ], 429, ['Retry-After' => '3600']);
+    }
+    $this->flood->register('ilas_assistant_min', 60, $flood_id);
+    $this->flood->register('ilas_assistant_hr', 3600, $flood_id);
+
     // Start performance tracking.
     $start_time = microtime(TRUE);
 
-    // Check for DEBUG mode (env var or request flag).
+    // Check for DEBUG mode (server-side env var only).
     $debug_mode = $this->isDebugMode($request);
 
     // Initialize debug metadata.
@@ -237,6 +278,31 @@ class AssistantApiController extends ControllerBase {
 
     $user_message = $this->sanitizeInput($data['message']);
     $context = $data['context'] ?? [];
+
+    // Parse ephemeral conversation ID (client-generated UUID).
+    $conversation_id = NULL;
+    $server_history = [];
+    if (!empty($data['conversation_id']) && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $data['conversation_id'])) {
+      $conversation_id = $data['conversation_id'];
+      $cache_key = 'ilas_conv:' . $conversation_id;
+      $cached = $this->conversationCache->get($cache_key);
+      if ($cached) {
+        $server_history = $cached->data;
+      }
+
+      // Abuse detection: repeated identical messages.
+      if (count($server_history) >= 3) {
+        $recent_messages = array_column(array_slice($server_history, -3), 'text');
+        if (count(array_unique($recent_messages)) === 1 && $recent_messages[0] === mb_substr($user_message, 0, 200)) {
+          return new JsonResponse([
+            'type' => 'escalation',
+            'escalation_type' => 'repeated',
+            'message' => (string) $this->t('It looks like you may be having trouble. Please call our Legal Advice Line for direct assistance.'),
+            'actions' => $this->getEscalationActions(),
+          ]);
+        }
+      }
+    }
 
     // Extract keywords for debug (avoid storing raw user text).
     if ($debug_mode) {
@@ -545,6 +611,51 @@ class AssistantApiController extends ControllerBase {
       $response['_debug'] = $debug_meta;
     }
 
+    // Store conversation turn in cache for multi-turn continuity.
+    if ($conversation_id) {
+      $server_history[] = [
+        'role' => 'user',
+        'text' => mb_substr($user_message, 0, 200),
+        'intent' => $intent['type'] ?? 'unknown',
+        'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
+        'timestamp' => time(),
+      ];
+      // Keep only last 10 entries (5 exchanges).
+      $server_history = array_slice($server_history, -10);
+      // Store with 30-minute TTL.
+      $this->conversationCache->set(
+        'ilas_conv:' . $conversation_id,
+        $server_history,
+        time() + 1800
+      );
+
+      // Multi-turn safety pattern detection.
+      if (count($server_history) >= 3) {
+        $recent_flags = [];
+        foreach (array_slice($server_history, -3) as $turn) {
+          $recent_flags = array_merge($recent_flags, $turn['safety_flags'] ?? []);
+        }
+        if (count($recent_flags) >= 3) {
+          \Drupal::logger('ilas_site_assistant')->warning(
+            'Multi-turn safety pattern detected for conversation @id: @flags',
+            ['@id' => $conversation_id, '@flags' => implode(', ', $recent_flags)]
+          );
+        }
+      }
+    }
+
+    // Opt-in conversation logging (for QA/debugging).
+    if ($conversation_id && \Drupal::hasService('ilas_site_assistant.conversation_logger')) {
+      $conv_logger = \Drupal::service('ilas_site_assistant.conversation_logger');
+      $conv_logger->logExchange(
+        $conversation_id,
+        $user_message,
+        $response['message'] ?? '',
+        $intent['type'] ?? 'unknown',
+        $response['type'] ?? 'unknown'
+      );
+    }
+
     // Record performance metrics.
     if ($this->performanceMonitor) {
       $duration_ms = (microtime(TRUE) - $start_time) * 1000;
@@ -593,26 +704,11 @@ class AssistantApiController extends ControllerBase {
    *   TRUE if debug mode is enabled.
    */
   protected function isDebugMode(Request $request): bool {
-    // Check environment variable.
-    if (getenv('ILAS_CHATBOT_DEBUG') === '1') {
-      return TRUE;
-    }
-
-    // Check request header.
-    if ($request->headers->get('X-Debug-Mode') === '1') {
-      return TRUE;
-    }
-
-    // Check request body (parse JSON first).
-    $content = $request->getContent();
-    if ($content) {
-      $data = json_decode($content, TRUE);
-      if (json_last_error() === JSON_ERROR_NONE && !empty($data['debug'])) {
-        return TRUE;
-      }
-    }
-
-    return FALSE;
+    // SECURITY: Debug mode is ONLY enabled via server-side environment variable.
+    // Client-supplied debug flags (headers, body) are never trusted on public
+    // endpoints. Set ILAS_CHATBOT_DEBUG=1 in .ddev/.env (local) or Pantheon
+    // environment variables (dev/multidev only — never live).
+    return getenv('ILAS_CHATBOT_DEBUG') === '1';
   }
 
   /**
@@ -1564,16 +1660,22 @@ class AssistantApiController extends ControllerBase {
    *   TRUE if message indicates non-Idaho matter.
    */
   protected function isNonIdaho(string $message): bool {
-    $non_idaho_patterns = [
-      '/\b(oregon|washington\s+state|montana|nevada|utah|wyoming|california)\b/i',
-      '/\b(out\s+of\s+state|different\s+state|another\s+state)\b/i',
-      '/\b(live\s+in\s+(oregon|washington|montana|nevada|utah|wyoming|california))\b/i',
-    ];
-
-    // Don't classify as non-Idaho if Idaho is also mentioned.
+    // Don't classify as non-Idaho if Idaho is also mentioned
+    // (e.g. "I moved from Texas to Idaho").
     if (preg_match('/\bidaho\b/i', $message)) {
       return FALSE;
     }
+
+    $non_idaho_patterns = [
+      // Generic out-of-state phrases.
+      '/\b(out\s+of\s+state|different\s+state|another\s+state|not\s+in\s+idaho)\b/i',
+
+      // Explicit "I live/reside in [state]" with all US states except Idaho.
+      '/\b(live|living|reside|residing|located|based|am\s+in|i\'m\s+in)\s+(in\s+)?(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\s+hampshire|new\s+jersey|new\s+mexico|new\s+york|north\s+carolina|north\s+dakota|ohio|oklahoma|oregon|pennsylvania|rhode\s+island|south\s+carolina|south\s+dakota|tennessee|texas|utah|vermont|virginia|washington\s+state|west\s+virginia|wisconsin|wyoming)\b/i',
+
+      // Standalone neighboring state mentions (most common confusion).
+      '/\b(oregon|washington\s+state|montana|nevada|utah|wyoming)\b/i',
+    ];
 
     foreach ($non_idaho_patterns as $pattern) {
       if (preg_match($pattern, $message)) {

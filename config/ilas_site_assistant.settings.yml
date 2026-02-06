@@ -69,3 +69,11 @@ llm:
   enhance_resources: true
   enhance_greetings: false
   fallback_on_error: true
+  safety_threshold: BLOCK_MEDIUM_AND_ABOVE
+rate_limit_per_minute: 15
+rate_limit_per_hour: 120
+conversation_logging:
+  enabled: false
+  retention_hours: 72
+  redact_pii: true
+  show_user_notice: true

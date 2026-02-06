@@ -71,6 +71,19 @@ llm:
   enhance_resources: true  # Summarize resource results
   enhance_greetings: false  # Generate personalized greetings
   fallback_on_error: true  # Use rule-based response if LLM fails
+  safety_threshold: 'BLOCK_MEDIUM_AND_ABOVE'  # BLOCK_LOW_AND_ABOVE | BLOCK_MEDIUM_AND_ABOVE | BLOCK_ONLY_HIGH
+
+# Rate limiting (per IP)
+rate_limit_per_minute: 15
+rate_limit_per_hour: 120
+
+# Conversation logging (opt-in, default OFF)
+# When enabled, stores PII-redacted message pairs for QA/debugging.
+conversation_logging:
+  enabled: false
+  retention_hours: 72         # Auto-delete after this many hours
+  redact_pii: true            # Apply PII redaction before storing
+  show_user_notice: true      # Display notice in widget about review
 
 # Fallback Gate Configuration
 # Controls when to use built-in answers vs LLM (Gemini) fallback

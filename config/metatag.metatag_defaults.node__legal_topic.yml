@@ -8,6 +8,9 @@ tags:
   title: '[node:title] | Legal Help | [site:name]'
   description: 'Get free legal help with [node:title] issues in Idaho. Idaho Legal Aid Services provides resources and assistance for low-income Idahoans.'
   og_type: website
+  og_description: 'Get free legal help with [node:title] issues in Idaho. Idaho Legal Aid Services provides resources and assistance for low-income Idahoans.'
+  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
+  og_image_alt: 'Idaho Legal Aid Services'
   schema_web_page_type: CollectionPage
   schema_web_page_id: '[node:url]#collection'
   schema_web_page_name: '[node:title]'

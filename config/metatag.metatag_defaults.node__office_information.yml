@@ -8,9 +8,13 @@ tags:
   title: '[node:title] | Office Locations | [site:name]'
   description: 'Contact Idaho Legal Aid Services [node:title] for free legal assistance. Open Monday-Friday 8:30am-4:30pm. Serving [node:field_county].'
   og_type: website
+  og_description: 'Contact Idaho Legal Aid Services [node:title] for free legal assistance. Open Monday-Friday 8:30am-4:30pm. Serving [node:field_county].'
+  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
+  og_image_alt: 'Idaho Legal Aid Services'
   schema_organization_type: LegalService
   schema_organization_additional_type: LocalBusiness
-  schema_organization_id: '[node:url]#organization'
+  schema_organization_id: '[node:url]#local-office'
+  schema_organization_parent_organization: 'a:3:{s:5:"@type";s:3:"NGO";s:4:"name";s:24:"Idaho Legal Aid Services";s:3:"@id";s:42:"https://idaholegalaid.org/#organization";}'
   schema_organization_name: '[node:title] - Idaho Legal Aid Services'
   schema_organization_description: 'Idaho Legal Aid Services office providing free civil legal assistance to low-income Idahoans in [node:field_county] and surrounding areas.'
   schema_organization_url: '[node:url]'

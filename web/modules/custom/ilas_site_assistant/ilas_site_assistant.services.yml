@@ -81,3 +81,7 @@ services:
   ilas_site_assistant.performance_monitor:
     class: Drupal\ilas_site_assistant\Service\PerformanceMonitor
     arguments: ['@state', '@logger.channel.ilas_site_assistant']
+
+  ilas_site_assistant.conversation_logger:
+    class: Drupal\ilas_site_assistant\Service\ConversationLogger
+    arguments: ['@database', '@config.factory', '@datetime.time', '@ilas_site_assistant.policy_filter']

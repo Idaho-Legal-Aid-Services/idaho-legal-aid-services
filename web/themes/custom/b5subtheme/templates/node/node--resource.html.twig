@@ -60,28 +60,28 @@
     {# Footer section with metadata and back button #}
     <footer class="resource-footer">
 
-      {# Service Areas #}
+      {# Service Areas - linked to taxonomy pages #}
       {% if node.field_service_areas %}
         <div class="resource-footer-item resource-service-areas">
           <span class="resource-footer-label">{{ 'Service Areas'|t }}</span>
           <span class="resource-footer-value">
             {% for item in node.field_service_areas %}
               {% if item.entity %}
-                <span class="service-area-badge">{{ item.entity.label }}</span>
+                <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': item.entity.id}) }}" class="service-area-badge">{{ item.entity.label }}</a>
               {% endif %}
             {% endfor %}
           </span>
         </div>
       {% endif %}
 
-      {# Topics #}
+      {# Topics - linked to taxonomy pages #}
       {% if node.field_topics %}
         <div class="resource-footer-item resource-topics">
           <span class="resource-footer-label">{{ 'Topics'|t }}</span>
           <span class="resource-footer-value">
             {% for item in node.field_topics %}
               {% if item.entity %}
-                <span class="topic-item">{{ item.entity.label }}</span>
+                <a href="{{ path('entity.taxonomy_term.canonical', {'taxonomy_term': item.entity.id}) }}" class="topic-item">{{ item.entity.label }}</a>
                 {% if not loop.last %}<span class="topic-separator">|</span>{% endif %}
               {% endif %}
             {% endfor %}
@@ -92,7 +92,9 @@
       {# Last updated #}
       <div class="resource-footer-item resource-last-updated">
         <span class="resource-footer-label">{{ 'Last Updated'|t }}</span>
-        <span class="resource-footer-value">{{ node.changed.value|date('F j, Y') }}</span>
+        <span class="resource-footer-value">
+          <time datetime="{{ node.changed.value|date('Y-m-d') }}">{{ node.changed.value|date('F j, Y') }}</time>
+        </span>
       </div>
 
       {# Back button #}

@@ -41,37 +41,9 @@
     <head-placeholder token="{{ placeholder_token }}">
     <title>{{ head_title|safe_join(' | ') }}</title>
 
-    {# Google tag (gtag.js) - GA4 with Consent Mode v2 #}
+    {# Google tag (gtag.js) - async loader only in head; config script moved to body end #}
     {% if google_tag_id %}
-      {# Load gtag.js first (Google's recommended order) #}
       <script async src="https://www.googletagmanager.com/gtag/js?id={{ google_tag_id }}"></script>
-      <script>
-        // Initialize dataLayer and gtag function
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-
-        // Consent Mode v2 - Set default consent state (all granted - no consent manager)
-        gtag('consent', 'default', {
-          'ad_storage': 'granted',
-          'ad_user_data': 'granted',
-          'ad_personalization': 'granted',
-          'analytics_storage': 'granted',
-          'functionality_storage': 'granted',
-          'personalization_storage': 'granted',
-          'security_storage': 'granted'
-        });
-
-        gtag('js', new Date());
-
-        // Configure GA4 property with enhanced parameters
-        gtag('config', '{{ google_tag_id }}', {
-          'send_page_view': true,
-          'allow_google_signals': true,
-          'transport_type': 'beacon',
-          'content_group': '{{ node_type|default("general") }}',
-          'page_type': '{{ node_type|default("page") }}'
-        });
-      </script>
     {% endif %}
     
     {# Critical CSS for above-the-fold content #}
@@ -162,8 +134,8 @@
     {# Preload critical resources #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;500;600;700&display=swap"></noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap"></noscript>
     
     <css-placeholder token="{{ placeholder_token }}">
     <js-placeholder token="{{ placeholder_token }}">
@@ -211,5 +183,36 @@
     </div>
     {% endif %}
     <js-bottom-placeholder token="{{ placeholder_token }}">
+
+    {# GA4 configuration - placed after js-bottom for optimal rendering #}
+    {% if google_tag_id %}
+      <script>
+        // Initialize dataLayer and gtag function
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+
+        // Consent Mode v2 - Set default consent state (all granted - no GDPR consent manager)
+        gtag('consent', 'default', {
+          'ad_storage': 'granted',
+          'ad_user_data': 'granted',
+          'ad_personalization': 'granted',
+          'analytics_storage': 'granted',
+          'functionality_storage': 'granted',
+          'personalization_storage': 'granted',
+          'security_storage': 'granted'
+        });
+
+        gtag('js', new Date());
+
+        // Configure GA4 property with enhanced parameters
+        gtag('config', '{{ google_tag_id }}', {
+          'send_page_view': true,
+          'allow_google_signals': true,
+          'transport_type': 'beacon',
+          'content_group': '{{ node_type|default("general") }}',
+          'page_type': '{{ node_type|default("page") }}'
+        });
+      </script>
+    {% endif %}
   </body>
 </html>

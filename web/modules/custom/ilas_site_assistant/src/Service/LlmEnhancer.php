@@ -414,6 +414,40 @@ PROMPT,
    * @throws \Exception
    *   If the API call fails.
    */
+
+  /**
+   * Returns the configured Gemini safety settings.
+   *
+   * @return array
+   *   Safety settings array for the Gemini/Vertex API payload.
+   */
+  protected function getSafetySettings(): array {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $threshold = $config->get('llm.safety_threshold') ?? 'BLOCK_MEDIUM_AND_ABOVE';
+
+    // Validate against allowed values — BLOCK_NONE is intentionally excluded.
+    $allowed = [
+      'BLOCK_LOW_AND_ABOVE',
+      'BLOCK_MEDIUM_AND_ABOVE',
+      'BLOCK_ONLY_HIGH',
+    ];
+    if (!in_array($threshold, $allowed, TRUE)) {
+      $threshold = 'BLOCK_MEDIUM_AND_ABOVE';
+    }
+
+    $categories = [
+      'HARM_CATEGORY_HARASSMENT',
+      'HARM_CATEGORY_HATE_SPEECH',
+      'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+      'HARM_CATEGORY_DANGEROUS_CONTENT',
+    ];
+
+    return array_map(fn($cat) => [
+      'category' => $cat,
+      'threshold' => $threshold,
+    ], $categories);
+  }
+
   protected function callLlm(string $prompt, array $options = []): string {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $provider = $config->get('llm.provider') ?? 'gemini_api';
@@ -464,24 +498,7 @@ PROMPT,
         'topP' => 0.8,
         'topK' => 40,
       ],
-      'safetySettings' => [
-        [
-          'category' => 'HARM_CATEGORY_HARASSMENT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_HATE_SPEECH',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-      ],
+      'safetySettings' => $this->getSafetySettings(),
     ];
 
     return $this->makeApiRequest($url, $payload);
@@ -535,24 +552,7 @@ PROMPT,
         'topP' => 0.8,
         'topK' => 40,
       ],
-      'safetySettings' => [
-        [
-          'category' => 'HARM_CATEGORY_HARASSMENT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_HATE_SPEECH',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-        [
-          'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          'threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
-        ],
-      ],
+      'safetySettings' => $this->getSafetySettings(),
     ];
 
     return $this->makeApiRequest($url, $payload, [

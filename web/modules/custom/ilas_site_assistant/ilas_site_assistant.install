@@ -106,7 +106,122 @@ function ilas_site_assistant_schema() {
     ],
   ];
 
+  // Opt-in conversation log table (PII-redacted, short retention).
+  $schema['ilas_site_assistant_conversations'] = [
+    'description' => 'Opt-in conversation logs for QA/debugging (PII-redacted).',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'conversation_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => TRUE,
+        'description' => 'UUID grouping messages in one conversation.',
+      ],
+      'direction' => [
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'description' => 'Message direction: user or assistant.',
+      ],
+      'redacted_message' => [
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+        'description' => 'PII-redacted message text.',
+      ],
+      'intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+        'description' => 'Detected intent type.',
+      ],
+      'response_type' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+        'description' => 'Response type (faq, navigation, escalation, etc.).',
+      ],
+      'created' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Unix timestamp.',
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'conversation' => ['conversation_id'],
+      'created' => ['created'],
+    ],
+  ];
+
   return $schema;
+}
+
+/**
+ * Add conversation log table for opt-in QA/debugging.
+ */
+function ilas_site_assistant_update_10001() {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->tableExists('ilas_site_assistant_conversations')) {
+    $table = [
+      'description' => 'Opt-in conversation logs for QA/debugging (PII-redacted).',
+      'fields' => [
+        'id' => [
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'conversation_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => TRUE,
+          'description' => 'UUID grouping messages in one conversation.',
+        ],
+        'direction' => [
+          'type' => 'varchar',
+          'length' => 10,
+          'not null' => TRUE,
+          'description' => 'Message direction: user or assistant.',
+        ],
+        'redacted_message' => [
+          'type' => 'text',
+          'size' => 'medium',
+          'not null' => TRUE,
+          'description' => 'PII-redacted message text.',
+        ],
+        'intent' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => FALSE,
+          'description' => 'Detected intent type.',
+        ],
+        'response_type' => [
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => FALSE,
+          'description' => 'Response type (faq, navigation, escalation, etc.).',
+        ],
+        'created' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'description' => 'Unix timestamp.',
+        ],
+      ],
+      'primary key' => ['id'],
+      'indexes' => [
+        'conversation' => ['conversation_id'],
+        'created' => ['created'],
+      ],
+    ];
+    $schema->createTable('ilas_site_assistant_conversations', $table);
+  }
 }
 
 /**

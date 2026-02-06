@@ -23,7 +23,6 @@ tags:
   og_url: '[current-page:url:absolute]'
   referrer: strict-origin-when-cross-origin
   rights: 'Copyright ©[date:html_year] Idaho Legal Aid Services. All rights reserved.'
-  shortlink: '[site:url]'
   title: '[node:field_seo_title|node:title] | [site:name]'
   twitter_cards_description: '[node:field_seo_description|node:field_description|Learn about [node:title]. Free legal resources from Idaho Legal Aid Services for low-income Idahoans.]'
   twitter_cards_image: '[node:field_seo_image:entity:field_media_image:social_media_x:url|node:field_featured_image:entity:field_media_image:social_media_x:url]'

@@ -104,6 +104,7 @@
       display: block;
       border-radius: 32px;
       border: 6px solid $color-primary;
+      background-color: $color-primary;
 
       @include mobile {
         max-height: 250px;

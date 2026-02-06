@@ -13,7 +13,7 @@ tags:
   og_site_name: '[site:name]'
   og_title: 'Free Legal Help for Low-Income Idahoans | [site:name]'
   og_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans. Get assistance with family law, housing, consumer issues, and more.'
-  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg'
+  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
   og_image_alt: 'Idaho Legal Aid Services'
   og_type: website
   og_url: '[site:url]'
@@ -23,7 +23,7 @@ tags:
   twitter_cards_type: summary_large_image
   twitter_cards_title: 'Free Legal Help for Low-Income Idahoans | [site:name]'
   twitter_cards_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans. Get assistance with family law, housing, consumer issues, and more.'
-  twitter_cards_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg'
+  twitter_cards_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
   twitter_cards_image_alt: 'Idaho Legal Aid Services'
   schema_organization_additional_type: LegalService
   schema_organization_description: 'Idaho Legal Aid Services is a nonprofit statewide law firm dedicated to providing equal access to justice for low-income Idahoans through quality advocacy and education.'

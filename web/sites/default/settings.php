@@ -58,6 +58,10 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
   // Module code stays deployed; this prevents the floating widget from loading
   // and gates the /assistant page. Survives drush config:import.
   $config['ilas_site_assistant.settings']['enable_global_widget'] = FALSE;
+
+  // Production rate limits for the chatbot API (per IP).
+  $config['ilas_site_assistant.settings']['rate_limit_per_minute'] = 15;
+  $config['ilas_site_assistant.settings']['rate_limit_per_hour'] = 120;
 }
 
 /**
@@ -137,6 +141,28 @@ if ($turnstile_site_key || $turnstile_secret_key) {
 $tmgmt_google_key = _ilas_get_secret('TMGMT_GOOGLE_API_KEY');
 if ($tmgmt_google_key) {
   $config['tmgmt.translator.google']['settings']['api_key'] = $tmgmt_google_key;
+}
+
+/**
+ * ILAS Site Assistant Gemini API key override.
+ *
+ * On Pantheon: type "runtime", scope "web", key "ILAS_GEMINI_API_KEY".
+ * Locally (DDEV): add ILAS_GEMINI_API_KEY=<value> to .ddev/.env, then ddev restart.
+ */
+$ilas_gemini_key = _ilas_get_secret('ILAS_GEMINI_API_KEY');
+if ($ilas_gemini_key) {
+  $config['ilas_site_assistant.settings']['llm.api_key'] = $ilas_gemini_key;
+}
+
+/**
+ * ILAS Site Assistant Vertex AI service account JSON override.
+ *
+ * On Pantheon: type "runtime", scope "web", key "ILAS_VERTEX_SA_JSON".
+ * Locally (DDEV): add ILAS_VERTEX_SA_JSON=<json> to .ddev/.env, then ddev restart.
+ */
+$ilas_vertex_sa = _ilas_get_secret('ILAS_VERTEX_SA_JSON');
+if ($ilas_vertex_sa) {
+  $config['ilas_site_assistant.settings']['llm.service_account_json'] = $ilas_vertex_sa;
 }
 
 /**

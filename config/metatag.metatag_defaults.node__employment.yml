@@ -9,6 +9,8 @@ tags:
   description: 'View current job openings at Idaho Legal Aid Services. Join our nonprofit law firm dedicated to providing equal access to justice for low-income Idahoans.'
   og_type: website
   og_description: 'View current job openings at Idaho Legal Aid Services. Join our nonprofit law firm.'
+  og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
+  og_image_alt: 'Idaho Legal Aid Services'
   twitter_cards_description: 'View current job openings at Idaho Legal Aid Services. Join our nonprofit law firm.'
   schema_web_page_type: WebPage
   schema_web_page_id: '[node:url]#webpage'
