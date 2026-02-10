@@ -1,17 +1,3 @@
 services:
   employment_application.validator:
     class: Drupal\employment_application\Service\ApplicationValidator
-
-  employment_application.controller:
-    class: Drupal\employment_application\Controller\EmploymentApplicationController
-    arguments:
-      - '@file_system'
-      - '@plugin.manager.mail'
-      - '@csrf_token'
-      - '@symfony_mailer_lite.mailer'
-      - '@employment_application.validator'
-      - '@database'
-      - '@flood'
-      - '@logger.factory'
-      - '@config.factory'
-      - '@entity_type.manager'
