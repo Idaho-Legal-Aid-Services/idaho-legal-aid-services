@@ -480,17 +480,39 @@ class EmploymentApplicationController extends ControllerBase {
   }
 
   /**
-   * Generates and returns CSRF token.
+   * Generates and returns CSRF token + session-bound nonce.
+   *
+   * The nonce is stored in the session and must be returned with the
+   * submission. This ties each token fetch to a real browser session,
+   * blocking bots that POST without completing the form flow.
+   *
+   * IMPORTANT: This response MUST NOT be cached. The token and nonce are
+   * per-session. Pantheon Varnish must see no-store to avoid serving a
+   * stale token and stripping the Set-Cookie that establishes the session.
    */
   public function getToken(Request $request): JsonResponse {
+    // Kill Drupal's internal page cache for this response.
+    \Drupal::service('page_cache_kill_switch')->trigger();
+
     $token = $this->csrfToken->get('employment_application_form');
+
+    // Generate session-bound nonce (single-use, consumed on submit).
+    $nonce = bin2hex(random_bytes(16));
+    $session = $request->getSession();
+    $session->set('employment_app_nonce', $nonce);
 
     $response = new JsonResponse([
       'token' => $token,
       'build_id' => 'form-' . bin2hex(random_bytes(8)),
+      'nonce' => $nonce,
     ]);
 
-    // Prevent search indexing of this response
+    // Explicitly prevent all caching — belt and suspenders for Pantheon CDN.
+    $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    $response->headers->set('Surrogate-Control', 'no-store');
+    $response->headers->set('Pragma', 'no-cache');
+    $response->headers->set('Expires', '0');
+    $response->headers->set('Vary', 'Cookie');
     $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
 
     return $response;
@@ -547,162 +569,158 @@ class EmploymentApplicationController extends ControllerBase {
       }
 
       // =================================================================
-      // HONEYPOT CHECK (Bot Detection)
+      // EXTRACT SECURITY FIELDS (unified for both content types)
       // =================================================================
-      // Check honeypot field - if filled, likely a bot
-      $honeypotValue = $isFormData
-        ? $request->request->get('fax_number')
-        : null; // Will check JSON later after decoding
+      $honeypotValue = '';
+      $formToken = NULL;
+      $formNonce = NULL;
+      $formStartTime = 0;
+      $jsonData = NULL;
 
+      if ($isFormData) {
+        $honeypotValue = $request->request->get('fax_number', '');
+        $formToken = $request->request->get('form_token');
+        $formNonce = $request->request->get('form_nonce');
+        $formStartTime = (int) $request->request->get('form_start_time', 0);
+      }
+      else {
+        // Decode JSON early so we can extract security fields.
+        $content = $request->getContent();
+        if (empty($content)) {
+          return $this->errorResponse('No data received.', Response::HTTP_BAD_REQUEST);
+        }
+        $jsonData = json_decode($content, TRUE);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+          return $this->errorResponse('Invalid JSON data.', Response::HTTP_BAD_REQUEST);
+        }
+        $honeypotValue = $jsonData['fax_number'] ?? '';
+        $formToken = $jsonData['form_token'] ?? NULL;
+        $formNonce = $jsonData['form_nonce'] ?? NULL;
+        $formStartTime = (int) ($jsonData['form_start_time'] ?? 0);
+      }
+
+      // =================================================================
+      // HONEYPOT CHECK (unified)
+      // =================================================================
       if (!empty($honeypotValue)) {
         \Drupal::logger('employment_application')->notice('Honeypot triggered from @ip', ['@ip' => $ip]);
-        // Silent success - no side effects (no DB, no email)
         return new JsonResponse([
           'success' => TRUE,
           'message' => 'Application submitted successfully.',
         ]);
       }
 
-      // Log the request for debugging
-      \Drupal::logger('employment_application')->info('Request received from @ip - Content type: @type', [
+      // =================================================================
+      // CLASSIFY REQUEST (for log severity decisions)
+      // =================================================================
+      $ctx = $this->classifySubmissionRequest($request, $formToken, $formNonce, $formStartTime, $isFormData);
+
+      // =================================================================
+      // FORM START TIME — REQUIRED (missing = bot-like)
+      // =================================================================
+      if ($formStartTime <= 0) {
+        \Drupal::logger('employment_application')->notice('Missing form_start_time from @ip [@class] ua=@ua ref=@referer sess=@has_session token=@has_token nonce=@has_nonce fields=@has_fields', [
+          '@ip' => $ip,
+          '@class' => $ctx['classification'],
+        ] + $ctx);
+        return $this->errorResponse('Invalid request.', Response::HTTP_BAD_REQUEST);
+      }
+
+      // =================================================================
+      // TIME-GATE CHECK
+      // =================================================================
+      if ((time() - $formStartTime) < 3) {
+        \Drupal::logger('employment_application')->notice('Form submitted too quickly (@sec sec) from @ip', [
+          '@sec' => time() - $formStartTime,
+          '@ip' => $ip,
+        ]);
+        return $this->errorResponse('Please take a moment to review your application.', Response::HTTP_BAD_REQUEST);
+      }
+
+      // =================================================================
+      // SESSION NONCE VALIDATION
+      // =================================================================
+      $session = $request->getSession();
+      $sessionNonce = $session->get('employment_app_nonce', '');
+      if (empty($formNonce) || empty($sessionNonce) || !hash_equals($sessionNonce, $formNonce)) {
+        $nonceType = empty($formNonce) ? 'missing_nonce' : 'invalid_nonce';
+        $level = ($ctx['classification'] === 'likely_browser') ? 'warning' : 'notice';
+        \Drupal::logger('employment_application')->$level('Nonce validation failed from @ip [@type] [@class] ua=@ua ref=@referer sess=@has_session token=@has_token nonce=@has_nonce fields=@has_fields', [
+          '@ip' => $ip,
+          '@type' => $nonceType,
+          '@class' => $ctx['classification'],
+        ] + $ctx);
+        return $this->errorResponse('Session expired. Please reload the page and try again.', Response::HTTP_FORBIDDEN);
+      }
+      // Consume nonce (single-use — prevents replay).
+      $session->remove('employment_app_nonce');
+
+      // =================================================================
+      // CSRF TOKEN VALIDATION
+      // =================================================================
+      if (empty($formToken)) {
+        \Drupal::logger('employment_application')->notice('Missing CSRF token from @ip [missing_token] [@class] ua=@ua ref=@referer sess=@has_session nonce=@has_nonce fields=@has_fields', [
+          '@ip' => $ip,
+          '@class' => $ctx['classification'],
+        ] + $ctx);
+        return $this->errorResponse('Invalid security token. Please reload the page.', Response::HTTP_FORBIDDEN);
+      }
+      if (!$this->csrfToken->validate($formToken, 'employment_application_form')) {
+        $level = ($ctx['classification'] === 'likely_browser') ? 'warning' : 'notice';
+        \Drupal::logger('employment_application')->$level('Invalid CSRF token from @ip [invalid_token] [@class] ua=@ua ref=@referer sess=@has_session nonce=@has_nonce fields=@has_fields', [
+          '@ip' => $ip,
+          '@class' => $ctx['classification'],
+        ] + $ctx);
+        return $this->errorResponse('Security token expired. Please reload the page and try again.', Response::HTTP_FORBIDDEN);
+      }
+
+      \Drupal::logger('employment_application')->info('Security validation passed from @ip - @type', [
         '@ip' => $ip,
-        '@type' => $contentType,
+        '@type' => $isFormData ? 'FormData' : 'JSON',
       ]);
 
       // =================================================================
-      // TIME-GATE CHECK (Bot Detection)
+      // JOB + DATA + FILE VALIDATION (per content type)
       // =================================================================
-      // Get start time from FormData - will check JSON separately after parsing
       if ($isFormData) {
-        $startTime = (int) $request->request->get('form_start_time', 0);
-        if ($startTime > 0 && (time() - $startTime) < 3) {
-          \Drupal::logger('employment_application')->notice('Form submitted too quickly (@sec seconds) from @ip', [
-            '@sec' => time() - $startTime,
-            '@ip' => $ip,
-          ]);
-          return $this->errorResponse('Please take a moment to review your application.', Response::HTTP_BAD_REQUEST);
-        }
-      }
-
-      // Process based on content type (use $isFormData from earlier)
-      if ($isFormData) {
-        // Handle FormData submission with files
-        \Drupal::logger('employment_application')->info('Processing FormData submission with files');
-
-        // =================================================================
-        // CSRF VALIDATION
-        // =================================================================
-        if (!$this->validateCsrfToken($request)) {
-          \Drupal::logger('employment_application')->warning('Invalid CSRF token from @ip', ['@ip' => $ip]);
-          return $this->errorResponse('Invalid security token.', Response::HTTP_FORBIDDEN);
-        }
-
-        // =================================================================
-        // JOB UUID VALIDATION (TAMPER-RESISTANT)
-        // =================================================================
         $jobUuid = $request->request->get('job_uuid', '');
         $jobData = $this->validateJobUuid($jobUuid);
-
         if (!$jobData) {
-          \Drupal::logger('employment_application')->warning('Invalid job_uuid submitted from @ip: @uuid', [
+          \Drupal::logger('employment_application')->warning('Invalid job_uuid from @ip: @uuid', [
             '@ip' => $ip,
             '@uuid' => $jobUuid,
           ]);
           return $this->errorResponse('Invalid job selection. Please select a currently posted position.', Response::HTTP_BAD_REQUEST);
         }
 
-        // Validate and sanitize form data
         $formData = $this->validateAndSanitizeData($request, $jobData);
         if (!$formData['valid']) {
           return $this->errorResponse($formData['errors'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Handle file uploads
         $fileData = $this->handleFileUploads($request);
         if (!$fileData['valid']) {
           return $this->errorResponse($fileData['errors'], Response::HTTP_BAD_REQUEST);
         }
-
-      } else {
-        // Handle JSON submission (no files)
-        \Drupal::logger('employment_application')->info('Processing JSON submission');
-
-        // Get JSON content from request
-        $content = $request->getContent();
-        \Drupal::logger('employment_application')->info('Request content length: @length', [
-          '@length' => strlen($content),
-        ]);
-
-        if (empty($content)) {
-          \Drupal::logger('employment_application')->error('No content received in request');
-          return $this->errorResponse('No data received.', Response::HTTP_BAD_REQUEST);
-        }
-
-        $jsonData = json_decode($content, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-          \Drupal::logger('employment_application')->error('JSON decode error: @error', [
-            '@error' => json_last_error_msg(),
-          ]);
-          return $this->errorResponse('Invalid JSON data: ' . json_last_error_msg(), Response::HTTP_BAD_REQUEST);
-        }
-
-        // =================================================================
-        // HONEYPOT CHECK FOR JSON (Bot Detection)
-        // =================================================================
-        if (!empty($jsonData['fax_number'])) {
-          \Drupal::logger('employment_application')->notice('Honeypot (JSON) triggered from @ip', ['@ip' => $ip]);
-          return new JsonResponse([
-            'success' => TRUE,
-            'message' => 'Application submitted successfully.',
-          ]);
-        }
-
-        // =================================================================
-        // CSRF VALIDATION (JSON)
-        // =================================================================
-        if (!$this->validateCsrfTokenFromJson($jsonData)) {
-          \Drupal::logger('employment_application')->warning('Invalid CSRF token (JSON) from @ip', ['@ip' => $ip]);
-          return $this->errorResponse('Invalid security token.', Response::HTTP_FORBIDDEN);
-        }
-
-        // =================================================================
-        // TIME-GATE CHECK FOR JSON
-        // =================================================================
-        $startTime = (int) ($jsonData['form_start_time'] ?? 0);
-        if ($startTime > 0 && (time() - $startTime) < 3) {
-          \Drupal::logger('employment_application')->notice('Form (JSON) submitted too quickly (@sec seconds) from @ip', [
-            '@sec' => time() - $startTime,
-            '@ip' => $ip,
-          ]);
-          return $this->errorResponse('Please take a moment to review your application.', Response::HTTP_BAD_REQUEST);
-        }
-
-        // =================================================================
-        // JOB UUID VALIDATION (TAMPER-RESISTANT)
-        // =================================================================
+      }
+      else {
+        // $jsonData was already decoded in the field-extraction block above.
         $jobUuid = $jsonData['job_uuid'] ?? '';
         $jobData = $this->validateJobUuid($jobUuid);
-
         if (!$jobData) {
-          \Drupal::logger('employment_application')->warning('Invalid job_uuid (JSON) submitted from @ip: @uuid', [
+          \Drupal::logger('employment_application')->warning('Invalid job_uuid (JSON) from @ip: @uuid', [
             '@ip' => $ip,
             '@uuid' => $jobUuid,
           ]);
           return $this->errorResponse('Invalid job selection. Please select a currently posted position.', Response::HTTP_BAD_REQUEST);
         }
 
-        \Drupal::logger('employment_application')->info('JSON data parsed successfully, keys: @keys', [
-          '@keys' => implode(', ', array_keys($jsonData)),
-        ]);
-
-        // Validate and sanitize JSON form data
         $formData = $this->validateAndSanitizeJsonData($jsonData, $jobData);
         if (!$formData['valid']) {
           return $this->errorResponse($formData['errors'], Response::HTTP_BAD_REQUEST);
         }
 
-        // No files for JSON submissions
-        $fileData = ['valid' => true, 'files' => []];
+        $fileData = ['valid' => TRUE, 'files' => []];
       }
 
       // Save application data
@@ -739,19 +757,80 @@ class EmploymentApplicationController extends ControllerBase {
   }
 
   /**
-   * Validates CSRF token from JSON data.
+   * Classifies a submission request for structured logging.
+   *
+   * Builds context to distinguish real browser submissions from bot/scanner
+   * traffic. The classification drives log severity: bots get NOTICE,
+   * likely-browser failures get WARNING (so they trigger alerts).
+   *
+   * @return array
+   *   Keyed context array with 'classification' plus '@'-prefixed fields
+   *   suitable for passing directly to \Drupal::logger() placeholders.
    */
-  private function validateCsrfTokenFromJson(array $jsonData): bool {
-    $token = $jsonData['form_token'] ?? '';
-    return $token && $this->csrfToken->validate($token, 'employment_application_form');
-  }
+  private function classifySubmissionRequest(Request $request, $formToken, $formNonce, int $formStartTime, bool $isFormData): array {
+    $ua = $request->headers->get('User-Agent', '');
+    $referer = $request->headers->get('Referer', '');
 
-  /**
-   * Validates CSRF token (legacy form data - kept for backwards compatibility).
-   */
-  private function validateCsrfToken(Request $request): bool {
-    $token = $request->request->get('form_token');
-    return $token && $this->csrfToken->validate($token, 'employment_application_form');
+    // Check for Drupal session cookie (SESS* or SSESS*).
+    $hasSessionCookie = FALSE;
+    foreach ($request->cookies->keys() as $name) {
+      if (str_starts_with($name, 'SESS') || str_starts_with($name, 'SSESS')) {
+        $hasSessionCookie = TRUE;
+        break;
+      }
+    }
+
+    // Check for expected form fields (real submissions always have these).
+    $hasExpectedFields = FALSE;
+    if ($isFormData) {
+      $hasExpectedFields = $request->request->has('full_name') && $request->request->has('email');
+    }
+
+    // Score browser signals.
+    $signals = 0;
+    if (!empty($referer) && str_contains($referer, '/eapplication')) {
+      $signals++;
+    }
+    if ($hasSessionCookie) {
+      $signals++;
+    }
+    if (!empty($formToken)) {
+      $signals++;
+    }
+    if (!empty($formNonce)) {
+      $signals++;
+    }
+    if ($formStartTime > 0) {
+      $signals++;
+    }
+    if ($hasExpectedFields) {
+      $signals++;
+    }
+    // Plausible browser UA (not empty, not curl/python/etc.)
+    if (!preg_match('/^$|curl|python|wget|scrapy|bot|crawl|spider/i', $ua)) {
+      $signals++;
+    }
+
+    if ($signals >= 4) {
+      $classification = 'likely_browser';
+    }
+    elseif ($signals >= 2) {
+      $classification = 'uncertain';
+    }
+    else {
+      $classification = 'bot_like';
+    }
+
+    return [
+      'classification' => $classification,
+      '@ua' => mb_substr($ua, 0, 200),
+      '@referer' => mb_substr($referer, 0, 200),
+      '@has_session' => $hasSessionCookie ? 'yes' : 'no',
+      '@has_token' => !empty($formToken) ? 'yes' : 'no',
+      '@has_nonce' => !empty($formNonce) ? 'yes' : 'no',
+      '@has_start_time' => ($formStartTime > 0) ? 'yes' : 'no',
+      '@has_fields' => $hasExpectedFields ? 'yes' : 'no',
+    ];
   }
 
   /**

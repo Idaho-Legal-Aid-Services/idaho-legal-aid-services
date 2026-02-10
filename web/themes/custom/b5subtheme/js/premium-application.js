@@ -59,8 +59,11 @@
     this.isPopulating = false; // Flag to prevent auto-save during form population
     this.formTokens = {
       token: '',
-      buildId: ''
+      buildId: '',
+      nonce: ''
     };
+    this.tokenReady = false;
+    this.tokenFetchFailed = false;
 
     // Job selection state
     this.postedJobs = [];
@@ -130,20 +133,87 @@
       $article.html(successHTML);
     },
 
-    // Get CSRF tokens from Drupal
+    // Get CSRF tokens + nonce from Drupal (with retries, fail-closed).
     initializeFormTokens: function() {
       const self = this;
-      
-      // Get tokens via AJAX
-      $.ajax({
-        url: '/employment-application/token',
-        type: 'GET',
-        success: function(response) {
-          self.formTokens.token = response.token;
-          $(CONFIG.SELECTORS.FORM_TOKEN).val(response.token);
-          $(CONFIG.SELECTORS.FORM_BUILD_ID).val(response.build_id);
+      const MAX_RETRIES = 3;
+      const BASE_DELAY = 1000; // 1 second, doubled each retry
+
+      function attemptFetch(attempt) {
+        $.ajax({
+          url: '/employment-application/token',
+          type: 'GET',
+          xhrFields: { withCredentials: true }, // ensure same-origin cookies
+          success: function(response) {
+            if (response && response.token && response.nonce) {
+              self.formTokens.token = response.token;
+              self.formTokens.nonce = response.nonce;
+              self.tokenReady = true;
+              self.tokenFetchFailed = false;
+              $(CONFIG.SELECTORS.FORM_TOKEN).val(response.token);
+              $('#form-nonce').val(response.nonce);
+              $(CONFIG.SELECTORS.FORM_BUILD_ID).val(response.build_id || '');
+              self.clearTokenError();
+              console.log('Security tokens obtained (attempt ' + attempt + ')');
+            } else {
+              handleFailure(attempt, 'Incomplete token response');
+            }
+          },
+          error: function(xhr, status, error) {
+            handleFailure(attempt, error || status);
+          }
+        });
+      }
+
+      function handleFailure(attempt, reason) {
+        console.warn('Token fetch attempt ' + attempt + ' failed: ' + reason);
+        if (attempt < MAX_RETRIES) {
+          var delay = BASE_DELAY * Math.pow(2, attempt - 1);
+          setTimeout(function() { attemptFetch(attempt + 1); }, delay);
+        } else {
+          // All retries exhausted — fail closed.
+          self.tokenReady = false;
+          self.tokenFetchFailed = true;
+          self.showTokenError();
+          console.error('Token fetch failed after ' + MAX_RETRIES + ' attempts');
         }
+      }
+
+      attemptFetch(1);
+    },
+
+    // Show persistent error when token fetch fails.
+    showTokenError: function() {
+      var $wizard = this.$form.find('.wizard-content');
+      if ($wizard.find('.token-error-banner').length) return; // already shown
+
+      var $banner = $('<div class="token-error-banner alert alert-danger" role="alert">' +
+        '<strong>Session validation failed.</strong> ' +
+        'We couldn\'t establish a secure session. ' +
+        '<button type="button" class="btn btn-sm btn-outline-danger ms-2 token-retry-btn">' +
+        'Retry</button>' +
+        '</div>');
+
+      var self = this;
+      $banner.find('.token-retry-btn').on('click', function(e) {
+        e.preventDefault();
+        $banner.remove();
+        self.tokenFetchFailed = false;
+        self.initializeFormTokens();
       });
+
+      $wizard.prepend($banner);
+
+      // Disable submit button.
+      this.$form.find(CONFIG.SELECTORS.NAV_SUBMIT).prop('disabled', true)
+        .attr('title', 'Session validation required');
+    },
+
+    // Clear the error banner when token fetch succeeds.
+    clearTokenError: function() {
+      this.$form.find('.token-error-banner').remove();
+      this.$form.find(CONFIG.SELECTORS.NAV_SUBMIT).prop('disabled', false)
+        .removeAttr('title');
     },
 
     bindEvents: function() {
@@ -1197,24 +1267,30 @@
 
     // Form submission
     submitForm: function() {
-      // Temporarily disable validation to test submission
       console.log('Attempting form submission...');
-      /*
-      if (!this.validateSteps(1, this.totalSteps)) {
-        this.showSaveStatus('Please correct the errors above', 'error');
+
+      // === FAIL-CLOSED: require valid token + nonce before submitting ===
+      if (!this.tokenReady || !this.formTokens.token || !this.formTokens.nonce) {
+        if (this.tokenFetchFailed) {
+          this.showSaveStatus('Session validation failed. Please click Retry above.', 'error');
+        } else {
+          // Token fetch still in progress — wait briefly then check again.
+          this.showSaveStatus('Preparing secure session... please wait.', 'saving');
+          const wizard = this;
+          setTimeout(function() { wizard.submitForm(); }, 1500);
+        }
         return;
       }
-      */
-      
+
       const self = this;
-      
+
       // Stop auto-save during submission
       if (this.autoSaveTimeout) {
         clearTimeout(this.autoSaveTimeout);
         this.autoSaveTimeout = null;
       }
-      
-      // Serialize form data 
+
+      // Serialize form data
       const formDataObj = this.serializeFormToJSON();
       console.log('Serialized form data:', formDataObj);
       
@@ -1327,8 +1403,8 @@
         const name = $input.attr('name');
         const type = $input.attr('type');
         
-        if (!name || name === 'form_token' || name === 'form_build_id' || name === 'op') {
-          return; // Skip system fields
+        if (!name || name === 'form_token' || name === 'form_nonce' || name === 'form_build_id' || name === 'op') {
+          return; // Skip system fields — added explicitly after the loop
         }
         
         let value = null;
@@ -1372,9 +1448,10 @@
         }
       });
       
-      // Add CSRF token
+      // Add CSRF token + session nonce.
       formData.form_token = this.formTokens.token;
-      
+      formData.form_nonce = this.formTokens.nonce;
+
       return formData;
     },
 

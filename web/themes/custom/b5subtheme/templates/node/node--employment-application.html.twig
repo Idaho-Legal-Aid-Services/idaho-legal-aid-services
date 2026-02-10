@@ -26,8 +26,9 @@
           aria-label="Employment Application Form"
           data-drupal-webform-id="employment_application">
       
-      {# CSRF Token - Will be populated by JavaScript #}
+      {# CSRF Token + Nonce - Populated by JavaScript from /employment-application/token #}
       <input type="hidden" name="form_token" id="form-token" value="">
+      <input type="hidden" name="form_nonce" id="form-nonce" value="">
       <input type="hidden" name="form_id" value="webform_submission_employment_application_form">
       <input type="hidden" name="form_build_id" id="form-build-id" value="">
       <input type="hidden" name="op" value="Submit">

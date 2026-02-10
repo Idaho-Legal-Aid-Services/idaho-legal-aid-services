@@ -33,6 +33,9 @@
   Note: If fully remote jobs are added, add 'remote' value to
   field_job_work_arrangement and handle with TELECOMMUTE only (no Place).
 #}
+{# Render url() to a string once — in Drupal 11 url() returns a render array,
+   which causes "Array to string conversion" if used directly in ~ concatenation. #}
+{% set current_page_url = url('<current>')|render|trim %}
 {% set job_postings = [] %}
 {% for category in node.field_job_listings %}
   {% if category.entity %}
@@ -44,7 +47,7 @@
         {# Base job posting structure #}
         {% set job_posting = {
           '@type': 'JobPosting',
-          '@id': url('<current>') ~ '#job-' ~ loop.parent.loop.index ~ '-' ~ loop.index,
+          '@id': current_page_url ~ '#job-' ~ loop.parent.loop.index ~ '-' ~ loop.index,
           'title': job_item.field_accordion_title.value,
           'description': job_item.field_accordion_body.value,
           'datePosted': job_item.field_job_date_posted.value,
