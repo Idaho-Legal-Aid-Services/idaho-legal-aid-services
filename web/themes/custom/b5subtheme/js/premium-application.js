@@ -1331,9 +1331,17 @@
         processData: false,
         success: function(response) {
           if (response.success) {
-            $status.html('<span class="text-success"><i class="fas fa-check-circle"></i> ' + response.message + '</span>');
+            $status.empty().append(
+              $('<span>').addClass('text-success')
+                .append($('<i>').addClass('fas fa-check-circle').attr('aria-hidden', 'true'))
+                .append(document.createTextNode(' ' + response.message))
+            );
           } else {
-            $status.html('<span class="text-danger"><i class="fas fa-exclamation-circle"></i> ' + (response.message || 'Could not save draft.') + '</span>');
+            $status.empty().append(
+              $('<span>').addClass('text-danger')
+                .append($('<i>').addClass('fas fa-exclamation-circle').attr('aria-hidden', 'true'))
+                .append(document.createTextNode(' ' + (response.message || 'Could not save draft.')))
+            );
           }
         },
         error: function(xhr) {
@@ -1341,7 +1349,11 @@
           if (xhr.responseJSON && xhr.responseJSON.message) {
             msg = xhr.responseJSON.message;
           }
-          $status.html('<span class="text-danger"><i class="fas fa-exclamation-circle"></i> ' + msg + '</span>');
+          $status.empty().append(
+            $('<span>').addClass('text-danger')
+              .append($('<i>').addClass('fas fa-exclamation-circle').attr('aria-hidden', 'true'))
+              .append(document.createTextNode(' ' + msg))
+          );
         },
         complete: function() {
           $sendBtn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Link');

@@ -5,6 +5,9 @@
  * ILAS Hotspot module implementation.
  */
 
+use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\Xss;
+
 /**
  * Create a hotspot render array.
  * 
@@ -64,18 +67,22 @@ function ilas_hotspot_create($background_image, array $hotspots, $responsive = T
       ],
     ];
 
+    $safe_title = Html::escape($hotspot['title']);
+    $safe_icon = Html::escape($hotspot['icon']);
+    $safe_content = Xss::filterAdmin($hotspot['content']);
+
     $build['hotspot_' . $index]['trigger'] = [
       '#type' => 'html_tag',
       '#tag' => 'button',
       '#attributes' => [
         'class' => ['hotspot-trigger'],
         'data-bs-toggle' => 'popover',
-        'data-bs-content' => $hotspot['content'],
-        'data-bs-title' => $hotspot['title'],
+        'data-bs-content' => $safe_content,
+        'data-bs-title' => $safe_title,
         'data-bs-placement' => $hotspot['placement'],
         'data-bs-html' => 'true',
       ],
-      '#value' => '<img src="' . $hotspot['icon'] . '" alt="' . $hotspot['title'] . '" />',
+      '#value' => '<img src="' . $safe_icon . '" alt="' . $safe_title . '" />',
     ];
   }
 

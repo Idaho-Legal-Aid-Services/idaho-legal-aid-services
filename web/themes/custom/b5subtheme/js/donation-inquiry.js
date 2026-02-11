@@ -97,15 +97,23 @@
       
       function showSubmissionMessage(type, message, details = []) {
         $form.find('.submission-alert').remove();
-        const detailMarkup = details.length
-          ? `<ul class="mb-0 mt-2">${details.map(item => `<li>${item}</li>`).join('')}</ul>`
-          : '';
-        $form.find('[data-step="3"]').prepend(`
-          <div class="alert alert-${type} submission-alert" role="alert">
-            <strong>${message}</strong>
-            ${detailMarkup}
-          </div>
-        `);
+        var allowedTypes = ['success', 'danger', 'warning', 'info'];
+        var safeType = allowedTypes.indexOf(type) !== -1 ? type : 'info';
+
+        var $alert = $('<div>')
+          .addClass('alert alert-' + safeType + ' submission-alert')
+          .attr('role', 'alert');
+        $alert.append($('<strong>').text(message));
+
+        if (details.length) {
+          var $ul = $('<ul>').addClass('mb-0 mt-2');
+          details.forEach(function(item) {
+            $ul.append($('<li>').text(item));
+          });
+          $alert.append($ul);
+        }
+
+        $form.find('[data-step="3"]').prepend($alert);
       }
       
       function highlightBackendErrors(errors = {}) {
@@ -127,16 +135,22 @@
           $container.find('.content-body').hide();
         }
 
-        // Replace form with success message styled like content-body
-        $form.replaceWith(`
-          <div class="submission-success-wrapper">
-            <div class="alert alert-success submission-alert" role="alert">
-              <h3>Thank you for contacting us!</h3>
-              <p>${message || 'We have received your inquiry and will respond soon.'}</p>
-              <p>For immediate assistance, email <a href="mailto:development@idaholegalaid.org">development@idaholegalaid.org</a> or call <a href="tel:+12088072214">(208) 807-2214</a>.</p>
-            </div>
-          </div>
-        `);
+        // Build success message using safe DOM construction
+        var $wrapper = $('<div>').addClass('submission-success-wrapper');
+        var $alert = $('<div>').addClass('alert alert-success submission-alert').attr('role', 'alert');
+        $alert.append($('<h3>').text('Thank you for contacting us!'));
+        $alert.append($('<p>').text(message || 'We have received your inquiry and will respond soon.'));
+        $alert.append(
+          $('<p>').append(
+            document.createTextNode('For immediate assistance, email '),
+            $('<a>').attr('href', 'mailto:development@idaholegalaid.org').text('development@idaholegalaid.org'),
+            document.createTextNode(' or call '),
+            $('<a>').attr('href', 'tel:+12088072214').text('(208) 807-2214'),
+            document.createTextNode('.')
+          )
+        );
+        $wrapper.append($alert);
+        $form.replaceWith($wrapper);
       }
       
       // Handle page show event (for browser refresh/back from other tabs)

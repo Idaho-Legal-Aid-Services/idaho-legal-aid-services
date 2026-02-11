@@ -324,19 +324,20 @@
    */
   function showNoResults(instance, searchTerm) {
     const { $statusArea, $searchResults } = instance;
-    
-    $statusArea.text(`No results found for "${searchTerm}"`);
-    
-    // Show helpful message in results area
-    $searchResults.removeClass('d-none').html(`
-      <div class="no-results p-3">
-        <h5>No FAQs match your search</h5>
-        <p>Try searching with different keywords or browse all FAQs below.</p>
-        <a href="/site-search?keys=${encodeURIComponent(searchTerm)}" class="btn btn-primary btn-sm">
-          Search entire site
-        </a>
-      </div>
-    `);
+
+    $statusArea.text('No results found for "' + searchTerm + '"');
+
+    // Show helpful message in results area using safe DOM construction.
+    var $wrapper = $('<div>').addClass('no-results p-3');
+    $wrapper.append($('<h5>').text('No FAQs match your search'));
+    $wrapper.append($('<p>').text('Try searching with different keywords or browse all FAQs below.'));
+    $wrapper.append(
+      $('<a>')
+        .attr('href', '/site-search?keys=' + encodeURIComponent(searchTerm))
+        .addClass('btn btn-primary btn-sm')
+        .text('Search entire site')
+    );
+    $searchResults.removeClass('d-none').empty().append($wrapper);
   }
 
   /**
@@ -381,17 +382,84 @@
   }
 
   /**
-   * Highlight search term in FAQ item
+   * Escape special regex characters in a string.
+   */
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Highlight search term in FAQ item using safe text-node walker.
+   * Avoids .html() to prevent DOM XSS from user-controlled search input.
    */
   function highlightSearchTerm($item, searchTerm) {
-    // This is a simple implementation - in production, use a proper highlighting library
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
-    
+    searchTerm = (searchTerm || '').toString().trim();
+    if (searchTerm.length < CONFIG.MIN_SEARCH_LENGTH) return;
+
+    var escapedTerm = escapeRegExp(searchTerm);
+    if (!escapedTerm) return;
+
     $item.find('.accordion-button, .accordion-body').each(function() {
-      const $element = $(this);
-      const html = $element.html();
-      const highlighted = html.replace(regex, '<mark class="search-highlight">$1</mark>');
-      $element.html(highlighted);
+      highlightTextNodes(this, escapedTerm);
+    });
+  }
+
+  /**
+   * Walk text nodes in an element and wrap regex matches in <mark> tags.
+   * Skips script/style/noscript content and existing highlight marks.
+   */
+  function highlightTextNodes(root, escapedTerm) {
+    var walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(n) {
+          var p = n.parentNode;
+          if (!p || !p.nodeName) return NodeFilter.FILTER_REJECT;
+          var tag = p.nodeName.toLowerCase();
+          if (tag === 'script' || tag === 'style' || tag === 'noscript') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (tag === 'mark' && p.classList && p.classList.contains('search-highlight')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    var textNodes = [];
+    var node;
+    while ((node = walker.nextNode())) {
+      textNodes.push(node);
+    }
+
+    textNodes.forEach(function(textNode) {
+      var text = textNode.nodeValue;
+      var regex = new RegExp('(' + escapedTerm + ')', 'gi');
+      if (!regex.test(text)) return;
+
+      var fragment = document.createDocumentFragment();
+      var lastIndex = 0;
+      var match;
+      regex.lastIndex = 0;
+
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+        }
+        var mark = document.createElement('mark');
+        mark.className = 'search-highlight';
+        mark.textContent = match[0];
+        fragment.appendChild(mark);
+        lastIndex = regex.lastIndex;
+      }
+
+      if (lastIndex < text.length) {
+        fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+      }
+
+      textNode.parentNode.replaceChild(fragment, textNode);
     });
   }
 
