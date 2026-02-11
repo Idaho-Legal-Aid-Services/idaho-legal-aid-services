@@ -82,4 +82,34 @@ class SettingsSecurityTest extends TestCase {
     );
   }
 
+  /**
+   * M-13: Permissions-Policy header must restrict unused browser APIs.
+   *
+   * The header is set in settings.php (pre-bootstrap) using the modern
+   * Permissions-Policy format. Must include camera, microphone, and
+   * geolocation restrictions at minimum.
+   */
+  public function testPermissionsPolicyHeaderExists(): void {
+    $this->assertStringContainsString(
+      'Permissions-Policy:',
+      $this->settingsContents,
+      'settings.php must set a Permissions-Policy header'
+    );
+    $this->assertStringContainsString(
+      'camera=()',
+      $this->settingsContents,
+      'Permissions-Policy must restrict camera API'
+    );
+    $this->assertStringContainsString(
+      'microphone=()',
+      $this->settingsContents,
+      'Permissions-Policy must restrict microphone API'
+    );
+    $this->assertStringContainsString(
+      'geolocation=()',
+      $this->settingsContents,
+      'Permissions-Policy must restrict geolocation API'
+    );
+  }
+
 }

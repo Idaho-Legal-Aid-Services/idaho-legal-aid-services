@@ -50,4 +50,62 @@ class SecurityConfigTest extends TestCase {
       . 'Verbose error display leaks PHP backtraces to visitors.');
   }
 
+  /**
+   * H-2: CSP script-src must not contain 'unsafe-eval'.
+   *
+   * No custom or core JS requires eval(). CKEditor 5, BigPipe, and GA4
+   * all work without it. Allowing eval() enables injected script execution.
+   */
+  public function testCspScriptSrcNoUnsafeEval(): void {
+    $config = $this->loadSeckitConfig();
+    $scriptSrc = $config['seckit_xss']['csp']['script-src'] ?? '';
+    $this->assertStringNotContainsString("'unsafe-eval'", $scriptSrc,
+      'SECURITY: CSP script-src must not contain unsafe-eval. '
+      . 'No JS on this site requires eval().');
+  }
+
+  /**
+   * M-5: SecKit CSRF origin checking must be enabled.
+   *
+   * Validates the Origin header on POST requests as defense-in-depth
+   * against cross-site request forgery.
+   */
+  public function testCsrfOriginCheckEnabled(): void {
+    $config = $this->loadSeckitConfig();
+    $this->assertTrue($config['seckit_csrf']['origin'] ?? FALSE,
+      'SECURITY: seckit_csrf.origin must be true. '
+      . 'Origin header checking adds defense-in-depth against CSRF.');
+  }
+
+  /**
+   * H-5: HSTS must be enabled with max-age >= 31536000.
+   *
+   * SecKit emits the strong HSTS header. Pantheon's edge adds a weaker
+   * duplicate (max-age=300) that cannot be suppressed from the app layer.
+   */
+  public function testHstsEnabled(): void {
+    $config = $this->loadSeckitConfig();
+    $ssl = $config['seckit_ssl'] ?? [];
+    $this->assertTrue($ssl['hsts'] ?? FALSE,
+      'SECURITY: HSTS must be enabled in SecKit.');
+    $this->assertGreaterThanOrEqual(31536000, $ssl['hsts_max_age'] ?? 0,
+      'SECURITY: HSTS max-age must be at least 31536000 (1 year).');
+    $this->assertTrue($ssl['hsts_preload'] ?? FALSE,
+      'SECURITY: HSTS preload must be enabled for HSTS preload list inclusion.');
+  }
+
+  /**
+   * Loads and caches the SecKit settings config.
+   */
+  protected function loadSeckitConfig(): array {
+    static $config;
+    if ($config === NULL) {
+      $file = $this->configDir . '/seckit.settings.yml';
+      $this->assertFileExists($file);
+      $config = Yaml::parseFile($file);
+      $this->assertIsArray($config);
+    }
+    return $config;
+  }
+
 }

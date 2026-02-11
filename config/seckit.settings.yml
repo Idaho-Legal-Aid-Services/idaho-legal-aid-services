@@ -8,7 +8,7 @@ seckit_xss:
       webkit: false
     report-only: false
     default-src: "'self'"
-    script-src: "'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://*.google.com https://www.gstatic.com https://*.gstatic.com https://www.recaptcha.net https://googleads.g.doubleclick.net https://*.g.doubleclick.net https://*.doubleclick.net https://donorbox.org https://*.donorbox.org https://challenges.cloudflare.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://www.googleadservices.com https://*.googleadservices.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://tagmanager.google.com https://connect.facebook.net https://*.facebook.net https://embed.bsky.app https://www.instagram.com https://www.linkedin.com https://maps.googleapis.com"
+    script-src: "'self' 'unsafe-inline' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://www.google.com https://*.google.com https://www.gstatic.com https://*.gstatic.com https://www.recaptcha.net https://googleads.g.doubleclick.net https://*.g.doubleclick.net https://*.doubleclick.net https://donorbox.org https://*.donorbox.org https://challenges.cloudflare.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://www.googleadservices.com https://*.googleadservices.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://tagmanager.google.com https://connect.facebook.net https://*.facebook.net https://embed.bsky.app https://www.instagram.com https://www.linkedin.com https://maps.googleapis.com"
     object-src: "'none'"
     style-src: "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com https://tagmanager.google.com https://donorbox.org https://*.donorbox.org"
     img-src: "'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://*.analytics.google.com https://*.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://*.google.com https://ssl.gstatic.com https://www.gstatic.com https://*.gstatic.com https://www.googleadservices.com https://*.googleadservices.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.org https://donorbox.org https://*.donorbox.org https://cdn.jsdelivr.net https://unpkg.com https://www.facebook.com https://*.facebook.com https://*.fbcdn.net https://embed.bsky.app https://*.bsky.app https://i.ytimg.com https://i.vimeocdn.com https://www.recaptcha.net https://www.instagram.com https://*.cdninstagram.com https://www.linkedin.com https://*.licdn.com https://maps.googleapis.com https://*.ggpht.com"
@@ -24,13 +24,18 @@ seckit_xss:
   x_xss:
     select: 2
 seckit_csrf:
-  origin: false
+  origin: true
   origin_whitelist: ''
 seckit_clickjacking:
   js_css_noscript: false
   noscript_message: 'Sorry, you need to enable JavaScript to visit this website.'
   x_frame: '1'
   x_frame_allow_from: ''
+# NOTE: Pantheon's edge/CDN layer adds a duplicate HSTS header (max-age=300).
+# This cannot be suppressed from the application layer. SecKit's stronger header
+# (max-age=31536000) is intentionally kept. Contact Pantheon support to request
+# they either suppress their HSTS or increase its max-age to match.
+# See: Finding H-5 in security audit (Feb 2026).
 seckit_ssl:
   hsts: true
   hsts_subdomains: true
