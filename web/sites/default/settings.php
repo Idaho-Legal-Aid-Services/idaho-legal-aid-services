@@ -24,6 +24,27 @@ if (isset($_SERVER['REQUEST_URI']) &&
 }
 
 /**
+ * SECURITY: Block direct access to core utility scripts (Added Feb 11, 2026).
+ *
+ * Prevents information disclosure from install.php / rebuild.php stack traces
+ * and settings.php 200-OK responses. Must run before settings.pantheon.php.
+ * Skips CLI so drush/terminus remain unaffected.
+ */
+if (PHP_SAPI !== 'cli' && isset($_SERVER['SCRIPT_NAME'])) {
+  $blocked_scripts = [
+    '/core/install.php',
+    '/core/rebuild.php',
+    '/sites/default/settings.php',
+  ];
+  foreach ($blocked_scripts as $script) {
+    if (strpos($_SERVER['SCRIPT_NAME'], $script) === 0) {
+      header('HTTP/1.1 403 Forbidden');
+      die('Access denied.');
+    }
+  }
+}
+
+/**
  * Load services definition file.
  */
 $settings['container_yamls'][] = __DIR__ . '/services.yml';
