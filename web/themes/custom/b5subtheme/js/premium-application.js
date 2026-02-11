@@ -1325,7 +1325,8 @@
         type: 'POST',
         data: JSON.stringify({
           email: email,
-          form_data: formData
+          form_data: formData,
+          form_token: this.formTokens.token
         }),
         contentType: 'application/json',
         processData: false,

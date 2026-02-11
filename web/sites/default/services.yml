@@ -1,0 +1,10 @@
+parameters:
+  # M-1: Disable super user access policy so UID 1 obeys normal RBAC.
+  # The 'administrator' role has is_admin: true, granting full access.
+  # Verify UID 1 has the Administrator role before deploying.
+  security.enable_super_user: false
+
+  # L-4: Reduce session lifetime from 23 days to 7 days.
+  session.storage.options:
+    gc_maxlifetime: 604800
+    cookie_lifetime: 604800

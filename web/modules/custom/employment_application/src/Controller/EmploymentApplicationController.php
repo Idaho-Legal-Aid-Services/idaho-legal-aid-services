@@ -2132,6 +2132,12 @@ class EmploymentApplicationController extends ControllerBase {
       return $this->errorResponse('Email and form data are required.');
     }
 
+    // CSRF token validation (M-2).
+    $formToken = $body['form_token'] ?? '';
+    if (empty($formToken) || !$this->csrfToken->validate($formToken, 'employment_application_form')) {
+      return $this->errorResponse('Invalid security token. Please reload the page and try again.', Response::HTTP_FORBIDDEN);
+    }
+
     $email = trim($body['email']);
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
       return $this->errorResponse('Please provide a valid email address.');

@@ -95,6 +95,25 @@ class SecurityConfigTest extends TestCase {
   }
 
   /**
+   * M-6: Authenticated role must not bypass honeypot or skip CAPTCHA.
+   *
+   * These permissions allow bots operating under authenticated sessions
+   * to bypass form protection. Only admin roles should have them.
+   */
+  public function testAuthenticatedRoleNoHoneypotBypass(): void {
+    $file = $this->configDir . '/user.role.authenticated.yml';
+    $this->assertFileExists($file);
+
+    $config = Yaml::parseFile($file);
+    $permissions = $config['permissions'] ?? [];
+
+    $this->assertNotContains('bypass honeypot protection', $permissions,
+      'SECURITY M-6: authenticated role must not have "bypass honeypot protection".');
+    $this->assertNotContains('skip CAPTCHA', $permissions,
+      'SECURITY M-6: authenticated role must not have "skip CAPTCHA".');
+  }
+
+  /**
    * Loads and caches the SecKit settings config.
    */
   protected function loadSeckitConfig(): array {
