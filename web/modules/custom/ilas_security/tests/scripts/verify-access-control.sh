@@ -1,11 +1,11 @@
 #!/bin/bash
-# Verify access control hardening for findings M-1, L-4, M-2, M-6.
+# Verify access control hardening for findings M-1, L-4, L-5, M-2, M-6.
 # Run from project root: bash web/modules/custom/ilas_security/tests/scripts/verify-access-control.sh
 
 set -euo pipefail
 ERRORS=0
 
-echo "=== Access Control Hardening Verification (M-1, L-4, M-2, M-6) ==="
+echo "=== Access Control Hardening Verification (M-1, L-4, L-5, M-2, M-6) ==="
 echo ""
 
 # M-1: services.yml must disable super user
@@ -44,6 +44,23 @@ if [ -f "$SERVICES" ]; then
 else
   echo "  FAIL: $SERVICES does not exist"
   ERRORS=$((ERRORS + 2))
+fi
+
+# L-5: services.yml must set cookie_samesite explicitly (since overriding
+# session.storage.options replaces the entire parameter from core.services.yml)
+echo ""
+echo "[L-5] Checking cookie_samesite ..."
+
+if [ -f "$SERVICES" ]; then
+  if grep -q "cookie_samesite: Lax" "$SERVICES"; then
+    echo "  PASS: cookie_samesite explicitly set to Lax"
+  else
+    echo "  FAIL: cookie_samesite not set to Lax in $SERVICES"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "  FAIL: $SERVICES does not exist"
+  ERRORS=$((ERRORS + 1))
 fi
 
 # M-6: authenticated role must NOT have bypass honeypot or skip CAPTCHA

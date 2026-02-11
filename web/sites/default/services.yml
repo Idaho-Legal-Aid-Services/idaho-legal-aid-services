@@ -5,6 +5,12 @@ parameters:
   security.enable_super_user: false
 
   # L-4: Reduce session lifetime from 23 days to 7 days.
+  # cookie_samesite must be explicitly set here because overriding
+  # session.storage.options replaces the entire parameter from core.services.yml
+  # (Symfony parameters are not deep-merged). Lax is correct: no cross-site
+  # flows require the Drupal session cookie, and Lax protects against CSRF
+  # while allowing top-level navigations (email links, search results, etc.).
   session.storage.options:
     gc_maxlifetime: 604800
     cookie_lifetime: 604800
+    cookie_samesite: Lax
