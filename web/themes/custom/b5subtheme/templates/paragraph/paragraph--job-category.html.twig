@@ -239,7 +239,13 @@
                  aria-labelledby="heading-{{ job_id }}"
                  data-bs-parent="#accordion-{{ category_id }}">
               <div class="accordion-body">
-                {{ job.field_accordion_body.value|raw }}
+                {# Rendered through text format filters for XSS safety #}
+                {% set body_safe = {
+                  '#type': 'processed_text',
+                  '#text': job.field_accordion_body.value,
+                  '#format': job.field_accordion_body.format,
+                } %}
+                {{ body_safe }}
 
                 {# Actions row: Download button (left) + Apply Now button (right) #}
                 {% set has_file = job.field_accordion_file.entity and job.field_accordion_file.entity.field_media_document.entity %}

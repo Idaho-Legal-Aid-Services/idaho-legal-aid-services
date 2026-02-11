@@ -79,7 +79,7 @@
                     ] %}
                     
                     {# Process the text and convert phrases to links #}
-                    {% set processed_text = phone_text %}
+                    {% set processed_text = phone_text|e('html') %}
                     {% for phrase in link_phrases %}
                       {% set link_html = '<a href="' ~ phone_number ~ '">' ~ phrase ~ '</a>' %}
                       {% set processed_text = processed_text|replace({(phrase): link_html}) %}

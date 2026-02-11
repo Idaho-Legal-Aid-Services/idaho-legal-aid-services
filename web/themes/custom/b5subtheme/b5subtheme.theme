@@ -355,7 +355,18 @@ function _b5subtheme_preprocess_employment_tabs(array &$variables, NodeInterface
 
   foreach ($paragraphs as $index => $paragraph) {
     $title = $paragraph->get('field_section_title')->value ?? '';
-    $body = $paragraph->get('field_section_body')->value ?? '';
+    // Use a #processed_text render array instead of raw field value.
+    // This applies text format filters (XSS protection) and preserves
+    // cache metadata, unlike accessing ->value directly.
+    $body = [];
+    if (!$paragraph->get('field_section_body')->isEmpty()) {
+      $item = $paragraph->get('field_section_body')->first();
+      $body = [
+        '#type' => 'processed_text',
+        '#text' => $item->value,
+        '#format' => $item->format,
+      ];
+    }
     $style = $paragraph->get('field_section_style')->value ?? 'default';
     $section_id = $paragraph->get('field_section_id')->value ?? '';
 
