@@ -97,11 +97,6 @@ if (PHP_SAPI !== 'cli') {
 if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'live') {
   $settings['google_tag_id'] = 'G-QYT2ZNY442';
 
-  // Disable ILAS Site Assistant (Aila) chatbot on production.
-  // Module code stays deployed; this prevents the floating widget from loading
-  // and gates the /assistant page. Survives drush config:import.
-  $config['ilas_site_assistant.settings']['enable_global_widget'] = FALSE;
-
   // Production rate limits for the chatbot API (per IP).
   $config['ilas_site_assistant.settings']['rate_limit_per_minute'] = 15;
   $config['ilas_site_assistant.settings']['rate_limit_per_hour'] = 120;
