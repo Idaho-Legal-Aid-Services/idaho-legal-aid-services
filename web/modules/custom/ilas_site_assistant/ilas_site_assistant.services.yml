@@ -1,4 +1,11 @@
 services:
+  cache.ilas_site_assistant:
+    class: Drupal\Core\Cache\CacheBackendInterface
+    tags:
+      - { name: cache.bin }
+    factory: cache_factory:get
+    arguments: [ilas_site_assistant]
+
   ilas_site_assistant.ranking_enhancer:
     class: Drupal\ilas_site_assistant\Service\RankingEnhancer
     arguments: ['@cache.default']

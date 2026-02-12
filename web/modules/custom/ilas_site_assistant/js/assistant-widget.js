@@ -1076,16 +1076,11 @@
       }
 
       // Also log to server.
-      this.callApi('/message', {
+      this.callApi('/track', {
         method: 'POST',
         body: JSON.stringify({
-          message: '__track__',
-          context: {
-            track: {
-              type: eventType,
-              value: eventValue,
-            },
-          },
+          event_type: eventType,
+          event_value: eventValue,
         }),
       }).catch(() => {
         // Silent fail for tracking.
