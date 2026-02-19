@@ -107,3 +107,13 @@ services:
   ilas_site_assistant.ab_testing:
     class: Drupal\ilas_site_assistant\Service\AbTestingService
     arguments: ['@config.factory']
+
+  ilas_site_assistant.langfuse_tracer:
+    class: Drupal\ilas_site_assistant\Service\LangfuseTracer
+    arguments: ['@config.factory', '@logger.channel.ilas_site_assistant']
+
+  ilas_site_assistant.langfuse_terminate_subscriber:
+    class: Drupal\ilas_site_assistant\EventSubscriber\LangfuseTerminateSubscriber
+    arguments: ['@ilas_site_assistant.langfuse_tracer', '@queue', '@config.factory', '@logger.channel.ilas_site_assistant']
+    tags:
+      - { name: event_subscriber }

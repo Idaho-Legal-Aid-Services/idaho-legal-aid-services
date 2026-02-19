@@ -25,6 +25,7 @@ use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
+use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -168,6 +169,13 @@ class AssistantApiController extends ControllerBase {
   protected $violationTracker;
 
   /**
+   * The Langfuse tracer service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\LangfuseTracer|null
+   */
+  protected $langfuseTracer;
+
+  /**
    * The flood service for rate limiting.
    *
    * @var \Drupal\Core\Flood\FloodInterface
@@ -211,7 +219,8 @@ class AssistantApiController extends ControllerBase {
     PerformanceMonitor $performance_monitor = NULL,
     ConversationLogger $conversation_logger = NULL,
     AbTestingService $ab_testing = NULL,
-    SafetyViolationTracker $violation_tracker = NULL
+    SafetyViolationTracker $violation_tracker = NULL,
+    LangfuseTracer $langfuse_tracer = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -233,6 +242,7 @@ class AssistantApiController extends ControllerBase {
     $this->conversationLogger = $conversation_logger;
     $this->abTesting = $ab_testing;
     $this->violationTracker = $violation_tracker;
+    $this->langfuseTracer = $langfuse_tracer;
   }
 
   /**
@@ -259,7 +269,8 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.performance_monitor') ? $container->get('ilas_site_assistant.performance_monitor') : NULL,
       $container->has('ilas_site_assistant.conversation_logger') ? $container->get('ilas_site_assistant.conversation_logger') : NULL,
       $container->has('ilas_site_assistant.ab_testing') ? $container->get('ilas_site_assistant.ab_testing') : NULL,
-      $container->has('ilas_site_assistant.safety_violation_tracker') ? $container->get('ilas_site_assistant.safety_violation_tracker') : NULL
+      $container->has('ilas_site_assistant.safety_violation_tracker') ? $container->get('ilas_site_assistant.safety_violation_tracker') : NULL,
+      $container->has('ilas_site_assistant.langfuse_tracer') ? $container->get('ilas_site_assistant.langfuse_tracer') : NULL
     );
   }
 
@@ -362,6 +373,11 @@ class AssistantApiController extends ControllerBase {
     // Start performance tracking.
     $start_time = microtime(TRUE);
 
+    // Start Langfuse trace (if enabled and sampled).
+    $this->langfuseTracer?->startTrace($request_id, 'assistant.message', [
+      'environment' => $config->get('langfuse.environment') ?? 'production',
+    ]);
+
     try {
 
     $user_message = $this->sanitizeInput($data['message']);
@@ -455,6 +471,7 @@ class AssistantApiController extends ControllerBase {
     // Run SafetyClassifier first (if available) for enhanced classification.
     $safety_classification = NULL;
     if ($this->safetyClassifier) {
+      $this->langfuseTracer?->startSpan('safety.classify');
       $safety_classification = $this->safetyClassifier->classify($normalized_message);
 
       if ($debug_mode) {
@@ -515,13 +532,31 @@ class AssistantApiController extends ControllerBase {
           '@level' => $safety_classification['escalation_level'],
         ]);
 
+        $this->langfuseTracer?->endSpan([
+          'class' => $safety_classification['class'],
+          'reason_code' => $safety_classification['reason_code'],
+          'is_safe' => FALSE,
+        ]);
+        $this->langfuseTracer?->endTrace(
+          output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
+          metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+        );
+
         return $this->jsonResponse($response_data, 200, [], $request_id);
       }
+
+      // Safety passed — end the span with safe result.
+      $this->langfuseTracer?->endSpan([
+        'class' => $safety_classification['class'],
+        'reason_code' => $safety_classification['reason_code'],
+        'is_safe' => TRUE,
+      ]);
     }
 
     // Run OutOfScopeClassifier as second-pass check (after safety, before intent).
     $oos_classification = NULL;
     if ($this->outOfScopeClassifier) {
+      $this->langfuseTracer?->startSpan('oos.classify');
       $oos_classification = $this->outOfScopeClassifier->classify($normalized_message);
 
       if ($debug_mode) {
@@ -574,11 +609,28 @@ class AssistantApiController extends ControllerBase {
           '@reason' => $oos_classification['reason_code'],
         ]);
 
+        $this->langfuseTracer?->endSpan([
+          'is_out_of_scope' => TRUE,
+          'category' => $oos_classification['category'],
+          'reason_code' => $oos_classification['reason_code'],
+        ]);
+        $this->langfuseTracer?->endTrace(
+          output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
+          metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+        );
+
         return $this->jsonResponse($response_data, 200, [], $request_id);
       }
+
+      // OOS passed — end the span.
+      $this->langfuseTracer?->endSpan([
+        'is_out_of_scope' => FALSE,
+        'category' => $oos_classification['category'] ?? 'none',
+      ]);
     }
 
     // Fallback to PolicyFilter if SafetyClassifier not available or marked safe.
+    $this->langfuseTracer?->startSpan('policy.check');
     $policy_result = $this->policyFilter->check($normalized_message);
 
     if ($debug_mode) {
@@ -620,8 +672,17 @@ class AssistantApiController extends ControllerBase {
         '@type' => $policy_result['type'],
       ]);
 
+      $this->langfuseTracer?->endSpan(['violation' => TRUE, 'type' => $policy_result['type']]);
+      $this->langfuseTracer?->endTrace(
+        output: ['type' => 'policy_violation', 'reason_code' => 'policy_' . $policy_result['type']],
+        metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+      );
+
       return $this->jsonResponse($response_data, 200, [], $request_id);
     }
+
+    // Policy passed.
+    $this->langfuseTracer?->endSpan(['violation' => FALSE]);
 
     // Pending follow-up slot-fill: if the previous response asked for a
     // location, try to resolve this message as a city/county before intent
@@ -647,6 +708,7 @@ class AssistantApiController extends ControllerBase {
 
     // Quick-action short-circuit: when the request comes from a suggestion
     // button click, bypass all classifiers/routers and use the action directly.
+    $this->langfuseTracer?->startSpan('intent.route');
     $quick_action_intents = [
       'apply' => 'apply_for_help',
       'hotline' => 'legal_advice_line',
@@ -714,15 +776,25 @@ class AssistantApiController extends ControllerBase {
       }
     }
 
+    $this->langfuseTracer?->endSpan([
+      'type' => $intent['type'] ?? 'unknown',
+      'confidence' => $intent['confidence'] ?? NULL,
+      'source' => $intent['source'] ?? 'direct',
+    ]);
+
     // Early retrieval for gate evaluation (search FAQ/resources for context).
+    $this->langfuseTracer?->startSpan('retrieval.early');
     $early_retrieval = [];
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $skip_retrieval_intents = ['greeting', 'apply_for_help', 'apply'];
     if ($config->get('enable_faq') && !in_array($intent['type'], $skip_retrieval_intents)) {
       $early_retrieval = $this->faqIndex->search($user_message, 3);
     }
+    $top_score = !empty($early_retrieval) ? ($early_retrieval[0]['score'] ?? NULL) : NULL;
+    $this->langfuseTracer?->endSpan(['result_count' => count($early_retrieval), 'top_score' => $top_score]);
 
     // Evaluate fallback gate to decide: answer, clarify, or use LLM.
+    $this->langfuseTracer?->startSpan('gate.evaluate');
     $gate_context = [
       'message' => $user_message,
       'policy_violation' => FALSE,
@@ -733,6 +805,11 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['safety_flags'] ?? [],
       $gate_context
     );
+    $this->langfuseTracer?->endSpan([
+      'decision' => $gate_decision['decision'] ?? 'unknown',
+      'reason_code' => $gate_decision['reason_code'] ?? NULL,
+      'confidence' => $gate_decision['confidence'] ?? NULL,
+    ]);
 
     if ($debug_mode) {
       $debug_meta['gate_decision'] = $gate_decision['decision'];
@@ -746,7 +823,13 @@ class AssistantApiController extends ControllerBase {
     $is_quick_action = ($intent['source'] ?? '') === 'quick_action';
     if (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_FALLBACK_LLM && $this->llmEnhancer->isEnabled()) {
       // Try LLM classification for low-confidence cases.
+      $llm_model = $config->get('llm.model') ?? 'gemini-1.5-flash';
+      $this->langfuseTracer?->startGeneration('llm.classify', $llm_model, [
+        'temperature' => $config->get('llm.temperature') ?? 0.3,
+        'max_tokens' => $config->get('llm.max_tokens') ?? 150,
+      ], PiiRedactor::redactForStorage($user_message, 200));
       $llm_intent = $this->llmEnhancer->classifyIntent($user_message, $intent['type']);
+      $this->langfuseTracer?->endGeneration($llm_intent, $this->llmEnhancer->getLastUsage() ?? []);
       if ($llm_intent !== 'unknown' && $llm_intent !== $intent['type']) {
         $intent = ['type' => $llm_intent, 'source' => 'llm', 'extraction' => $intent['extraction'] ?? []];
 
@@ -769,7 +852,13 @@ class AssistantApiController extends ControllerBase {
     }
 
     // Process based on intent.
+    $this->langfuseTracer?->startSpan('intent.process', ['intent_type' => $intent['type'] ?? 'unknown']);
     $response = $this->processIntent($intent, $user_message, $context, $request_id);
+    $this->langfuseTracer?->endSpan([
+      'response_type' => $response['type'] ?? 'unknown',
+      'result_count' => count($response['results'] ?? []),
+      'has_fallback_url' => !empty($response['fallback_url']),
+    ]);
 
     // CRITICAL: Enforce canonical URL for hard-route intents.
     $canonical_urls = ilas_site_assistant_get_canonical_urls();
@@ -779,7 +868,11 @@ class AssistantApiController extends ControllerBase {
 
     // Apply response grounding (add citations, validate info).
     if ($this->responseGrounder && !empty($response['results'])) {
+      $this->langfuseTracer?->startSpan('response.ground');
       $response = $this->responseGrounder->groundResponse($response, $response['results']);
+      $this->langfuseTracer?->endSpan([
+        'citations_added' => !empty($response['citations']),
+      ]);
       if ($debug_mode) {
         $debug_meta['processing_stages'][] = 'response_grounded';
       }
@@ -798,16 +891,28 @@ class AssistantApiController extends ControllerBase {
 
     // Enhance response with LLM if enabled.
     $original_response = $response;
+    $llm_model = $config->get('llm.model') ?? 'gemini-1.5-flash';
+    $this->langfuseTracer?->startGeneration('llm.enhance', $llm_model, [
+      'temperature' => $config->get('llm.temperature') ?? 0.3,
+      'max_tokens' => $config->get('llm.max_tokens') ?? 150,
+    ], PiiRedactor::redactForStorage($user_message, 200));
     $response = $this->llmEnhancer->enhanceResponse($response, $user_message);
+    $llm_was_used = ($response['llm_enhanced'] ?? FALSE);
+    $this->langfuseTracer?->endGeneration(
+      $llm_was_used ? ($response['message'] ?? NULL) : NULL,
+      $llm_was_used ? ($this->llmEnhancer->getLastUsage() ?? []) : []
+    );
 
-    if ($debug_mode && ($response['llm_enhanced'] ?? FALSE)) {
+    if ($debug_mode && $llm_was_used) {
       $debug_meta['llm_used'] = TRUE;
       $debug_meta['processing_stages'][] = 'llm_enhancement';
     }
 
     // Post-generation safety enforcement: block legal advice in LLM output,
     // enforce _requires_review flag, and strip internal flags.
+    $this->langfuseTracer?->startSpan('safety.post_generation');
     $response = $this->enforcePostGenerationSafety($response, $request_id);
+    $this->langfuseTracer?->endSpan(['legal_advice_blocked' => ($response['_legal_advice_blocked'] ?? FALSE)]);
 
     if ($debug_mode) {
       $debug_meta['processing_stages'][] = 'post_generation_safety';
@@ -925,6 +1030,25 @@ class AssistantApiController extends ControllerBase {
       '@type' => $response['type'] ?? 'unknown',
     ]);
 
+    // End Langfuse trace on successful completion.
+    $duration_ms = (microtime(TRUE) - $start_time) * 1000;
+    $this->langfuseTracer?->addEvent('request.complete', [
+      'intent_type' => $intent['type'] ?? 'unknown',
+      'response_type' => $response['type'] ?? 'unknown',
+      'is_quick_action' => $is_quick_action,
+    ]);
+    $this->langfuseTracer?->endTrace(
+      output: ['type' => $response['type'] ?? 'unknown', 'reason_code' => $response['reason_code'] ?? NULL],
+      metadata: [
+        'duration_ms' => $duration_ms,
+        'success' => TRUE,
+        'intent_type' => $intent['type'] ?? 'unknown',
+        'response_type' => $response['type'] ?? 'unknown',
+        'is_quick_action' => $is_quick_action,
+        'conversation_hash' => $conversation_id ? hash('sha256', $conversation_id) : NULL,
+      ]
+    );
+
     $response['request_id'] = $request_id;
     return $this->jsonResponse($response, 200, [], $request_id);
 
@@ -940,6 +1064,17 @@ class AssistantApiController extends ControllerBase {
           '@safety' => isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
         ]
       );
+
+      // End Langfuse trace on error.
+      $this->langfuseTracer?->addEvent('error', [
+        'class' => get_class($e),
+        'message' => $e->getMessage(),
+      ], 'ERROR');
+      $this->langfuseTracer?->endTrace(
+        output: NULL,
+        metadata: ['success' => FALSE, 'error' => get_class($e), 'duration_ms' => (microtime(TRUE) - $start_time) * 1000]
+      );
+
       if ($this->performanceMonitor) {
         $duration_ms = (microtime(TRUE) - $start_time) * 1000;
         $this->performanceMonitor->recordRequest($duration_ms, FALSE, 'error', $request_id);

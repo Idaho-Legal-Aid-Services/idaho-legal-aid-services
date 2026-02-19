@@ -204,6 +204,23 @@ if ($ilas_vertex_sa) {
 }
 
 /**
+ * Langfuse observability API keys.
+ *
+ * On Pantheon: type "runtime", scope "web", keys "LANGFUSE_PUBLIC_KEY" and "LANGFUSE_SECRET_KEY".
+ * Locally (DDEV): add to .ddev/.env, then ddev restart.
+ */
+$langfuse_pk = _ilas_get_secret('LANGFUSE_PUBLIC_KEY');
+$langfuse_sk = _ilas_get_secret('LANGFUSE_SECRET_KEY');
+if ($langfuse_pk && $langfuse_sk) {
+  $config['ilas_site_assistant.settings']['langfuse']['public_key'] = $langfuse_pk;
+  $config['ilas_site_assistant.settings']['langfuse']['secret_key'] = $langfuse_sk;
+}
+// Set environment label from Pantheon environment.
+if (defined('PANTHEON_ENVIRONMENT')) {
+  $config['ilas_site_assistant.settings']['langfuse']['environment'] = PANTHEON_ENVIRONMENT;
+}
+
+/**
  * Gemini API key for Drupal AI module (Google AI Studio).
  * Key entity "gemini_api_key" (config provider, empty default).
  * Reuses the same secret as ilas_site_assistant above.

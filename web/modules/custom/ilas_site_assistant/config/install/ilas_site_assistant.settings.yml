@@ -173,3 +173,19 @@ ab_testing:
       allocation:
         - 50
         - 50
+
+# Langfuse observability (default OFF)
+# Credentials should be set via settings.php from environment variables:
+#   $config['ilas_site_assistant.settings']['langfuse']['public_key'] = getenv('LANGFUSE_PUBLIC_KEY');
+#   $config['ilas_site_assistant.settings']['langfuse']['secret_key'] = getenv('LANGFUSE_SECRET_KEY');
+#   $config['ilas_site_assistant.settings']['langfuse']['environment'] = getenv('PANTHEON_ENVIRONMENT') ?: 'local';
+langfuse:
+  enabled: false
+  host: 'https://us.cloud.langfuse.com'
+  public_key: ''
+  secret_key: ''
+  sample_rate: 1.0
+  environment: 'production'
+  timeout: 5.0
+  max_queue_depth: 10000
+  max_item_age_seconds: 3600

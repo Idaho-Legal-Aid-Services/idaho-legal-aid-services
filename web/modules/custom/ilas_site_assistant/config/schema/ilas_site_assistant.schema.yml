@@ -301,3 +301,34 @@ ilas_site_assistant.settings:
                 sequence:
                   type: integer
                   label: 'Percentage'
+    langfuse:
+      type: mapping
+      label: 'Langfuse observability settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable Langfuse tracing'
+        host:
+          type: string
+          label: 'Langfuse API host'
+        public_key:
+          type: string
+          label: 'Langfuse public key'
+        secret_key:
+          type: string
+          label: 'Langfuse secret key'
+        sample_rate:
+          type: float
+          label: 'Trace sample rate (0.0-1.0)'
+        environment:
+          type: string
+          label: 'Environment label (e.g., production, staging)'
+        timeout:
+          type: float
+          label: 'HTTP timeout for Langfuse API calls (seconds)'
+        max_queue_depth:
+          type: integer
+          label: 'Maximum queue depth before dropping new items'
+        max_item_age_seconds:
+          type: integer
+          label: 'Maximum item age in seconds before discarding'

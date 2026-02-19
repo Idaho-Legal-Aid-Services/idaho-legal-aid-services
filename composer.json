@@ -23,6 +23,7 @@
         "composer/installers": "^2.3",
         "cweagans/composer-patches": "^2.0",
         "dompdf/dompdf": "^3.1",
+        "dropsolid/langfuse-php-sdk": "^1.2",
         "drupal/ai": "^1.3@beta",
         "drupal/ai_provider_google_vertex": "^1.1",
         "drupal/ai_seo": "^1.0",

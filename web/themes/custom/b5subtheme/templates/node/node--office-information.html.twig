@@ -68,7 +68,7 @@
               <dl class="info-list">
                 <dt>Legal Advice Line(s):</dt>
                 <dd>
-                  {% set phone_text = content.field_legal_advice_line|render|striptags|trim %}
+                  {% set phone_text = node.field_legal_advice_line.value|trim %}
                   {% if phone_text %}
                     {# Define the phrases that should become phone links #}
                     {% set phone_number = 'tel:+12087467541' %}

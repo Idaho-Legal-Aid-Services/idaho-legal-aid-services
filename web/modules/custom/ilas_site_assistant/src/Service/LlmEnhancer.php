@@ -62,6 +62,13 @@ class LlmEnhancer {
   protected $cache;
 
   /**
+   * Token usage from the most recent LLM API call.
+   *
+   * @var array|null
+   */
+  protected ?array $lastUsage = NULL;
+
+  /**
    * Policy version for cache invalidation.
    *
    * Bump this when system prompts, safety patterns, or response policy change.
@@ -229,6 +236,17 @@ PROMPT,
     }
 
     return FALSE;
+  }
+
+  /**
+   * Returns token usage from the most recent LLM API call.
+   *
+   * @return array|null
+   *   Array with 'input', 'output', 'total' token counts, or NULL if
+   *   no usage data is available (e.g., response was cached or no call made).
+   */
+  public function getLastUsage(): ?array {
+    return $this->lastUsage;
   }
 
   /**
@@ -506,6 +524,7 @@ PROMPT,
       ]));
       $cached = $this->cache->get($cacheKey);
       if ($cached) {
+        $this->lastUsage = NULL;
         return $cached->data;
       }
     }
@@ -657,6 +676,17 @@ PROMPT,
         ]);
 
         $body = json_decode($response->getBody()->getContents(), TRUE);
+
+        // Capture token usage metadata from the response.
+        $this->lastUsage = NULL;
+        if (isset($body['usageMetadata'])) {
+          $usage = $body['usageMetadata'];
+          $this->lastUsage = [
+            'input' => (int) ($usage['promptTokenCount'] ?? 0),
+            'output' => (int) ($usage['candidatesTokenCount'] ?? 0),
+            'total' => (int) ($usage['totalTokenCount'] ?? 0),
+          ];
+        }
 
         // Extract text from response.
         if (isset($body['candidates'][0]['content']['parts'][0]['text'])) {
