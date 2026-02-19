@@ -37,25 +37,16 @@ class ConversationLogger {
   protected $time;
 
   /**
-   * The policy filter service.
-   *
-   * @var \Drupal\ilas_site_assistant\Service\PolicyFilter
-   */
-  protected $policyFilter;
-
-  /**
    * Constructs a ConversationLogger object.
    */
   public function __construct(
     Connection $database,
     ConfigFactoryInterface $config_factory,
-    TimeInterface $time,
-    PolicyFilter $policy_filter
+    TimeInterface $time
   ) {
     $this->database = $database;
     $this->configFactory = $config_factory;
     $this->time = $time;
-    $this->policyFilter = $policy_filter;
   }
 
   /**
@@ -103,16 +94,10 @@ class ConversationLogger {
       return;
     }
 
-    $config = $this->configFactory->get('ilas_site_assistant.settings');
     $now = $this->time->getRequestTime();
 
-    // Redact PII from user message.
-    $redactedUser = $config->get('conversation_logging.redact_pii') !== FALSE
-      ? $this->redactPii($userMessage)
-      : $userMessage;
-
-    // Truncate to prevent storage of very long messages.
-    $redactedUser = mb_substr($redactedUser, 0, 500);
+    // PII redaction is always-on — no config gate.
+    $redactedUser = PiiRedactor::redactForStorage($userMessage, 500);
     $assistantMessage = mb_substr(strip_tags($assistantMessage), 0, 1000);
 
     // Sanitize request_id to valid UUID or NULL.
@@ -163,59 +148,10 @@ class ConversationLogger {
   }
 
   /**
-   * Redacts obvious PII patterns from text.
-   *
-   * @param string $text
-   *   The text to redact.
-   *
-   * @return string
-   *   Redacted text with PII replaced by tokens.
-   */
-  protected function redactPii(string $text): string {
-    // Use existing PolicyFilter sanitization first.
-    $text = $this->policyFilter->sanitizeForStorage($text);
-
-    // Email addresses.
-    $text = preg_replace(
-      '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/',
-      '[EMAIL]', $text
-    );
-
-    // SSN patterns (###-##-####).
-    $text = preg_replace(
-      '/\b\d{3}-\d{2}-\d{4}\b/',
-      '[SSN]', $text
-    );
-
-    // Phone numbers.
-    $text = preg_replace(
-      '/\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s*\d{3}[-.\s]?\d{4})\b/',
-      '[PHONE]', $text
-    );
-
-    // Date patterns (MM/DD/YYYY or similar).
-    $text = preg_replace(
-      '/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/',
-      '[DATE]', $text
-    );
-
-    // Street addresses (simple heuristic: number + words + street suffix).
-    $text = preg_replace(
-      '/\b\d{1,5}\s+[\w\s]{1,40}\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|court|ct|boulevard|blvd|way|place|pl)\b/i',
-      '[ADDRESS]', $text
-    );
-
-    // Idaho court case numbers (CV-XX-XXXXX, DR-XX-XXXXX, etc.).
-    $text = preg_replace(
-      '/\b(CV|DR|CR|JV|MH|SP)-\d{2,4}-\d{2,8}\b/i',
-      '[CASE_NUM]', $text
-    );
-
-    return $text;
-  }
-
-  /**
    * Cleans up expired conversation logs based on retention settings.
+   *
+   * Uses batched deletes (500 rows per iteration, max 100 iterations)
+   * to avoid locking the table during cron.
    */
   public function cleanup(): void {
     if (!$this->database->schema()->tableExists('ilas_site_assistant_conversations')) {
@@ -226,15 +162,40 @@ class ConversationLogger {
     $retention_hours = (int) ($config->get('conversation_logging.retention_hours') ?? 72);
     $cutoff = $this->time->getRequestTime() - ($retention_hours * 3600);
 
-    try {
-      $deleted = $this->database->delete('ilas_site_assistant_conversations')
-        ->condition('created', $cutoff, '<')
-        ->execute();
+    $batch_size = 500;
+    $max_iterations = 100;
+    $total_deleted = 0;
 
-      if ($deleted > 0) {
+    try {
+      for ($i = 0; $i < $max_iterations; $i++) {
+        // Select IDs to delete in this batch.
+        $ids = $this->database->select('ilas_site_assistant_conversations', 'c')
+          ->fields('c', ['id'])
+          ->condition('created', $cutoff, '<')
+          ->range(0, $batch_size)
+          ->execute()
+          ->fetchCol();
+
+        if (empty($ids)) {
+          break;
+        }
+
+        $deleted = $this->database->delete('ilas_site_assistant_conversations')
+          ->condition('id', $ids, 'IN')
+          ->execute();
+
+        $total_deleted += $deleted;
+
+        // If we got fewer than batch_size, we're done.
+        if (count($ids) < $batch_size) {
+          break;
+        }
+      }
+
+      if ($total_deleted > 0) {
         \Drupal::logger('ilas_site_assistant')
           ->info('Cleaned up @count expired conversation log entries.', [
-            '@count' => $deleted,
+            '@count' => $total_deleted,
           ]);
       }
     }

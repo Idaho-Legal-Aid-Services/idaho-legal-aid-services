@@ -1,15 +1,23 @@
 # Topic Map - Maps single tokens and short queries to canonical topic landing pages.
 #
-# Each topic has:
-#   url:       Canonical landing page URL
-#   label:     Human-readable label for the topic
-#   service_area: The service area key (matches IntentRouter patterns)
-#   tokens:    Exact single-token matches (case-insensitive)
-#   stems:     Stem roots that catch inflected forms (e.g., "divorc" matches divorce/divorced/divorcing)
-#   synonyms:  Common synonyms, slang, and Spanish equivalents
-#   phrases:   Short 2-3 word phrases that are topic-specific
+# Each service area entry has:
+#   url:                Canonical landing page URL
+#   label:              Human-readable label for the topic
+#   service_area:       The service area key (matches IntentRouter patterns)
+#   service_area_uuid:  UUID of the service_areas taxonomy term (populated from live DB)
+#   tokens:             Exact single-token matches (case-insensitive)
+#   stems:              Stem roots that catch inflected forms (e.g., "divorc" matches divorce/divorced/divorcing)
+#   synonyms:           Common synonyms, slang, and Spanish equivalents
+#   phrases:            Short 2-3 word phrases that are topic-specific
+#   topics:             Canonical topic-level keys (see CANONICAL_KEYS.md)
 #
-# Matching priority:
+# Each topic entry under topics: has:
+#   canonical_key:  Stable identifier in {service_area}_{topic} format
+#   term_uuid:      UUID of the topics taxonomy term (null until populated via drush)
+#   term_name:      Exact Drupal term name (for verification against DB)
+#   aliases:        Topic-specific aliases (Spanish, typos, colloquial terms)
+#
+# Matching priority (service-area level):
 #   1. Exact token match (highest confidence: 0.88)
 #   2. Stem match (confidence: 0.85)
 #   3. Synonym match (confidence: 0.82)
@@ -20,6 +28,7 @@ family:
   url: /legal-help/family
   label: Family Law
   service_area: family
+  service_area_uuid: d73a552c-858e-4edf-8117-bd955c1d08ab  # "Family Safety & Stability" TID:3
   tokens:
     - family
     - divorce
@@ -79,11 +88,87 @@ family:
     - supervised visits
     - supervised visitation
     - child protective services
+  topics:
+    divorce:
+      canonical_key: family_divorce
+      term_uuid: 011a60a7-5f1a-4bdb-9aef-ef4e157e17ba  # TID:36
+      term_name: "Divorce"
+      aliases:
+        - divorcio
+        - annulment
+        - legal separation
+        - dissolution
+        - disolucion
+    custody_parenting:
+      canonical_key: family_custody_parenting
+      term_uuid: d483a5ee-6d7a-411e-b08d-aed0d7cad600  # TID:39 "Custody"; also: Parenting Time (TID:40), Visitation (TID:41)
+      term_name: "Custody"
+      aliases:
+        - custodia
+        - parenting time
+        - parenting plan
+        - visitation
+        - child custody
+        - visitacion
+        - supervised visitation
+        - supervised visits
+    child_support:
+      canonical_key: family_child_support
+      term_uuid: 69cc4222-8c31-4a69-9a2b-8795fe99c6b0  # TID:42
+      term_name: "Child Support"
+      aliases:
+        - pension alimenticia
+        - manutencion
+        - spousal support
+        - alimony
+    protection_order:
+      canonical_key: family_protection_order
+      term_uuid: aca1b808-8e41-497b-9da6-6fb9a8a0776e  # TID:32 "Domestic Violence"; also: Personal Safety (TID:35), Stalking (TID:34)
+      term_name: "Domestic Violence"
+      aliases:
+        - restraining order
+        - no contact order
+        - domestic violence
+        - orden de proteccion
+        - intimate partner violence
+    adoption:
+      canonical_key: family_adoption
+      term_uuid: d5c48f1c-4840-4a1f-8bd5-5125fc550f0e  # TID:45
+      term_name: "Adoption"
+      aliases:
+        - adopcion
+        - stepparent adoption
+    guardianship:
+      canonical_key: family_guardianship
+      term_uuid: 37505e6e-d6b3-4120-a0d1-cc23246e6dee  # TID:50 "Minor Guardianship"; also: Juvenile Guardianship (TID:48)
+      term_name: "Minor Guardianship"
+      aliases:
+        - tutela
+        - legal guardian
+        - guardianship of minor
+    paternity:
+      canonical_key: family_paternity
+      term_uuid: ~  # No direct "Paternity" term in DB; falls under Family Law (TID:31)
+      term_name: "Paternity"
+      aliases:
+        - paternidad
+        - paternity test
+        - fathers name
+        - fathers rights
+    separation:
+      canonical_key: family_separation
+      term_uuid: 79b28094-0505-4393-85e0-2b58c2443fb0  # TID:37
+      term_name: "Separation"
+      aliases:
+        - separacion
+        - legal separation
+        - separated
 
 housing:
   url: /legal-help/housing
   label: Housing
   service_area: housing
+  service_area_uuid: 963a1d3c-9c46-4a31-ab37-075d344cb913  # "Safe & Stable Housing" TID:2
   tokens:
     - housing
     - eviction
@@ -141,11 +226,67 @@ housing:
     - move-out
     - property management
     - homeowners association
+  topics:
+    eviction:
+      canonical_key: housing_eviction
+      term_uuid: a5d3ce31-af81-46fc-a44a-69e4c98e4bf3  # TID:76
+      term_name: "Evictions"
+      aliases:
+        - desalojo
+        - eviccion
+        - kicked out
+        - locked out
+    landlord_tenant:
+      canonical_key: housing_landlord_tenant
+      term_uuid: 7e0a3c90-a732-4a7b-a0cf-10d60306b13b  # TID:84 "Tenant Rights"; also: Repairs (TID:78), Renter Safety (TID:85)
+      term_name: "Tenant Rights"
+      aliases:
+        - casero
+        - arrendador
+        - inquilino
+        - lease dispute
+        - repair issues
+        - habitability
+        - sublease
+    foreclosure:
+      canonical_key: housing_foreclosure
+      term_uuid: f9517584-fc2d-43fe-a849-44ef9e5da6c8  # TID:92
+      term_name: "Foreclosure"
+      aliases:
+        - ejecucion hipotecaria
+        - mortgage default
+        - mortgage
+    public_housing:
+      canonical_key: housing_public_housing
+      term_uuid: 83113ca4-e875-4ade-a77e-aba0c3a7f614  # TID:88; also: Subsidized Housing (TID:87)
+      term_name: "Public Housing"
+      aliases:
+        - section 8
+        - vivienda publica
+        - housing authority
+    mobile_home:
+      canonical_key: housing_mobile_home
+      term_uuid: 7aa78dca-07b9-4b00-808d-90b233e29329  # TID:89
+      term_name: "Mobile Home Issues"
+      aliases:
+        - trailer park
+        - manufactured home
+        - casa movil
+    security_deposit:
+      canonical_key: housing_security_deposit
+      term_uuid: 15faea60-f071-4d30-a0e0-7ac90490180b  # TID:80
+      term_name: "Security Deposits"
+      aliases:
+        - deposit return
+        - deposito de seguridad
+        - move out
+        - move-out
 
 consumer:
   url: /legal-help/consumer
   label: Consumer
   service_area: consumer
+  service_area_uuid: 839d7bdb-8992-4bef-b058-35b2d17fe742  # "Consumer Protection" TID:6
   tokens:
     - consumer
     - debt
@@ -328,11 +469,89 @@ consumer:
     # Spanish - lawsuit
     - demandado por deuda
     - me demandaron
+  topics:
+    debt_collection:
+      canonical_key: consumer_debt_collection
+      term_uuid: b29f58f5-4b4c-4557-a6ac-0e72966dad7f  # TID:10
+      term_name: "Debt Collection"
+      aliases:
+        - cobro de deudas
+        - cobranza
+        - bill collector
+        - debt collector
+        - collection calls
+        - creditor harassment
+    bankruptcy:
+      canonical_key: consumer_bankruptcy
+      term_uuid: f8519ac7-f6db-4c70-90a0-263965c10823  # TID:16; also: Chapter 7 (TID:25), Chapter 13 (TID:27)
+      term_name: "Bankruptcy"
+      aliases:
+        - bancarrota
+        - quiebra
+        - chapter 7
+        - chapter 13
+    scam_fraud:
+      canonical_key: consumer_scam_fraud
+      term_uuid: ~  # No direct match; closest: Trade Practices (TID:23)
+      term_name: "Scams & Fraud"
+      aliases:
+        - estafa
+        - fraude
+        - identity theft
+        - stolen identity
+        - swindled
+        - robbed
+    garnishment:
+      canonical_key: consumer_garnishment
+      term_uuid: 13ad84be-8461-4701-b573-3d367ceab83e  # TID:11
+      term_name: "Garnishment"
+      aliases:
+        - embargo de sueldo
+        - wage garnishment
+        - garnished wages
+        - bank levy
+    repossession:
+      canonical_key: consumer_repossession
+      term_uuid: d3875be4-02be-445d-853b-70f795a924e1  # TID:12
+      term_name: "Repossession"
+      aliases:
+        - reposicion
+        - car repossession
+        - took my car
+        - me quitaron el carro
+    credit:
+      canonical_key: consumer_credit
+      term_uuid: 06ea1027-9034-4f02-9ab2-79e501dc95df  # TID:13; also: Credit Reports (TID:14), Repairing Credit (TID:15)
+      term_name: "Credit"
+      aliases:
+        - credito
+        - credit report
+        - credit score
+        - reporte de credito
+    medical_debt:
+      canonical_key: consumer_medical_debt
+      term_uuid: ~  # No direct match; parent: Money, Debt, Bankruptcy (TID:8)
+      term_name: "Medical Debt"
+      aliases:
+        - deuda medica
+        - medical bills
+        - hospital bills
+        - hospital debt
+        - doctor bills
+        - facturas medicas
+    identity_theft:
+      canonical_key: consumer_identity_theft
+      term_uuid: d212bca2-8fd2-447d-adf0-9b7b30e2fa9a  # TID:22
+      term_name: "Identity Theft"
+      aliases:
+        - robo de identidad
+        - stolen identity
 
 seniors:
   url: /legal-help/seniors
   label: Seniors
   service_area: seniors
+  service_area_uuid: a69922db-04f0-4fc2-a3d6-5fe5ff7b9c32  # "Advocacy for Older Adults" TID:4
   tokens:
     - seniors
     - senior
@@ -386,11 +605,49 @@ seniors:
     - last will and testament
     - quit claim
     - quitclaim deed
+  topics:
+    probate_estate:
+      canonical_key: seniors_probate_estate
+      term_uuid: ea3a44b5-7ed4-4cec-9818-a10052764421  # TID:96 "Probate"; also: Small Estates (TID:106), Wills (TID:105)
+      term_name: "Probate"
+      aliases:
+        - sucesion
+        - estate planning
+        - small estate
+        - small estate affidavit
+        - summary administration
+        - last will
+        - last will and testament
+    elder_abuse:
+      canonical_key: seniors_elder_abuse
+      term_uuid: ~  # No direct "Elder Abuse" term; closest: Senior Citizens (TID:93)
+      term_name: "Elder Abuse"
+      aliases:
+        - abuso de ancianos
+        - elder neglect
+        - nursing home abuse
+    power_of_attorney:
+      canonical_key: seniors_power_of_attorney
+      term_uuid: d1a84332-4d9e-4a44-b682-a0f389cc068a  # TID:101; also: POA (TID:102), Advanced Directive (TID:103)
+      term_name: "Power of Attorney"
+      aliases:
+        - poder notarial
+        - poder legal
+        - healthcare proxy
+    conservatorship:
+      canonical_key: seniors_conservatorship
+      term_uuid: 973376cc-e4d8-47ce-b16b-6c4125f4d3de  # TID:94; also: Adult Guardianship (TID:95)
+      term_name: "Adult Conservatorship"
+      aliases:
+        - tutela legal
+        - guardianship of adult
+        - adult guardianship
 
 health:
   url: /legal-help/health
   label: Health & Benefits
   service_area: health
+  service_area_uuid: 00a662fb-3d41-4726-90d2-da4e38035d19  # "Health & Essential Benefits" TID:5
   tokens:
     - medicaid
     - medicare
@@ -431,11 +688,53 @@ health:
     - health coverage
     - denied benefits
     - denied coverage
+  topics:
+    medicaid:
+      canonical_key: health_medicaid
+      term_uuid: fe01f657-668a-4af9-b120-95ece2647cd6  # TID:74; also: Medicare (TID:73)
+      term_name: "Medicaid"
+      aliases:
+        - medicaid expansion
+        - apple health
+        - idaho medicaid
+    disability:
+      canonical_key: health_disability
+      term_uuid: ~  # No "Disability" term under Health; SSDI (TID:64) is under Individual Rights, SSI (TID:97) under Seniors
+      term_name: "Disability"
+      aliases:
+        - discapacidad
+        - incapacidad
+        - ssi
+        - ssdi
+        - disability benefits
+        - ada
+    insurance:
+      canonical_key: health_insurance
+      term_uuid: a1db241e-aec5-464a-a4c6-f2aa303e9cc5  # TID:69; also: Medical Benefits (TID:70)
+      term_name: "Health Benefits"
+      aliases:
+        - seguro medico
+        - health coverage
+        - denied coverage
+        - dental insurance
+    public_benefits:
+      canonical_key: health_public_benefits
+      term_uuid: bc0a299d-4819-48a9-96d0-1d306b944a30  # TID:71 "SNAP"; also: TANF (TID:72). No general "Public Benefits" term
+      term_name: "SNAP"
+      aliases:
+        - beneficios publicos
+        - food stamps
+        - estampillas
+        - snap
+        - tanf
+        - welfare
+        - denied benefits
 
 civil_rights:
   url: /legal-help/civil-rights
   label: Civil Rights
   service_area: civil_rights
+  service_area_uuid: bf21aebf-b56a-4e48-853b-b85a61b1efb2  # "Individual Rights" TID:7
   tokens:
     - discrimination
     - harassment
@@ -459,11 +758,41 @@ civil_rights:
     - workplace discrimination
     - employment discrimination
     - voting rights
+  topics:
+    discrimination:
+      canonical_key: civil_rights_discrimination
+      term_uuid: ~  # No "Discrimination" term under Individual Rights; Housing Discrimination (TID:82) is under Housing
+      term_name: "Discrimination"
+      aliases:
+        - discriminacion
+        - prejudice
+        - bias
+        - unfair treatment
+        - racism
+        - sexism
+    employment_rights:
+      canonical_key: civil_rights_employment
+      term_uuid: eef6b5a9-ec32-4133-89b0-471f83a8df86  # TID:56; also: Unemployment (TID:57), Workplace Safety (TID:58)
+      term_name: "Employment"
+      aliases:
+        - derechos laborales
+        - workplace discrimination
+        - employment discrimination
+        - wrongful termination
+    voting:
+      canonical_key: civil_rights_voting
+      term_uuid: 79a1ad7c-fde5-4eb2-a6d0-c3cce2237d92  # TID:63
+      term_name: "Voting Rights"
+      aliases:
+        - derechos de voto
+        - voter registration
+        - voter suppression
 
 employment:
   url: /legal-help/civil-rights
   label: Employment
   service_area: civil_rights
+  service_area_uuid: bf21aebf-b56a-4e48-853b-b85a61b1efb2  # "Individual Rights" TID:7
   tokens:
     - employment
     - fired
@@ -497,3 +826,33 @@ employment:
     - hostile work
     - workers comp
     - workers compensation
+  topics:
+    wrongful_termination:
+      canonical_key: employment_wrongful_termination
+      term_uuid: ~  # No direct match; parent: Employment (TID:56)
+      term_name: "Wrongful Termination"
+      aliases:
+        - despido injusto
+        - fired unfairly
+        - laid off
+        - let go
+    unpaid_wages:
+      canonical_key: employment_unpaid_wages
+      term_uuid: ~  # No direct match; parent: Employment (TID:56)
+      term_name: "Unpaid Wages"
+      aliases:
+        - salario no pagado
+        - wage theft
+        - overtime
+        - paycheck
+    workplace_rights:
+      canonical_key: employment_workplace_rights
+      term_uuid: 0dd85706-39aa-46ad-a8a9-b7b75b8d1bf8  # TID:58
+      term_name: "Workplace Safety"
+      aliases:
+        - derechos en el trabajo
+        - hostile work environment
+        - fmla
+        - workers comp
+        - workers compensation
+        - retaliation

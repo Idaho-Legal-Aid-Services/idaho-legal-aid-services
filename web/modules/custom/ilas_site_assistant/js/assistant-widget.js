@@ -5,6 +5,17 @@
  * Aila (eye-luh) is the Idaho Legal Aid Services chat assistant.
  * The name is derived from ILAS. Provides FAQ search, resource discovery,
  * and navigation assistance.
+ *
+ * Hardening (v2):
+ * - AbortController fetch timeout (15 s default).
+ * - Status-aware error handling: 429 (reads Retry-After), 403, 5xx, offline,
+ *   timeout — each with user-facing recovery guidance.
+ * - isSending guard prevents duplicate sends / race conditions.
+ * - Focus trap lifecycle: single listener, removed on close, dynamic
+ *   focusable query (handles elements added after open).
+ * - Typing indicator has role="status" + aria-label for screen readers.
+ * - sanitizeUrl blocks javascript: / data: / vbscript: schemes.
+ * - escapeAttr for all attribute-context interpolations.
  */
 (function (Drupal, drupalSettings, once) {
   'use strict';
@@ -182,8 +193,11 @@
     scrollManager: null,
     isOpen: false,
     isPageMode: false,
+    isSending: false,
     messageHistory: [],
     conversationId: null,
+    _focusTrapHandler: null,
+    _focusTrapElement: null,
 
     /**
      * Generate an ephemeral conversation ID (UUID v4).
@@ -276,6 +290,12 @@
      * Get widget HTML template.
      */
     getWidgetHTML: function () {
+      var hotlineUrl = this.sanitizeUrl(this.config.canonicalUrls.hotline);
+      var applyUrl = this.sanitizeUrl(this.config.canonicalUrls.apply);
+      var disclaimer = this.config.disclaimer
+        ? this.escapeHtml(this.config.disclaimer)
+        : this.escapeHtml(Drupal.t('I search our website for you — I\'m not a lawyer and can\'t give legal advice.'));
+
       return `
         <button type="button"
                 class="assistant-toggle-btn"
@@ -308,7 +328,7 @@
 
           <div class="assistant-disclaimer">
             <i class="fas fa-info-circle" aria-hidden="true"></i>
-            <span>${this.config.disclaimer || Drupal.t('I search our website for you — I\'m not a lawyer and can\'t give legal advice.')}</span>
+            <span>${disclaimer}</span>
           </div>
 
           <div class="assistant-chat" role="log" aria-live="polite"></div>
@@ -340,11 +360,11 @@
           </form>
 
           <footer class="assistant-panel-footer">
-            <a href="${this.config.canonicalUrls.hotline}" class="footer-link" data-assistant-track="hotline_click">
+            <a href="${this.escapeAttr(hotlineUrl)}" class="footer-link" data-assistant-track="hotline_click">
               ${Drupal.t('Call Hotline')}
             </a>
             <span class="footer-divider">|</span>
-            <a href="${this.config.canonicalUrls.apply}" class="footer-link" data-assistant-track="apply_click">
+            <a href="${this.escapeAttr(applyUrl)}" class="footer-link" data-assistant-track="apply_click">
               ${Drupal.t('Apply for Help')}
             </a>
           </footer>
@@ -357,7 +377,6 @@
      */
     bindWidgetEvents: function () {
       const toggle = this.widget.querySelector('#assistant-toggle');
-      const panel = this.widget.querySelector('#assistant-panel');
       const closeBtn = this.widget.querySelector('.panel-close-btn');
 
       toggle.addEventListener('click', () => this.togglePanel());
@@ -462,35 +481,65 @@
       this.widget.classList.remove('is-open');
       this.isOpen = false;
 
+      // Remove focus trap to prevent listener accumulation.
+      this.destroyFocusTrap();
+
       // Return focus to toggle.
       toggle.focus();
     },
 
     /**
      * Create a focus trap within an element.
+     *
+     * Queries focusable elements dynamically on each Tab press so that
+     * elements added after the panel opens (e.g. suggestion buttons in
+     * new messages) are included in the trap.
+     *
+     * Only one trap listener exists at a time — destroyFocusTrap removes it.
      */
     createFocusTrap: function (element) {
-      const focusableElements = element.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const firstFocusable = focusableElements[0];
-      const lastFocusable = focusableElements[focusableElements.length - 1];
+      // Remove any existing trap first to prevent accumulation.
+      this.destroyFocusTrap();
 
-      element.addEventListener('keydown', (e) => {
+      this._focusTrapElement = element;
+      this._focusTrapHandler = function (e) {
         if (e.key !== 'Tab') return;
 
+        // Query focusable elements dynamically each time.
+        var focusables = element.querySelectorAll(
+          'button:not([disabled]):not([hidden]), [href]:not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])'
+        );
+
+        if (focusables.length === 0) return;
+
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+
         if (e.shiftKey) {
-          if (document.activeElement === firstFocusable) {
-            lastFocusable.focus();
+          if (document.activeElement === first) {
+            last.focus();
             e.preventDefault();
           }
         } else {
-          if (document.activeElement === lastFocusable) {
-            firstFocusable.focus();
+          if (document.activeElement === last) {
+            first.focus();
             e.preventDefault();
           }
         }
-      });
+      };
+
+      element.addEventListener('keydown', this._focusTrapHandler);
+    },
+
+    /**
+     * Remove the focus trap listener.
+     */
+    destroyFocusTrap: function () {
+      if (this._focusTrapHandler && this._focusTrapElement) {
+        this._focusTrapElement.removeEventListener('keydown', this._focusTrapHandler);
+      }
+      this._focusTrapHandler = null;
+      this._focusTrapElement = null;
     },
 
     /**
@@ -503,14 +552,22 @@
 
     /**
      * Send a message to the API.
+     *
+     * Guarded by isSending to prevent duplicate sends and race conditions.
      */
     sendMessage: function () {
+      if (this.isSending) return;
+
       const input = this.isPageMode
         ? document.getElementById('assistant-input')
         : this.widget.querySelector('.assistant-input');
 
       const message = input.value.trim();
       if (!message) return;
+
+      // Lock sending state.
+      this.isSending = true;
+      this.setSendingState(true);
 
       // Add user message to chat.
       this.addMessage('user', message);
@@ -520,6 +577,8 @@
 
       // Show typing indicator.
       this.showTyping();
+
+      var self = this;
 
       // Send to API.
       this.callApi('/message', {
@@ -532,13 +591,17 @@
           },
         }),
       })
-        .then(response => {
-          this.hideTyping();
-          this.handleResponse(response);
+        .then(function (response) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          self.handleResponse(response);
         })
-        .catch(error => {
-          this.hideTyping();
-          this.addMessage('assistant', Drupal.t('I\'m having trouble right now. You can try again, or reach us directly through our hotline.'));
+        .catch(function (error) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          self.addMessage('assistant', self.getErrorMessage(error));
           console.error('ILAS Assistant API error:', error);
         });
     },
@@ -547,6 +610,8 @@
      * Handle quick action buttons.
      */
     handleQuickAction: function (action) {
+      if (this.isSending) return;
+
       // Messages must match IntentRouter patterns.
       const actionMessages = {
         forms: Drupal.t('Find a form'),
@@ -578,11 +643,17 @@
       // Track suggestion click events for debugging.
       this.trackEvent('suggestion_click', action);
 
+      // Lock sending state.
+      this.isSending = true;
+      this.setSendingState(true);
+
       // Add as user message.
       this.addMessage('user', message);
 
       // Show typing.
       this.showTyping();
+
+      var self = this;
 
       // Send to API.
       this.callApi('/message', {
@@ -593,13 +664,17 @@
           context: { quickAction: action },
         }),
       })
-        .then(response => {
-          this.hideTyping();
-          this.handleResponse(response);
+        .then(function (response) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          self.handleResponse(response);
         })
-        .catch(error => {
-          this.hideTyping();
-          this.addMessage('assistant', Drupal.t('Sorry, something went wrong.'));
+        .catch(function (error) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          self.addMessage('assistant', self.getErrorMessage(error));
         });
     },
 
@@ -618,7 +693,7 @@
       let html = '';
 
       if (response.message) {
-        html += `<p>${this.escapeHtml(response.message)}</p>`;
+        html += '<p>' + this.escapeHtml(response.message) + '</p>';
       }
 
       // Handle different response types.
@@ -630,7 +705,7 @@
         case 'resources':
           html += this.renderResourceResults(response.results, response.fallback_url, response.fallback_label);
           if (response.disclaimer) {
-            html += `<p class="resource-disclaimer"><em>${this.escapeHtml(response.disclaimer)}</em></p>`;
+            html += '<p class="resource-disclaimer"><em>' + this.escapeHtml(response.disclaimer) + '</em></p>';
           }
           break;
 
@@ -659,7 +734,7 @@
         case 'eligibility':
           // Show caveat if present.
           if (response.caveat) {
-            html += `<p class="eligibility-caveat"><em>${this.escapeHtml(response.caveat)}</em></p>`;
+            html += '<p class="eligibility-caveat"><em>' + this.escapeHtml(response.caveat) + '</em></p>';
           }
           if (response.links && response.links.length > 0) {
             html += this.renderLinks(response.links);
@@ -683,7 +758,7 @@
           }
           // Show "Browse All ..." fallback link.
           if (response.primary_action && response.primary_action.url) {
-            html += `<p class="form-finder-fallback"><a href="${response.primary_action.url}" class="result-link" data-assistant-track="resource_click">${this.escapeHtml(response.primary_action.label)}</a></p>`;
+            html += '<p class="form-finder-fallback"><a href="' + this.escapeAttr(this.sanitizeUrl(response.primary_action.url)) + '" class="result-link" data-assistant-track="resource_click">' + this.escapeHtml(response.primary_action.label) + '</a></p>';
           }
           break;
 
@@ -742,7 +817,7 @@
         return '';
       }
       return '<span class="source-indicator" aria-label="' + Drupal.t('Found via similar questions') + '">' +
-        '<span aria-hidden="true">💡</span> ' +
+        '<span aria-hidden="true">&#x1f4a1;</span> ' +
         Drupal.t('Based on similar questions') +
         '</span>';
     },
@@ -763,7 +838,7 @@
       if (lastSpace > limit * 0.6) {
         truncated = truncated.substring(0, lastSpace);
       }
-      return truncated + '…';
+      return truncated + '\u2026';
     },
 
     /**
@@ -771,58 +846,54 @@
      */
     renderFaqResults: function (results, fallbackUrl) {
       if (!results || results.length === 0) {
-        return `<p><a href="${fallbackUrl}" class="result-link" data-assistant-track="resource_click">${Drupal.t('Browse all FAQs')}</a></p>`;
+        return '<p><a href="' + this.escapeAttr(this.sanitizeUrl(fallbackUrl)) + '" class="result-link" data-assistant-track="resource_click">' + Drupal.t('Browse all FAQs') + '</a></p>';
       }
 
+      var self = this;
       var mode = this.classifyResults(results);
-      let html = '<div class="faq-results">';
+      var html = '<div class="faq-results">';
 
       if (mode === 'ambiguous') {
-        html += `<p class="results-framing">${Drupal.t('I found a few options that might help:')}</p>`;
+        html += '<p class="results-framing">' + Drupal.t('I found a few options that might help:') + '</p>';
       }
 
-      results.forEach((faq, index) => {
+      results.forEach(function (faq, index) {
         var isBest = (index === 0 && (mode === 'single_best' || mode === 'best_match'));
         var isSecondary = (!isBest && (mode === 'single_best' || mode === 'best_match'));
-        var sourceIndicator = this.renderSourceIndicator(faq);
+        var sourceIndicator = self.renderSourceIndicator(faq);
+        var safeUrl = self.escapeAttr(self.sanitizeUrl(faq.url));
 
         if (isBest) {
           // Elevated best-match card.
-          var truncatedAnswer = this.truncateText(this.escapeHtml(faq.answer), 120);
-          html += `
-            <div class="faq-result faq-result--best">
-              <span class="best-match-label">${Drupal.t('Best match')}</span>
-              ${sourceIndicator}
-              <h4 class="faq-question">${this.escapeHtml(faq.question)}</h4>
-              <p class="faq-answer">${truncatedAnswer}</p>
-              <a href="${faq.url}" class="faq-link" data-assistant-track="resource_click">${Drupal.t('Read more on page')} →</a>
-            </div>
-          `;
+          var truncatedAnswer = self.truncateText(self.escapeHtml(faq.answer), 120);
+          html += '<div class="faq-result faq-result--best">' +
+            '<span class="best-match-label">' + Drupal.t('Best match') + '</span>' +
+            sourceIndicator +
+            '<h4 class="faq-question">' + self.escapeHtml(faq.question) + '</h4>' +
+            '<p class="faq-answer">' + truncatedAnswer + '</p>' +
+            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + Drupal.t('Read more on page') + ' \u2192</a>' +
+            '</div>';
         }
         else if (isSecondary) {
           // Show "Also helpful" heading before the first secondary result.
           if (index === 1) {
-            html += `<p class="also-helpful-heading">${Drupal.t('Also helpful:')}</p>`;
+            html += '<p class="also-helpful-heading">' + Drupal.t('Also helpful:') + '</p>';
           }
           // Secondary: question + link only.
-          html += `
-            <div class="faq-result faq-result--secondary">
-              ${sourceIndicator}
-              <a href="${faq.url}" class="faq-link" data-assistant-track="resource_click">${this.escapeHtml(faq.question)}</a>
-            </div>
-          `;
+          html += '<div class="faq-result faq-result--secondary">' +
+            sourceIndicator +
+            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + self.escapeHtml(faq.question) + '</a>' +
+            '</div>';
         }
         else {
           // Ambiguous mode: all results equally with truncated answers.
-          var truncatedAnswer = this.truncateText(this.escapeHtml(faq.answer), 120);
-          html += `
-            <div class="faq-result">
-              ${sourceIndicator}
-              <h4 class="faq-question">${this.escapeHtml(faq.question)}</h4>
-              <p class="faq-answer">${truncatedAnswer}</p>
-              <a href="${faq.url}" class="faq-link" data-assistant-track="resource_click">${Drupal.t('Read more on page')} →</a>
-            </div>
-          `;
+          var truncatedAnswer = self.truncateText(self.escapeHtml(faq.answer), 120);
+          html += '<div class="faq-result">' +
+            sourceIndicator +
+            '<h4 class="faq-question">' + self.escapeHtml(faq.question) + '</h4>' +
+            '<p class="faq-answer">' + truncatedAnswer + '</p>' +
+            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + Drupal.t('Read more on page') + ' \u2192</a>' +
+            '</div>';
         }
       });
       html += '</div>';
@@ -834,67 +905,64 @@
      */
     renderResourceResults: function (results, fallbackUrl, fallbackLabel) {
       if (!results || results.length === 0) {
-        const label = fallbackLabel || Drupal.t('Browse all resources');
-        return `<p><a href="${fallbackUrl}" class="result-link" data-assistant-track="resource_click">${label}</a></p>`;
+        var label = fallbackLabel ? this.escapeHtml(fallbackLabel) : Drupal.t('Browse all resources');
+        return '<p><a href="' + this.escapeAttr(this.sanitizeUrl(fallbackUrl)) + '" class="result-link" data-assistant-track="resource_click">' + label + '</a></p>';
       }
 
+      var self = this;
       var mode = this.classifyResults(results);
-      let html = '<ul class="resource-results">';
+      var html = '<ul class="resource-results">';
 
       if (mode === 'ambiguous') {
-        html = `<p class="results-framing">${Drupal.t('I found a few options that might help:')}</p>` + html;
+        html = '<p class="results-framing">' + Drupal.t('I found a few options that might help:') + '</p>' + html;
       }
 
-      results.forEach((resource, index) => {
+      results.forEach(function (resource, index) {
         var isBest = (index === 0 && (mode === 'single_best' || mode === 'best_match'));
         var isSecondary = (!isBest && (mode === 'single_best' || mode === 'best_match'));
-        const icon = resource.type === 'form' ? 'file-alt' : (resource.type === 'guide' ? 'book' : 'file');
-        var sourceIndicator = this.renderSourceIndicator(resource);
+        var icon = resource.type === 'form' ? 'file-alt' : (resource.type === 'guide' ? 'book' : 'file');
+        var sourceIndicator = self.renderSourceIndicator(resource);
+        var safeUrl = self.escapeAttr(self.sanitizeUrl(resource.url));
+        var badge = resource.has_file ? '<span class="badge">PDF</span>' : '';
 
         if (isBest) {
-          html += `
-            <li class="resource-result resource-result--best">
-              <span class="best-match-label">${Drupal.t('Best match')}</span>
-              ${sourceIndicator}
-              <a href="${resource.url}" class="resource-link" data-assistant-track="resource_click">
-                <i class="fas fa-${icon}" aria-hidden="true"></i>
-                <span class="resource-title">${this.escapeHtml(resource.title)}</span>
-                ${resource.has_file ? '<span class="badge">PDF</span>' : ''}
-              </a>
-              ${resource.description ? `<p class="resource-desc">${this.escapeHtml(resource.description)}</p>` : ''}
-            </li>
-          `;
+          html += '<li class="resource-result resource-result--best">' +
+            '<span class="best-match-label">' + Drupal.t('Best match') + '</span>' +
+            sourceIndicator +
+            '<a href="' + safeUrl + '" class="resource-link" data-assistant-track="resource_click">' +
+            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
+            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
+            badge +
+            '</a>' +
+            (resource.description ? '<p class="resource-desc">' + self.escapeHtml(resource.description) + '</p>' : '') +
+            '</li>';
           // "Also helpful" heading after best match if there are more results.
           if (results.length > 1) {
-            html += `<li class="also-helpful-heading" aria-hidden="true">${Drupal.t('Also helpful:')}</li>`;
+            html += '<li class="also-helpful-heading" aria-hidden="true">' + Drupal.t('Also helpful:') + '</li>';
           }
         }
         else if (isSecondary) {
           // Secondary: link only, no description, no background.
-          html += `
-            <li class="resource-result resource-result--secondary">
-              ${sourceIndicator}
-              <a href="${resource.url}" class="resource-link resource-link--secondary" data-assistant-track="resource_click">
-                <i class="fas fa-${icon}" aria-hidden="true"></i>
-                <span class="resource-title">${this.escapeHtml(resource.title)}</span>
-                ${resource.has_file ? '<span class="badge">PDF</span>' : ''}
-              </a>
-            </li>
-          `;
+          html += '<li class="resource-result resource-result--secondary">' +
+            sourceIndicator +
+            '<a href="' + safeUrl + '" class="resource-link resource-link--secondary" data-assistant-track="resource_click">' +
+            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
+            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
+            badge +
+            '</a>' +
+            '</li>';
         }
         else {
           // Ambiguous: all equal.
-          html += `
-            <li class="resource-result">
-              ${sourceIndicator}
-              <a href="${resource.url}" class="resource-link" data-assistant-track="resource_click">
-                <i class="fas fa-${icon}" aria-hidden="true"></i>
-                <span class="resource-title">${this.escapeHtml(resource.title)}</span>
-                ${resource.has_file ? '<span class="badge">PDF</span>' : ''}
-              </a>
-              ${resource.description ? `<p class="resource-desc">${this.escapeHtml(resource.description)}</p>` : ''}
-            </li>
-          `;
+          html += '<li class="resource-result">' +
+            sourceIndicator +
+            '<a href="' + safeUrl + '" class="resource-link" data-assistant-track="resource_click">' +
+            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
+            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
+            badge +
+            '</a>' +
+            (resource.description ? '<p class="resource-desc">' + self.escapeHtml(resource.description) + '</p>' : '') +
+            '</li>';
         }
       });
       html += '</ul>';
@@ -905,16 +973,16 @@
      * Render navigation response.
      */
     renderNavigation: function (response) {
-      let html = '';
+      var html = '';
       if (response.url) {
-        html += `
-          <p>
-            <a href="${response.url}" class="cta-button" data-assistant-track="resource_click">
-              ${response.cta || Drupal.t('Go to page')}
-              <i class="fas fa-arrow-right" aria-hidden="true"></i>
-            </a>
-          </p>
-        `;
+        var safeUrl = this.escapeAttr(this.sanitizeUrl(response.url));
+        var ctaText = response.cta ? this.escapeHtml(response.cta) : Drupal.t('Go to page');
+        html += '<p>' +
+          '<a href="' + safeUrl + '" class="cta-button" data-assistant-track="resource_click">' +
+          ctaText +
+          ' <i class="fas fa-arrow-right" aria-hidden="true"></i>' +
+          '</a>' +
+          '</p>';
       }
       return html;
     },
@@ -923,28 +991,33 @@
      * Render the apply CTA response with three application methods.
      */
     renderApplyCta: function (response) {
-      let html = '<div class="apply-methods">';
+      var self = this;
+      var html = '<div class="apply-methods">';
 
       if (response.apply_methods && response.apply_methods.length > 0) {
-        response.apply_methods.forEach(method => {
-          const iconClass = method.icon || 'arrow-right';
-          html += `<div class="apply-method apply-method--${this.escapeHtml(method.method)}">`;
-          html += `<h4 class="apply-method__heading"><i class="fas fa-${iconClass}" aria-hidden="true"></i> ${this.escapeHtml(method.heading)}</h4>`;
-          html += `<p class="apply-method__desc">${this.escapeHtml(method.description)}</p>`;
-          html += `<a href="${method.cta_url}" class="cta-button" data-assistant-track="apply_cta_click">${this.escapeHtml(method.cta_label)} <i class="fas fa-arrow-right" aria-hidden="true"></i></a>`;
+        response.apply_methods.forEach(function (method) {
+          var iconClass = self.escapeAttr(method.icon || 'arrow-right');
+          var methodClass = self.escapeAttr(method.method || '');
+          var ctaUrl = self.escapeAttr(self.sanitizeUrl(method.cta_url));
+
+          html += '<div class="apply-method apply-method--' + methodClass + '">';
+          html += '<h4 class="apply-method__heading"><i class="fas fa-' + iconClass + '" aria-hidden="true"></i> ' + self.escapeHtml(method.heading) + '</h4>';
+          html += '<p class="apply-method__desc">' + self.escapeHtml(method.description) + '</p>';
+          html += '<a href="' + ctaUrl + '" class="cta-button" data-assistant-track="apply_cta_click">' + self.escapeHtml(method.cta_label) + ' <i class="fas fa-arrow-right" aria-hidden="true"></i></a>';
 
           if (method.secondary_label && method.secondary_url) {
-            html += ` <a href="${method.secondary_url}" class="apply-method__secondary-link" data-assistant-track="apply_secondary_click">${this.escapeHtml(method.secondary_label)}</a>`;
+            var secUrl = self.escapeAttr(self.sanitizeUrl(method.secondary_url));
+            html += ' <a href="' + secUrl + '" class="apply-method__secondary-link" data-assistant-track="apply_secondary_click">' + self.escapeHtml(method.secondary_label) + '</a>';
           }
 
-          html += `</div>`;
+          html += '</div>';
         });
       }
 
       html += '</div>';
 
       if (response.followup) {
-        html += `<p class="apply-followup"><em>${this.escapeHtml(response.followup)}</em></p>`;
+        html += '<p class="apply-followup"><em>' + this.escapeHtml(response.followup) + '</em></p>';
       }
 
       return html;
@@ -954,23 +1027,23 @@
      * Render topic info.
      */
     renderTopicInfo: function (topic, serviceAreaUrl) {
-      let html = '';
+      var self = this;
+      var html = '';
       if (topic && topic.service_areas && topic.service_areas.length > 0) {
         html += '<p>' + Drupal.t('Related service areas:') + '</p><ul>';
-        topic.service_areas.forEach(area => {
-          html += `<li>${this.escapeHtml(area.name)}</li>`;
+        topic.service_areas.forEach(function (area) {
+          html += '<li>' + self.escapeHtml(area.name) + '</li>';
         });
         html += '</ul>';
       }
       if (serviceAreaUrl) {
-        html += `
-          <p>
-            <a href="${serviceAreaUrl}" class="cta-button" data-assistant-track="resource_click">
-              ${Drupal.t('Learn more')}
-              <i class="fas fa-arrow-right" aria-hidden="true"></i>
-            </a>
-          </p>
-        `;
+        var safeUrl = this.escapeAttr(this.sanitizeUrl(serviceAreaUrl));
+        html += '<p>' +
+          '<a href="' + safeUrl + '" class="cta-button" data-assistant-track="resource_click">' +
+          Drupal.t('Learn more') +
+          ' <i class="fas fa-arrow-right" aria-hidden="true"></i>' +
+          '</a>' +
+          '</p>';
       }
       return html;
     },
@@ -981,14 +1054,14 @@
     renderEscalation: function (actions) {
       if (!actions || actions.length === 0) return '';
 
-      let html = '<div class="escalation-actions">';
-      actions.forEach(action => {
-        const trackType = action.type + '_click';
-        html += `
-          <a href="${action.url}" class="escalation-btn" data-assistant-track="${trackType}">
-            ${this.escapeHtml(action.label)}
-          </a>
-        `;
+      var self = this;
+      var html = '<div class="escalation-actions">';
+      actions.forEach(function (action) {
+        var safeUrl = self.escapeAttr(self.sanitizeUrl(action.url));
+        var trackType = self.escapeAttr((action.type || 'link') + '_click');
+        html += '<a href="' + safeUrl + '" class="escalation-btn" data-assistant-track="' + trackType + '">' +
+          self.escapeHtml(action.label) +
+          '</a>';
       });
       html += '</div>';
       return html;
@@ -1000,13 +1073,12 @@
     renderSuggestions: function (suggestions) {
       if (!suggestions || suggestions.length === 0) return '';
 
-      let html = '<div class="inline-suggestions">';
-      suggestions.forEach(suggestion => {
-        html += `
-          <button type="button" class="inline-suggestion-btn" data-action="${suggestion.action}">
-            ${this.escapeHtml(suggestion.label)}
-          </button>
-        `;
+      var self = this;
+      var html = '<div class="inline-suggestions">';
+      suggestions.forEach(function (suggestion) {
+        html += '<button type="button" class="inline-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '">' +
+          self.escapeHtml(suggestion.label) +
+          '</button>';
       });
       html += '</div>';
       return html;
@@ -1018,13 +1090,12 @@
     renderTopicSuggestions: function (suggestions) {
       if (!suggestions || suggestions.length === 0) return '';
 
-      let html = '<div class="topic-suggestions">';
-      suggestions.forEach(suggestion => {
-        html += `
-          <button type="button" class="topic-suggestion-btn" data-action="${suggestion.action}">
-            ${this.escapeHtml(suggestion.label)}
-          </button>
-        `;
+      var self = this;
+      var html = '<div class="topic-suggestions">';
+      suggestions.forEach(function (suggestion) {
+        html += '<button type="button" class="topic-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '">' +
+          self.escapeHtml(suggestion.label) +
+          '</button>';
       });
       html += '</div>';
       return html;
@@ -1036,14 +1107,14 @@
     renderLinks: function (links) {
       if (!links || links.length === 0) return '';
 
-      let html = '<div class="response-links">';
-      links.forEach(link => {
-        const trackType = (link.type || 'link') + '_click';
-        html += `
-          <a href="${link.url}" class="response-link-btn" data-assistant-track="${trackType}">
-            ${this.escapeHtml(link.label)}
-          </a>
-        `;
+      var self = this;
+      var html = '<div class="response-links">';
+      links.forEach(function (link) {
+        var safeUrl = self.escapeAttr(self.sanitizeUrl(link.url));
+        var trackType = self.escapeAttr((link.type || 'link') + '_click');
+        html += '<a href="' + safeUrl + '" class="response-link-btn" data-assistant-track="' + trackType + '">' +
+          self.escapeHtml(link.label) +
+          '</a>';
       });
       html += '</div>';
       return html;
@@ -1055,13 +1126,13 @@
     renderServiceAreas: function (areas) {
       if (!areas || areas.length === 0) return '';
 
-      let html = '<div class="service-areas-grid">';
-      areas.forEach(area => {
-        html += `
-          <a href="${area.url}" class="service-area-btn" data-assistant-track="service_area_click">
-            ${this.escapeHtml(area.label)}
-          </a>
-        `;
+      var self = this;
+      var html = '<div class="service-areas-grid">';
+      areas.forEach(function (area) {
+        var safeUrl = self.escapeAttr(self.sanitizeUrl(area.url));
+        html += '<a href="' + safeUrl + '" class="service-area-btn" data-assistant-track="service_area_click">' +
+          self.escapeHtml(area.label) +
+          '</a>';
       });
       html += '</div>';
       return html;
@@ -1070,17 +1141,18 @@
     /**
      * Add a message to the chat.
      */
-    addMessage: function (sender, content, isHtml = false) {
-      const chat = this.isPageMode
+    addMessage: function (sender, content, isHtml) {
+      isHtml = isHtml || false;
+      var chat = this.isPageMode
         ? document.getElementById('assistant-chat')
         : this.widget.querySelector('.assistant-chat');
 
       if (!chat) return;
 
-      const messageEl = document.createElement('div');
-      messageEl.className = `chat-message chat-message--${sender}`;
+      var messageEl = document.createElement('div');
+      messageEl.className = 'chat-message chat-message--' + sender;
 
-      const contentEl = document.createElement('div');
+      var contentEl = document.createElement('div');
       contentEl.className = 'message-content';
 
       if (isHtml) {
@@ -1114,37 +1186,38 @@
       }
 
       // Bind events to new inline buttons.
-      messageEl.querySelectorAll('.inline-suggestion-btn, .topic-suggestion-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          this.handleQuickAction(e.currentTarget.dataset.action);
+      var self = this;
+      messageEl.querySelectorAll('.inline-suggestion-btn, .topic-suggestion-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          self.handleQuickAction(e.currentTarget.dataset.action);
         });
       });
 
       // Bind tracking to new links.
-      messageEl.querySelectorAll('[data-assistant-track]').forEach(link => {
-        link.addEventListener('click', (e) => {
-          const trackType = e.currentTarget.dataset.assistantTrack;
-          this.trackClick(trackType, e.currentTarget.href);
+      messageEl.querySelectorAll('[data-assistant-track]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          var trackType = e.currentTarget.dataset.assistantTrack;
+          self.trackClick(trackType, e.currentTarget.href);
         });
       });
     },
 
     /**
-     * Show typing indicator.
+     * Show typing indicator with ARIA status for screen readers.
      */
     showTyping: function () {
-      const chat = this.isPageMode
+      var chat = this.isPageMode
         ? document.getElementById('assistant-chat')
         : this.widget.querySelector('.assistant-chat');
 
-      const typing = document.createElement('div');
+      var typing = document.createElement('div');
       typing.className = 'chat-message chat-message--assistant chat-message--typing';
       typing.id = 'typing-indicator';
-      typing.innerHTML = `
-        <div class="typing-indicator">
-          <span></span><span></span><span></span>
-        </div>
-      `;
+      typing.setAttribute('role', 'status');
+      typing.setAttribute('aria-label', Drupal.t('Aila is typing'));
+      typing.innerHTML = '<div class="typing-indicator" aria-hidden="true">' +
+        '<span></span><span></span><span></span>' +
+        '</div>';
 
       // Insert before sentinel so it stays at the end.
       if (this.scrollManager && this.scrollManager.sentinel) {
@@ -1165,41 +1238,158 @@
      * Hide typing indicator.
      */
     hideTyping: function () {
-      const typing = document.getElementById('typing-indicator');
+      var typing = document.getElementById('typing-indicator');
       if (typing) {
         typing.remove();
       }
     },
 
     /**
-     * Call the API.
+     * Call the API with AbortController timeout and status-aware errors.
+     *
+     * @param {string} endpoint - API path (appended to config.apiBase).
+     * @param {Object} options - fetch options (method, body, etc.).
+     * @return {Promise} Resolves with parsed JSON; rejects with enriched Error
+     *   containing .type ('offline'|'timeout') or .status (HTTP code) and
+     *   optionally .retryAfter (seconds from Retry-After header).
      */
-    callApi: function (endpoint, options = {}) {
-      const url = this.config.apiBase + endpoint;
-      const defaultOptions = {
+    callApi: function (endpoint, options) {
+      options = options || {};
+      var url = this.config.apiBase + endpoint;
+
+      // Offline check.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        var offlineErr = new Error('Offline');
+        offlineErr.type = 'offline';
+        return Promise.reject(offlineErr);
+      }
+
+      // AbortController for timeout.
+      var controller = new AbortController();
+      var timeoutMs = options.timeout || 15000;
+      var timeoutId = setTimeout(function () {
+        controller.abort();
+      }, timeoutMs);
+
+      var defaultOptions = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': this.config.csrfToken,
         },
         credentials: 'same-origin',
+        signal: controller.signal,
       };
 
-      const fetchOptions = { ...defaultOptions, ...options };
+      // Merge options (excluding our custom timeout key).
+      var fetchOptions = Object.assign({}, defaultOptions, options);
+      delete fetchOptions.timeout;
 
       return fetch(url, fetchOptions)
-        .then(response => {
+        .then(function (response) {
+          clearTimeout(timeoutId);
           if (!response.ok) {
-            throw new Error('API request failed');
+            var error = new Error('API request failed: ' + response.status);
+            error.status = response.status;
+            if (response.status === 429) {
+              var retryHeader = response.headers.get('Retry-After');
+              if (retryHeader) {
+                error.retryAfter = retryHeader;
+              }
+            }
+            throw error;
           }
           return response.json();
+        })
+        .catch(function (error) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            var timeoutError = new Error('Request timed out');
+            timeoutError.type = 'timeout';
+            throw timeoutError;
+          }
+          throw error;
         });
+    },
+
+    /**
+     * Return a user-friendly error message based on error type / HTTP status.
+     *
+     * @param {Error} error - The error from callApi.
+     * @return {string} Translated message suitable for addMessage().
+     */
+    getErrorMessage: function (error) {
+      if (!error) {
+        return Drupal.t('Something went wrong. Please try again.');
+      }
+
+      // Offline.
+      if (error.type === 'offline') {
+        return Drupal.t('You appear to be offline. Please check your connection and try again.');
+      }
+
+      // Timeout.
+      if (error.type === 'timeout') {
+        return Drupal.t('The request took too long. Please try again.');
+      }
+
+      // 429 Too Many Requests.
+      if (error.status === 429) {
+        var msg = Drupal.t('I\'m getting a lot of requests right now.');
+        if (error.retryAfter) {
+          var seconds = parseInt(error.retryAfter, 10);
+          if (!isNaN(seconds) && seconds > 0) {
+            msg += ' ' + Drupal.t('Please wait @seconds seconds and try again.', { '@seconds': seconds });
+          } else {
+            msg += ' ' + Drupal.t('Please wait a moment and try again.');
+          }
+        } else {
+          msg += ' ' + Drupal.t('Please wait a moment and try again.');
+        }
+        return msg;
+      }
+
+      // 403 Forbidden.
+      if (error.status === 403) {
+        return Drupal.t('Access denied. Please refresh the page and try again.');
+      }
+
+      // 5xx Server errors.
+      if (error.status >= 500) {
+        return Drupal.t('Our server is having trouble right now. Please try again in a few minutes, or reach us through our hotline.');
+      }
+
+      // Generic fallback.
+      return Drupal.t('I\'m having trouble right now. You can try again, or reach us directly through our hotline.');
+    },
+
+    /**
+     * Toggle the sending-disabled state on send button and input.
+     *
+     * @param {boolean} sending - True to disable, false to re-enable.
+     */
+    setSendingState: function (sending) {
+      var btns;
+      if (this.isPageMode) {
+        btns = document.querySelectorAll('.assistant-send-btn');
+      } else if (this.widget) {
+        btns = this.widget.querySelectorAll('.assistant-send-btn');
+      }
+      if (btns) {
+        btns.forEach(function (btn) {
+          btn.disabled = sending;
+        });
+      }
+      if (this.inputField) {
+        this.inputField.disabled = sending;
+      }
     },
 
     /**
      * Track an event.
      */
-    trackEvent: function (eventType, eventValue = '') {
+    trackEvent: function (eventType, eventValue) {
+      eventValue = eventValue || '';
       // Push to dataLayer if available.
       if (window.dataLayer) {
         window.dataLayer.push({
@@ -1217,7 +1407,7 @@
           event_type: eventType,
           event_value: eventValue,
         }),
-      }).catch(() => {
+      }).catch(function () {
         // Silent fail for tracking.
       });
     },
@@ -1227,9 +1417,9 @@
      */
     trackClick: function (eventType, url) {
       // Extract path from URL.
-      let path = url;
+      var path = url;
       try {
-        const urlObj = new URL(url, window.location.origin);
+        var urlObj = new URL(url, window.location.origin);
         path = urlObj.pathname;
       } catch (e) {
         // Use as-is if URL parsing fails.
@@ -1239,12 +1429,66 @@
     },
 
     /**
-     * Escape HTML to prevent XSS.
+     * Escape HTML to prevent XSS in element content.
      */
     escapeHtml: function (text) {
-      const div = document.createElement('div');
+      if (!text) return '';
+      var div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    },
+
+    /**
+     * Escape a string for safe use in an HTML attribute value.
+     *
+     * Covers &, ", ', <, > — the five characters that can break out of
+     * a quoted attribute context.
+     *
+     * @param {string} text - Raw string.
+     * @return {string} Attribute-safe string.
+     */
+    escapeAttr: function (text) {
+      if (!text || typeof text !== 'string') return '';
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    },
+
+    /**
+     * Validate and sanitize a URL, blocking dangerous schemes.
+     *
+     * Allows http:, https:, mailto:, tel:, and relative paths (/ or #).
+     * Returns '#' for anything else (javascript:, data:, vbscript:, etc.).
+     *
+     * @param {string} url - Raw URL from API response or config.
+     * @return {string} Sanitized URL or '#'.
+     */
+    sanitizeUrl: function (url) {
+      if (!url || typeof url !== 'string') return '#';
+
+      var trimmed = url.trim();
+      if (!trimmed) return '#';
+
+      // Allow relative paths.
+      if (trimmed.charAt(0) === '/') return trimmed;
+      // Allow fragment-only URLs.
+      if (trimmed.charAt(0) === '#') return trimmed;
+
+      // Validate scheme via URL parser.
+      try {
+        var parsed = new URL(trimmed, window.location.origin);
+        var scheme = parsed.protocol.toLowerCase();
+        if (scheme === 'http:' || scheme === 'https:' || scheme === 'mailto:' || scheme === 'tel:') {
+          return trimmed;
+        }
+      } catch (e) {
+        // URL parsing failed — reject.
+      }
+
+      return '#';
     },
   };
 
@@ -1255,7 +1499,7 @@
     attach: function (context, settings) {
       if (!settings.ilasSiteAssistant) return;
 
-      once('ilas-site-assistant', 'body', context).forEach(() => {
+      once('ilas-site-assistant', 'body', context).forEach(function () {
         SiteAssistant.init(settings.ilasSiteAssistant);
       });
     },

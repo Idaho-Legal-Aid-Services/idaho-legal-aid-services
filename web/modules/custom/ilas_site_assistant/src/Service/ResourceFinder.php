@@ -6,6 +6,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\search_api\Entity\Index;
 
 /**
@@ -591,7 +592,8 @@ class ResourceFinder {
    *
    * @return array
    *   Vector search config with keys: enabled, resource_index_id,
-   *   fallback_threshold, min_vector_score, score_normalization_factor.
+   *   fallback_threshold, min_vector_score, score_normalization_factor,
+   *   min_lexical_score.
    */
   protected function getVectorSearchConfig(): array {
     if (!$this->configFactory) {
@@ -599,6 +601,45 @@ class ResourceFinder {
     }
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     return $config->get('vector_search') ?? ['enabled' => FALSE];
+  }
+
+  /**
+   * Validates that a vector index uses cosine similarity metric.
+   *
+   * Our score thresholds (min_vector_score) and normalization assume cosine
+   * similarity scores in the 0-1 range. Other metrics (euclidean, dotproduct)
+   * have different score ranges and semantics that would break scoring logic.
+   *
+   * @param \Drupal\search_api\Entity\Index $vector_index
+   *   The Search API vector index to validate.
+   *
+   * @return bool
+   *   TRUE if the index uses cosine similarity, FALSE otherwise.
+   */
+  protected function validateVectorMetric($vector_index): bool {
+    try {
+      $server = $vector_index->getServerInstance();
+      if (!$server) {
+        return FALSE;
+      }
+      $backend_config = $server->getBackendConfig();
+      $metric = $backend_config['database_settings']['metric'] ?? '';
+      if ($metric !== 'cosine_similarity') {
+        \Drupal::logger('ilas_site_assistant')->warning(
+          'Vector search metric mismatch: expected cosine_similarity, got @metric.',
+          ['@metric' => $metric]
+        );
+        return FALSE;
+      }
+      return TRUE;
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('ilas_site_assistant')->warning(
+        'Could not validate vector search metric: @message',
+        ['@message' => $e->getMessage()]
+      );
+      return FALSE;
+    }
   }
 
   /**
@@ -628,9 +669,18 @@ class ResourceFinder {
     }
 
     $threshold = $vector_config['fallback_threshold'] ?? 2;
+    $min_lexical_score = $vector_config['min_lexical_score'] ?? 0;
 
-    // Only fire vector search if lexical results are sparse.
-    if (count($lexical_items) >= $threshold) {
+    // Fire vector search when lexical results are sparse (count-based) OR
+    // when all lexical results score below the quality threshold.
+    $has_enough_results = count($lexical_items) >= $threshold;
+    $has_quality_results = TRUE;
+    if ($min_lexical_score > 0 && !empty($lexical_items)) {
+      $best_score = max(array_column($lexical_items, 'score') ?: [0]);
+      $has_quality_results = $best_score >= $min_lexical_score;
+    }
+
+    if ($has_enough_results && $has_quality_results) {
       return $lexical_items;
     }
 
@@ -690,6 +740,11 @@ class ResourceFinder {
         return [];
       }
 
+      // Validate that the index uses cosine similarity metric.
+      if (!$this->validateVectorMetric($vector_index)) {
+        return [];
+      }
+
       $search_query = $vector_index->query();
       $search_query->keys($query);
 
@@ -701,7 +756,17 @@ class ResourceFinder {
       $langcode = $this->getCurrentLanguage();
       $search_query->addCondition('search_api_language', $langcode);
 
+      $start_time = microtime(TRUE);
       $results = $search_query->execute();
+      $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
+
+      if ($elapsed_ms > 5000) {
+        \Drupal::logger('ilas_site_assistant')->warning(
+          'Vector resource search took @ms ms for query "@query"',
+          ['@ms' => $elapsed_ms, '@query' => PiiRedactor::redactForLog($query)]
+        );
+      }
+
       $items = [];
 
       foreach ($results->getResultItems() as $result_item) {
@@ -743,18 +808,39 @@ class ResourceFinder {
       }
 
       if (!empty($items)) {
-        \Drupal::logger('ilas_site_assistant')->info('Vector resource search returned @count results for query "@query"', [
+        \Drupal::logger('ilas_site_assistant')->info('Vector resource search returned @count results (@ms ms) for query "@query"', [
           '@count' => count($items),
-          '@query' => $query,
+          '@ms' => $elapsed_ms,
+          '@query' => PiiRedactor::redactForLog($query),
         ]);
       }
 
       return $items;
     }
     catch (\Exception $e) {
-      \Drupal::logger('ilas_site_assistant')->warning('Vector resource search failed: @message', [
-        '@message' => $e->getMessage(),
-      ]);
+      $exception_class = get_class($e);
+      $level = 'error';
+      $category = 'unexpected';
+
+      if ($e instanceof \Drupal\search_api\SearchApiException) {
+        $category = 'search_api';
+        $level = 'warning';
+      }
+      elseif (str_contains($exception_class, 'GuzzleHttp') || str_contains($exception_class, 'ConnectException')) {
+        $category = 'http_transport';
+        $level = 'warning';
+      }
+      elseif (str_contains($e->getMessage(), 'not found') || str_contains($e->getMessage(), 'does not exist')) {
+        $category = 'index_not_found';
+      }
+
+      \Drupal::logger('ilas_site_assistant')->log($level,
+        'Vector resource search failed [@category]: @class - @message', [
+          '@category' => $category,
+          '@class' => $exception_class,
+          '@message' => $e->getMessage(),
+        ]
+      );
       return [];
     }
   }

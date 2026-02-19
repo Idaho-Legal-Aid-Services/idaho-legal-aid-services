@@ -33,13 +33,6 @@ class AnalyticsLogger {
   protected $time;
 
   /**
-   * The policy filter service.
-   *
-   * @var \Drupal\ilas_site_assistant\Service\PolicyFilter|null
-   */
-  protected $policyFilter;
-
-  /**
    * Constructs an AnalyticsLogger object.
    */
   public function __construct(
@@ -50,29 +43,6 @@ class AnalyticsLogger {
     $this->database = $database;
     $this->configFactory = $config_factory;
     $this->time = $time;
-  }
-
-  /**
-   * Sets the policy filter service (for lazy loading to avoid circular dependency).
-   *
-   * @param \Drupal\ilas_site_assistant\Service\PolicyFilter $policy_filter
-   *   The policy filter service.
-   */
-  public function setPolicyFilter(PolicyFilter $policy_filter) {
-    $this->policyFilter = $policy_filter;
-  }
-
-  /**
-   * Gets the policy filter service.
-   *
-   * @return \Drupal\ilas_site_assistant\Service\PolicyFilter
-   *   The policy filter service.
-   */
-  protected function getPolicyFilter() {
-    if (!$this->policyFilter) {
-      $this->policyFilter = \Drupal::service('ilas_site_assistant.policy_filter');
-    }
-    return $this->policyFilter;
   }
 
   /**
@@ -91,7 +61,7 @@ class AnalyticsLogger {
     }
 
     // Sanitize event value to ensure no PII.
-    $event_value = $this->sanitizeEventValue($event_value);
+    $event_value = PiiRedactor::redactForLog($event_value, 255);
 
     // Get today's date.
     $date = date('Y-m-d');
@@ -139,7 +109,7 @@ class AnalyticsLogger {
     }
 
     // Sanitize the query to remove any PII.
-    $sanitized = $this->getPolicyFilter()->sanitizeForStorage($query);
+    $sanitized = PiiRedactor::redactForStorage($query, 100);
 
     // Skip if sanitized query is too short or empty.
     if (strlen($sanitized) < 3) {
@@ -182,50 +152,65 @@ class AnalyticsLogger {
   }
 
   /**
-   * Sanitizes an event value to ensure it contains no PII.
-   *
-   * @param string $value
-   *   The value to sanitize.
-   *
-   * @return string
-   *   Sanitized value.
-   */
-  protected function sanitizeEventValue(string $value) {
-    // Truncate to prevent overly long values.
-    $value = mb_substr($value, 0, 255);
-
-    // Remove potential email addresses.
-    $value = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', '', $value);
-
-    // Remove potential phone numbers.
-    $value = preg_replace('/\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s*\d{3}[-.\s]?\d{4})\b/', '', $value);
-
-    // Normalize whitespace.
-    $value = preg_replace('/\s+/', ' ', trim($value));
-
-    return $value;
-  }
-
-  /**
    * Cleans up old analytics data based on retention settings.
+   *
+   * Uses batched deletes (500 rows per iteration, max 100 iterations)
+   * to avoid locking tables during cron.
    */
   public function cleanupOldData() {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $retention_days = $config->get('log_retention_days') ?? 90;
 
     $cutoff_date = date('Y-m-d', strtotime("-{$retention_days} days"));
+    $cutoff_timestamp = strtotime("-{$retention_days} days");
+
+    $batch_size = 500;
+    $max_iterations = 100;
 
     try {
-      // Clean up stats table.
-      $this->database->delete('ilas_site_assistant_stats')
-        ->condition('date', $cutoff_date, '<')
-        ->execute();
+      // Batched cleanup for stats table.
+      for ($i = 0; $i < $max_iterations; $i++) {
+        $ids = $this->database->select('ilas_site_assistant_stats', 's')
+          ->fields('s', ['id'])
+          ->condition('date', $cutoff_date, '<')
+          ->range(0, $batch_size)
+          ->execute()
+          ->fetchCol();
 
-      // Clean up no-answer table.
-      $cutoff_timestamp = strtotime("-{$retention_days} days");
-      $this->database->delete('ilas_site_assistant_no_answer')
-        ->condition('last_seen', $cutoff_timestamp, '<')
-        ->execute();
+        if (empty($ids)) {
+          break;
+        }
+
+        $this->database->delete('ilas_site_assistant_stats')
+          ->condition('id', $ids, 'IN')
+          ->execute();
+
+        if (count($ids) < $batch_size) {
+          break;
+        }
+      }
+
+      // Batched cleanup for no-answer table.
+      for ($i = 0; $i < $max_iterations; $i++) {
+        $ids = $this->database->select('ilas_site_assistant_no_answer', 'n')
+          ->fields('n', ['id'])
+          ->condition('last_seen', $cutoff_timestamp, '<')
+          ->range(0, $batch_size)
+          ->execute()
+          ->fetchCol();
+
+        if (empty($ids)) {
+          break;
+        }
+
+        $this->database->delete('ilas_site_assistant_no_answer')
+          ->condition('id', $ids, 'IN')
+          ->execute();
+
+        if (count($ids) < $batch_size) {
+          break;
+        }
+      }
     }
     catch (\Exception $e) {
       \Drupal::logger('ilas_site_assistant')->error('Analytics cleanup failed: @message', [

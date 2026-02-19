@@ -1,0 +1,606 @@
+<?php
+
+namespace Drupal\Tests\ilas_site_assistant\Unit;
+
+use Drupal\ilas_site_assistant\Service\ResponseGrounder;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Unit tests for ResponseGrounder.
+ *
+ * Covers:
+ * - F-12: Citation URL behavior
+ * - F-13: _requires_review enforcement for legal-advice patterns
+ * - Official phone/address validation
+ * - Caveat logic
+ * - Complete grounding flows
+ *
+ * @group ilas_site_assistant
+ * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ResponseGrounder
+ */
+class ResponseGrounderTest extends TestCase {
+
+  /**
+   * The service under test.
+   */
+  protected ResponseGrounder $grounder;
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+    $this->grounder = new ResponseGrounder();
+  }
+
+  // -----------------------------------------------------------------------
+  // addCitations() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests that addCitations adds sources array from results with URLs.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAddCitationsGeneratesSourcesArray(): void {
+    $results = [
+      ['title' => 'Eviction Guide', 'url' => 'https://example.com/eviction', 'type' => 'guide'],
+      ['title' => 'Tenant Rights', 'url' => 'https://example.com/rights', 'type' => 'resource'],
+      ['title' => 'FAQ Entry', 'url' => 'https://example.com/faq/1', 'type' => 'faq'],
+    ];
+
+    $response = ['message' => 'Some safe info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertArrayHasKey('sources', $result);
+    $this->assertCount(3, $result['sources']);
+    $this->assertEquals('Eviction Guide', $result['sources'][0]['title']);
+    $this->assertEquals('https://example.com/eviction', $result['sources'][0]['url']);
+  }
+
+  /**
+   * Tests that addCitations limits sources to 3.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAddCitationsMaxThreeSources(): void {
+    $results = [];
+    for ($i = 1; $i <= 5; $i++) {
+      $results[] = ['title' => "Result $i", 'url' => "https://example.com/$i"];
+    }
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertCount(3, $result['sources']);
+  }
+
+  /**
+   * Tests that results without URLs are excluded from sources.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAddCitationsExcludesResultsWithoutUrls(): void {
+    $results = [
+      ['title' => 'Has URL', 'url' => 'https://example.com/page'],
+      ['title' => 'No URL'],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertCount(1, $result['sources']);
+    $this->assertEquals('Has URL', $result['sources'][0]['title']);
+  }
+
+  /**
+   * Tests citation URL passthrough (F-12 baseline).
+   *
+   * Documents current behavior: any URL value is accepted as-is.
+   * When host validation is added, this test should be updated to
+   * assert only idaholegalaid.org URLs are accepted.
+   *
+   * @covers ::groundResponse
+   */
+  public function testCitationUrlAcceptsAnyValue(): void {
+    $results = [
+      ['title' => 'External', 'url' => 'https://attacker.example.com/phish'],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    // Current behavior: URL is accepted as-is (no host validation).
+    $this->assertArrayHasKey('sources', $result);
+    $this->assertEquals('https://attacker.example.com/phish', $result['sources'][0]['url']);
+  }
+
+  /**
+   * Tests that citation text is generated.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAddCitationsGeneratesCitationText(): void {
+    $results = [
+      ['title' => 'Guide One', 'url' => 'https://example.com/1'],
+      ['title' => 'Guide Two', 'url' => 'https://example.com/2'],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertArrayHasKey('citation_text', $result);
+    $this->assertStringContainsString('Guide One', $result['citation_text']);
+    $this->assertStringContainsString('Guide Two', $result['citation_text']);
+  }
+
+  /**
+   * Tests that long titles are truncated in citations.
+   *
+   * @covers ::groundResponse
+   */
+  public function testCitationTitleTruncation(): void {
+    $long_title = str_repeat('A', 100);
+    $results = [['title' => $long_title, 'url' => 'https://example.com/long']];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertLessThanOrEqual(60, mb_strlen($result['sources'][0]['title']));
+  }
+
+  // -----------------------------------------------------------------------
+  // validateInformation() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests that unofficial phone numbers are replaced with safe text.
+   *
+   * @covers ::groundResponse
+   */
+  public function testValidateInfoReplacesUnofficialPhones(): void {
+    $response = [
+      'message' => 'Call (555) 123-4567 for help.',
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertStringNotContainsString('(555) 123-4567', $result['message']);
+    $this->assertStringContainsString('contact information available on our website', $result['message']);
+    $this->assertArrayHasKey('_validation_warnings', $result);
+  }
+
+  /**
+   * Tests that official phone numbers are preserved.
+   *
+   * @covers ::groundResponse
+   */
+  #[DataProvider('officialPhoneProvider')]
+  public function testValidateInfoPreservesOfficialPhones(string $phone): void {
+    $response = [
+      'message' => "Call $phone for help.",
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertStringContainsString($phone, $result['message']);
+  }
+
+  public static function officialPhoneProvider(): array {
+    return [
+      'Boise' => ['(208) 345-0106'],
+      'Pocatello' => ['(208) 233-0079'],
+      'Twin Falls' => ['(208) 734-7024'],
+      'Lewiston (hotline)' => ['(208) 746-7541'],
+      'Idaho Falls' => ['(208) 524-3660'],
+    ];
+  }
+
+  /**
+   * Tests that legal-advice patterns set _requires_review = TRUE (F-13).
+   *
+   * @covers ::groundResponse
+   */
+  #[DataProvider('legalAdvicePatternProvider')]
+  public function testValidateInfoSetsRequiresReviewForLegalAdvice(string $message): void {
+    $response = [
+      'message' => $message,
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertTrue(
+      $result['_requires_review'] ?? FALSE,
+      "Expected _requires_review=TRUE for: $message"
+    );
+  }
+
+  public static function legalAdvicePatternProvider(): array {
+    return [
+      'you should file' => ['you should file a complaint with the court'],
+      'you must go to court' => ['you must go to court to contest this'],
+      'your case will win' => ['your case will win if you present this evidence'],
+      'your case should succeed' => ['your case should succeed based on these facts'],
+      'the judge will likely' => ['the judge will likely rule in your favor'],
+      'you cannot be deported' => ['you cannot be deported if you have this status'],
+    ];
+  }
+
+  /**
+   * Tests that safe text does NOT trigger _requires_review.
+   *
+   * @covers ::groundResponse
+   */
+  public function testValidateInfoSafeTextNoReview(): void {
+    $response = [
+      'message' => 'Idaho Legal Aid provides free legal help to low-income Idahoans.',
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertFalse($result['_requires_review'] ?? FALSE);
+  }
+
+  // -----------------------------------------------------------------------
+  // addCaveats() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests that FAQ/resources/topic types get caveat.
+   *
+   * @covers ::groundResponse
+   */
+  #[DataProvider('caveatTypeProvider')]
+  public function testAddCaveatsForContentTypes(string $type): void {
+    $response = [
+      'message' => 'Some information.',
+      'type' => $type,
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayHasKey('caveat', $result);
+    $this->assertStringContainsString('general guidance', $result['caveat']);
+  }
+
+  public static function caveatTypeProvider(): array {
+    return [
+      'faq' => ['faq'],
+      'resources' => ['resources'],
+      'topic' => ['topic'],
+      'eligibility' => ['eligibility'],
+      'services_overview' => ['services_overview'],
+    ];
+  }
+
+  /**
+   * Tests that emergency-type responses do NOT get caveat.
+   *
+   * @covers ::groundResponse
+   */
+  public function testNoCaveatForEmergencyType(): void {
+    $response = [
+      'message' => 'Call 911 immediately.',
+      'type' => 'emergency',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayNotHasKey('caveat', $result);
+  }
+
+  /**
+   * Tests that escalation-type responses do NOT get caveat.
+   *
+   * @covers ::groundResponse
+   */
+  public function testNoCaveatForEscalationType(): void {
+    $response = [
+      'message' => 'Please call our hotline.',
+      'type' => 'escalation',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayNotHasKey('caveat', $result);
+  }
+
+  /**
+   * Tests eligibility caveat added for eligibility type.
+   *
+   * @covers ::groundResponse
+   */
+  public function testEligibilityCaveatAdded(): void {
+    $response = [
+      'message' => 'You may be eligible for our services.',
+      'type' => 'eligibility',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayHasKey('eligibility_caveat', $result);
+    $this->assertStringContainsString('Applying is the best way', $result['eligibility_caveat']);
+  }
+
+  // -----------------------------------------------------------------------
+  // isOfficialPhone() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests all official phone numbers are recognized.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAllOfficialPhonesRecognized(): void {
+    // We test via validateInformation — official phones should NOT be flagged.
+    $official_numbers = [
+      '(208) 345-0106',  // Boise
+      '(208) 233-0079',  // Pocatello
+      '(208) 734-7024',  // Twin Falls
+      '(208) 746-7541',  // Lewiston / Hotline
+      '(208) 524-3660',  // Idaho Falls
+    ];
+
+    foreach ($official_numbers as $number) {
+      $response = [
+        'message' => "Contact us at $number.",
+        'type' => 'faq',
+      ];
+      $result = $this->grounder->groundResponse($response);
+      $this->assertStringContainsString(
+        $number,
+        $result['message'],
+        "Official number $number should be preserved"
+      );
+    }
+  }
+
+  /**
+   * Tests toll-free number recognized as official.
+   *
+   * @covers ::groundResponse
+   */
+  public function testTollFreeRecognizedAsOfficial(): void {
+    $response = [
+      'message' => 'Call 1-866-345-0106 toll-free.',
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    // The toll-free number should not be flagged as unofficial.
+    $this->assertArrayNotHasKey('_validation_warnings', $result);
+  }
+
+  // -----------------------------------------------------------------------
+  // isOfficialAddress() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests official address match.
+   *
+   * @covers ::groundResponse
+   */
+  public function testOfficialAddressNotFlagged(): void {
+    $response = [
+      'message' => 'Visit us at 310 N 5th Street, Boise, ID 83702.',
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayNotHasKey('address_caveat', $result);
+  }
+
+  /**
+   * Tests non-official address flagged.
+   *
+   * @covers ::groundResponse
+   */
+  public function testNonOfficialAddressFlagged(): void {
+    $response = [
+      'message' => 'Visit us at 999 Fake Boulevard, Boise, ID 83701.',
+      'type' => 'faq',
+    ];
+
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertArrayHasKey('address_caveat', $result);
+    $this->assertStringContainsString('offices page', $result['address_caveat']);
+  }
+
+  // -----------------------------------------------------------------------
+  // groundFaqResponse() — complete flow
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests groundFaqResponse complete flow.
+   *
+   * @covers ::groundFaqResponse
+   */
+  public function testGroundFaqResponseFlow(): void {
+    $faq = [
+      'question' => 'How do I apply?',
+      'answer' => 'You can apply online or by phone.',
+      'url' => 'https://idaholegalaid.org/faq/apply',
+    ];
+
+    $result = $this->grounder->groundFaqResponse($faq);
+
+    $this->assertEquals('faq', $result['type']);
+    $this->assertEquals('You can apply online or by phone.', $result['message']);
+    $this->assertArrayHasKey('sources', $result);
+    $this->assertArrayHasKey('caveat', $result);
+    $this->assertTrue($result['_grounded']);
+    $this->assertEquals('1.0', $result['_grounding_version']);
+  }
+
+  // -----------------------------------------------------------------------
+  // groundResourceResponse() — complete flow
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests groundResourceResponse complete flow.
+   *
+   * @covers ::groundResourceResponse
+   */
+  public function testGroundResourceResponseFlow(): void {
+    $resources = [
+      ['title' => 'Eviction Guide', 'url' => 'https://idaholegalaid.org/guides/eviction'],
+      ['title' => 'Tenant Rights', 'url' => 'https://idaholegalaid.org/guides/tenant-rights'],
+    ];
+
+    $result = $this->grounder->groundResourceResponse($resources);
+
+    $this->assertEquals('resources', $result['type']);
+    $this->assertStringContainsString('resources that might help', $result['message']);
+    $this->assertArrayHasKey('sources', $result);
+    $this->assertCount(2, $result['sources']);
+    $this->assertArrayHasKey('caveat', $result);
+    $this->assertTrue($result['_grounded']);
+  }
+
+  /**
+   * Tests groundResourceResponse with custom intro message.
+   *
+   * @covers ::groundResourceResponse
+   */
+  public function testGroundResourceResponseCustomIntro(): void {
+    $resources = [
+      ['title' => 'Form A', 'url' => 'https://idaholegalaid.org/forms/a'],
+    ];
+
+    $result = $this->grounder->groundResourceResponse($resources, 'Here are some forms:');
+
+    $this->assertEquals('Here are some forms:', $result['message']);
+  }
+
+  // -----------------------------------------------------------------------
+  // validateGrounding() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests validateGrounding flags phone not in corpus.
+   *
+   * @covers ::validateGrounding
+   */
+  public function testValidateGroundingFlagsPhoneNotInCorpus(): void {
+    $content = [
+      ['answer' => 'Call us for help with housing.'],
+    ];
+
+    $result = $this->grounder->validateGrounding(
+      'Call (555) 987-6543 for help.',
+      $content
+    );
+
+    $this->assertFalse($result['valid']);
+    $this->assertNotEmpty($result['issues']);
+    $this->assertStringContainsString('Phone number', $result['issues'][0]);
+  }
+
+  /**
+   * Tests validateGrounding flags dollar amount not in corpus.
+   *
+   * @covers ::validateGrounding
+   */
+  public function testValidateGroundingFlagsDollarNotInCorpus(): void {
+    $content = [
+      ['answer' => 'Filing fees vary by county.'],
+    ];
+
+    $result = $this->grounder->validateGrounding(
+      'The filing fee is $250.00.',
+      $content
+    );
+
+    $this->assertFalse($result['valid']);
+    $this->assertStringContainsString('Dollar amount', $result['issues'][0]);
+  }
+
+  /**
+   * Tests validateGrounding flags date not in corpus.
+   *
+   * @covers ::validateGrounding
+   */
+  public function testValidateGroundingFlagsDateNotInCorpus(): void {
+    $content = [
+      ['answer' => 'Deadlines depend on your case.'],
+    ];
+
+    $result = $this->grounder->validateGrounding(
+      'The deadline is March 15, 2026.',
+      $content
+    );
+
+    $this->assertFalse($result['valid']);
+    $this->assertStringContainsString('Date', $result['issues'][0]);
+  }
+
+  /**
+   * Tests validateGrounding passes when info is in corpus.
+   *
+   * @covers ::validateGrounding
+   */
+  public function testValidateGroundingPassesWhenInCorpus(): void {
+    $content = [
+      ['answer' => 'Call (208) 345-0106 for help. The fee is $50.'],
+    ];
+
+    $result = $this->grounder->validateGrounding(
+      'Call (208) 345-0106 for help. The fee is $50.',
+      $content
+    );
+
+    $this->assertTrue($result['valid']);
+    $this->assertEmpty($result['issues']);
+  }
+
+  // -----------------------------------------------------------------------
+  // getOfficialContacts() tests
+  // -----------------------------------------------------------------------
+
+  /**
+   * Tests getOfficialContacts returns all contacts.
+   *
+   * @covers ::getOfficialContacts
+   */
+  public function testGetOfficialContactsAll(): void {
+    $contacts = $this->grounder->getOfficialContacts('all');
+
+    $this->assertArrayHasKey('hotline', $contacts);
+    $this->assertArrayHasKey('offices', $contacts);
+    $this->assertArrayHasKey('emergency', $contacts);
+    $this->assertCount(5, $contacts['offices']);
+  }
+
+  /**
+   * Tests getOfficialContacts by type.
+   *
+   * @covers ::getOfficialContacts
+   */
+  public function testGetOfficialContactsByType(): void {
+    $hotline = $this->grounder->getOfficialContacts('hotline');
+    $this->assertArrayHasKey('number', $hotline);
+    $this->assertArrayHasKey('toll_free', $hotline);
+  }
+
+  /**
+   * Tests grounding metadata added.
+   *
+   * @covers ::groundResponse
+   */
+  public function testGroundingMetadata(): void {
+    $response = ['message' => 'Safe text.', 'type' => 'faq'];
+    $result = $this->grounder->groundResponse($response);
+
+    $this->assertTrue($result['_grounded']);
+    $this->assertEquals('1.0', $result['_grounding_version']);
+  }
+
+}

@@ -8,12 +8,3 @@ tags:
   title: '[node:title] | Careers | [site:name]'
   description: 'Apply for [node:title] position at Idaho Legal Aid Services. Join our nonprofit law firm dedicated to providing equal access to justice.'
   og_type: article
-  schema_job_posting_type: JobPosting
-  schema_job_posting_id: '[node:url]'
-  schema_job_posting_title: '[node:title]'
-  schema_job_posting_description: 'Idaho Legal Aid Services is seeking a qualified candidate for the [node:title] position. Join our nonprofit statewide law firm dedicated to providing equal access to justice for low-income Idahoans.'
-  schema_job_posting_date_posted: '[node:created:custom:Y-m-d]'
-  schema_job_posting_hiring_organization: 'a:4:{s:5:"@type";s:3:"NGO";s:4:"name";s:24:"Idaho Legal Aid Services";s:6:"sameAs";s:24:"https://idaholegalaid.org";s:4:"logo";s:57:"https://idaholegalaid.org/themes/custom/b5subtheme/logo.svg";}'
-  schema_job_posting_job_location: 'a:3:{s:5:"@type";s:5:"Place";s:7:"address";a:4:{s:5:"@type";s:13:"PostalAddress";s:13:"addressRegion";s:5:"Idaho";s:14:"addressCountry";s:2:"US";s:15:"addressLocality";s:5:"Boise";};s:4:"name";s:41:"Idaho Legal Aid Services - Multiple Sites";}'
-  schema_job_posting_employment_type: FULL_TIME
-  schema_job_posting_industry: 'Legal Services,Nonprofit'

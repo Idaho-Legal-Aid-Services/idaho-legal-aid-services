@@ -95,7 +95,8 @@ class SafetyClassifier {
         'escalation' => self::ESCALATION_CRITICAL,
         'patterns' => [
           '/\b(suicid(e|al)|kill\s*(my)?self|end\s*my\s*life|want\s*to\s*die)\b/i' => 'crisis_suicide',
-          '/\b(don\'?t\s*want\s*to\s*live|no\s*reason\s*to\s*live|better\s*off\s*dead)\b/i' => 'crisis_suicidal_ideation',
+          '/\b(don\'?t\s*want\s*to\s*live|no\s*reason\s*to\s*live|better\s*off\s*(dead|without\s*me))\b/i' => 'crisis_suicidal_ideation',
+          '/\b(can\'?t\s*(do\s*this|take\s*it)\s*anymore|no\s*way\s*out|give\s*up\s*on\s*(everything|life))\b/i' => 'crisis_indirect_ideation',
           '/\b(planning\s*to\s*(kill|hurt|harm)\s*(my)?self)\b/i' => 'crisis_self_harm_plan',
           '/\b(harm(ing)?\s*(my)?self|cut(ting)?\s*(my)?self)\b/i' => 'crisis_self_harm',
         ],
@@ -146,7 +147,7 @@ class SafetyClassifier {
           '/\b(homeless\s*(today|tonight|now)|on\s*the\s*street|nowhere\s*to\s*(go|stay|sleep))\b/i' => 'emergency_homeless',
           '/\b(evict(ed|ing)?\s*(me\s*)?(today|tonight|tomorrow|right\s*now|immediately))\b/i' => 'emergency_eviction_imminent',
           '/\b(sheriff\s*(is\s*)?(coming|here)|being\s*removed)\b/i' => 'emergency_eviction_enforcement',
-          '/\b((3|three|5|five)\s*day\s*notice)\b/i' => 'emergency_eviction_notice',
+          '/\b((3|three|5|five)[-\s]*day\s*notice)\b/i' => 'emergency_eviction_notice',
           '/\b(eviction\s*notice)\b/i' => 'emergency_eviction_notice',
           '/\b(court\s*date\s*(is\s*)?(today|tomorrow|this\s*week))\b/i' => 'emergency_deadline_court',
           '/\b(deadline\s*(is\s*)?(today|tomorrow))\b/i' => 'emergency_deadline_imminent',
@@ -233,8 +234,8 @@ class SafetyClassifier {
           '/<<\s*SYS\s*>>/i' => 'injection_format_sys',
           '/<\|im_start\|>/i' => 'injection_format_im_start',
           '/<\|im_end\|>/i' => 'injection_format_im_end',
-          '/\bHuman:\s*$/i' => 'injection_format_human',
-          '/\bAssistant:\s*$/i' => 'injection_format_assistant',
+          '/\bHuman:\s/i' => 'injection_format_human',
+          '/\bAssistant:\s/i' => 'injection_format_assistant',
           // Role-play and impersonation attacks.
           '/\b(you\s+are\s+now|from\s+now\s+on\s+you\s+are|pretend\s+(you\s+are|to\s+be)|act\s+as\s+(a|an|if))\b/i' => 'injection_roleplay',
           '/\b(pretend\s+(you\'?re|you\s+are)\s+(a\s+)?(real\s+)?(lawyer|attorney))\b/i' => 'injection_roleplay_lawyer',
@@ -258,6 +259,12 @@ class SafetyClassifier {
           '/\b(steal|extract|dump)\s+(the\s+)?(passwords?|credentials?|user\s*data|data)\b/i' => 'injection_data_theft',
           '/\b(list\s+(all\s+)?user\s*data|show\s+(all\s+)?users?|dump\s+(the\s+)?database)\b/i' => 'injection_data_dump',
           '/\b(admin\s*passwords?|root\s*access|sudo|administrator\s*credentials?)\b/i' => 'injection_admin_access',
+          // Spanish prompt injection patterns.
+          '/\b(ignora\s*(las\s*)?instrucciones|olvida\s*tus\s*reglas)\b/i' => 'injection_ignore_instructions_es',
+          '/\b(ahora\s*eres|finge\s*ser)\b/i' => 'injection_roleplay_es',
+          '/\b(desactiva\s*las\s*restricciones)\b/i' => 'injection_disable_safety_es',
+          '/\b(muestra\s*tus\s*instrucciones)\b/i' => 'injection_leak_instructions_es',
+          '/\b(modo\s*desarrollador|sin\s*restricciones)\b/i' => 'injection_jailbreak_mode_es',
         ],
       ],
 
@@ -507,13 +514,22 @@ class SafetyClassifier {
    * rather than reporting an active emergency. These should not trigger
    * safety escalation for non-critical categories (eviction info, scam info).
    *
+   * IMPORTANT: First-person urgency markers override the dampener. If the
+   * user says "tell me about my 3-day notice", that is NOT informational
+   * — it's a personal emergency. See hasFirstPersonUrgency().
+   *
    * @param string $message
    *   The user's message.
    *
    * @return bool
-   *   TRUE if the query appears informational.
+   *   TRUE if the query appears informational (and NOT first-person urgent).
    */
   protected function isInformationalQuery(string $message): bool {
+    // First-person urgency overrides the informational dampener.
+    if ($this->hasFirstPersonUrgency($message)) {
+      return FALSE;
+    }
+
     $informational_patterns = [
       '/\b(form\s*to|how\s*to\s*(file|dismiss|respond|answer))\b/i',
       '/\b(information\s*(on|about)|learn\s*about|tell\s*me\s*about)\b/i',
@@ -527,6 +543,43 @@ class SafetyClassifier {
     ];
 
     foreach ($informational_patterns as $pattern) {
+      if (preg_match($pattern, $message)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Detects first-person urgency markers in a message.
+   *
+   * When present, the informational dampener should NOT suppress safety
+   * triggers. "Tell me about my 3-day notice" is personal and urgent,
+   * while "tell me about eviction process" is truly informational.
+   *
+   * @param string $message
+   *   The user's message.
+   *
+   * @return bool
+   *   TRUE if first-person urgency markers are present.
+   */
+  protected function hasFirstPersonUrgency(string $message): bool {
+    $urgency_patterns = [
+      // Possessive urgency: "my 3-day notice", "my eviction notice".
+      '/\bmy\s+\d[-\s]*day\b/i',
+      '/\bmy\s+(eviction|3[-\s]*day|five[-\s]*day|three[-\s]*day)\b/i',
+      // Receipt/delivery: "I got", "I received", "just got".
+      '/\b(i\s+(got|received|have)|just\s+got|just\s+received)\b/i',
+      // Theft/victimization: "someone stole my", "they took my".
+      '/\b(someone\s+stole\s+my|they\s+took\s+my|stole\s+my)\b/i',
+      // Temporal urgency: "today", "tonight", "right now", "this morning".
+      '/\b(today|tonight|right\s+now|this\s+(morning|afternoon|evening))\b/i',
+      // Served/given: "was served", "was given", "handed me".
+      '/\b(was\s+(served|given)|handed\s+me|gave\s+me)\b/i',
+    ];
+
+    foreach ($urgency_patterns as $pattern) {
       if (preg_match($pattern, $message)) {
         return TRUE;
       }
@@ -584,6 +637,7 @@ class SafetyClassifier {
       'crisis_suicidal_ideation' => 'Indirect suicidal ideation',
       'crisis_self_harm_plan' => 'Self-harm planning detected',
       'crisis_self_harm' => 'Self-harm behavior detected',
+      'crisis_indirect_ideation' => 'Indirect crisis language detected',
 
       // Immediate danger.
       'danger_intruder' => 'Home invasion/intruder reported',
@@ -665,6 +719,11 @@ class SafetyClassifier {
       'injection_data_theft' => 'Prompt injection: data theft request',
       'injection_data_dump' => 'Prompt injection: data dump request',
       'injection_admin_access' => 'Prompt injection: admin access request',
+      'injection_ignore_instructions_es' => 'Prompt injection: ignore instructions (Spanish)',
+      'injection_roleplay_es' => 'Prompt injection: roleplay attack (Spanish)',
+      'injection_disable_safety_es' => 'Prompt injection: disable safety (Spanish)',
+      'injection_leak_instructions_es' => 'Prompt injection: leak instructions (Spanish)',
+      'injection_jailbreak_mode_es' => 'Prompt injection: jailbreak mode (Spanish)',
 
       // Wrongdoing.
       'wrongdoing_threat' => 'Request for threatening content',

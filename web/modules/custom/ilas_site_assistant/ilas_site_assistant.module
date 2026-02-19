@@ -135,6 +135,11 @@ function ilas_site_assistant_cron() {
     \Drupal::service('ilas_site_assistant.conversation_logger')->cleanup();
   }
 
+  // Prune stale violation timestamps (older than 24 hours).
+  if (\Drupal::hasService('ilas_site_assistant.safety_violation_tracker')) {
+    \Drupal::service('ilas_site_assistant.safety_violation_tracker')->prune(time() - 86400);
+  }
+
   // Check for safety spike alerts.
   if (\Drupal::hasService('ilas_site_assistant.safety_alert')) {
     \Drupal::service('ilas_site_assistant.safety_alert')->checkThresholds();

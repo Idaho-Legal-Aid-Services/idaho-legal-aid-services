@@ -2,11 +2,14 @@
 
 namespace Drupal\ilas_site_assistant\Service;
 
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\ilas_site_assistant\Service\InputNormalizer;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
 
 /**
  * Service for enhancing responses with LLM (Gemini/Vertex AI).
@@ -50,6 +53,21 @@ class LlmEnhancer {
    * @var \Drupal\ilas_site_assistant\Service\PolicyFilter
    */
   protected $policyFilter;
+
+  /**
+   * The cache backend.
+   *
+   * @var \Drupal\Core\Cache\CacheBackendInterface
+   */
+  protected $cache;
+
+  /**
+   * Policy version for cache invalidation.
+   *
+   * Bump this when system prompts, safety patterns, or response policy change.
+   * All cached LLM responses are invalidated when this version changes.
+   */
+  const POLICY_VERSION = '1.0';
 
   /**
    * Gemini API endpoints.
@@ -175,12 +193,14 @@ PROMPT,
     ConfigFactoryInterface $config_factory,
     ClientInterface $http_client,
     LoggerChannelFactoryInterface $logger_factory,
-    PolicyFilter $policy_filter
+    PolicyFilter $policy_filter,
+    CacheBackendInterface $cache = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->httpClient = $http_client;
     $this->logger = $logger_factory->get('ilas_site_assistant');
     $this->policyFilter = $policy_filter;
+    $this->cache = $cache;
   }
 
   /**
@@ -227,8 +247,21 @@ PROMPT,
       return $response;
     }
 
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $type = $response['type'] ?? '';
+
     // Don't enhance escalation or error responses.
-    if (in_array($response['type'] ?? '', ['escalation', 'error'])) {
+    if (in_array($type, ['escalation', 'error'])) {
+      return $response;
+    }
+
+    // Honor enhance_faq flag.
+    if ($type === 'faq' && !$config->get('llm.enhance_faq')) {
+      return $response;
+    }
+
+    // Honor enhance_resources flag.
+    if ($type === 'resources' && !$config->get('llm.enhance_resources')) {
       return $response;
     }
 
@@ -245,11 +278,13 @@ PROMPT,
       }
     }
     catch (\Exception $e) {
-      // Log error but don't break the response.
       $this->logger->warning('LLM enhancement failed: @message', [
         '@message' => $e->getMessage(),
       ]);
-      // Return original response without enhancement.
+      // Re-throw if fallback_on_error is disabled.
+      if (!$config->get('llm.fallback_on_error')) {
+        throw $e;
+      }
     }
 
     return $response;
@@ -277,7 +312,8 @@ PROMPT,
     }
 
     try {
-      $prompt = self::SYSTEM_PROMPTS['intent_classification'] . "\n\nUser query: " . $userQuery;
+      $sanitizedQuery = $this->policyFilter->sanitizeForLlmPrompt($userQuery);
+      $prompt = self::SYSTEM_PROMPTS['intent_classification'] . "\n\nUser query: " . $sanitizedQuery;
 
       $result = $this->callLlm($prompt, [
         'max_tokens' => 20,
@@ -335,9 +371,12 @@ PROMPT,
       default => self::SYSTEM_PROMPTS['default'],
     };
 
+    // Sanitize user query to remove PII before sending to LLM.
+    $sanitizedQuery = $this->policyFilter->sanitizeForLlmPrompt($userQuery);
+
     // Build the full prompt.
     $prompt = $systemPrompt . "\n\n";
-    $prompt .= "User's question: " . $userQuery . "\n\n";
+    $prompt .= "User's question: " . $sanitizedQuery . "\n\n";
     $prompt .= "Information to summarize:\n" . $context;
 
     // Call the LLM.
@@ -451,15 +490,39 @@ PROMPT,
   protected function callLlm(string $prompt, array $options = []): string {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $provider = $config->get('llm.provider') ?? 'gemini_api';
+    $model = $config->get('llm.model') ?? 'gemini-1.5-flash';
+    $temperature = $options['temperature'] ?? 0.3;
+    $cacheTtl = (int) ($config->get('llm.cache_ttl') ?? 3600);
 
-    // Sanitize prompt to remove any PII that might have slipped through.
-    $prompt = $this->policyFilter->sanitizeForStorage($prompt);
-
-    if ($provider === 'vertex_ai') {
-      return $this->callVertexAi($prompt, $options);
+    // Check cache (skip for high temperature to allow variation).
+    // Key includes policy_version so bumping it invalidates all cached responses.
+    if ($this->cache && $cacheTtl > 0 && $temperature <= 0.5) {
+      $cacheKey = 'llm:' . hash('sha256', implode('|', [
+        $prompt,
+        $model,
+        (string) ($options['max_tokens'] ?? 150),
+        (string) $temperature,
+        static::POLICY_VERSION,
+      ]));
+      $cached = $this->cache->get($cacheKey);
+      if ($cached) {
+        return $cached->data;
+      }
     }
 
-    return $this->callGeminiApi($prompt, $options);
+    if ($provider === 'vertex_ai') {
+      $result = $this->callVertexAi($prompt, $options);
+    }
+    else {
+      $result = $this->callGeminiApi($prompt, $options);
+    }
+
+    // Store in cache.
+    if ($this->cache && $cacheTtl > 0 && $temperature <= 0.5 && isset($cacheKey)) {
+      $this->cache->set($cacheKey, $result, time() + $cacheTtl, ['ilas_site_assistant:llm']);
+    }
+
+    return $result;
   }
 
   /**
@@ -482,7 +545,7 @@ PROMPT,
       throw new \Exception('Gemini API key not configured');
     }
 
-    $url = self::GEMINI_API_ENDPOINT . '/' . $model . ':generateContent?key=' . $apiKey;
+    $url = self::GEMINI_API_ENDPOINT . '/' . $model . ':generateContent';
 
     $payload = [
       'contents' => [
@@ -501,7 +564,7 @@ PROMPT,
       'safetySettings' => $this->getSafetySettings(),
     ];
 
-    return $this->makeApiRequest($url, $payload);
+    return $this->makeApiRequest($url, $payload, ['x-goog-api-key' => $apiKey]);
   }
 
   /**
@@ -574,45 +637,70 @@ PROMPT,
    *   The response text.
    */
   protected function makeApiRequest(string $url, array $payload, array $headers = []): string {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $maxRetries = (int) ($config->get('llm.max_retries') ?? 2);
+    $retryableCodes = [429, 500, 502, 503, 504];
+
     $defaultHeaders = [
       'Content-Type' => 'application/json',
     ];
 
     $allHeaders = array_merge($defaultHeaders, $headers);
 
-    try {
-      $response = $this->httpClient->request('POST', $url, [
-        'headers' => $allHeaders,
-        'json' => $payload,
-        'timeout' => 10,
-      ]);
+    $attempt = 0;
+    while (TRUE) {
+      try {
+        $response = $this->httpClient->request('POST', $url, [
+          'headers' => $allHeaders,
+          'json' => $payload,
+          'timeout' => 10,
+        ]);
 
-      $body = json_decode($response->getBody()->getContents(), TRUE);
+        $body = json_decode($response->getBody()->getContents(), TRUE);
 
-      // Extract text from response.
-      if (isset($body['candidates'][0]['content']['parts'][0]['text'])) {
-        $text = $body['candidates'][0]['content']['parts'][0]['text'];
+        // Extract text from response.
+        if (isset($body['candidates'][0]['content']['parts'][0]['text'])) {
+          $text = $body['candidates'][0]['content']['parts'][0]['text'];
 
-        // Final safety check - ensure no legal advice slipped through.
-        if ($this->containsLegalAdvice($text)) {
-          $this->logger->warning('LLM response contained potential legal advice, filtering.');
-          return $this->t('I found some information that may help. Please contact our Legal Advice Line for guidance specific to your situation.');
+          // Final safety check - ensure no legal advice slipped through.
+          if ($this->containsLegalAdvice($text)) {
+            $this->logger->warning('LLM response contained potential legal advice, filtering.');
+            return $this->t('I found some information that may help. Please contact our Legal Advice Line for guidance specific to your situation.');
+          }
+
+          return trim($text);
         }
 
-        return trim($text);
-      }
+        // Check for blocked content.
+        if (isset($body['candidates'][0]['finishReason']) &&
+            $body['candidates'][0]['finishReason'] === 'SAFETY') {
+          $this->logger->warning('LLM response blocked by safety filters.');
+          return '';
+        }
 
-      // Check for blocked content.
-      if (isset($body['candidates'][0]['finishReason']) &&
-          $body['candidates'][0]['finishReason'] === 'SAFETY') {
-        $this->logger->warning('LLM response blocked by safety filters.');
-        return '';
+        throw new \Exception('Unexpected API response format');
       }
+      catch (GuzzleException $e) {
+        $statusCode = ($e instanceof RequestException && $e->getResponse())
+          ? $e->getResponse()->getStatusCode()
+          : 0;
 
-      throw new \Exception('Unexpected API response format');
-    }
-    catch (GuzzleException $e) {
-      throw new \Exception('API request failed: ' . $e->getMessage());
+        // Retry on retryable status codes if we have retries left.
+        if ($attempt < $maxRetries && in_array($statusCode, $retryableCodes, TRUE)) {
+          $attempt++;
+          // Exponential backoff with jitter: 500ms * 2^attempt + random(0-250ms).
+          $delayMs = (int) (500 * pow(2, $attempt - 1) + random_int(0, 250));
+          usleep($delayMs * 1000);
+          $this->logger->notice('LLM API request retry @attempt/@max after HTTP @code', [
+            '@attempt' => $attempt,
+            '@max' => $maxRetries,
+            '@code' => $statusCode,
+          ]);
+          continue;
+        }
+
+        throw new \Exception('API request failed: ' . $e->getMessage());
+      }
     }
   }
 
@@ -745,6 +833,9 @@ PROMPT,
    *   TRUE if legal advice detected.
    */
   protected function containsLegalAdvice(string $text): bool {
+    // Normalize input to defeat evasion techniques (e.g., "y.o.u s.h.o.u.l.d").
+    $text = InputNormalizer::normalize($text);
+
     $patterns = [
       // Interpreting laws or citing statutes.
       '/idaho\s+code\s*(§|section)/i',
@@ -807,8 +898,9 @@ PROMPT,
     }
 
     try {
+      $sanitizedQuery = $this->policyFilter->sanitizeForLlmPrompt($userQuery);
       $prompt = self::SYSTEM_PROMPTS['default'] . "\n\n";
-      $prompt .= "The user just said: \"" . $userQuery . "\"\n\n";
+      $prompt .= "The user just said: \"" . $sanitizedQuery . "\"\n\n";
       $prompt .= "Respond with a brief, friendly greeting (1 sentence) and ask how you can help them find information on the ILAS website today.";
 
       return $this->callLlm($prompt, [

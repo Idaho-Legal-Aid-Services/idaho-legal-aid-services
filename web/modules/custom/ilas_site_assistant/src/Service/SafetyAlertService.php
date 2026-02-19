@@ -66,6 +66,13 @@ class SafetyAlertService {
   protected $logger;
 
   /**
+   * The violation tracker for sub-day windowed counting.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SafetyViolationTracker|null
+   */
+  protected $violationTracker;
+
+  /**
    * Constructs a SafetyAlertService object.
    */
   public function __construct(
@@ -74,7 +81,8 @@ class SafetyAlertService {
     MailManagerInterface $mail_manager,
     StateInterface $state,
     TimeInterface $time,
-    LoggerInterface $logger
+    LoggerInterface $logger,
+    SafetyViolationTracker $violation_tracker = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->database = $database;
@@ -82,6 +90,7 @@ class SafetyAlertService {
     $this->state = $state;
     $this->time = $time;
     $this->logger = $logger;
+    $this->violationTracker = $violation_tracker;
   }
 
   /**
@@ -113,11 +122,19 @@ class SafetyAlertService {
     }
 
     // Count safety violations within the window.
-    $window_start = date('Y-m-d', $now - ($window_hours * 3600));
+    // Prefer the violation tracker (accurate sub-day counting) over
+    // the stats table (date-bucketed, day-level granularity only).
+    $window_start_date = date('Y-m-d', $now - ($window_hours * 3600));
     $today = date('Y-m-d', $now);
 
     try {
-      $count = $this->countSafetyViolations($window_start, $today);
+      if ($this->violationTracker) {
+        $cutoff = $now - ($window_hours * 3600);
+        $count = $this->violationTracker->countSince($cutoff);
+      }
+      else {
+        $count = $this->countSafetyViolations($window_start_date, $today);
+      }
     }
     catch (\Exception $e) {
       $this->logger->error('Safety alert check failed: @message', [
@@ -130,8 +147,8 @@ class SafetyAlertService {
       return;
     }
 
-    // Get top reason codes for the alert body.
-    $top_reasons = $this->getTopReasonCodes($window_start, $today, 5);
+    // Get top reason codes for the alert body (daily granularity acceptable).
+    $top_reasons = $this->getTopReasonCodes($window_start_date, $today, 5);
 
     // Send the alert.
     $this->sendAlert($recipients, $count, $window_hours, $top_reasons);

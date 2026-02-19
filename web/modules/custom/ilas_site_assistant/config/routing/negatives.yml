@@ -72,6 +72,30 @@ donations:
     - child support
     - spousal support
     - support payment
+    # Housing context - prevent "give it back" / deposit / rent misroutes
+    - give it back
+    - give me
+    - gave me
+    - took money
+    - security deposit
+    - deposit
+    - landlord
+    - rent
+    - tenant
+    - lease
+    - eviction
+    # Employment context - prevent "paycheck" / wage misroutes
+    - paycheck
+    - last paycheck
+    - wages
+    - employer
+    - fired
+    - terminated
+    # Consumer context
+    - debt
+    - collector
+    - garnishment
+    - repossession
 
 feedback:
   # Prevent routing feedback when user needs substantive help
@@ -80,6 +104,10 @@ feedback:
     - help me with
     - can you help
     - how do i
+    - retaliation
+    - fired
+    - terminated
+    - employer
 
 forms:
   # Don't route to forms when asking for legal advice about forms

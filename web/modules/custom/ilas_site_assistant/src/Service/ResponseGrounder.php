@@ -285,6 +285,10 @@ class ResponseGrounder {
     }
 
     $toll_free_normalized = preg_replace('/[^\d]/', '', self::OFFICIAL_CONTACTS['hotline']['toll_free']);
+    // Also strip leading country code from toll-free for comparison.
+    if (strlen($toll_free_normalized) === 11 && $toll_free_normalized[0] === '1') {
+      $toll_free_normalized = substr($toll_free_normalized, 1);
+    }
     if ($phone === $toll_free_normalized) {
       return TRUE;
     }

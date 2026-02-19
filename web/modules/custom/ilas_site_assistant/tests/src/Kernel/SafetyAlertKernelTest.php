@@ -3,6 +3,7 @@
 namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\SafetyAlertService;
+use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 
 /**
  * Kernel tests for SafetyAlertService.
@@ -247,6 +248,82 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests that tracker-based counting is used when available.
+   *
+   * The tracker provides sub-day (timestamp-level) counting, overriding
+   * the date-bucketed stats table counting.
+   *
+   * @covers ::checkThresholds
+   */
+  public function testTrackerBasedCountingUsed(): void {
+    $now = 1700000000;
+
+    // Insert stats rows that would exceed threshold via the old path.
+    $today = date('Y-m-d', $now);
+    $this->insertStatsRow('safety_violation', 'crisis_suicide', 10, $today);
+
+    // Create a tracker that reports fewer violations (below threshold).
+    $trackerState = $this->createMock('Drupal\Core\State\StateInterface');
+    $trackerState->method('get')
+      ->willReturn([]); // Empty = 0 violations via tracker.
+    $trackerState->method('set');
+    $tracker = new SafetyViolationTracker($trackerState);
+
+    $mailManager = $this->createMock('Drupal\Core\Mail\MailManagerInterface');
+    // If tracker is used, count is 0, so no email should be sent.
+    $mailManager->expects($this->never())->method('mail');
+
+    $service = $this->createSafetyAlertService([
+      'safety_alerting.enabled' => TRUE,
+      'safety_alerting.threshold' => 5,
+      'safety_alerting.window_hours' => 1,
+      'safety_alerting.cooldown_minutes' => 60,
+      'safety_alerting.recipients' => 'admin@example.com',
+    ], $mailManager, NULL, $now, $tracker);
+
+    $service->checkThresholds();
+  }
+
+  /**
+   * Tests that tracker violations exceeding threshold trigger alert.
+   *
+   * @covers ::checkThresholds
+   */
+  public function testTrackerViolationsExceedThreshold(): void {
+    $now = 1700000000;
+
+    // Tracker has 10 recent timestamps.
+    $timestamps = [];
+    for ($i = 0; $i < 10; $i++) {
+      $timestamps[] = $now - ($i * 60); // One per minute, all within 1 hour.
+    }
+
+    $trackerState = $this->createMock('Drupal\Core\State\StateInterface');
+    $trackerState->method('get')
+      ->willReturn($timestamps);
+    $trackerState->method('set');
+    $tracker = new SafetyViolationTracker($trackerState);
+
+    // Insert stats rows for top_reasons (daily granularity is fine).
+    $today = date('Y-m-d', $now);
+    $this->insertStatsRow('safety_violation', 'crisis_suicide', 7, $today);
+    $this->insertStatsRow('safety_violation', 'emergency_dv', 3, $today);
+
+    $mailManager = $this->createMock('Drupal\Core\Mail\MailManagerInterface');
+    $mailManager->expects($this->once())->method('mail');
+
+    $service = $this->createSafetyAlertService([
+      'safety_alerting.enabled' => TRUE,
+      'safety_alerting.threshold' => 5,
+      'safety_alerting.window_hours' => 1,
+      'safety_alerting.cooldown_minutes' => 60,
+      'safety_alerting.recipients' => 'admin@example.com',
+    ], $mailManager, NULL, $now, $tracker);
+
+    $service->checkThresholds();
+  }
+
+  /**
    * Creates a SafetyAlertService with configurable overrides.
    *
    * @param array $config_overrides
@@ -257,6 +334,8 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
    *   State service mock.
    * @param int $timestamp
    *   The timestamp for the time service.
+   * @param \Drupal\ilas_site_assistant\Service\SafetyViolationTracker|null $tracker
+   *   Optional violation tracker.
    *
    * @return \Drupal\ilas_site_assistant\Service\SafetyAlertService
    *   The configured SafetyAlertService.
@@ -265,7 +344,8 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
     array $config_overrides = [],
     $mailManager = NULL,
     $state = NULL,
-    int $timestamp = 0
+    int $timestamp = 0,
+    SafetyViolationTracker $tracker = NULL
   ): SafetyAlertService {
     if ($timestamp === 0) {
       $timestamp = time();
@@ -291,7 +371,8 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
       $mailManager,
       $state,
       $time,
-      $logger
+      $logger,
+      $tracker
     );
   }
 

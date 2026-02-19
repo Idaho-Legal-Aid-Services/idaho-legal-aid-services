@@ -55,7 +55,7 @@ services:
 
   ilas_site_assistant.llm_enhancer:
     class: Drupal\ilas_site_assistant\Service\LlmEnhancer
-    arguments: ['@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter']
+    arguments: ['@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter', '@cache.ilas_site_assistant']
 
   ilas_site_assistant.fallback_gate:
     class: Drupal\ilas_site_assistant\Service\FallbackGate
@@ -89,13 +89,20 @@ services:
     class: Drupal\ilas_site_assistant\Service\PerformanceMonitor
     arguments: ['@state', '@logger.channel.ilas_site_assistant']
 
+  ilas_site_assistant.pii_redactor:
+    class: Drupal\ilas_site_assistant\Service\PiiRedactor
+
   ilas_site_assistant.conversation_logger:
     class: Drupal\ilas_site_assistant\Service\ConversationLogger
-    arguments: ['@database', '@config.factory', '@datetime.time', '@ilas_site_assistant.policy_filter']
+    arguments: ['@database', '@config.factory', '@datetime.time']
+
+  ilas_site_assistant.safety_violation_tracker:
+    class: Drupal\ilas_site_assistant\Service\SafetyViolationTracker
+    arguments: ['@state']
 
   ilas_site_assistant.safety_alert:
     class: Drupal\ilas_site_assistant\Service\SafetyAlertService
-    arguments: ['@config.factory', '@database', '@plugin.manager.mail', '@state', '@datetime.time', '@logger.channel.ilas_site_assistant']
+    arguments: ['@config.factory', '@database', '@plugin.manager.mail', '@state', '@datetime.time', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.safety_violation_tracker']
 
   ilas_site_assistant.ab_testing:
     class: Drupal\ilas_site_assistant\Service\AbTestingService

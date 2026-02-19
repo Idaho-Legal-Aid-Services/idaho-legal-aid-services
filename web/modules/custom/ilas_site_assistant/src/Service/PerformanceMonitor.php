@@ -60,8 +60,10 @@ class PerformanceMonitor {
    *   Whether the request succeeded.
    * @param string $scenario
    *   The query type (short, navigation, retrieval).
+   * @param string $request_id
+   *   Optional per-request correlation ID for log tracing.
    */
-  public function recordRequest(float $duration_ms, bool $success, string $scenario = 'unknown'): void {
+  public function recordRequest(float $duration_ms, bool $success, string $scenario = 'unknown', string $request_id = ''): void {
     $metrics = $this->getMetrics();
 
     // Add to rolling window.
@@ -175,31 +177,50 @@ class PerformanceMonitor {
 
   /**
    * Checks thresholds and logs warnings.
+   *
+   * Uses the in-memory $metrics array (which includes the current request)
+   * instead of re-reading state. Mutates $metrics['last_alert'] by reference
+   * so the single state->set() in recordRequest() persists the cooldown.
    */
-  protected function checkThresholds(array $metrics): void {
+  protected function checkThresholds(array &$metrics): void {
     // Only alert once per 5 minutes to avoid log spam.
     if (time() - $metrics['last_alert'] < 300) {
       return;
     }
 
-    $summary = $this->getSummary();
-
-    if ($summary['status'] === 'degraded_latency') {
-      $this->logger->warning('Chatbot API latency degraded: P95 = @p95ms (threshold: @threshold ms)', [
-        '@p95' => $summary['p95'],
-        '@threshold' => self::THRESHOLD_P95_MS,
-      ]);
-      $metrics['last_alert'] = time();
-      $this->state->set(self::STATE_KEY, $metrics);
+    $requests = $metrics['requests'];
+    if (empty($requests)) {
+      return;
     }
 
-    if ($summary['status'] === 'degraded_errors') {
+    // In-memory summary calculation (avoids stale state re-read).
+    $durations = array_column($requests, 'duration');
+    sort($durations);
+    $count = count($durations);
+    $errors = count(array_filter($requests, fn($r) => !$r['success']));
+    $p95 = $durations[(int) floor($count * 0.95)] ?? 0;
+    $error_rate = $count > 0 ? $errors / $count : 0;
+
+    $alerted = FALSE;
+
+    if ($p95 > self::THRESHOLD_P95_MS) {
+      $this->logger->warning('Chatbot API latency degraded: P95 = @p95ms (threshold: @threshold ms)', [
+        '@p95' => round($p95, 1),
+        '@threshold' => self::THRESHOLD_P95_MS,
+      ]);
+      $alerted = TRUE;
+    }
+
+    if ($error_rate > self::THRESHOLD_ERROR_RATE) {
       $this->logger->warning('Chatbot API error rate elevated: @rate% (threshold: @threshold%)', [
-        '@rate' => $summary['error_rate'],
+        '@rate' => round($error_rate * 100, 2),
         '@threshold' => self::THRESHOLD_ERROR_RATE * 100,
       ]);
+      $alerted = TRUE;
+    }
+
+    if ($alerted) {
       $metrics['last_alert'] = time();
-      $this->state->set(self::STATE_KEY, $metrics);
     }
   }
 

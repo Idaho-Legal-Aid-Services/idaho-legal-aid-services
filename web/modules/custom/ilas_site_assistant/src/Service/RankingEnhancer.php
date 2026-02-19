@@ -341,13 +341,14 @@ class RankingEnhancer {
       // Check if keyword is a known synonym.
       foreach (self::SYNONYMS as $canonical => $synonyms) {
         // Forward expansion: keyword matches canonical.
-        if ($keyword_lower === $canonical || strpos($keyword_lower, $canonical) !== FALSE) {
+        // Use word-boundary check to prevent "bankruptcy" matching "bank".
+        if ($keyword_lower === $canonical || self::containsWholeWord($keyword_lower, $canonical)) {
           $expanded = array_merge($expanded, $synonyms);
         }
 
         // Reverse expansion: keyword matches a synonym.
         foreach ($synonyms as $synonym) {
-          if ($keyword_lower === $synonym || strpos($keyword_lower, $synonym) !== FALSE) {
+          if ($keyword_lower === $synonym || self::containsWholeWord($keyword_lower, $synonym)) {
             $expanded[] = $canonical;
             break;
           }
@@ -358,6 +359,26 @@ class RankingEnhancer {
     // Lowercase and deduplicate.
     $expanded = array_map('strtolower', $expanded);
     return array_values(array_unique($expanded));
+  }
+
+  /**
+   * Checks if $haystack contains $needle as a whole word.
+   *
+   * Prevents substring false positives like "bankruptcy" matching "bank"
+   * or "snap" matching "sna". Multi-word needles (e.g. "child support")
+   * are matched as a phrase with word boundaries on each end.
+   *
+   * @param string $haystack
+   *   The text to search in (lowercase).
+   * @param string $needle
+   *   The word or phrase to find (lowercase).
+   *
+   * @return bool
+   *   TRUE if $needle appears as a whole word/phrase in $haystack.
+   */
+  protected static function containsWholeWord(string $haystack, string $needle): bool {
+    $escaped = preg_quote($needle, '/');
+    return (bool) preg_match('/\b' . $escaped . '\b/', $haystack);
   }
 
   /**

@@ -3,6 +3,7 @@
 namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\PiiRedactor;
 
 /**
  * Kernel tests for AnalyticsLogger service.
@@ -105,6 +106,26 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
       ->fetch();
 
     $this->assertStringNotContainsString('john@example.com', $row->event_value);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_EMAIL, $row->event_value);
+  }
+
+  /**
+   * Tests that SSN, DOB, and CC are redacted from event values.
+   *
+   * @covers ::log
+   */
+  public function testLogRedactsSsnDobCcInEventValue(): void {
+    $logger = $this->createAnalyticsLogger();
+    $logger->log('search_query', 'SSN 123-45-6789 born on 01/01/1990');
+
+    $row = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'search_query')
+      ->execute()
+      ->fetch();
+
+    $this->assertStringNotContainsString('123-45-6789', $row->event_value);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_SSN, $row->event_value);
   }
 
   /**
@@ -127,8 +148,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
    */
   public function testLogNoAnswerDeduplicates(): void {
     $logger = $this->createAnalyticsLogger();
-    $policyFilter = $this->createMockPolicyFilter();
-    $logger->setPolicyFilter($policyFilter);
 
     $logger->logNoAnswer('eviction help near me');
     $logger->logNoAnswer('eviction help near me');
@@ -157,8 +176,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
    */
   public function testLogNoAnswerSeparateQueries(): void {
     $logger = $this->createAnalyticsLogger();
-    $policyFilter = $this->createMockPolicyFilter();
-    $logger->setPolicyFilter($policyFilter);
 
     $logger->logNoAnswer('eviction help');
     $logger->logNoAnswer('divorce forms');
@@ -218,6 +235,31 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
     // Old no-answer row should be gone.
     $no_answer_count = $this->countTableRows('ilas_site_assistant_no_answer');
     $this->assertEquals(0, $no_answer_count);
+  }
+
+  /**
+   * Tests that batched cleanup deletes all expired rows across batches.
+   *
+   * @covers ::cleanupOldData
+   */
+  public function testBatchedCleanupDeletesAllExpiredRows(): void {
+    // Insert 10 expired stats rows.
+    $old_date = date('Y-m-d', strtotime('-100 days'));
+    for ($i = 0; $i < 10; $i++) {
+      $this->insertStatsRow('test_event', 'value_' . $i, 1, $old_date);
+    }
+
+    // Insert 2 recent rows.
+    $recent_date = date('Y-m-d', strtotime('-10 days'));
+    $this->insertStatsRow('test_event', 'recent_a', 1, $recent_date);
+    $this->insertStatsRow('test_event', 'recent_b', 1, $recent_date);
+
+    $logger = $this->createAnalyticsLogger(['log_retention_days' => 90]);
+    $logger->cleanupOldData();
+
+    // Only the 2 recent rows should remain.
+    $remaining = $this->countTableRows('ilas_site_assistant_stats');
+    $this->assertEquals(2, $remaining);
   }
 
   /**

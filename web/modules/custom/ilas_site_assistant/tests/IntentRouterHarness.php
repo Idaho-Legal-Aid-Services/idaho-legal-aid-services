@@ -33,6 +33,9 @@ $INTENT_MAPPING = [
   'topic_housing' => ['service_area', 'topic_housing'],
   'topic_family' => ['service_area', 'topic_family'],
   'topic_benefits' => ['service_area', 'topic_benefits'],
+  'topic_employment' => ['service_area', 'topic_employment'],
+  'topic_seniors' => ['service_area', 'topic_seniors'],
+  'topic_consumer' => ['service_area', 'topic_consumer'],
 ];
 
 /**
@@ -114,6 +117,14 @@ function simulateRouter(string $message): array {
       'desalojo hoy', 'desalojo manana', 'me estan echando hoy', 'me echan hoy',
       'cambiaron las cerraduras', 'no tengo donde ir', 'no tengo donde dormir',
       'me estan echando de mi casa', 'echando de mi',
+    ],
+    'urgent_crisis' => [
+      'kill myself', 'end my life', 'want to die', 'suicide', 'suicidal',
+      'better off dead', 'better off without me',
+      'dont want to live', "don't want to live", 'no reason to live',
+      'cant do this anymore', "can't do this anymore",
+      'cant take it anymore', "can't take it anymore",
+      'no way out', 'give up on everything', 'give up on life',
     ],
     'urgent_scam' => [
       'identity theft today', 'identity stolen', 'stole my identity',
@@ -344,10 +355,33 @@ function simulateRouter(string $message): array {
     'topic_family' => [
       '/\b(divorce|custody|child\s*support|visitation|adoption)/i',
       '/\bdivorcio|custodia|familia/i',
+      '/\b(ex|partner|spouse)\s*(is\s*)?(using|on|doing)\s*(drugs?|meth|heroin|fentanyl)/i',
+      '/\b(drugs?|meth)\s*(around|near|with)\s*(my\s*)?(kids?|children)/i',
     ],
     'topic_benefits' => [
       '/\b(medicaid|medicare|snap|food\s*stamps|ssi|ssdi|tanf)/i',
       '/\bbenefits?|beneficios/i',
+    ],
+    'topic_employment' => [
+      '/\b(fired|terminated|wrongful\s*termination|laid\s*off)/i',
+      '/\b(unpaid\s*wages?|wage\s*theft|paycheck|last\s*paycheck)/i',
+      '/\bdespedido|me\s*despidieron/i',
+    ],
+    'topic_seniors' => [
+      '/\b(senior|elderly|older\s*adult|elder\s*(care|abuse|law))/i',
+      '/\b(nursing\s*home|assisted\s*living|guardianship|conservator)/i',
+      '/\b(caretaker|caregiver)\s*(is\s*)?(steal|stole|stealing|taking|abuse)/i',
+      '/\b(probate|estate\s*plan|inherit(ance)?)\b/i',
+      '/\b(died|passed\s*away)\s*(and\s*)?(without|no|didn\'?t\s*have)\s*(a\s*)?(will|trust)/i',
+      '/\b(parent|mom|dad|mother|father)\s*(just\s*)?(died|passed)\b/i',
+    ],
+    'topic_consumer' => [
+      '/\b(consumer|debt|collection|credit|scam|fraud|bankruptcy)/i',
+      '/\b(garnishment|repossession|identity\s*theft)/i',
+      '/\b(car|vehicle|auto)\s*(repossess|repossessed|repo)\b/i',
+      '/\b(my\s*)?(car|vehicle|auto)\s*(is\s*|was\s*)?gone\b/i',
+      '/\b(they\s*)?(took|taking)\s*(my\s*)?(car|vehicle|auto)/i',
+      '/\b(debt|bill)\s*collector/i',
     ],
   ];
 
@@ -517,6 +551,8 @@ function checkMatch(array $result, string $expected_intent, ?string $expected_ca
     'services_overview' => ['faq', 'apply_for_help'],
     'topic_housing' => ['forms_finder', 'guides_finder'],
     'topic_family' => ['forms_finder', 'guides_finder'],
+    'topic_seniors' => ['forms_finder', 'guides_finder'],
+    'topic_consumer' => ['forms_finder', 'guides_finder'],
   ];
 
   if (isset($alternatives[$expected_intent]) && in_array($router_type, $alternatives[$expected_intent])) {

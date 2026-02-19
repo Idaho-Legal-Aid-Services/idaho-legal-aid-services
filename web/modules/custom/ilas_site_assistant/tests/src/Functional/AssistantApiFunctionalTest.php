@@ -383,6 +383,165 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Tests that POST /message with no Content-Type returns 400, not 500.
+   *
+   * Covers Fix A (F-04): Content-Type null → TypeError on PHP 8.1+.
+   */
+  public function testMessageEndpointRejectsNullContentType(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $session_token = $this->getSessionToken();
+    $url = $this->buildUrl('/assistant/api/message');
+
+    // POST without Content-Type header at all.
+    $options = [
+      'http_errors' => FALSE,
+      'headers' => [
+        'X-CSRF-Token' => $session_token,
+      ],
+      'body' => '{"message":"Hello"}',
+    ];
+
+    $response = $this->getHttpClient()->post($url, $options);
+    $this->assertEquals(400, $response->getStatusCode(), 'Missing Content-Type should return 400, not 500');
+  }
+
+  /**
+   * Tests that POST /track with no Content-Type returns 400, not 500.
+   *
+   * Covers Fix A (F-04): Content-Type null → TypeError on PHP 8.1+.
+   */
+  public function testTrackEndpointRejectsNullContentType(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $session_token = $this->getSessionToken();
+    $url = $this->buildUrl('/assistant/api/track');
+
+    $options = [
+      'http_errors' => FALSE,
+      'headers' => [
+        'X-CSRF-Token' => $session_token,
+      ],
+      'body' => '{"event_type":"chat_open"}',
+    ];
+
+    $response = $this->getHttpClient()->post($url, $options);
+    $this->assertEquals(400, $response->getStatusCode(), 'Missing Content-Type should return 400, not 500');
+  }
+
+  /**
+   * Tests that message endpoint includes Cache-Control: no-store.
+   *
+   * Covers Fix B (C-06).
+   */
+  public function testMessageEndpointIncludesCacheControlNoStore(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $response = $this->postJson('/assistant/api/message', [
+      'message' => 'Hello',
+    ], TRUE);
+
+    $cache_control = $response->getHeader('Cache-Control')[0] ?? '';
+    $this->assertStringContainsString('no-store', $cache_control, 'POST /message must include Cache-Control: no-store');
+  }
+
+  /**
+   * Tests that track endpoint includes Cache-Control: no-store.
+   *
+   * Covers Fix B (C-06).
+   */
+  public function testTrackEndpointIncludesCacheControlNoStore(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $response = $this->postJson('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], TRUE);
+
+    $cache_control = $response->getHeader('Cache-Control')[0] ?? '';
+    $this->assertStringContainsString('no-store', $cache_control, 'POST /track must include Cache-Control: no-store');
+  }
+
+  /**
+   * Tests that a successful message response includes request_id.
+   *
+   * Covers Fix D (F-28/C-07).
+   */
+  public function testMessageResponseIncludesRequestId(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $response = $this->postJson('/assistant/api/message', [
+      'message' => 'Hello',
+    ], TRUE);
+
+    $this->assertEquals(200, $response->getStatusCode());
+
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertArrayHasKey('request_id', $data, 'Response must include request_id');
+    // Validate UUID v4 format.
+    $this->assertMatchesRegularExpression(
+      '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i',
+      $data['request_id'],
+      'request_id must be a valid UUID v4'
+    );
+  }
+
+  /**
+   * Tests that a track response includes request_id.
+   *
+   * Covers Fix D (F-28/C-07).
+   */
+  public function testTrackResponseIncludesRequestId(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $response = $this->postJson('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], TRUE);
+
+    $this->assertEquals(200, $response->getStatusCode());
+
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertArrayHasKey('request_id', $data, 'Track response must include request_id');
+    $this->assertMatchesRegularExpression(
+      '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i',
+      $data['request_id']
+    );
+  }
+
+  /**
+   * Tests that a 400 error response still includes request_id.
+   *
+   * Covers Fix D (F-28/C-07).
+   */
+  public function testMessageErrorResponseIncludesRequestId(): void {
+    $this->drupalLogin($this->regularUser);
+
+    // Send invalid content type to trigger 400.
+    $session_token = $this->getSessionToken();
+    $url = $this->buildUrl('/assistant/api/message');
+
+    $options = [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'text/plain',
+        'X-CSRF-Token' => $session_token,
+      ],
+      'body' => 'Hello',
+    ];
+
+    $response = $this->getHttpClient()->post($url, $options);
+    $this->assertEquals(400, $response->getStatusCode());
+
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertArrayHasKey('request_id', $data, 'Error responses must include request_id');
+    $this->assertMatchesRegularExpression(
+      '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i',
+      $data['request_id']
+    );
+  }
+
+  /**
    * Sends a JSON POST request to the given path.
    *
    * @param string $path

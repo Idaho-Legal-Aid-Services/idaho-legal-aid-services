@@ -13,11 +13,16 @@ use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
+use Drupal\ilas_site_assistant\Service\InputNormalizer;
+use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use Drupal\ilas_site_assistant\Service\HistoryIntentResolver;
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
+use Drupal\ilas_site_assistant\Service\OfficeLocationResolver;
 use Drupal\ilas_site_assistant\Service\SafetyResponseTemplates;
 use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
+use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
 use Drupal\Component\Uuid\Php as UuidGenerator;
@@ -40,6 +45,7 @@ class AssistantApiController extends ControllerBase {
    */
   const SECURITY_HEADERS = [
     'X-Content-Type-Options' => 'nosniff',
+    'Cache-Control' => 'no-store',
   ];
 
   /**
@@ -155,6 +161,13 @@ class AssistantApiController extends ControllerBase {
   protected $abTesting;
 
   /**
+   * The safety violation tracker.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SafetyViolationTracker|null
+   */
+  protected $violationTracker;
+
+  /**
    * The flood service for rate limiting.
    *
    * @var \Drupal\Core\Flood\FloodInterface
@@ -197,7 +210,8 @@ class AssistantApiController extends ControllerBase {
     OutOfScopeResponseTemplates $out_of_scope_response_templates = NULL,
     PerformanceMonitor $performance_monitor = NULL,
     ConversationLogger $conversation_logger = NULL,
-    AbTestingService $ab_testing = NULL
+    AbTestingService $ab_testing = NULL,
+    SafetyViolationTracker $violation_tracker = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -218,6 +232,7 @@ class AssistantApiController extends ControllerBase {
     $this->performanceMonitor = $performance_monitor;
     $this->conversationLogger = $conversation_logger;
     $this->abTesting = $ab_testing;
+    $this->violationTracker = $violation_tracker;
   }
 
   /**
@@ -243,7 +258,8 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.out_of_scope_response_templates') ? $container->get('ilas_site_assistant.out_of_scope_response_templates') : NULL,
       $container->has('ilas_site_assistant.performance_monitor') ? $container->get('ilas_site_assistant.performance_monitor') : NULL,
       $container->has('ilas_site_assistant.conversation_logger') ? $container->get('ilas_site_assistant.conversation_logger') : NULL,
-      $container->has('ilas_site_assistant.ab_testing') ? $container->get('ilas_site_assistant.ab_testing') : NULL
+      $container->has('ilas_site_assistant.ab_testing') ? $container->get('ilas_site_assistant.ab_testing') : NULL,
+      $container->has('ilas_site_assistant.safety_violation_tracker') ? $container->get('ilas_site_assistant.safety_violation_tracker') : NULL
     );
   }
 
@@ -260,8 +276,33 @@ class AssistantApiController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    *   The JSON response with security headers.
    */
-  protected function jsonResponse(array $data, int $status = 200, array $extra_headers = []): JsonResponse {
-    return new JsonResponse($data, $status, array_merge(self::SECURITY_HEADERS, $extra_headers));
+  protected function jsonResponse(array $data, int $status = 200, array $extra_headers = [], string $request_id = ''): JsonResponse {
+    $headers = array_merge(self::SECURITY_HEADERS, $extra_headers);
+    if ($request_id !== '') {
+      $headers['X-Correlation-ID'] = $request_id;
+    }
+    return new JsonResponse($data, $status, $headers);
+  }
+
+  /**
+   * Resolves a correlation ID from the request or generates one.
+   *
+   * Accepts an inbound X-Correlation-ID header if it passes UUID4 validation.
+   * Falls back to generating a new UUID.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The request object.
+   *
+   * @return string
+   *   A valid UUID4 correlation ID.
+   */
+  private function resolveCorrelationId(Request $request): string {
+    $header = $request->headers->get('X-Correlation-ID', '');
+    if ($header !== '' && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $header)) {
+      return $header;
+    }
+    $uuid_generator = new UuidGenerator();
+    return $uuid_generator->generate();
   }
 
   /**
@@ -274,6 +315,9 @@ class AssistantApiController extends ControllerBase {
    *   JSON response with assistant reply.
    */
   public function message(Request $request) {
+    // Resolve correlation ID: accept inbound header or generate new UUID.
+    $request_id = $this->resolveCorrelationId($request);
+
     // Rate limiting — keyed by client IP.
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $ip = $request->getClientIp();
@@ -285,23 +329,46 @@ class AssistantApiController extends ControllerBase {
       return $this->jsonResponse([
         'error' => 'Too many requests. Please wait a moment before trying again.',
         'type' => 'rate_limit',
-      ], 429, ['Retry-After' => '60']);
+        'request_id' => $request_id,
+      ], 429, ['Retry-After' => '60'], $request_id);
     }
     if (!$this->flood->isAllowed('ilas_assistant_hr', $per_hr, 3600, $flood_id)) {
       return $this->jsonResponse([
         'error' => 'You have reached the hourly limit. Please try again later.',
         'type' => 'rate_limit',
-      ], 429, ['Retry-After' => '3600']);
+        'request_id' => $request_id,
+      ], 429, ['Retry-After' => '3600'], $request_id);
     }
     $this->flood->register('ilas_assistant_min', 60, $flood_id);
     $this->flood->register('ilas_assistant_hr', 3600, $flood_id);
 
-    // Generate per-request correlation ID for tracing across logs.
-    $uuid_generator = new UuidGenerator();
-    $request_id = $uuid_generator->generate();
+    // Validate content type.
+    $content_type = (string) $request->headers->get('Content-Type', '');
+    if (strpos($content_type, 'application/json') === FALSE) {
+      return $this->jsonResponse(['error' => 'Invalid content type', 'request_id' => $request_id], 400, [], $request_id);
+    }
+
+    // Parse request body.
+    $content = $request->getContent();
+    if (strlen($content) > 2000) {
+      return $this->jsonResponse(['error' => 'Request too large', 'request_id' => $request_id], 413, [], $request_id);
+    }
+
+    $data = json_decode($content, TRUE);
+    if (json_last_error() !== JSON_ERROR_NONE || empty($data['message'])) {
+      return $this->jsonResponse(['error' => 'Invalid request', 'request_id' => $request_id], 400, [], $request_id);
+    }
 
     // Start performance tracking.
     $start_time = microtime(TRUE);
+
+    try {
+
+    $user_message = $this->sanitizeInput($data['message']);
+    // Normalize for classifier checks: strips evasion techniques
+    // (interstitial punctuation, Unicode tricks, spaced-out letters).
+    // $user_message is kept intact for display, intent routing, and retrieval.
+    $normalized_message = InputNormalizer::normalize($user_message);
 
     // Check for DEBUG mode (server-side env var only).
     $debug_mode = $this->isDebugMode($request);
@@ -325,25 +392,6 @@ class AssistantApiController extends ControllerBase {
       'llm_used' => FALSE,
       'processing_stages' => [],
     ] : NULL;
-
-    // Validate content type.
-    $content_type = $request->headers->get('Content-Type');
-    if (strpos($content_type, 'application/json') === FALSE) {
-      return $this->jsonResponse(['error' => 'Invalid content type'], 400);
-    }
-
-    // Parse request body.
-    $content = $request->getContent();
-    if (strlen($content) > 2000) {
-      return $this->jsonResponse(['error' => 'Request too large'], 413);
-    }
-
-    $data = json_decode($content, TRUE);
-    if (json_last_error() !== JSON_ERROR_NONE || empty($data['message'])) {
-      return $this->jsonResponse(['error' => 'Invalid request'], 400);
-    }
-
-    $user_message = $this->sanitizeInput($data['message']);
     $context = $data['context'] ?? [];
 
     // Parse ephemeral conversation ID (client-generated UUID).
@@ -366,7 +414,8 @@ class AssistantApiController extends ControllerBase {
             'escalation_type' => 'repeated',
             'message' => (string) $this->t('It looks like you may be having trouble. Please call our Legal Advice Line for direct assistance.'),
             'actions' => $this->getEscalationActions(),
-          ]);
+            'request_id' => $request_id,
+          ], 200, [], $request_id);
         }
       }
     }
@@ -389,10 +438,24 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['processing_stages'][] = 'input_sanitized';
     }
 
+    // ─── CLASSIFIER PRECEDENCE CONTRACT (v2.0) ────────────────────────
+    // 1. SafetyClassifier (crisis/danger/DV/eviction/scam/injection/
+    //    wrongdoing/legal-advice/PII)
+    //    → Match = return escalation immediately, skip all downstream
+    // 2. OutOfScopeClassifier (criminal/immigration/non-Idaho/business/federal/PI)
+    //    → Match = return OOS response, skip PolicyFilter
+    // 3. PolicyFilter (fallback: emergency/PII/criminal/legal-advice/
+    //    doc-drafting/external)
+    //    → Match = return violation response
+    // 4. Intent routing (normal processing)
+    // No classifier can override a higher-priority decision.
+    // All classifiers receive $normalized_message (evasion-stripped).
+    // ─────────────────────────────────────────────────────────────────
+
     // Run SafetyClassifier first (if available) for enhanced classification.
     $safety_classification = NULL;
     if ($this->safetyClassifier) {
-      $safety_classification = $this->safetyClassifier->classify($user_message);
+      $safety_classification = $this->safetyClassifier->classify($normalized_message);
 
       if ($debug_mode) {
         $debug_meta['safety_classification'] = [
@@ -410,6 +473,9 @@ class AssistantApiController extends ControllerBase {
 
         // Log the safety violation with reason code.
         $this->analyticsLogger->log('safety_violation', $safety_classification['reason_code']);
+        if ($this->violationTracker) {
+          $this->violationTracker->record(time());
+        }
 
         if ($debug_mode) {
           $debug_meta['policy_check'] = [
@@ -431,6 +497,7 @@ class AssistantApiController extends ControllerBase {
           'links' => $safety_response['links'] ?? [],
           'actions' => $this->getEscalationActions(),
           'reason_code' => $safety_classification['reason_code'],
+          'request_id' => $request_id,
         ];
 
         if (!empty($safety_response['disclaimer'])) {
@@ -441,14 +508,21 @@ class AssistantApiController extends ControllerBase {
           $response_data['_debug'] = $debug_meta;
         }
 
-        return $this->jsonResponse($response_data);
+        $this->logger->notice('[@request_id] Safety exit: class=@class reason=@reason level=@level', [
+          '@request_id' => $request_id,
+          '@class' => $safety_classification['class'],
+          '@reason' => $safety_classification['reason_code'],
+          '@level' => $safety_classification['escalation_level'],
+        ]);
+
+        return $this->jsonResponse($response_data, 200, [], $request_id);
       }
     }
 
     // Run OutOfScopeClassifier as second-pass check (after safety, before intent).
     $oos_classification = NULL;
     if ($this->outOfScopeClassifier) {
-      $oos_classification = $this->outOfScopeClassifier->classify($user_message);
+      $oos_classification = $this->outOfScopeClassifier->classify($normalized_message);
 
       if ($debug_mode) {
         $debug_meta['oos_classification'] = [
@@ -483,6 +557,7 @@ class AssistantApiController extends ControllerBase {
           'actions' => $this->getEscalationActions(),
           'reason_code' => $oos_classification['reason_code'],
           'can_still_help' => $oos_response['can_still_help'] ?? FALSE,
+          'request_id' => $request_id,
         ];
 
         if (!empty($oos_response['disclaimer'])) {
@@ -493,12 +568,18 @@ class AssistantApiController extends ControllerBase {
           $response_data['_debug'] = $debug_meta;
         }
 
-        return $this->jsonResponse($response_data);
+        $this->logger->notice('[@request_id] Out-of-scope exit: category=@category reason=@reason', [
+          '@request_id' => $request_id,
+          '@category' => $oos_classification['category'],
+          '@reason' => $oos_classification['reason_code'],
+        ]);
+
+        return $this->jsonResponse($response_data, 200, [], $request_id);
       }
     }
 
     // Fallback to PolicyFilter if SafetyClassifier not available or marked safe.
-    $policy_result = $this->policyFilter->check($user_message);
+    $policy_result = $this->policyFilter->check($normalized_message);
 
     if ($debug_mode) {
       // Detect safety flags from policy patterns.
@@ -527,13 +608,41 @@ class AssistantApiController extends ControllerBase {
         'links' => $policy_result['links'] ?? [],
         'actions' => $this->getEscalationActions(),
         'reason_code' => 'policy_' . $policy_result['type'],
+        'request_id' => $request_id,
       ];
 
       if ($debug_mode) {
         $response_data['_debug'] = $debug_meta;
       }
 
-      return $this->jsonResponse($response_data);
+      $this->logger->notice('[@request_id] Policy violation exit: type=@type', [
+        '@request_id' => $request_id,
+        '@type' => $policy_result['type'],
+      ]);
+
+      return $this->jsonResponse($response_data, 200, [], $request_id);
+    }
+
+    // Pending follow-up slot-fill: if the previous response asked for a
+    // location, try to resolve this message as a city/county before intent
+    // routing. This fires AFTER safety + policy checks.
+    if ($conversation_id) {
+      $followup_key = 'ilas_conv_followup:' . $conversation_id;
+      $pending = $this->conversationCache->get($followup_key);
+      if ($pending && ($pending->data['type'] ?? '') === 'office_location') {
+        // Clear immediately (consumed regardless of outcome).
+        $this->conversationCache->delete($followup_key);
+
+        $resolver = new OfficeLocationResolver();
+        $office = $resolver->resolve($user_message);
+
+        if ($office) {
+          return $this->handleOfficeFollowUp($office, $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
+        }
+        else {
+          return $this->handleOfficeFollowUpClarify($resolver->getAllOffices(), $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
+        }
+      }
     }
 
     // Quick-action short-circuit: when the request comes from a suggestion
@@ -567,10 +676,42 @@ class AssistantApiController extends ControllerBase {
       $intent = $this->intentRouter->route($user_message, $context);
     }
 
+    // History-aware fallback: if direct routing returns unknown, check
+    // conversation history for a dominant recent intent.
+    $direct_intent_type = $intent['type'] ?? 'unknown';
+    if ($direct_intent_type === 'unknown' && !empty($server_history)) {
+      $history_config = $this->configFactory->get('ilas_site_assistant.settings');
+      $history_fallback_settings = $history_config->get('history_fallback') ?? [];
+      if ($history_fallback_settings['enabled'] ?? TRUE) {
+        $history_result = HistoryIntentResolver::resolveFromHistory(
+          $server_history, $user_message, time(), $history_fallback_settings
+        );
+        if ($history_result) {
+          $intent = [
+            'type' => $history_result['intent'],
+            'confidence' => min(0.65, $history_result['confidence']),
+            'source' => 'history_fallback',
+            'extraction' => $intent['extraction'] ?? [],
+            'history_meta' => $history_result,
+          ];
+        }
+      }
+    }
+
     if ($debug_mode) {
       $debug_meta['intent_selected'] = $intent['type'];
       $debug_meta['intent_confidence'] = $this->fallbackGate->calculateIntentConfidence($intent, $user_message);
+      $debug_meta['route_source'] = $intent['source'] ?? 'direct';
       $debug_meta['processing_stages'][] = 'intent_routed';
+      if (isset($intent['history_meta'])) {
+        $debug_meta['direct_intent'] = $direct_intent_type;
+        $debug_meta['history_fallback'] = [
+          'fallback_intent' => $intent['history_meta']['intent'],
+          'fallback_confidence' => $intent['history_meta']['confidence'],
+          'turns_analyzed' => $intent['history_meta']['turns_analyzed'],
+          'fallback_reason' => $intent['history_meta']['reason'],
+        ];
+      }
     }
 
     // Early retrieval for gate evaluation (search FAQ/resources for context).
@@ -664,8 +805,21 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['processing_stages'][] = 'llm_enhancement';
     }
 
+    // Post-generation safety enforcement: block legal advice in LLM output,
+    // enforce _requires_review flag, and strip internal flags.
+    $response = $this->enforcePostGenerationSafety($response, $request_id);
+
+    if ($debug_mode) {
+      $debug_meta['processing_stages'][] = 'post_generation_safety';
+    }
+
     // Log the interaction.
     $this->analyticsLogger->log($intent['type'], $intent['value'] ?? '');
+
+    // Log history fallback usage for observability.
+    if (($intent['source'] ?? '') === 'history_fallback') {
+      $this->analyticsLogger->log('history_fallback_used', $intent['type']);
+    }
 
     // Check if we found any results.
     if (empty($response['results']) && $response['type'] !== 'navigation') {
@@ -682,12 +836,23 @@ class AssistantApiController extends ControllerBase {
       $response['_debug'] = $debug_meta;
     }
 
+    // Set pending follow-up flag when apply intent includes a followup prompt.
+    $normalized_intent = ResponseBuilder::normalizeIntentType($intent['type'] ?? 'unknown');
+    if ($conversation_id && $normalized_intent === 'apply' && !empty($response['followup'])) {
+      $this->conversationCache->set(
+        'ilas_conv_followup:' . $conversation_id,
+        ['type' => 'office_location', 'timestamp' => time()],
+        time() + 1800
+      );
+    }
+
     // Store conversation turn in cache for multi-turn continuity.
     if ($conversation_id) {
       $server_history[] = [
         'role' => 'user',
-        'text' => mb_substr($user_message, 0, 200),
+        'text' => PiiRedactor::redactForStorage($user_message, 200),
         'intent' => $intent['type'] ?? 'unknown',
+        'route_source' => $intent['source'] ?? 'direct',
         'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
         'timestamp' => time(),
       ];
@@ -748,10 +913,45 @@ class AssistantApiController extends ControllerBase {
     if ($this->performanceMonitor) {
       $duration_ms = (microtime(TRUE) - $start_time) * 1000;
       $scenario = $this->classifyScenario($intent['type'] ?? 'unknown');
-      $this->performanceMonitor->recordRequest($duration_ms, TRUE, $scenario);
+      $this->performanceMonitor->recordRequest($duration_ms, TRUE, $scenario, $request_id);
     }
 
-    return $this->jsonResponse($response);
+    $this->logger->info('[@request_id] Request complete: intent=@intent safety=@safety gate=@gate reason=@reason type=@type', [
+      '@request_id' => $request_id,
+      '@intent' => $intent['type'] ?? 'unknown',
+      '@safety' => $safety_classification ? $safety_classification['class'] : 'safe',
+      '@gate' => $gate_decision['decision'] ?? 'none',
+      '@reason' => $response['reason_code'] ?? 'none',
+      '@type' => $response['type'] ?? 'unknown',
+    ]);
+
+    $response['request_id'] = $request_id;
+    return $this->jsonResponse($response, 200, [], $request_id);
+
+    }
+    catch (\Throwable $e) {
+      $this->logger->error(
+        '[@request_id] Unhandled exception in message pipeline: @class @message',
+        [
+          '@request_id' => $request_id,
+          '@class' => get_class($e),
+          '@message' => $e->getMessage(),
+          '@intent' => isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
+          '@safety' => isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
+        ]
+      );
+      if ($this->performanceMonitor) {
+        $duration_ms = (microtime(TRUE) - $start_time) * 1000;
+        $this->performanceMonitor->recordRequest($duration_ms, FALSE, 'error', $request_id);
+      }
+      return $this->jsonResponse([
+        'error' => [
+          'code' => 'internal_error',
+          'message' => 'Something went wrong. Please try again or contact us directly.',
+        ],
+        'request_id' => $request_id,
+      ], 500, [], $request_id);
+    }
   }
 
   /**
@@ -766,26 +966,28 @@ class AssistantApiController extends ControllerBase {
    *   JSON response confirming the event was recorded.
    */
   public function track(Request $request) {
-    $content_type = $request->headers->get('Content-Type');
+    $request_id = $this->resolveCorrelationId($request);
+
+    $content_type = (string) $request->headers->get('Content-Type', '');
     if (strpos($content_type, 'application/json') === FALSE) {
-      return $this->jsonResponse(['error' => 'Invalid content type'], 400);
+      return $this->jsonResponse(['error' => 'Invalid content type', 'request_id' => $request_id], 400, [], $request_id);
     }
 
     $content = $request->getContent();
     if (strlen($content) > 1000) {
-      return $this->jsonResponse(['error' => 'Request too large'], 413);
+      return $this->jsonResponse(['error' => 'Request too large', 'request_id' => $request_id], 413, [], $request_id);
     }
 
     $data = json_decode($content, TRUE);
     if (json_last_error() !== JSON_ERROR_NONE) {
-      return $this->jsonResponse(['error' => 'Invalid request'], 400);
+      return $this->jsonResponse(['error' => 'Invalid request', 'request_id' => $request_id], 400, [], $request_id);
     }
 
     $event_type = $this->sanitizeInput($data['event_type'] ?? '');
     $event_value = $this->sanitizeInput($data['event_value'] ?? '');
 
     if (empty($event_type)) {
-      return $this->jsonResponse(['error' => 'Missing event_type'], 400);
+      return $this->jsonResponse(['error' => 'Missing event_type', 'request_id' => $request_id], 400, [], $request_id);
     }
 
     // Only allow known event types.
@@ -799,7 +1001,7 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log($event_type, $event_value);
     }
 
-    return $this->jsonResponse(['ok' => TRUE]);
+    return $this->jsonResponse(['ok' => TRUE, 'request_id' => $request_id], 200, [], $request_id);
   }
 
   /**
@@ -1193,7 +1395,7 @@ class AssistantApiController extends ControllerBase {
           $response['form_finder_mode'] = TRUE;
           $this->logger->info('[@request_id] Form Finder clarification triggered for bare query: @query', [
             '@request_id' => $request_id,
-            '@query' => $message,
+            '@query' => PiiRedactor::redactForLog($message),
           ]);
           break;
         }
@@ -1209,7 +1411,7 @@ class AssistantApiController extends ControllerBase {
         }
         $this->logger->info('[@request_id] Form Finder search: query=@query, topic_keywords=@keywords, results=@count', [
           '@request_id' => $request_id,
-          '@query' => $message,
+          '@query' => PiiRedactor::redactForLog($message),
           '@keywords' => $form_topic_keywords,
           '@count' => count($results),
         ]);
@@ -1243,7 +1445,7 @@ class AssistantApiController extends ControllerBase {
           $response['guide_finder_mode'] = TRUE;
           $this->logger->info('[@request_id] Guide Finder clarification triggered for bare query: @query', [
             '@request_id' => $request_id,
-            '@query' => $message,
+            '@query' => PiiRedactor::redactForLog($message),
           ]);
           break;
         }
@@ -1259,7 +1461,7 @@ class AssistantApiController extends ControllerBase {
         }
         $this->logger->info('[@request_id] Guide Finder search: query=@query, topic_keywords=@keywords, results=@count', [
           '@request_id' => $request_id,
-          '@query' => $message,
+          '@query' => PiiRedactor::redactForLog($message),
           '@keywords' => $guide_topic_keywords,
           '@count' => count($results),
         ]);
@@ -1533,6 +1735,104 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Enforces safety on post-generation (LLM-enhanced) responses.
+   *
+   * Three checks:
+   * 1. If ResponseGrounder set _requires_review, replace llm_summary with
+   *    a safe fallback (the LLM may have generated legal advice).
+   * 2. Run legal-advice regex on llm_summary to catch LLM output that
+   *    slipped past the Gemini safety filters.
+   * 3. Strip internal flags (_requires_review, _validation_warnings) from
+   *    the response before returning to the client.
+   *
+   * Only blocks llm_summary (LLM-generated). Never touches message
+   * (deterministic Drupal t() strings).
+   *
+   * @param array $response
+   *   The response data (may include llm_summary from LLM enhancer).
+   * @param string $request_id
+   *   Per-request correlation UUID for structured logging.
+   *
+   * @return array
+   *   The response with safety enforcement applied.
+   */
+  protected function enforcePostGenerationSafety(array $response, string $request_id): array {
+    // Check 1: _requires_review flag from ResponseGrounder.
+    if (!empty($response['_requires_review'])) {
+      $this->logger->warning(
+        '[@request_id] Post-generation safety: _requires_review flag set, replacing llm_summary',
+        ['@request_id' => $request_id]
+      );
+      $this->analyticsLogger->log('post_gen_safety_review_flag', $request_id);
+      // Replace LLM-generated summary with safe fallback.
+      if (isset($response['llm_summary'])) {
+        $response['llm_summary'] = (string) $this->t('I found some information that may help. For guidance specific to your situation, please contact our Legal Advice Line or apply for help.');
+      }
+    }
+
+    // Check 2: Run legal-advice regex on llm_summary.
+    if (!empty($response['llm_summary'])) {
+      $normalized_summary = InputNormalizer::normalize($response['llm_summary']);
+      if ($this->containsLegalAdviceInOutput($normalized_summary)) {
+        $this->logger->warning(
+          '[@request_id] Post-generation safety: legal advice detected in llm_summary, replacing',
+          ['@request_id' => $request_id]
+        );
+        $this->analyticsLogger->log('post_gen_safety_legal_advice', $request_id);
+        $response['llm_summary'] = (string) $this->t('I found some information that may help. For guidance specific to your situation, please contact our Legal Advice Line or apply for help.');
+      }
+    }
+
+    // Check 3: Strip internal flags before returning to client.
+    unset($response['_requires_review']);
+    unset($response['_validation_warnings']);
+    unset($response['_grounding_version']);
+
+    return $response;
+  }
+
+  /**
+   * Checks if LLM output text contains legal advice patterns.
+   *
+   * Based on ILAS Conversation Policy v4.1 Disallowed Content Rules.
+   * This is a deterministic last-resort check on LLM-generated text.
+   *
+   * @param string $text
+   *   The text to check (should already be normalized).
+   *
+   * @return bool
+   *   TRUE if legal advice detected.
+   */
+  protected function containsLegalAdviceInOutput(string $text): bool {
+    $patterns = [
+      // Advising on legal strategy.
+      '/you\s+should\s+(file|sue|appeal|claim|motion)/i',
+      '/i\s+(would\s+)?(advise|recommend|suggest)\s+(you|that\s+you)/i',
+      '/my\s+(legal\s+)?advice\s+is/i',
+      '/the\s+best\s+(legal\s+)?(strategy|approach)\s+is/i',
+      '/you\s+need\s+to\s+(file|submit|send)/i',
+      // Predicting legal outcomes.
+      '/you\s+(will|would)\s+(likely|probably)\s+(win|lose|succeed|fail)/i',
+      '/the\s+court\s+will\s+(likely|probably)/i',
+      // Recommending specific actions with legal consequence.
+      '/you\s+should\s+(stop\s+paying|withhold|break\s+your)/i',
+      '/don\'t\s+(pay|respond|go\s+to\s+court)/i',
+      '/ignore\s+the\s+(notice|summons|order)/i',
+      // Interpreting laws.
+      '/idaho\s+code\s*(§|section)/i',
+      '/(statute|code)\s+(says|states|requires)/i',
+    ];
+
+    foreach ($patterns as $pattern) {
+      if (preg_match($pattern, $text)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
    * Returns quick suggestion buttons.
    */
   protected function getQuickSuggestions() {
@@ -1692,6 +1992,185 @@ class AssistantApiController extends ControllerBase {
       }
     }
     return FALSE;
+  }
+
+  /**
+   * Handles a resolved office follow-up response.
+   *
+   * @param array $office
+   *   The resolved office data (name, address, phone, url).
+   * @param string $user_message
+   *   The user's message.
+   * @param string $conversation_id
+   *   The conversation UUID.
+   * @param array $server_history
+   *   The conversation history.
+   * @param string $request_id
+   *   The per-request correlation ID.
+   * @param bool $debug_mode
+   *   Whether debug mode is enabled.
+   * @param array|null $debug_meta
+   *   Debug metadata array or NULL.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with office details.
+   */
+  protected function handleOfficeFollowUp(array $office, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta): JsonResponse {
+    $slug = strtolower(str_replace(' ', '-', $office['name']));
+    $response = [
+      'type' => 'office_location',
+      'response_mode' => 'navigate',
+      'message' => $this->t("Here's the ILAS office nearest to @city:", ['@city' => $user_message]),
+      'office' => [
+        'name' => $office['name'],
+        'address' => $office['address'],
+        'phone' => $office['phone'],
+      ],
+      'primary_action' => [
+        'label' => $this->t('@name Office Details', ['@name' => $office['name']]),
+        'url' => $office['url'],
+      ],
+      'secondary_actions' => [
+        [
+          'label' => $this->t('Call @phone', ['@phone' => $office['phone']]),
+          'url' => 'tel:' . preg_replace('/[^\d]/', '', $office['phone']),
+        ],
+        [
+          'label' => $this->t('All Offices'),
+          'url' => '/contact/offices',
+        ],
+      ],
+      'reason_code' => 'office_followup_resolved',
+      'request_id' => $request_id,
+    ];
+
+    if ($debug_mode) {
+      $debug_meta['intent_selected'] = 'office_location_followup';
+      $debug_meta['intent_source'] = 'followup_slot_fill';
+      $debug_meta['final_action'] = 'office_location';
+      $debug_meta['reason_code'] = 'office_followup_resolved';
+      $debug_meta['processing_stages'][] = 'followup_office_resolved';
+      $response['_debug'] = $debug_meta;
+    }
+
+    // Log analytics.
+    $this->analyticsLogger->log('office_location_followup', $office['name']);
+
+    // Store conversation turn.
+    $server_history[] = [
+      'role' => 'user',
+      'text' => mb_substr($user_message, 0, 200),
+      'intent' => 'office_location_followup',
+      'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
+      'timestamp' => time(),
+    ];
+    $server_history = array_slice($server_history, -10);
+    $this->conversationCache->set(
+      'ilas_conv:' . $conversation_id,
+      $server_history,
+      time() + 1800
+    );
+
+    // Conversation logger.
+    if ($this->conversationLogger) {
+      $this->conversationLogger->logExchange(
+        $conversation_id,
+        $user_message,
+        $response['message'] ?? '',
+        'office_location_followup',
+        'office_location',
+        $request_id
+      );
+    }
+
+    return $this->jsonResponse($response, 200, [], $request_id);
+  }
+
+  /**
+   * Handles an unresolved office follow-up with clarification.
+   *
+   * @param array $all_offices
+   *   All ILAS offices keyed by slug.
+   * @param string $user_message
+   *   The user's message.
+   * @param string $conversation_id
+   *   The conversation UUID.
+   * @param array $server_history
+   *   The conversation history.
+   * @param string $request_id
+   *   The per-request correlation ID.
+   * @param bool $debug_mode
+   *   Whether debug mode is enabled.
+   * @param array|null $debug_meta
+   *   Debug metadata array or NULL.
+   *
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   *   JSON response with all offices for clarification.
+   */
+  protected function handleOfficeFollowUpClarify(array $all_offices, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta): JsonResponse {
+    $offices_list = [];
+    foreach ($all_offices as $office) {
+      $offices_list[] = [
+        'name' => $office['name'],
+        'phone' => $office['phone'],
+        'url' => $office['url'],
+      ];
+    }
+
+    $response = [
+      'type' => 'office_location_clarify',
+      'response_mode' => 'clarify',
+      'message' => $this->t("I wasn't able to identify that location. Here are our five offices \u{2014} which is closest to you?"),
+      'offices' => $offices_list,
+      'primary_action' => [
+        'label' => $this->t('View All Offices'),
+        'url' => '/contact/offices',
+      ],
+      'secondary_actions' => [],
+      'reason_code' => 'office_followup_clarify',
+      'request_id' => $request_id,
+    ];
+
+    if ($debug_mode) {
+      $debug_meta['intent_selected'] = 'office_location_followup';
+      $debug_meta['intent_source'] = 'followup_slot_fill';
+      $debug_meta['final_action'] = 'office_location_clarify';
+      $debug_meta['reason_code'] = 'office_followup_clarify';
+      $debug_meta['processing_stages'][] = 'followup_office_clarify';
+      $response['_debug'] = $debug_meta;
+    }
+
+    // Log analytics.
+    $this->analyticsLogger->log('office_location_followup_miss', mb_substr($user_message, 0, 50));
+
+    // Store conversation turn.
+    $server_history[] = [
+      'role' => 'user',
+      'text' => mb_substr($user_message, 0, 200),
+      'intent' => 'office_location_followup_miss',
+      'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
+      'timestamp' => time(),
+    ];
+    $server_history = array_slice($server_history, -10);
+    $this->conversationCache->set(
+      'ilas_conv:' . $conversation_id,
+      $server_history,
+      time() + 1800
+    );
+
+    // Conversation logger.
+    if ($this->conversationLogger) {
+      $this->conversationLogger->logExchange(
+        $conversation_id,
+        $user_message,
+        $response['message'] ?? '',
+        'office_location_followup_miss',
+        'office_location_clarify',
+        $request_id
+      );
+    }
+
+    return $this->jsonResponse($response, 200, [], $request_id);
   }
 
   /**

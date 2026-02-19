@@ -51,8 +51,9 @@
           'title': job_item.field_accordion_title.value|default(''),
           'description': job_item.field_accordion_body.value|default(''),
           'datePosted': job_item.field_job_date_posted.value,
+          'directApply': true,
           'hiringOrganization': {
-            '@type': 'NGO',
+            '@type': 'Organization',
             '@id': 'https://idaholegalaid.org/#organization',
             'name': 'Idaho Legal Aid Services',
             'sameAs': 'https://idaholegalaid.org',
@@ -64,10 +65,16 @@
         {% if work_arrangement == 'hybrid' %}
           {% set job_posting = job_posting|merge({
             'jobLocationType': 'TELECOMMUTE',
-            'applicantLocationRequirements': {
-              '@type': 'State',
-              'name': 'Idaho'
-            }
+            'applicantLocationRequirements': [
+              {
+                '@type': 'AdministrativeArea',
+                'name': 'Idaho, USA'
+              },
+              {
+                '@type': 'Country',
+                'name': 'US'
+              }
+            ]
           }) %}
         {% endif %}
 
@@ -96,20 +103,10 @@
           {% set job_posting = job_posting|merge({'employmentType': job_item.field_job_employment_type.value}) %}
         {% endif %}
 
-        {# Add salary using QuantitativeValue structure per Google's spec #}
-        {% if job_item.field_job_salary_range.value %}
-          {% set job_posting = job_posting|merge({
-            'baseSalary': {
-              '@type': 'MonetaryAmount',
-              'currency': 'USD',
-              'value': {
-                '@type': 'QuantitativeValue',
-                'value': job_item.field_job_salary_range.value,
-                'unitText': 'YEAR'
-              }
-            }
-          }) %}
-        {% endif %}
+        {# baseSalary omitted: field_job_salary_range stores human-readable strings
+           (e.g. "$55,000 - $75,000", "DOE") which fail Google's numeric validation.
+           Salary info remains visible in page content. To re-enable, add separate
+           numeric min/max salary fields and use minValue/maxValue per Google's spec. #}
 
         {% set job_postings = job_postings|merge([job_posting]) %}
       {% endif %}

@@ -63,6 +63,13 @@ class TopicRouter {
   protected $fuzzyTokens;
 
   /**
+   * Topic-level alias index mapping aliases to canonical keys.
+   *
+   * @var array
+   */
+  protected $topicAliasIndex;
+
+  /**
    * Cache backend.
    *
    * @var \Drupal\Core\Cache\CacheBackendInterface|null
@@ -395,6 +402,7 @@ class TopicRouter {
     $this->synonymIndex = [];
     $this->phraseIndex = [];
     $this->fuzzyTokens = [];
+    $this->topicAliasIndex = [];
 
     foreach ($this->topicMap as $topic_key => $topic) {
       // Index exact tokens.
@@ -421,6 +429,27 @@ class TopicRouter {
       // Index phrases.
       foreach ($topic['phrases'] ?? [] as $phrase) {
         $this->phraseIndex[strtolower($phrase)] = $topic_key;
+      }
+
+      // Index topic-level aliases for canonical key resolution.
+      foreach ($topic['topics'] ?? [] as $sub_key => $sub_topic) {
+        $entry = [
+          'service_area' => $topic_key,
+          'topic' => $sub_key,
+          'canonical_key' => $sub_topic['canonical_key'],
+          'term_uuid' => $sub_topic['term_uuid'] ?? NULL,
+          'term_name' => $sub_topic['term_name'] ?? NULL,
+        ];
+        // Index the sub-key itself (e.g., "divorce", "eviction").
+        $this->topicAliasIndex[strtolower($sub_key)] = $entry;
+        // Index the term_name.
+        if (!empty($sub_topic['term_name'])) {
+          $this->topicAliasIndex[strtolower($sub_topic['term_name'])] = $entry;
+        }
+        // Index each alias.
+        foreach ($sub_topic['aliases'] ?? [] as $alias) {
+          $this->topicAliasIndex[strtolower($alias)] = $entry;
+        }
       }
     }
   }
@@ -450,6 +479,76 @@ class TopicRouter {
       ];
     }
     return $urls;
+  }
+
+  /**
+   * Resolves a message to a canonical topic key.
+   *
+   * Looks up the normalized message (and its individual tokens) against
+   * the topic-level alias index built from topic_map.yml `topics:` entries.
+   *
+   * @param string $message
+   *   The user's message (raw input).
+   *
+   * @return array|null
+   *   Topic resolution result with keys:
+   *     - service_area: Service area key (e.g., 'family')
+   *     - topic: Topic sub-key (e.g., 'divorce')
+   *     - canonical_key: Stable identifier (e.g., 'family_divorce')
+   *     - term_uuid: UUID of the topics taxonomy term (or NULL)
+   *     - term_name: Exact Drupal term name (or NULL)
+   *   Or NULL if no topic-level match.
+   */
+  public function resolveTopicKey(string $message): ?array {
+    $normalized = $this->normalize($message);
+
+    // 1. Try full normalized message as a phrase match.
+    if (isset($this->topicAliasIndex[$normalized])) {
+      return $this->topicAliasIndex[$normalized];
+    }
+
+    // 2. Try individual tokens (after stop word removal).
+    $words = $this->tokenize($normalized);
+    foreach ($words as $word) {
+      if (isset($this->topicAliasIndex[$word])) {
+        return $this->topicAliasIndex[$word];
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Returns all canonical topic keys with their metadata.
+   *
+   * @return array
+   *   Flat array of canonical key entries, each with:
+   *     - canonical_key, service_area, topic, term_uuid, term_name.
+   */
+  public function getAllCanonicalKeys(): array {
+    $keys = [];
+    foreach ($this->topicMap as $topic_key => $topic) {
+      foreach ($topic['topics'] ?? [] as $sub_key => $sub_topic) {
+        $keys[] = [
+          'service_area' => $topic_key,
+          'topic' => $sub_key,
+          'canonical_key' => $sub_topic['canonical_key'],
+          'term_uuid' => $sub_topic['term_uuid'] ?? NULL,
+          'term_name' => $sub_topic['term_name'] ?? NULL,
+        ];
+      }
+    }
+    return $keys;
+  }
+
+  /**
+   * Returns the topic alias index (for debugging/testing).
+   *
+   * @return array
+   *   The topic alias index.
+   */
+  public function getTopicAliasIndex(): array {
+    return $this->topicAliasIndex;
   }
 
 }

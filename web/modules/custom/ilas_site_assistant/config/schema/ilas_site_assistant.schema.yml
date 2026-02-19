@@ -181,6 +181,12 @@ ilas_site_assistant.settings:
         safety_threshold:
           type: string
           label: 'Gemini safety filter threshold'
+        cache_ttl:
+          type: integer
+          label: 'Response cache TTL in seconds (0 = disabled)'
+        max_retries:
+          type: integer
+          label: 'Max retry attempts on transient API failures (0 = no retries)'
     fallback_gate:
       type: mapping
       label: 'Fallback Gate Configuration'
@@ -247,6 +253,25 @@ ilas_site_assistant.settings:
         recipients:
           type: string
           label: 'Comma-separated email addresses for alerts'
+    history_fallback:
+      type: mapping
+      label: 'History-aware intent fallback settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable history-aware intent fallback'
+        max_turns:
+          type: integer
+          label: 'Maximum history turns to analyze (default: 6)'
+        time_window_sec:
+          type: integer
+          label: 'Time window in seconds for eligible turns (default: 600)'
+        dominance_threshold:
+          type: float
+          label: 'Minimum dominance ratio to accept fallback (default: 0.5)'
+        min_eligible_turns:
+          type: integer
+          label: 'Minimum eligible turns needed for fallback (default: 1)'
     ab_testing:
       type: mapping
       label: 'A/B testing settings'

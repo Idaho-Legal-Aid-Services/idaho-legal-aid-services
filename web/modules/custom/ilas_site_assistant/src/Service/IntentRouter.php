@@ -328,15 +328,22 @@ class IntentRouter {
       // Donations intent.
       'donations' => [
         'patterns' => [
-          '/\b(donate|donatoin|dontae|donation|give|support|contribute|donar)/i',
+          // Core donate words (no bare "give" or "support").
+          '/\b(donate|donatoin|dontae|donation|contribute|donar)/i',
           '/\bhow\s*(can\s*i|to)\s*(help|support|give|donate)/i',
           '/\b(tax\s*deductible|charitable\s*contribution)/i',
           '/\bgive\s*money/i',
           '/\baccept\s*(credit\s*cards?|donations?)/i',
           '/\bquiero\s*donar/i',
           '/\bdonacion/i',
+          // Context-specific "give" and "support" (require donation framing).
+          '/\b(i\s*want\s*to|i\'?d?\s*like\s*to|can\s*i|how\s*do\s*i)\s*(give|support)\b/i',
+          '/\bgive\s*(back\s*)?to\s*(you|legal\s*aid|the\s*organization|your)/i',
+          '/\bsupport\s*(your|the|this)\s*(work|mission|cause|organization)/i',
+          '/\bways\s*to\s*(give|support|help)\b/i',
+          '/\bfinancial\s*support\b/i',
         ],
-        'keywords' => ['donate', 'donation', 'give', 'support', 'contribute', 'gift', 'donar', 'donacion'],
+        'keywords' => ['donate', 'donation', 'contribute', 'gift', 'donar', 'donacion'],
         'weight' => 0.9,
       ],
 
@@ -367,7 +374,9 @@ class IntentRouter {
       // Housing.
       'topic_housing' => [
         'patterns' => [
-          '/\b(housing|eviction|eviccion|landlord|tenant|rent|lease|apartment|home)/i',
+          '/\b(housing|eviction|eviccion|landlord|tenant|rent|lease|apartment)/i',
+          '/\b(my|the|our|your|this)\s*home\b/i',
+          '/\bhome\s*(owner|ownership|loan|equity|inspection|repair)/i',
           '/\bkick(ed|ing)?\s*(me)?\s*out/i',
           '/\bforeclou?sure/i',
           '/\b(section\s*8|hud|public\s*housing)/i',
@@ -375,6 +384,11 @@ class IntentRouter {
           '/\bchanged?\s*(the\s*)?locks/i',
           '/\b(desalojo|casero|arrendador|inquilino)/i',
           '/\bme\s*(esta|estan)\s*echando/i',
+        ],
+        'negative_patterns' => [
+          '/\bnursing\s*home/i',
+          '/\bassisted\s*living/i',
+          '/\bcare\s*home/i',
         ],
         'keywords' => ['housing', 'eviction', 'landlord', 'tenant', 'rent', 'lease', 'foreclosure', 'desalojo', 'casero'],
         'service_area' => 'housing',
@@ -391,8 +405,12 @@ class IntentRouter {
           '/\b(paternity|parenting\s*(time|plan))/i',
           '/\b(divorcio|custodia|familia)/i',
           '/\bmanutencion/i',
+          // Child safety — drugs/substance around children.
+          '/\b(drugs?|meth|heroin|fentanyl|substance)\s*(around|near|with)\s*(my\s*)?(kids?|children)/i',
+          '/\b(kids?|children)\s*(around|exposed\s*to|near)\s*(drugs?|meth|substances?)/i',
+          '/\b(ex|partner|spouse)\s*(is\s*)?(using|on|doing)\s*(drugs?|meth|heroin|fentanyl)/i',
         ],
-        'keywords' => ['family', 'divorce', 'custody', 'child_support', 'visitation', 'adoption', 'domestic', 'protection_order', 'divorcio', 'custodia'],
+        'keywords' => ['family', 'divorce', 'custody', 'child_support', 'visitation', 'adoption', 'domestic', 'protection_order', 'divorcio', 'custodia', 'child_safety'],
         'service_area' => 'family',
         'weight' => 0.75,
       ],
@@ -405,8 +423,15 @@ class IntentRouter {
           '/\b(nursing\s*home|assisted\s*living)/i',
           '/\b(guardianship|conservator)/i',
           '/\b(anciano|persona\s*mayor|tercera\s*edad)/i',
+          // Exploitation / financial abuse of elderly.
+          '/\b(caretaker|caregiver)\s*(is\s*)?(steal|stole|stealing|taking|abuse|abusing)/i',
+          '/\b(power\s*of\s*attorney|poa)\s*(abuse|steal|misuse)/i',
+          // Probate / estate / wills.
+          '/\b(probate|estate\s*plan|inherit(ance)?)\b/i',
+          '/\b(died|passed\s*away)\s*(and\s*)?(without|no|didn\'?t\s*have)\s*(a\s*)?(will|trust)/i',
+          '/\b(parent|mom|dad|mother|father)\s*(just\s*)?(died|passed)\b/i',
         ],
-        'keywords' => ['senior', 'seniors', 'elderly', 'older_adult', 'elder_law', 'nursing_home', 'guardianship', 'anciano'],
+        'keywords' => ['senior', 'seniors', 'elderly', 'older_adult', 'elder_law', 'nursing_home', 'guardianship', 'anciano', 'caretaker', 'probate', 'estate', 'inheritance', 'power_of_attorney'],
         'service_area' => 'seniors',
         'weight' => 0.75,
       ],
@@ -475,6 +500,9 @@ class IntentRouter {
           '/\b(repossess|repossessed|repo)\s*(my\s*)?(car|vehicle|auto)/i',
           '/\b(my\s*)?(car|vehicle|auto)\s*(was|got|is\s*being)\s*(repossess|repossessed|repo)/i',
           '/\b(they\s*)?(took|taking)\s*(my\s*)?(car|vehicle|auto)/i',
+          '/\b(my\s*)?(car|vehicle|auto)\s*(is\s*|was\s*)?gone\b/i',
+          '/\b(woke\s*up|came\s*out)\s*(and\s*)?(my\s*)?(car|vehicle|auto)\s*(was\s*|is\s*)?gone/i',
+          '/\btowed\s*(my\s*)?(car|vehicle|auto)/i',
           // Debt collector rights (consumer topic, not escalation)
           '/\b(rights|right)\s*(with|against|when)\s*(debt|bill)?\s*(collector|creditor)/i',
           '/\bwhat\s*(are)?\s*(my)?\s*rights\s*(with|when|if)\s*(debt|collector|creditor)/i',

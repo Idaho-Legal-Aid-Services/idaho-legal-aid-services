@@ -528,31 +528,27 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
    *   Sanitized query (truncated, PII stripped).
    */
   public function sanitizeForStorage(string $query) {
-    // Remove email addresses.
-    $query = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', '[email]', $query);
+    return PiiRedactor::redactForStorage($query, 100);
+  }
 
-    // Remove phone numbers.
-    $query = preg_replace('/\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s*\d{3}[-.\s]?\d{4})\b/', '[phone]', $query);
-
-    // Remove SSN patterns.
-    $query = preg_replace('/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/', '[ssn]', $query);
-
-    // Remove case numbers (common patterns).
-    $query = preg_replace('/\b(case|docket|file)\s*(number|no\.?|#)?\s*:?\s*[\w-]+/i', '[case#]', $query);
-
-    // Remove potential names after "my name is".
-    $query = preg_replace('/\b(my\s+name\s+is|i\'?m\s+called)\s+\w+(\s+\w+)?/i', '[name]', $query);
-
-    // Remove addresses.
-    $query = preg_replace('/\b(my\s+address\s+is|i\s+live\s+at)\s+[\w\s,]+\d{5}/i', '[address]', $query);
-
-    // Truncate to reasonable length.
-    $query = mb_substr($query, 0, 100);
-
-    // Normalize whitespace.
+  /**
+   * Sanitizes a query for LLM prompt building (PII stripped, NOT truncated).
+   *
+   * Unlike sanitizeForStorage(), this preserves the user's full question so the
+   * LLM receives complete context. A 2000-char cap prevents unbounded prompt
+   * size while keeping real queries intact (request body is already limited to
+   * 2000 bytes in the controller).
+   *
+   * @param string $query
+   *   The query to sanitize.
+   *
+   * @return string
+   *   PII-stripped query with full context preserved (max 2000 chars).
+   */
+  public function sanitizeForLlmPrompt(string $query): string {
+    $query = PiiRedactor::redact($query);
     $query = preg_replace('/\s+/', ' ', trim($query));
-
-    return $query;
+    return mb_substr($query, 0, 2000);
   }
 
 }

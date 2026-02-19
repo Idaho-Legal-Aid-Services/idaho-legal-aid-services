@@ -72,6 +72,8 @@ llm:
   enhance_greetings: false  # Generate personalized greetings
   fallback_on_error: true  # Use rule-based response if LLM fails
   safety_threshold: 'BLOCK_MEDIUM_AND_ABOVE'  # BLOCK_LOW_AND_ABOVE | BLOCK_MEDIUM_AND_ABOVE | BLOCK_ONLY_HIGH
+  cache_ttl: 3600  # Response cache TTL in seconds (0 = disabled)
+  max_retries: 2   # Max retry attempts on transient failures (0 = no retries)
 
 # Rate limiting (per IP)
 rate_limit_per_minute: 15
@@ -117,6 +119,18 @@ fallback_gate:
 # Vector Search Enhancement (Option A: fallback enrichment)
 # When lexical results are sparse, supplements with Pinecone semantic search.
 # Requires pinecone_vector Search API server and vector indexes to be configured.
+#
+# Score normalization notes:
+# - Cosine similarity scores range 0-1 (higher = more similar).
+# - Lexical (BM25) scores are on a different, unbounded scale.
+# - score_normalization_factor converts cosine to a comparable range.
+#   Default 100 means cosine 0.72 becomes score 72.
+# - Since vector search only fires when lexical results are sparse,
+#   the normalization primarily affects ordering within the merged set.
+# - The raw cosine score is preserved as 'vector_score' on each result
+#   for operator tuning and debugging.
+# - The Pinecone HTTP client uses Guzzle defaults (~30s timeout).
+#   Vector search failures are caught and return empty results gracefully.
 vector_search:
   enabled: false
   faq_index_id: 'faq_accordion_vector'
@@ -124,6 +138,9 @@ vector_search:
   fallback_threshold: 2        # Min lexical results before vector fires
   min_vector_score: 0.70       # Min cosine similarity to include (0-1)
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
+  min_lexical_score: 0         # Min lexical score for quality check (0 = disabled)
+                               # If set > 0 and all lexical results score below this,
+                               # vector search fires even when count >= fallback_threshold
 
 # Safety spike alerting (cron-driven, default OFF)
 # Sends email when safety violations exceed threshold within window.
@@ -133,6 +150,16 @@ safety_alerting:
   window_hours: 1             # Lookback window in hours
   cooldown_minutes: 60        # Minimum gap between alerts
   recipients: ''              # Comma-separated email addresses
+
+# History-aware intent fallback (fires ONLY on direct-route unknown)
+# When the router returns 'unknown', checks recent conversation history
+# for a dominant topic to maintain multi-turn continuity.
+history_fallback:
+  enabled: true
+  max_turns: 6
+  time_window_sec: 600
+  dominance_threshold: 0.5
+  min_eligible_turns: 1
 
 # A/B testing framework (minimal, default OFF)
 # Deterministic variant assignment per conversation_id.

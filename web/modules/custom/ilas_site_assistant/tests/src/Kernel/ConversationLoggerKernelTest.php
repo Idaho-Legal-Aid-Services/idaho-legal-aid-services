@@ -3,6 +3,7 @@
 namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
+use Drupal\ilas_site_assistant\Service\PiiRedactor;
 
 /**
  * Kernel tests for ConversationLogger service.
@@ -53,7 +54,7 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
-   * Tests that PII is redacted from stored messages.
+   * Tests that PII is redacted from stored messages using unified tokens.
    *
    * @covers ::logExchange
    */
@@ -78,6 +79,40 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
     $this->assertStringNotContainsString('john@example.com', $user_row);
     $this->assertStringNotContainsString('208-555-1234', $user_row);
+    // Verify unified token format.
+    $this->assertStringContainsString(PiiRedactor::TOKEN_EMAIL, $user_row);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_PHONE, $user_row);
+  }
+
+  /**
+   * Tests that PII is always redacted regardless of config setting.
+   *
+   * @covers ::logExchange
+   */
+  public function testPiiAlwaysRedactedRegardlessOfConfig(): void {
+    // Explicitly set redact_pii to FALSE — redaction should still happen.
+    $logger = $this->createConversationLogger([
+      'conversation_logging.redact_pii' => FALSE,
+    ]);
+    $conv_id = '12345678-1234-4123-8123-123456789abc';
+
+    $logger->logExchange(
+      $conv_id,
+      'My SSN is 123-45-6789',
+      'I cannot collect that.',
+      'pii',
+      'escalation'
+    );
+
+    $user_row = $this->database->select('ilas_site_assistant_conversations', 'c')
+      ->fields('c', ['redacted_message'])
+      ->condition('conversation_id', $conv_id)
+      ->condition('direction', 'user')
+      ->execute()
+      ->fetchField();
+
+    $this->assertStringNotContainsString('123-45-6789', $user_row);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_SSN, $user_row);
   }
 
   /**
@@ -234,6 +269,50 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests that batched cleanup deletes all expired rows across batches.
+   *
+   * @covers ::cleanup
+   */
+  public function testBatchedCleanupDeletesAllExpiredRows(): void {
+    $now = 1700000000;
+    $retention_hours = 72;
+    $old_timestamp = $now - ($retention_hours * 3600) - 1;
+
+    // Insert 10 expired rows.
+    for ($i = 0; $i < 10; $i++) {
+      $this->database->insert('ilas_site_assistant_conversations')
+        ->fields([
+          'conversation_id' => sprintf('aaaaaaaa-aaaa-4aaa-8aaa-%012d', $i),
+          'direction' => 'user',
+          'redacted_message' => 'old message ' . $i,
+          'intent' => 'faq',
+          'created' => $old_timestamp - $i,
+        ])
+        ->execute();
+    }
+
+    // Insert 2 recent rows.
+    for ($i = 0; $i < 2; $i++) {
+      $this->database->insert('ilas_site_assistant_conversations')
+        ->fields([
+          'conversation_id' => sprintf('bbbbbbbb-bbbb-4bbb-8bbb-%012d', $i),
+          'direction' => 'user',
+          'redacted_message' => 'recent message ' . $i,
+          'intent' => 'faq',
+          'created' => $now - 3600,
+        ])
+        ->execute();
+    }
+
+    $logger = $this->createConversationLogger([], $now);
+    $logger->cleanup();
+
+    // Only the 2 recent rows should remain.
+    $remaining = $this->countTableRows('ilas_site_assistant_conversations');
+    $this->assertEquals(2, $remaining);
+  }
+
+  /**
    * Tests that cleanup preserves all rows within retention window.
    *
    * @covers ::cleanup
@@ -334,13 +413,11 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
   protected function createConversationLogger(array $config_overrides = [], int $timestamp = 1700000000): ConversationLogger {
     $configFactory = $this->createMockConfigFactory($config_overrides);
     $time = $this->createMockTime($timestamp);
-    $policyFilter = $this->createMockPolicyFilter();
 
     return new ConversationLogger(
       $this->database,
       $configFactory,
-      $time,
-      $policyFilter
+      $time
     );
   }
 
