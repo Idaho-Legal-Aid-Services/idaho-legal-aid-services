@@ -1,0 +1,30 @@
+{#
+/**
+ * @file
+ * Teaser template for ADEPT Lesson content type.
+ *
+ * Minimal card markup for Views landing pages (/education/adept/module-1, etc.).
+ * Omits schema, breadcrumbs, interactive elements, and navigation
+ * that belong only on the full lesson page.
+ *
+ * @see node--adept-lesson.html.twig (full front-end template)
+ */
+#}
+<article{{ attributes.addClass('node', 'node--adept-lesson', 'node--view-mode-teaser') }}>
+  {{ title_prefix }}
+  <h3{{ title_attributes }}>
+    <a href="{{ url }}" rel="bookmark">{{ label }}</a>
+  </h3>
+  {{ title_suffix }}
+  {% if content.field_adept_short_desc|render|trim %}
+    <div class="adept-lesson__description">
+      {{ content.field_adept_short_desc }}
+    </div>
+  {% endif %}
+  {% if ilas_adept.est_time %}
+    <span class="badge bg-secondary">
+      <i class="fa-regular fa-clock" aria-hidden="true"></i>
+      {{ '~@min min'|t({'@min': ilas_adept.est_time}) }}
+    </span>
+  {% endif %}
+</article>
