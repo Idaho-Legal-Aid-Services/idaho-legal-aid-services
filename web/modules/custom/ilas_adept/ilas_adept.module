@@ -35,6 +35,11 @@ function ilas_adept_preprocess_node(array &$variables): void {
   $variables['attributes']['data-adept-module'] = $module_id;
   $variables['attributes']['data-adept-lesson'] = $lesson_id;
 
+  // Estimated time — cheap field read, useful in teaser and full modes.
+  $est_time = $node->get('field_adept_est_time')->value
+    ? (int) $node->get('field_adept_est_time')->value
+    : NULL;
+
   // Set safe defaults for non-full view modes.
   // Prevents TypeError if the main template is used for teaser/search_index/etc.
   $variables['ilas_adept'] = [
@@ -43,7 +48,7 @@ function ilas_adept_preprocess_node(array &$variables): void {
     'mode' => $node->get('field_adept_mode')->value ?? 'embed',
     'external_url' => '',
     'effective_url' => '',
-    'est_time' => NULL,
+    'est_time' => $est_time,
     'module_landing_path' => "/education/adept/module-{$module_id}",
     'prev' => NULL,
     'next' => NULL,
@@ -57,9 +62,6 @@ function ilas_adept_preprocess_node(array &$variables): void {
   $variables['#attached']['library'][] = 'ilas_adept/adept';
 
   $mode = $node->get('field_adept_mode')->value ?? 'embed';
-  $est_time = $node->get('field_adept_est_time')->value
-    ? (int) $node->get('field_adept_est_time')->value
-    : NULL;
 
   // Extract external URL from link field.
   $external_url = '';

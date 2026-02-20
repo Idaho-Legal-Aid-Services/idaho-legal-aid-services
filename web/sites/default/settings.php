@@ -262,6 +262,7 @@ $sentry_dsn = _ilas_get_secret('SENTRY_DSN');
 if ($sentry_dsn) {
   $config['raven.settings']['client_key'] = $sentry_dsn;
   $config['raven.settings']['environment'] = getenv('PANTHEON_ENVIRONMENT') ?: 'local';
+  $config['raven.settings']['release'] = getenv('PANTHEON_DEPLOYMENT_IDENTIFIER') ?: NULL;
   $config['raven.settings']['log_levels'] = [
     'emergency' => TRUE,
     'alert' => TRUE,

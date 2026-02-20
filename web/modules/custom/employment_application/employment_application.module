@@ -54,52 +54,63 @@ function employment_application_cron() {
   $logger = \Drupal::logger('employment_application');
 
   // Find expired applications.
-  $results = $database->select('employment_applications', 'ea')
-    ->fields('ea', ['id', 'application_id', 'file_data'])
-    ->condition('submitted', $cutoff, '<')
-    ->execute();
+  try {
+    $results = $database->select('employment_applications', 'ea')
+      ->fields('ea', ['id', 'application_id', 'file_data'])
+      ->condition('submitted', $cutoff, '<')
+      ->execute();
 
-  $count = 0;
-  foreach ($results as $row) {
-    // Delete associated files.
-    $fileData = json_decode($row->file_data, TRUE);
-    if (is_array($fileData)) {
-      foreach ($fileData as $fieldFiles) {
-        if (!is_array($fieldFiles)) {
-          continue;
-        }
-        foreach ($fieldFiles as $fileRef) {
-          $fid = $fileRef['fid'] ?? NULL;
-          if ($fid) {
-            $file = \Drupal\file\Entity\File::load($fid);
-            if ($file) {
-              $uri = $file->getFileUri();
-              $realPath = $fileSystem->realpath($uri);
-              if ($realPath && file_exists($realPath)) {
-                $fileSystem->delete($uri);
+    $count = 0;
+    foreach ($results as $row) {
+      // Delete associated files.
+      $fileData = json_decode($row->file_data, TRUE);
+      if (is_array($fileData)) {
+        foreach ($fileData as $fieldFiles) {
+          if (!is_array($fieldFiles)) {
+            continue;
+          }
+          foreach ($fieldFiles as $fileRef) {
+            $fid = $fileRef['fid'] ?? NULL;
+            if ($fid) {
+              $file = \Drupal\file\Entity\File::load($fid);
+              if ($file) {
+                $uri = $file->getFileUri();
+                $realPath = $fileSystem->realpath($uri);
+                if ($realPath && file_exists($realPath)) {
+                  $fileSystem->delete($uri);
+                }
+                $file->delete();
               }
-              $file->delete();
             }
           }
         }
       }
+
+      // Delete DB record.
+      $database->delete('employment_applications')
+        ->condition('id', $row->id)
+        ->execute();
+      $count++;
     }
 
-    // Delete DB record.
-    $database->delete('employment_applications')
-      ->condition('id', $row->id)
-      ->execute();
-    $count++;
+    if ($count > 0) {
+      $logger->info('Data retention cron: purged @count applications older than @days days.', [
+        '@count' => $count,
+        '@days' => $retentionDays,
+      ]);
+    }
   }
-
-  if ($count > 0) {
-    $logger->info('Data retention cron: purged @count applications older than @days days.', [
-      '@count' => $count,
-      '@days' => $retentionDays,
+  catch (\Throwable $e) {
+    $logger->error('Application purge failed: @message', [
+      '@message' => $e->getMessage(),
     ]);
   }
 
   // Purge expired drafts (7 days).
+  if (!$database->schema()->tableExists('employment_application_drafts')) {
+    $logger->warning('Table employment_application_drafts does not exist. Run "drush updb" to create it.');
+    return;
+  }
   $draftCutoff = \Drupal::time()->getRequestTime() - (7 * 86400);
   $draftsDeleted = $database->delete('employment_application_drafts')
     ->condition('created', $draftCutoff, '<')

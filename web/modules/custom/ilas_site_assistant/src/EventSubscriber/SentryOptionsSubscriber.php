@@ -12,6 +12,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  * - Forces send_default_pii = false.
  * - Registers a before_send callback that scrubs PII from event messages,
  *   exception values, and extra context using PiiRedactor::redact().
+ * - Sets server_name and tags for environment/runtime attribution.
  *
  * Soft dependency: returns an empty event map if drupal/raven is not installed.
  */
@@ -41,18 +42,42 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
     // Disable default PII collection (IP address, cookies, etc.).
     $event->options['send_default_pii'] = FALSE;
 
-    // Register before_send callback for PII scrubbing.
-    $event->options['before_send'] = static::beforeSendCallback();
+    // Runtime attribution.
+    $pantheonEnv = getenv('PANTHEON_ENVIRONMENT') ?: 'local';
+    $sapi = PHP_SAPI;
+    $event->options['server_name'] = "{$pantheonEnv}.{$sapi}";
+
+    // Merge tags (preserve any existing tags from Raven or other subscribers).
+    $tags = $event->options['tags'] ?? [];
+    $tags['pantheon_env'] = $pantheonEnv;
+    $tags['php_sapi'] = $sapi;
+    $tags['runtime_context'] = static::resolveRuntimeContext();
+    $event->options['tags'] = $tags;
+
+    // Chain before_send: preserve any existing callback.
+    $previous = $event->options['before_send'] ?? NULL;
+    $event->options['before_send'] = static::beforeSendCallback($previous);
   }
 
   /**
    * Returns the before_send callback that scrubs PII from Sentry events.
    *
+   * @param callable|null $previous
+   *   An optional previous before_send callback to chain.
+   *
    * @return callable
    *   A callback compatible with Sentry's before_send option.
    */
-  public static function beforeSendCallback(): callable {
-    return static function (\Sentry\Event $sentryEvent, ?\Sentry\EventHint $hint = NULL): ?\Sentry\Event {
+  public static function beforeSendCallback(?callable $previous = NULL): callable {
+    return static function (\Sentry\Event $sentryEvent, ?\Sentry\EventHint $hint = NULL) use ($previous): ?\Sentry\Event {
+      // Chain previous callback first.
+      if ($previous !== NULL) {
+        $sentryEvent = $previous($sentryEvent, $hint);
+        if ($sentryEvent === NULL) {
+          return NULL;
+        }
+      }
+
       // Scrub event message.
       $message = $sentryEvent->getMessage();
       if ($message !== NULL && $message !== '') {
@@ -88,6 +113,37 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
 
       return $sentryEvent;
     };
+  }
+
+  /**
+   * Determines the runtime context based on PHP SAPI and argv.
+   *
+   * @return string
+   *   One of: drush-cron, drush-updb, drush-deploy, drush-cr, drush-cli, web,
+   *   cli-other.
+   */
+  private static function resolveRuntimeContext(): string {
+    if (PHP_SAPI !== 'cli') {
+      return 'web';
+    }
+
+    $argv = $_SERVER['argv'] ?? [];
+    // Find the Drush command in argv (skip flags and the drush binary itself).
+    foreach ($argv as $arg) {
+      // Skip the binary path and flags.
+      if (str_starts_with($arg, '-') || str_contains($arg, 'drush')) {
+        continue;
+      }
+      return match ($arg) {
+        'cron', 'core:cron' => 'drush-cron',
+        'updb', 'updatedb', 'update:db' => 'drush-updb',
+        'deploy' => 'drush-deploy',
+        'cr', 'cache:rebuild', 'cache-rebuild' => 'drush-cr',
+        default => 'drush-cli',
+      };
+    }
+
+    return 'cli-other';
   }
 
 }
