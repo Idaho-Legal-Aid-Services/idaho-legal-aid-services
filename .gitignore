@@ -196,3 +196,7 @@ output/
 package.json
 package-lock.json
 promptfoo-evals/
+
+# Local audit docs and utility scripts
+docs/assistant_audit/
+scripts/pull-live.sh

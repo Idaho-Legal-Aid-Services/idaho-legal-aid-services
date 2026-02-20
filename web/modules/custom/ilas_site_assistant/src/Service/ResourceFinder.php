@@ -21,6 +21,28 @@ use Drupal\search_api\Entity\Index;
 class ResourceFinder {
 
   /**
+   * Cache TTL for per-query memoization (seconds).
+   */
+  const QUERY_CACHE_TTL = 300;
+
+  /**
+   * Maximum tolerated duration for a vector search call (ms).
+   */
+  const MAX_VECTOR_MS = 2000;
+
+  /**
+   * Backoff duration after a vector search timeout/failure (seconds).
+   */
+  const VECTOR_BACKOFF_SECONDS = 120;
+
+  /**
+   * Timestamp (epoch seconds) until which vector search is skipped due to a
+   * recent timeout/failure. Static so it applies across instances per request.
+   *
+   * @var int
+   */
+  protected static int $vectorBackoffUntil = 0;
+  /**
    * The entity type manager.
    *
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
@@ -369,15 +391,51 @@ class ResourceFinder {
    *   Array of matching resources.
    */
   protected function findByType(string $query, ?string $type, int $limit) {
+    $cache_key = $this->buildQueryCacheKey($query, $type, $limit);
+    if ($cache_key) {
+      $cached = $this->cache->get($cache_key);
+      if ($cached) {
+        return $cached->data;
+      }
+    }
+
     $index = $this->getIndex();
 
     // Use Search API if available.
     if ($index && $index->status()) {
-      return $this->findByTypeSearchApi($query, $type, $limit);
+      $results = $this->findByTypeSearchApi($query, $type, $limit);
+      if ($cache_key) {
+        $this->cache->set($cache_key, $results, time() + self::QUERY_CACHE_TTL, [
+          'node_list',
+          'config:ilas_site_assistant.settings',
+        ]);
+      }
+      return $results;
     }
 
     // Fall back to legacy method.
-    return $this->findByTypeLegacy($query, $type, $limit);
+    $results = $this->findByTypeLegacy($query, $type, $limit);
+    if ($cache_key) {
+      $this->cache->set($cache_key, $results, time() + self::QUERY_CACHE_TTL, [
+        'node_list',
+        'config:ilas_site_assistant.settings',
+      ]);
+    }
+    return $results;
+  }
+
+  /**
+   * Builds a cache key for memoizing resource queries without storing PII.
+   */
+  protected function buildQueryCacheKey(string $query, ?string $type, int $limit): ?string {
+    $sanitized = PiiRedactor::redactForStorage($query, 120);
+    if ($sanitized === '') {
+      return NULL;
+    }
+    $langcode = $this->getCurrentLanguage();
+    $type_token = $type ?: 'all';
+    $hash = hash('sha256', $sanitized . '|' . $type_token . '|' . $limit . '|' . $langcode);
+    return 'resources.search:' . $hash;
   }
 
   /**
@@ -729,6 +787,10 @@ class ResourceFinder {
    *   Array of matching resource items with normalized scores.
    */
   protected function findByTypeVector(string $query, ?string $type, int $limit): array {
+    if (time() < static::$vectorBackoffUntil) {
+      return [];
+    }
+
     $vector_config = $this->getVectorSearchConfig();
     $index_id = $vector_config['resource_index_id'] ?? 'assistant_resources_vector';
     $min_score = $vector_config['min_vector_score'] ?? 0.70;
@@ -760,10 +822,11 @@ class ResourceFinder {
       $results = $search_query->execute();
       $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
 
-      if ($elapsed_ms > 5000) {
+      if ($elapsed_ms > self::MAX_VECTOR_MS) {
+        static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
         \Drupal::logger('ilas_site_assistant')->warning(
-          'Vector resource search took @ms ms for query "@query"',
-          ['@ms' => $elapsed_ms, '@query' => PiiRedactor::redactForLog($query)]
+          'Vector resource search exceeded @ms ms (threshold @thresh). Entering backoff.',
+          ['@ms' => $elapsed_ms, '@thresh' => self::MAX_VECTOR_MS]
         );
       }
 
@@ -834,11 +897,13 @@ class ResourceFinder {
         $category = 'index_not_found';
       }
 
+      static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
       \Drupal::logger('ilas_site_assistant')->log($level,
-        'Vector resource search failed [@category]: @class - @message', [
+        'Vector resource search failed [@category]: @class - @message (backing off @seconds s)', [
           '@category' => $category,
           '@class' => $exception_class,
           '@message' => $e->getMessage(),
+          '@seconds' => self::VECTOR_BACKOFF_SECONDS,
         ]
       );
       return [];

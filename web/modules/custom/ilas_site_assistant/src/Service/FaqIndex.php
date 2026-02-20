@@ -21,6 +21,33 @@ use Drupal\search_api\Entity\Index;
 class FaqIndex {
 
   /**
+   * Cache TTL for per-query memoization (seconds).
+   *
+   * Short-lived to avoid serving stale content and keeps DB/cache footprint
+   * modest for Pantheon Basic (no Redis/Solr).
+   */
+  const QUERY_CACHE_TTL = 300;
+
+  /**
+   * Maximum tolerated duration for a vector search call (ms) before we
+   * temporarily disable vector queries to protect latency.
+   */
+  const MAX_VECTOR_MS = 2000;
+
+  /**
+   * Backoff duration after a vector search timeout/failure (seconds).
+   */
+  const VECTOR_BACKOFF_SECONDS = 120;
+
+  /**
+   * Timestamp (epoch seconds) until which vector search is skipped due to a
+   * recent timeout/failure. Static so it applies across instances per request.
+   *
+   * @var int
+   */
+  protected static int $vectorBackoffUntil = 0;
+
+  /**
    * The entity type manager.
    *
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
@@ -137,6 +164,14 @@ class FaqIndex {
    *   Array of matching items with deep-link URLs.
    */
   public function search(string $query, int $limit = 5, ?string $type = NULL) {
+    $cache_key = $this->buildQueryCacheKey($query, $limit, $type);
+    if ($cache_key) {
+      $cached = $this->cache->get($cache_key);
+      if ($cached) {
+        return $cached->data;
+      }
+    }
+
     $index = $this->getIndex();
 
     // Fall back to legacy method if index not available.
@@ -178,6 +213,12 @@ class FaqIndex {
       // Supplement with vector search if lexical results are sparse.
       $items = $this->supplementWithVectorResults($items, $query, $limit, $type);
 
+      if ($cache_key) {
+        $this->cache->set($cache_key, $items, time() + self::QUERY_CACHE_TTL, [
+          'paragraph_list',
+          'config:ilas_site_assistant.settings',
+        ]);
+      }
       return $items;
     }
     catch (\Exception $e) {
@@ -185,8 +226,31 @@ class FaqIndex {
       \Drupal::logger('ilas_site_assistant')->warning('Search API query failed: @message', [
         '@message' => $e->getMessage(),
       ]);
-      return $this->searchLegacy($query, $limit);
+      $results = $this->searchLegacy($query, $limit);
+      if ($cache_key) {
+        $this->cache->set($cache_key, $results, time() + self::QUERY_CACHE_TTL, [
+          'paragraph_list',
+          'config:ilas_site_assistant.settings',
+        ]);
+      }
+      return $results;
     }
+  }
+
+  /**
+   * Builds a cache key for memoizing query results without storing PII.
+   */
+  protected function buildQueryCacheKey(string $query, int $limit, ?string $type): ?string {
+    // Redact/normalize to avoid storing PII as part of the cache key.
+    $sanitized = PiiRedactor::redactForStorage($query, 120);
+    if ($sanitized === '') {
+      return NULL;
+    }
+
+    $langcode = $this->getCurrentLanguage();
+    $type_token = $type ?: 'all';
+    $hash = hash('sha256', $sanitized . '|' . $limit . '|' . $type_token . '|' . $langcode);
+    return 'faq.search:' . $hash;
   }
 
   /**
@@ -647,6 +711,11 @@ class FaqIndex {
    *   Array of matching items with normalized scores.
    */
   protected function searchVector(string $query, int $limit, ?string $type = NULL): array {
+    // Quick circuit breaker: skip if we've recently seen a failure/timeout.
+    if (time() < static::$vectorBackoffUntil) {
+      return [];
+    }
+
     $vector_config = $this->getVectorSearchConfig();
     $index_id = $vector_config['faq_index_id'] ?? 'faq_accordion_vector';
     $min_score = $vector_config['min_vector_score'] ?? 0.70;
@@ -680,10 +749,11 @@ class FaqIndex {
       $results = $search_query->execute();
       $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
 
-      if ($elapsed_ms > 5000) {
+      if ($elapsed_ms > self::MAX_VECTOR_MS) {
+        static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
         \Drupal::logger('ilas_site_assistant')->warning(
-          'Vector FAQ search took @ms ms for query "@query"',
-          ['@ms' => $elapsed_ms, '@query' => PiiRedactor::redactForLog($query)]
+          'Vector FAQ search exceeded @ms ms (threshold @thresh). Entering backoff.',
+          ['@ms' => $elapsed_ms, '@thresh' => self::MAX_VECTOR_MS]
         );
       }
 
@@ -740,11 +810,13 @@ class FaqIndex {
         $category = 'index_not_found';
       }
 
+      static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
       \Drupal::logger('ilas_site_assistant')->log($level,
-        'Vector FAQ search failed [@category]: @class - @message', [
+        'Vector FAQ search failed [@category]: @class - @message (backing off @seconds s)', [
           '@category' => $category,
           '@class' => $exception_class,
           '@message' => $e->getMessage(),
+          '@seconds' => self::VECTOR_BACKOFF_SECONDS,
         ]
       );
       return [];
