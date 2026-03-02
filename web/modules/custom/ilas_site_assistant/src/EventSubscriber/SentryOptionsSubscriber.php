@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\EventSubscriber;
 
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use Drupal\ilas_site_assistant\Service\TelemetrySchema;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
@@ -115,6 +116,19 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         if ($scrubbed) {
           $sentryEvent->setExtra($extra);
         }
+      }
+
+      // Promote recognized telemetry fields from extra to tags for
+      // searchability in Sentry (e.g. watchdog-captured error events).
+      $extra = $sentryEvent->getExtra();
+      if (!empty($extra)) {
+        $tags = $sentryEvent->getTags();
+        foreach (TelemetrySchema::REQUIRED_FIELDS as $field) {
+          if (isset($extra[$field]) && is_string($extra[$field]) && !isset($tags[$field])) {
+            $tags[$field] = $extra[$field];
+          }
+        }
+        $sentryEvent->setTags($tags);
       }
 
       return $sentryEvent;

@@ -68,6 +68,17 @@ Promptfoo gate summary: mode=blocking threshold=90 pass_rate=85% eval_exit=0
 Summary file: /home/evancurry/idaho-legal-aid-services/promptfoo-evals/output/gate-summary.txt
 exit_code=2
 
+$ ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" CI_BRANCH=feature/observability scripts/ci/run-external-quality-gate.sh --env dev --mode auto --skip-eval --simulate-pass-rate 100
+=== ILAS Site Assistant — Quality Gate ===
+PASS: PHPUnit unit tests passed
+PASS: Drupal-unit suite gate passed
+PASS: Golden transcript tests passed
+Summary file: /home/evancurry/idaho-legal-aid-services/promptfoo-evals/output/phpunit-summary.txt
+Promptfoo gate summary: mode=advisory threshold=90 pass_rate=100% eval_exit=0
+Summary file: /home/evancurry/idaho-legal-aid-services/promptfoo-evals/output/gate-summary.txt
+Promptfoo gate PASSED
+exit_code=0
+
 $ ddev exec "vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneObservabilityDependencyGateTest.php"
 PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
 

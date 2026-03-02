@@ -196,6 +196,7 @@
     isSending: false,
     messageHistory: [],
     conversationId: null,
+    csrfTokenPromise: null,
     _focusTrapHandler: null,
     _focusTrapElement: null,
 
@@ -213,6 +214,44 @@
         var r = Math.random() * 16 | 0;
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
       });
+    },
+
+    /**
+     * Fetch a CSRF token from /session/token.
+     *
+     * Called lazily before the first POST to /message. Caches the promise
+     * so concurrent calls share a single fetch. Pass forceRefresh=true
+     * to discard the cache (e.g. after a 403 retry).
+     *
+     * @param {boolean} forceRefresh - Discard cached token.
+     * @return {Promise<string>} Resolves with the CSRF token string.
+     */
+    fetchCsrfToken: function (forceRefresh) {
+      if (this.csrfTokenPromise && !forceRefresh) {
+        return this.csrfTokenPromise;
+      }
+
+      var self = this;
+      this.csrfTokenPromise = fetch('/session/token', {
+        method: 'GET',
+        credentials: 'same-origin',
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Failed to fetch CSRF token: ' + response.status);
+          }
+          return response.text();
+        })
+        .then(function (token) {
+          self.config.csrfToken = token;
+          return token;
+        })
+        .catch(function (error) {
+          self.csrfTokenPromise = null;
+          throw error;
+        });
+
+      return this.csrfTokenPromise;
     },
 
     /**
@@ -1282,9 +1321,10 @@
      *   containing .type ('offline'|'timeout') or .status (HTTP code) and
      *   optionally .retryAfter (seconds from Retry-After header).
      */
-    callApi: function (endpoint, options) {
+    callApi: function (endpoint, options, _isRetry) {
       options = options || {};
       var url = this.config.apiBase + endpoint;
+      var self = this;
 
       // Offline check.
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -1293,52 +1333,75 @@
         return Promise.reject(offlineErr);
       }
 
-      // AbortController for timeout.
-      var controller = new AbortController();
-      var timeoutMs = options.timeout || 15000;
-      var timeoutId = setTimeout(function () {
-        controller.abort();
-      }, timeoutMs);
+      var method = (options.method || 'GET').toUpperCase();
+      var needsCsrf = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+      // /track no longer requires CSRF; only /message does.
+      var isCsrfRoute = endpoint !== '/track';
 
-      var defaultOptions = {
-        method: 'GET',
-        headers: {
+      // For write methods on CSRF-protected routes, ensure token exists.
+      var tokenReady = (needsCsrf && isCsrfRoute && !this.config.csrfToken)
+        ? this.fetchCsrfToken()
+        : Promise.resolve(this.config.csrfToken);
+
+      return tokenReady.then(function (csrfToken) {
+        // AbortController for timeout.
+        var controller = new AbortController();
+        var timeoutMs = options.timeout || 15000;
+        var timeoutId = setTimeout(function () {
+          controller.abort();
+        }, timeoutMs);
+
+        var headers = {
           'Content-Type': 'application/json',
-          'X-CSRF-Token': this.config.csrfToken,
-        },
-        credentials: 'same-origin',
-        signal: controller.signal,
-      };
+        };
+        if (needsCsrf && isCsrfRoute && csrfToken) {
+          headers['X-CSRF-Token'] = csrfToken;
+        }
 
-      // Merge options (excluding our custom timeout key).
-      var fetchOptions = Object.assign({}, defaultOptions, options);
-      delete fetchOptions.timeout;
+        var defaultOptions = {
+          method: 'GET',
+          headers: headers,
+          credentials: 'same-origin',
+          signal: controller.signal,
+        };
 
-      return fetch(url, fetchOptions)
-        .then(function (response) {
-          clearTimeout(timeoutId);
-          if (!response.ok) {
-            var error = new Error('API request failed: ' + response.status);
-            error.status = response.status;
-            if (response.status === 429) {
-              var retryHeader = response.headers.get('Retry-After');
-              if (retryHeader) {
-                error.retryAfter = retryHeader;
+        var fetchOptions = Object.assign({}, defaultOptions, options);
+        delete fetchOptions.timeout;
+
+        return fetch(url, fetchOptions)
+          .then(function (response) {
+            clearTimeout(timeoutId);
+            if (!response.ok) {
+              var error = new Error('API request failed: ' + response.status);
+              error.status = response.status;
+              if (response.status === 429) {
+                var retryHeader = response.headers.get('Retry-After');
+                if (retryHeader) {
+                  error.retryAfter = retryHeader;
+                }
               }
+              throw error;
             }
+            return response.json();
+          })
+          .catch(function (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+              var timeoutError = new Error('Request timed out');
+              timeoutError.type = 'timeout';
+              throw timeoutError;
+            }
+
+            // On 403 for CSRF-protected routes, retry once with fresh token.
+            if (error.status === 403 && needsCsrf && isCsrfRoute && !_isRetry) {
+              return self.fetchCsrfToken(true).then(function () {
+                return self.callApi(endpoint, options, true);
+              });
+            }
+
             throw error;
-          }
-          return response.json();
-        })
-        .catch(function (error) {
-          clearTimeout(timeoutId);
-          if (error.name === 'AbortError') {
-            var timeoutError = new Error('Request timed out');
-            timeoutError.type = 'timeout';
-            throw timeoutError;
-          }
-          throw error;
-        });
+          });
+      });
     },
 
     /**

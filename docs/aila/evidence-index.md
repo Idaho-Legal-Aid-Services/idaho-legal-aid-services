@@ -519,6 +519,7 @@ Evidence precedence used in this audit:
 - Claim: Langfuse enablement requires config flag + credentials and applies sampling.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php:116-155`
+- Addendum (2026-02-27): IMP-OBS-01 adds `TelemetrySchema::normalize()` to all 5 controller `endTrace()` exit points, ensuring consistent field names across Langfuse metadata. Acceptance tests in `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php` prove full lifecycle event-type coverage and install config policy-cap lock (sample_rate=1.0 install, 0.10 live).
 
 ### CLAIM-080
 - Claim: Langfuse traces include spans, generations, events, and serialized batch payloads.
@@ -546,6 +547,7 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php:24-33`
   - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php:42-60`
   - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php:71-116`
+- Addendum (2026-02-27): IMP-OBS-01 adds `TelemetrySchema::REQUIRED_FIELDS` tag promotion in `before_send` callback (extra→tags), Sentry `configureScope` now uses `TelemetrySchema` constant names for `request_id`/`intent`/`safety_class`/`fallback_path`/`env`. Acceptance tests in `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php` and contract tests in `web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetrySchemaContractTest.php` verify PII redaction across all fields and tag enrichment.
 
 ### CLAIM-084
 - Claim: Performance monitor stores rolling request metrics in state and marks degraded status by p95/error-rate thresholds.
@@ -862,7 +864,9 @@ Evidence precedence used in this audit:
 - Addendum evidence:
   - `docs/aila/runbook.md` (Phase 1 observability dependency gate verification)
   - `scripts/ci/derive-assistant-url.sh`
+  - `scripts/ci/run-external-quality-gate.sh`
   - `scripts/ci/run-promptfoo-gate.sh`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneObservabilityDependencyGateTest.php`
   - `docs/aila/runtime/phase1-observability-gates.txt`
 - Addendum (2026-02-27): quality-gate enforcement is formalized with

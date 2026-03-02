@@ -110,17 +110,17 @@ class PhaseOneQualityGateContractTest extends TestCase {
   }
 
   /**
-   * Gate scripts must retain enforcement markers for classifier and branch policy.
+   * Gate scripts must retain enforcement markers and branch policy.
    */
   public function testQualityGateScriptsContainExpectedEnforcementMarkers(): void {
     $qualityGate = self::readFile('web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh');
     $externalGate = self::readFile('scripts/ci/run-external-quality-gate.sh');
     $promptfooGate = self::readFile('scripts/ci/run-promptfoo-gate.sh');
 
-    $this->assertStringContainsString('Deterministic classifier gate', $qualityGate);
-    $this->assertStringContainsString('SafetyClassifierTest.php', $qualityGate);
-    $this->assertStringContainsString('OutOfScopeClassifierTest.php', $qualityGate);
+    $this->assertStringContainsString('PHPUnit drupal-unit suite', $qualityGate);
+    $this->assertStringContainsString('--testsuite drupal-unit', $qualityGate);
     $this->assertStringContainsString('GoldenTranscriptTest.php', $qualityGate);
+    $this->assertStringContainsString('phpunit-summary.txt', $qualityGate);
 
     $this->assertStringContainsString('tests/run-quality-gate.sh', $externalGate);
     $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh', $externalGate);
@@ -134,4 +134,3 @@ class PhaseOneQualityGateContractTest extends TestCase {
   }
 
 }
-

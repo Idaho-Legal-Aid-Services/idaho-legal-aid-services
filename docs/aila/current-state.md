@@ -36,7 +36,7 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 | Langfuse tracing/export | Present but disabled by default | `langfuse.settings` config not present in dev/test/live; `ilas_langfuse_export` queue exists with `0` items in sampled runtime | Queue-based export on terminate/cron when enabled/configured | [^CLAIM-079][^CLAIM-082][^CLAIM-118][^CLAIM-120] |
 | Sentry integration | Conditional on secret injection | `raven.settings` config not present in dev/test/live sampled runtime | PII send disabled and payload redaction subscriber active when integration is configured | [^CLAIM-083][^CLAIM-120] |
 | GA4 tag and live rate-limit override | Not applied outside `live` env branch | Applied in `PANTHEON_ENVIRONMENT=live` branch | Sets `google_tag_id` and per-IP limits | [^CLAIM-099] |
-| Promptfoo harness | Repo-local npm scripts + provider | Pantheon target can be used via URL env var | No first-party CI workflow file was found in repository-root CI locations in this snapshot | [^CLAIM-086][^CLAIM-122] |
+| Promptfoo harness | Repo-local npm scripts + provider | Pantheon target can be used via URL env var | Enforced external CI gate scripts are in-repo (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`); no first-party workflow file is the canonical gate path in this repository | [^CLAIM-086][^CLAIM-122] |
 
 Pantheon `config:status` sample results: `dev` and `test` reported no DB/sync differences; `live` reported one `core.entity_view_display.node.adept_lesson.teaser` difference.[^CLAIM-116]
 
@@ -351,6 +351,29 @@ unknown.
 3. `scripts/ci/run-external-quality-gate.sh` composes PHPUnit and Promptfoo
    gates for external runners; first-party workflow ownership remains external
    to this repository.
+
+### IMP-OBS-01 Completion Addendum (2026-02-27)
+
+This dated addendum records IMP-OBS-01 (Sentry and Langfuse Staged Enablement
+with Redaction Validation) completion:
+
+1. **TelemetrySchema value object** (`src/Service/TelemetrySchema.php`) provides
+   a single source of truth for telemetry field names (`intent`, `safety_class`,
+   `fallback_path`, `request_id`, `env`) with safe defaults via `normalize()`.
+2. **Controller integration**: All 5 `endTrace()` exit points in
+   `AssistantApiController::message()` now emit normalized telemetry schema
+   fields in Langfuse metadata. Sentry `configureScope` uses constant names.
+3. **Sentry tag promotion**: `SentryOptionsSubscriber::beforeSendCallback()`
+   promotes recognized `TelemetrySchema::REQUIRED_FIELDS` from extra context
+   to tags, ensuring watchdog-captured errors get searchable telemetry tags.
+4. **SLO alert dimensions**: All 4 `SloAlertService` warning log calls include
+   `@slo_dimension` context for Sentry alert rule filtering.
+5. **Acceptance tests**: `ImpObs01AcceptanceTest.php` proves Sentry AC (env tags
+   + PII scrub + runbook doc-lock) and Langfuse AC (full lifecycle + queue
+   health + policy-cap lock). `TelemetrySchemaContractTest.php` guards field
+   consistency across controller and subscriber source files.
+6. **Residual**: B-04 (cron/queue throughput under load) remains unresolved
+   until sustained post-deploy observation. Does not block IMP-OBS-01.
 
 ---
 

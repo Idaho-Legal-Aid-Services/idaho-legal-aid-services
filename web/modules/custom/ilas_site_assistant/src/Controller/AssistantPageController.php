@@ -53,18 +53,6 @@ class AssistantPageController extends ControllerBase {
     }
     $canonical_urls = ilas_site_assistant_get_canonical_urls();
 
-    // CSRF tokens are session-bound. Persist an anonymous session before
-    // emitting widget settings that include a CSRF token.
-    if ($this->currentUser()->isAnonymous()) {
-      $request = \Drupal::requestStack()->getCurrentRequest();
-      if ($request !== NULL) {
-        $session = $request->getSession();
-        if (!$session->has('ilas_site_assistant.csrf_session_prime')) {
-          $session->set('ilas_site_assistant.csrf_session_prime', TRUE);
-        }
-      }
-    }
-
     // Build suggestions for quick actions.
     $suggestions = [
       [
@@ -111,9 +99,11 @@ class AssistantPageController extends ControllerBase {
       '#attached' => [
         'library' => ['ilas_site_assistant/page'],
         'drupalSettings' => [
+          // NOTE: csrfToken intentionally omitted — widget fetches from
+          // /session/token before the first chat POST. This avoids stale
+          // tokens in cached pages.
           'ilasSiteAssistant' => [
             'apiBase' => '/assistant/api',
-            'csrfToken' => \Drupal::csrfToken()->get('rest'),
             'disclaimer' => $config->get('disclaimer_text'),
             'enableFaq' => $config->get('enable_faq'),
             'enableResources' => $config->get('enable_resources'),

@@ -18,6 +18,7 @@ use Drupal\ilas_site_assistant\Service\InputNormalizer;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\HistoryIntentResolver;
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
+use Drupal\ilas_site_assistant\Service\TelemetrySchema;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use Drupal\ilas_site_assistant\Service\TurnClassifier;
 use Drupal\ilas_site_assistant\Service\OfficeLocationResolver;
@@ -552,7 +553,15 @@ class AssistantApiController extends ControllerBase {
         ]);
         $this->langfuseTracer?->endTrace(
           output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
-          metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+          metadata: array_merge(
+            ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+            TelemetrySchema::normalize(
+              intent: 'safety_exit',
+              safety_class: $safety_classification['class'],
+              fallback_path: 'none',
+              request_id: $request_id,
+            ),
+          )
         );
 
         return $this->jsonResponse($response_data, 200, [], $request_id);
@@ -629,7 +638,15 @@ class AssistantApiController extends ControllerBase {
         ]);
         $this->langfuseTracer?->endTrace(
           output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
-          metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+          metadata: array_merge(
+            ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+            TelemetrySchema::normalize(
+              intent: 'oos_' . $oos_classification['category'],
+              safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+              fallback_path: 'none',
+              request_id: $request_id,
+            ),
+          )
         );
 
         return $this->jsonResponse($response_data, 200, [], $request_id);
@@ -688,7 +705,15 @@ class AssistantApiController extends ControllerBase {
       $this->langfuseTracer?->endSpan(['violation' => TRUE, 'type' => $policy_result['type']]);
       $this->langfuseTracer?->endTrace(
         output: ['type' => 'policy_violation', 'reason_code' => 'policy_' . $policy_result['type']],
-        metadata: ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE]
+        metadata: array_merge(
+          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          TelemetrySchema::normalize(
+            intent: 'policy_violation',
+            safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+            fallback_path: 'none',
+            request_id: $request_id,
+          ),
+        )
       );
 
       return $this->jsonResponse($response_data, 200, [], $request_id);
@@ -1149,16 +1174,24 @@ class AssistantApiController extends ControllerBase {
     ]);
     $this->langfuseTracer?->endTrace(
       output: ['type' => $response['type'] ?? 'unknown', 'reason_code' => $response['reason_code'] ?? NULL],
-      metadata: [
-        'duration_ms' => $duration_ms,
-        'success' => TRUE,
-        'intent_type' => $intent['type'] ?? 'unknown',
-        'response_type' => $response['type'] ?? 'unknown',
-        'is_quick_action' => $is_quick_action,
-        'conversation_hash' => $conversation_id ? hash('sha256', $conversation_id) : NULL,
-        'turn_type' => $turn_type,
-        'fallback_level' => $response['fallback_level'] ?? NULL,
-      ]
+      metadata: array_merge(
+        [
+          'duration_ms' => $duration_ms,
+          'success' => TRUE,
+          'intent_type' => $intent['type'] ?? 'unknown',
+          'response_type' => $response['type'] ?? 'unknown',
+          'is_quick_action' => $is_quick_action,
+          'conversation_hash' => $conversation_id ? hash('sha256', $conversation_id) : NULL,
+          'turn_type' => $turn_type,
+          'fallback_level' => $response['fallback_level'] ?? NULL,
+        ],
+        TelemetrySchema::normalize(
+          intent: $intent['type'] ?? 'unknown',
+          safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+          fallback_path: $gate_decision['decision'] ?? 'none',
+          request_id: $request_id,
+        ),
+      )
     );
 
     $response['request_id'] = $request_id;
@@ -1184,11 +1217,19 @@ class AssistantApiController extends ControllerBase {
       // Capture to Sentry with assistant-specific tags.
       if (function_exists('\Sentry\captureException')) {
         \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($request_id, $intent, $safety_classification) {
+          $telemetry = TelemetrySchema::normalize(
+            intent: isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
+            safety_class: isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
+            fallback_path: 'error',
+            request_id: $request_id,
+          );
           $scope->setTag('module', 'ilas_site_assistant');
           $scope->setTag('endpoint', 'message');
-          $scope->setTag('request_id', $request_id);
-          $scope->setTag('intent', isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent');
-          $scope->setTag('safety', isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety');
+          $scope->setTag(TelemetrySchema::FIELD_REQUEST_ID, $telemetry[TelemetrySchema::FIELD_REQUEST_ID]);
+          $scope->setTag(TelemetrySchema::FIELD_INTENT, $telemetry[TelemetrySchema::FIELD_INTENT]);
+          $scope->setTag(TelemetrySchema::FIELD_SAFETY_CLASS, $telemetry[TelemetrySchema::FIELD_SAFETY_CLASS]);
+          $scope->setTag(TelemetrySchema::FIELD_FALLBACK_PATH, $telemetry[TelemetrySchema::FIELD_FALLBACK_PATH]);
+          $scope->setTag(TelemetrySchema::FIELD_ENV, $telemetry[TelemetrySchema::FIELD_ENV]);
         });
         \Sentry\captureException($e);
       }
@@ -1200,7 +1241,15 @@ class AssistantApiController extends ControllerBase {
       ], 'ERROR');
       $this->langfuseTracer?->endTrace(
         output: NULL,
-        metadata: ['success' => FALSE, 'error' => get_class($e), 'duration_ms' => (microtime(TRUE) - $start_time) * 1000]
+        metadata: array_merge(
+          ['success' => FALSE, 'error' => get_class($e), 'duration_ms' => (microtime(TRUE) - $start_time) * 1000],
+          TelemetrySchema::normalize(
+            intent: isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
+            safety_class: isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
+            fallback_path: 'error',
+            request_id: $request_id,
+          ),
+        )
       );
 
       if ($this->performanceMonitor) {
@@ -1230,6 +1279,29 @@ class AssistantApiController extends ControllerBase {
    */
   public function track(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
+
+    // Origin-based protection (replaces CSRF for this low-impact endpoint).
+    if (!$this->isValidOrigin($request)) {
+      $this->logger->notice(
+        'event={event} reason={reason} origin={origin} referer={referer} path={path}',
+        [
+          'event' => 'track_origin_deny',
+          'reason' => 'origin_mismatch',
+          'origin' => (string) $request->headers->get('Origin', ''),
+          'referer' => (string) $request->headers->get('Referer', ''),
+          'path' => $request->getPathInfo(),
+        ],
+      );
+      return $this->jsonResponse(['error' => 'Forbidden', 'request_id' => $request_id], 403, [], $request_id);
+    }
+
+    // Rate limit tracking events per IP.
+    $ip = $request->getClientIp();
+    $track_flood_id = 'ilas_assistant_track:' . $ip;
+    if (!$this->flood->isAllowed('ilas_assistant_track', 60, 60, $track_flood_id)) {
+      return $this->jsonResponse(['error' => 'Too many requests', 'request_id' => $request_id], 429, ['Retry-After' => '60'], $request_id);
+    }
+    $this->flood->register('ilas_assistant_track', 60, $track_flood_id);
 
     $content_type = (string) $request->headers->get('Content-Type', '');
     if (strpos($content_type, 'application/json') === FALSE) {
@@ -2909,6 +2981,41 @@ class AssistantApiController extends ControllerBase {
     }
 
     return $this->jsonResponse($response);
+  }
+
+  /**
+   * Validates that the request Origin or Referer matches the site host.
+   *
+   * Used for low-impact endpoints (e.g. /track) where CSRF tokens are removed
+   * to avoid unnecessary session creation. This blocks cross-origin POSTs
+   * while allowing same-origin requests without a session.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The incoming request.
+   *
+   * @return bool
+   *   TRUE if the origin is same-host or indeterminate (no header).
+   */
+  private function isValidOrigin(Request $request): bool {
+    $origin = $request->headers->get('Origin');
+    $referer = $request->headers->get('Referer');
+    $host = $request->getHost();
+
+    // If Origin header is present, validate it.
+    if ($origin !== NULL && $origin !== '' && $origin !== 'null') {
+      $parsed = parse_url($origin);
+      return isset($parsed['host']) && $parsed['host'] === $host;
+    }
+
+    // Fall back to Referer if no Origin.
+    if ($referer !== NULL && $referer !== '') {
+      $parsed = parse_url($referer);
+      return isset($parsed['host']) && $parsed['host'] === $host;
+    }
+
+    // No Origin or Referer — could be same-origin navigation, privacy
+    // extension, or non-browser client. Allow but rely on rate limiting.
+    return TRUE;
   }
 
 }

@@ -85,7 +85,7 @@ class StrictCsrfRequestHeaderAccessCheck implements AccessCheckInterface {
    */
   private function logDeny(Request $request, AccountInterface $account, string $tokenState): void {
     $this->logger->warning(
-      'event={event} token_state={token_state} auth_state={auth_state} route_name={route_name} path={path} method={method}',
+      'event={event} token_state={token_state} auth_state={auth_state} route_name={route_name} path={path} method={method} has_session={has_session} origin={origin} referer={referer} user_agent={user_agent}',
       [
         'event' => 'csrf_deny',
         'token_state' => $tokenState,
@@ -93,6 +93,10 @@ class StrictCsrfRequestHeaderAccessCheck implements AccessCheckInterface {
         'route_name' => (string) $request->attributes->get('_route', 'unknown'),
         'path' => $request->getPathInfo(),
         'method' => $request->getMethod(),
+        'has_session' => $request->hasPreviousSession() ? 'yes' : 'no',
+        'origin' => (string) $request->headers->get('Origin', ''),
+        'referer' => (string) $request->headers->get('Referer', ''),
+        'user_agent' => (string) $request->headers->get('User-Agent', ''),
       ],
     );
   }

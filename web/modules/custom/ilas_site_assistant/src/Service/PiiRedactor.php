@@ -98,9 +98,9 @@ class PiiRedactor {
       $text
     );
 
-    // 8. Standalone dates (MM/DD/YYYY variants).
+    // 8. Standalone dates (MM/DD/YYYY + YYYY-MM-DD variants).
     $text = preg_replace(
-      '/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/',
+      '/(?:\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\b)/',
       self::TOKEN_DATE,
       $text
     );
@@ -137,6 +137,13 @@ class PiiRedactor {
     $text = preg_replace(
       '/\b(my\s+name\s+is|i\'?m\s+called)\s+[A-Z][a-z]{2,}(\s+[A-Z][a-z]{2,})?/i',
       self::TOKEN_NAME,
+      $text
+    );
+
+    // 14. Name (compact context): "name John Smith" / "name is John Smith".
+    $text = preg_replace(
+      '/\b(name(?:\s+is)?)\s+[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}\b/i',
+      '$1 ' . self::TOKEN_NAME,
       $text
     );
 

@@ -74,20 +74,11 @@ function ilas_site_assistant_page_attachments(array &$attachments) {
   // Attach the widget library.
   $attachments['#attached']['library'][] = 'ilas_site_assistant/widget';
 
-  // CSRF tokens are session-bound. Persist an anonymous session before issuing
-  // the token in drupalSettings so subsequent assistant POST requests can
-  // validate deterministically.
-  if (\Drupal::currentUser()->isAnonymous()) {
-    $session = \Drupal::requestStack()->getCurrentRequest()?->getSession();
-    if ($session !== NULL && !$session->has('ilas_site_assistant.csrf_session_prime')) {
-      $session->set('ilas_site_assistant.csrf_session_prime', TRUE);
-    }
-  }
-
   // Pass configuration to JavaScript.
+  // NOTE: csrfToken intentionally omitted — widget fetches from /session/token
+  // before the first chat POST. This avoids stale tokens in cached pages.
   $attachments['#attached']['drupalSettings']['ilasSiteAssistant'] = [
     'apiBase' => '/assistant/api',
-    'csrfToken' => \Drupal::csrfToken()->get('rest'),
     'disclaimer' => $config->get('disclaimer_text') ?? t('I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'),
     'enableFaq' => $config->get('enable_faq') ?? TRUE,
     'enableResources' => $config->get('enable_resources') ?? TRUE,

@@ -88,5 +88,3 @@ ilas_site_assistant.api.track:
   methods: [POST]
   requirements:
     _permission: 'access content'
-    _csrf_request_header_token: 'TRUE'
-    _ilas_strict_csrf_token: 'TRUE'

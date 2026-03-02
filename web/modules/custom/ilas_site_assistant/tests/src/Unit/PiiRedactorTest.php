@@ -163,6 +163,9 @@ class PiiRedactorTest extends TestCase {
   public function testRedactsStandaloneDates(): void {
     $result = PiiRedactor::redact('Filed on 01/15/2024');
     $this->assertStringContainsString(PiiRedactor::TOKEN_DATE, $result);
+
+    $result2 = PiiRedactor::redact('date 2025-03-15');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_DATE, $result2);
   }
 
   /**
@@ -238,6 +241,9 @@ class PiiRedactorTest extends TestCase {
 
     $result2 = PiiRedactor::redact("I'm called Maria");
     $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result2);
+
+    $result3 = PiiRedactor::redact('name John Smith');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result3);
   }
 
   /**

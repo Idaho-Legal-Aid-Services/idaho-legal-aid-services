@@ -27,6 +27,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MODULE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$MODULE_DIR/../../../.." && pwd)"
+EVALS_OUTPUT_DIR="$REPO_ROOT/promptfoo-evals/output"
+SUMMARY_FILE="$EVALS_OUTPUT_DIR/phpunit-summary.txt"
+RUN_TIMESTAMP_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+mkdir -p "$EVALS_OUTPUT_DIR"
+
+{
+  echo "timestamp_utc=${RUN_TIMESTAMP_UTC}"
+  echo "repo_root=${REPO_ROOT}"
+  echo "vc_unit_command=vendor/bin/phpunit --configuration ${REPO_ROOT}/phpunit.xml --group ilas_site_assistant ${MODULE_DIR}/tests/src/Unit"
+  echo "vc_drupal_unit_command=vendor/bin/phpunit --configuration ${REPO_ROOT}/phpunit.xml --testsuite drupal-unit"
+  echo "golden_transcript_command=vendor/bin/phpunit --no-configuration --bootstrap ${REPO_ROOT}/vendor/autoload.php --group ilas_site_assistant --filter GoldenTranscriptTest ${MODULE_DIR}/tests/src/Unit/GoldenTranscriptTest.php"
+} > "$SUMMARY_FILE"
+
+append_phase_result() {
+  local phase="$1"
+  local exit_code="$2"
+  echo "phase=${phase} exit_code=${exit_code} timestamp_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$SUMMARY_FILE"
+}
 
 echo "=== ILAS Site Assistant — Quality Gate ==="
 echo "Module:    $MODULE_DIR"
@@ -40,20 +59,24 @@ PHPUNIT_BIN="$REPO_ROOT/vendor/bin/phpunit"
 if [ ! -f "$PHPUNIT_BIN" ]; then
   echo "ERROR: PHPUnit not found at $PHPUNIT_BIN" >&2
   echo "Run from within DDEV: ddev exec bash $0" >&2
+  append_phase_result "bootstrap" "1"
   exit 1
 fi
 
-PHPUNIT_EXIT=0
+UNIT_EXIT=0
 "$PHPUNIT_BIN" \
   --configuration "$REPO_ROOT/phpunit.xml" \
   --group ilas_site_assistant \
   --colors=always \
   "$MODULE_DIR/tests/src/Unit" \
-  || PHPUNIT_EXIT=$?
+  || UNIT_EXIT=$?
 
-if [ "$PHPUNIT_EXIT" -ne 0 ]; then
+append_phase_result "vc_unit" "$UNIT_EXIT"
+
+if [ "$UNIT_EXIT" -ne 0 ]; then
   echo ""
-  echo "FAIL: PHPUnit unit tests failed (exit code $PHPUNIT_EXIT)"
+  echo "FAIL: PHPUnit unit tests failed (exit code $UNIT_EXIT)"
+  echo "Summary file: $SUMMARY_FILE"
   exit 1
 fi
 
@@ -61,25 +84,27 @@ echo ""
 echo "PASS: PHPUnit unit tests passed"
 echo ""
 
-# ── Phase 1b: Deterministic classifier gate (Drupal-unit assets) ─────
-echo "--- Phase 1b: Deterministic classifier gate ---"
+# ── Phase 1b: PHPUnit drupal-unit suite ───────────────────────────────
+echo "--- Phase 1b: PHPUnit drupal-unit suite ---"
 
-CLASSIFIER_EXIT=0
+DRUPAL_UNIT_EXIT=0
 "$PHPUNIT_BIN" \
   --configuration "$REPO_ROOT/phpunit.xml" \
+  --testsuite drupal-unit \
   --colors=always \
-  "$MODULE_DIR/tests/src/DrupalUnit/SafetyClassifierTest.php" \
-  "$MODULE_DIR/tests/src/DrupalUnit/OutOfScopeClassifierTest.php" \
-  || CLASSIFIER_EXIT=$?
+  || DRUPAL_UNIT_EXIT=$?
 
-if [ "$CLASSIFIER_EXIT" -ne 0 ]; then
+append_phase_result "vc_drupal_unit" "$DRUPAL_UNIT_EXIT"
+
+if [ "$DRUPAL_UNIT_EXIT" -ne 0 ]; then
   echo ""
-  echo "FAIL: Classifier Drupal-unit gate failed (exit code $CLASSIFIER_EXIT)"
+  echo "FAIL: Drupal-unit suite gate failed (exit code $DRUPAL_UNIT_EXIT)"
+  echo "Summary file: $SUMMARY_FILE"
   exit 1
 fi
 
 echo ""
-echo "PASS: Classifier Drupal-unit gate passed"
+echo "PASS: Drupal-unit suite gate passed"
 echo ""
 
 # ── Phase 1c: Golden Transcript tests ─────────────────────────────
@@ -95,14 +120,18 @@ GOLDEN_EXIT=0
   "$MODULE_DIR/tests/src/Unit/GoldenTranscriptTest.php" \
   || GOLDEN_EXIT=$?
 
+append_phase_result "golden_transcript" "$GOLDEN_EXIT"
+
 if [ "$GOLDEN_EXIT" -ne 0 ]; then
   echo ""
   echo "FAIL: Golden transcript tests failed (exit code $GOLDEN_EXIT)"
+  echo "Summary file: $SUMMARY_FILE"
   exit 1
 fi
 
 echo ""
 echo "PASS: Golden transcript tests passed"
+echo "Summary file: $SUMMARY_FILE"
 echo ""
 
 # ── Phase 2: Promptfoo abuse evals (optional) ───────────────────────
@@ -114,6 +143,7 @@ if [[ "${1:-}" == "--with-promptfoo" ]]; then
 
   if [ ! -f "$PROMPTFOO_SCRIPT" ]; then
     echo "ERROR: Promptfoo runner not found at $PROMPTFOO_SCRIPT" >&2
+    append_phase_result "promptfoo" "2"
     exit 2
   fi
 
@@ -121,6 +151,7 @@ if [[ "${1:-}" == "--with-promptfoo" ]]; then
     echo "ERROR: ILAS_ASSISTANT_URL not set. Export it before running." >&2
     echo "  Local:  export ILAS_ASSISTANT_URL=https://idaholegalaid.ddev.site/assistant/api/message" >&2
     echo "  Dev:    export ILAS_ASSISTANT_URL=https://dev-idaholegalaid.pantheonsite.io/assistant/api/message" >&2
+    append_phase_result "promptfoo" "2"
     exit 2
   fi
 
@@ -152,12 +183,15 @@ if [[ "${1:-}" == "--with-promptfoo" ]]; then
 
     if [ "$PASS_CHECK" != "yes" ]; then
       echo "FAIL: Promptfoo pass rate ${PASS_RATE}% is below ${THRESHOLD}% threshold"
+      append_phase_result "promptfoo" "2"
       exit 2
     fi
 
     echo "PASS: Promptfoo abuse evals passed (${PASS_RATE}% >= ${THRESHOLD}%)"
+    append_phase_result "promptfoo" "0"
   else
     echo "WARNING: Results file not found at $RESULTS_FILE — cannot verify pass rate"
+    append_phase_result "promptfoo" "0"
   fi
 
   echo ""

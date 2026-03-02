@@ -25,6 +25,7 @@ flowchart LR
     VX[Vertex AI]
     LF[Langfuse]
     SN[Sentry / Raven]
+    CI[External CI runner\nscripts/ci/run-external-quality-gate.sh]
     PF[Promptfoo harness]
     GA[GA4/Google Tag]
   end
@@ -53,6 +54,7 @@ flowchart LR
   RET --> STO
   GEN --> STO
 
+  CI -->|drives scripted quality gates| PF
   PF -->|synthetic eval calls| R
 
 

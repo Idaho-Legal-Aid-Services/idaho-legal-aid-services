@@ -116,6 +116,7 @@ class SloAlertService {
       $this->logger->warning('SLO violation: P95 latency @p95ms exceeds target @target ms', [
         '@p95' => $p95,
         '@target' => $target,
+        '@slo_dimension' => 'latency',
       ]);
       $this->recordAlert('latency');
     }
@@ -137,6 +138,7 @@ class SloAlertService {
       $this->logger->warning('SLO violation: error rate @rate% exceeds target @target%', [
         '@rate' => $errorRate,
         '@target' => $target,
+        '@slo_dimension' => 'error_rate',
       ]);
       $this->recordAlert('error_rate');
     }
@@ -157,6 +159,7 @@ class SloAlertService {
         '@status' => $status['status'],
         '@age' => $status['age'] ?? 'never',
         '@failures' => $status['consecutive_failures'],
+        '@slo_dimension' => 'cron',
       ]);
       $this->recordAlert('cron');
     }
@@ -177,6 +180,7 @@ class SloAlertService {
         '@status' => $status['status'],
         '@depth' => $status['depth'],
         '@pct' => $status['utilization_pct'],
+        '@slo_dimension' => 'queue',
       ]);
       $this->recordAlert('queue');
     }

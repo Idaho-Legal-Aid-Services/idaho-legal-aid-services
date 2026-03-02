@@ -31,11 +31,7 @@ class ObservabilityRedactionContractTest extends TestCase {
   }
 
   /**
-   * Returns a string containing all 9 PII types using patterns the redactor matches.
-   *
-   * Name detection requires "my name is" prefix. Date detection requires
-   * MM/DD/YYYY format. DOB requires "born on"/"dob" prefix.
-   * Case numbers use Idaho court format (CV-XX-XXXX).
+   * Returns a string containing all 9 PII types.
    */
   private function allPiiString(): string {
     return implode(' | ', [
@@ -44,9 +40,9 @@ class ObservabilityRedactionContractTest extends TestCase {
       'ssn 123-45-6789',
       'cc 4111111111111111',
       'born on 01/15/1990',
-      'date 03/15/2025',
+      'date 2025-03-15',
       '123 Main Street',
-      'my name is John Smith',
+      'name John Smith',
       'CV-24-0001',
     ]);
   }
@@ -78,11 +74,23 @@ class ObservabilityRedactionContractTest extends TestCase {
       '123-45-6789',
       '4111111111111111',
       '01/15/1990',
-      '03/15/2025',
+      '2025-03-15',
       '123 Main Street',
-      'my name is John Smith',
+      'John Smith',
       'CV-24-0001',
     ];
+  }
+
+  /**
+   * Tests explicit coverage for ISO dates and compact name context.
+   */
+  public function testIsoDateAndCompactNameAreExplicitlyRedacted(): void {
+    $redacted = PiiRedactor::redact('date 2025-03-15 name John Smith');
+
+    $this->assertStringContainsString(PiiRedactor::TOKEN_DATE, $redacted);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $redacted);
+    $this->assertStringNotContainsString('2025-03-15', $redacted);
+    $this->assertStringNotContainsString('John Smith', $redacted);
   }
 
   /**

@@ -35,7 +35,7 @@
 | Phase 0 Deliverables | `P0-DEL-01..03` | 3 |
 | Phase 0 Entry/Exit/Sprint/NDO | `P0-ENT-01..02, P0-EXT-01..03, P0-SBD-01..02, P0-NDO-01..03` | 10 |
 | Phase 1 Objectives | `P1-OBJ-01..03` | 3 |
-| Phase 1 Deliverables | `P1-DEL-01..04` | 4 |
+| Phase 1 Deliverables | `P1-DEL-01..05` | 5 |
 | Phase 1 Entry/Exit/Sprint/NDO | `P1-ENT-01..02, P1-EXT-01..03, P1-SBD-01..02, P1-NDO-01..02` | 9 |
 | Phase 2 Objectives | `P2-OBJ-01..03` | 3 |
 | Phase 2 Deliverables | `P2-DEL-01..04` | 4 |
@@ -294,6 +294,17 @@
 **Implementation Requirements**: Implement only the targeted roadmap item; Preserve phase constraints, including no live LLM enablement through Phase 2; Add/update tests tied to acceptance criteria; Run validation commands and report outcomes; Backlog linkage: Reliability & Error Handling -> Integration failure contract tests; Idempotency and replay correctness; Risk linkage: R-REL-01, R-REL-03.  
 **Acceptance Criteria**: Roadmap item is completed exactly as specified and remains within scope: "Failure-mode contract tests and replay/idempotency test coverage (`IMP-REL-01`, `IMP-REL-02`). (Refs: current-state §4B, §4D; evidence-index CLAIM-035, CLAIM-046, CLAIM-063; system-map Diagram B; runbook §4)".  
 **Validation Commands**: VC-UNIT, VC-KERNEL, VC-QUALITY-GATE.  
+**Expected Output Report**: Changed files list; test command outputs summary; residual risks/unknowns; rollback notes for risky changes.
+
+### Prompt `P1-DEL-05`
+**Prompt ID**: `P1-DEL-05`  
+**Roadmap Item**: Phase 1 (Sprints 2-3): Observability + reliability baseline -> Key deliverables #5  
+**Task**: Implement this roadmap item literally: "Retrospective regression bridge for disambiguation/schema reliability, loop/empty-query safeguards, and blocking deep transcript gating (`IMP-REL-03`, `IMP-REL-04`, `IMP-TST-02`). (Refs: roadmap §Retrospective addendum (2026-02-27 production failures) rows `IMP-REL-03`, `IMP-REL-04`, `IMP-TST-02`; backlog §Retrospective Regression Hardening; retrospective-qa-2026-02-27-production-failures.md §6)"  
+**Required Documents**: [roadmap.md](/home/evancurry/idaho-legal-aid-services/docs/aila/roadmap.md); [current-state.md](/home/evancurry/idaho-legal-aid-services/docs/aila/current-state.md); [evidence-index.md](/home/evancurry/idaho-legal-aid-services/docs/aila/evidence-index.md); [system-map.mmd](/home/evancurry/idaho-legal-aid-services/docs/aila/system-map.mmd); [runbook.md](/home/evancurry/idaho-legal-aid-services/docs/aila/runbook.md); [backlog.md](/home/evancurry/idaho-legal-aid-services/docs/aila/backlog.md); [risk-register.md](/home/evancurry/idaho-legal-aid-services/docs/aila/risk-register.md); [retrospective-qa-2026-02-27-production-failures.md](/home/evancurry/idaho-legal-aid-services/docs/aila/retrospective-qa-2026-02-27-production-failures.md).  
+**Scope Boundaries**: No live LLM rollout. (Refs: current-state §5; evidence-index CLAIM-119; system-map Diagram B; runbook §3) ; No full redesign of retrieval architecture. (Refs: current-state §4D; evidence-index CLAIM-060, CLAIM-065; system-map Diagram B; runbook §4).  
+**Implementation Requirements**: Implement only the targeted roadmap item; Preserve phase constraints, including no live LLM enablement through Phase 2; Add/update tests tied to acceptance criteria; Run validation commands and report outcomes; Canonicalize disambiguation option schema to `intent` with temporary `value` alias compatibility; Add post-sanitize empty-message guard with deterministic `400 invalid_message`; Add conversation-state loop-prevention metadata (clarify counter + prior-question hash); Enforce deep multi-turn transcript suite as blocking gate for target branches via `scripts/ci/run-promptfoo-gate.sh` with deep-config override and preserved config-override behavior in `promptfoo-evals/scripts/run-promptfoo.sh`; Backlog linkage: Reliability & Error Handling -> `IMP-REL-03`, `IMP-REL-04`; Maintainability & Testing -> `IMP-TST-02`; Risk linkage: R-REL-04, R-REL-05, R-REL-06, R-REL-07, R-MNT-02.  
+**Acceptance Criteria**: Roadmap item is completed exactly as specified and remains within scope: "Normalize disambiguation option schema (`intent` canonical; `value` accepted as deprecated alias), and harden mixed forms/guides clarify behavior (`IMP-REL-03`). Add controller guard for empty-after-sanitize messages and loop-prevention metadata for repeated clarify cycles (`IMP-REL-04`). Expand blocking regression gate to include deep multi-turn transcript replay and UI/controller contract assertions (`IMP-TST-02`). Includes golden replay coverage for `i need some help`, `custody forms?`, `eviction forms or guides?`, and repeated `eviction forms` no-loop behavior. (Refs: roadmap §Retrospective addendum rows `IMP-REL-03`, `IMP-REL-04`, `IMP-TST-02`)".  
+**Validation Commands**: VC-UNIT, VC-KERNEL, VC-QUALITY-GATE, VC-PROMPTFOO.  
 **Expected Output Report**: Changed files list; test command outputs summary; residual risks/unknowns; rollback notes for risky changes.
 
 ### Prompt `P1-ENT-01`
@@ -935,7 +946,7 @@
 **Expected Output Report**: Changed files list; test command outputs summary; residual risks/unknowns; rollback notes for risky changes.
 
 ## Completeness checklist
-1. Coverage: all 80 prompt IDs are present.
+1. Coverage: all 81 prompt IDs are present.
 2. References: every prompt includes absolute-path document links.
 3. Constraints: every prompt includes phase-specific scope boundaries.
 4. Acceptance and validation: every prompt includes measurable acceptance criteria and validation commands.

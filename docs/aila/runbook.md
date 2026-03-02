@@ -308,15 +308,30 @@ ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
 ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
   CI_BRANCH=feature/p1-obj-03 \
   scripts/ci/run-external-quality-gate.sh --env dev --mode auto
+
+# 4) Deterministic external-runner policy simulation (pass-through options).
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=release/2026-03 \
+  scripts/ci/run-external-quality-gate.sh \
+    --env test \
+    --mode auto \
+    --threshold 90 \
+    --config promptfooconfig.abuse.yaml \
+    --skip-eval \
+    --simulate-pass-rate 85
 ```
 
 Expected quality gate result:
-- `tests/run-quality-gate.sh` blocks on unit regressions, deterministic
-  classifier regressions (Safety + OutOfScope), and golden transcript failures.
+- `tests/run-quality-gate.sh` blocks on `VC-UNIT` and full
+  `VC-DRUPAL-UNIT` suite regressions, plus golden transcript failures.
 - `scripts/ci/run-promptfoo-gate.sh` blocks threshold/eval failures on
   `main`/`release/*` and reports advisory-only failures on other branches.
 - `scripts/ci/run-external-quality-gate.sh` composes repo-owned gate assets for
   CI platforms where workflow ownership is external to this repository.
+
+Expected artifacts:
+- `promptfoo-evals/output/phpunit-summary.txt` (per-phase PHPUnit gate status + timestamps).
+- `promptfoo-evals/output/gate-summary.txt` (Promptfoo branch mode, threshold, pass rate, eval status).
 
 ### Config parity + drift checks (`IMP-CONF-01`)
 

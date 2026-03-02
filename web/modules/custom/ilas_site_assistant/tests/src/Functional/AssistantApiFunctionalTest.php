@@ -197,30 +197,24 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that the track endpoint requires CSRF token.
+   * Tests that the track endpoint works without CSRF token.
+   *
+   * CSRF was removed from /track to avoid session creation on telemetry.
+   * Origin/Referer validation + rate limiting protect the endpoint instead.
    */
-  public function testTrackEndpointRequiresCsrfToken(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $response = $this->postJson('/assistant/api/track', [
-      'event_type' => 'chat_open',
-    ], FALSE);
-
-    $this->assertEquals(403, $response->getStatusCode());
-  }
-
-  /**
-   * Tests that the track endpoint rejects invalid CSRF tokens.
-   */
-  public function testTrackEndpointRejectsInvalidCsrfToken(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $response = $this->postJson('/assistant/api/track', [
-      'event_type' => 'chat_open',
-      'event_value' => '',
-    ], TRUE, 'invalid-token');
-
-    $this->assertEquals(403, $response->getStatusCode());
+  public function testTrackEndpointWithoutCsrf(): void {
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
+    $this->assertEquals(200, $response->getStatusCode(),
+      '/track should accept POST without CSRF token');
   }
 
   /**
@@ -232,7 +226,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $response = $this->postJson('/assistant/api/track', [
       'event_type' => 'chat_open',
       'event_value' => '',
-    ], TRUE);
+    ], FALSE);
 
     $this->assertEquals(200, $response->getStatusCode());
 
@@ -244,11 +238,15 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Tests that the track endpoint rejects missing event_type.
    */
   public function testTrackEndpointRejectsMissingEventType(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $response = $this->postJson('/assistant/api/track', [
-      'event_value' => 'some_value',
-    ], TRUE);
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+      ],
+      'body' => json_encode([
+        'event_value' => 'some_value',
+      ]),
+    ]);
 
     $this->assertEquals(400, $response->getStatusCode());
   }
@@ -459,18 +457,10 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix A (F-04): Content-Type null → TypeError on PHP 8.1+.
    */
   public function testTrackEndpointRejectsNullContentType(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $cookies = $this->getSessionCookies();
-    $session_token = $this->getSessionToken($cookies);
     $url = $this->buildUrl('/assistant/api/track');
 
     $options = [
       'http_errors' => FALSE,
-      'headers' => [
-        'X-CSRF-Token' => $session_token,
-      ],
-      'cookies' => $cookies,
       'body' => '{"event_type":"chat_open"}',
     ];
 
@@ -500,12 +490,16 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix B (C-06).
    */
   public function testTrackEndpointIncludesCacheControlNoStore(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $response = $this->postJson('/assistant/api/track', [
-      'event_type' => 'chat_open',
-      'event_value' => '',
-    ], TRUE);
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
 
     $cache_control = $response->getHeader('Cache-Control')[0] ?? '';
     $this->assertStringContainsString('no-store', $cache_control, 'POST /track must include Cache-Control: no-store');
@@ -541,12 +535,16 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix D (F-28/C-07).
    */
   public function testTrackResponseIncludesRequestId(): void {
-    $this->drupalLogin($this->regularUser);
-
-    $response = $this->postJson('/assistant/api/track', [
-      'event_type' => 'chat_open',
-      'event_value' => '',
-    ], TRUE);
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
 
     $this->assertEquals(200, $response->getStatusCode());
 
@@ -637,44 +635,18 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Tests anonymous POST to /track without CSRF token returns 403.
+   * Tests anonymous POST to /track succeeds without CSRF token.
    *
-   * IMP-SEC-01 CSRF Auth Matrix row:
-   *   Anonymous | No session/token | No token | 403 (forbidden)
+   * CSRF was removed from /track to avoid unnecessary session creation.
+   * Origin/Referer validation + rate limiting protect the endpoint instead.
    */
-  public function testAnonymousTrackEndpointRequiresCsrfToken(): void {
+  public function testAnonymousTrackEndpointWithoutCsrf(): void {
     $response = $this->postJsonAnonymous('/assistant/api/track', [
       'event_type' => 'chat_open',
       'event_value' => '',
     ]);
 
-    $this->assertEquals(403, $response->getStatusCode(), 'Anonymous POST to /track without CSRF token should return 403');
-  }
-
-  /**
-   * Tests anonymous POST to /track with invalid CSRF token returns 403.
-   */
-  public function testAnonymousTrackEndpointRejectsInvalidCsrfToken(): void {
-    $response = $this->postJsonAnonymous('/assistant/api/track', [
-      'event_type' => 'chat_open',
-      'event_value' => '',
-    ], 'invalid-token');
-
-    $this->assertEquals(403, $response->getStatusCode(), 'Anonymous POST to /track with invalid CSRF token should return 403');
-  }
-
-  /**
-   * Tests anonymous POST to /track with valid CSRF token returns 200.
-   */
-  public function testAnonymousTrackEndpointAllowsValidCsrfToken(): void {
-    [$cookies, $token] = $this->getAnonymousSessionCookiesAndToken();
-
-    $response = $this->postJsonAnonymous('/assistant/api/track', [
-      'event_type' => 'chat_open',
-      'event_value' => '',
-    ], $token, $cookies);
-
-    $this->assertEquals(200, $response->getStatusCode(), 'Anonymous POST to /track with valid CSRF token should return 200');
+    $this->assertEquals(200, $response->getStatusCode(), 'Anonymous POST to /track should succeed without CSRF token');
     $data = json_decode($response->getBody(), TRUE);
     $this->assertTrue($data['ok']);
   }
@@ -783,17 +755,19 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Primes an anonymous cookie jar by loading the assistant page first.
+   * Primes an anonymous cookie jar by fetching a session token.
    *
-   * The assistant page now starts a real anonymous session before issuing the
-   * widget CSRF token, so this request establishes the cookie-backed session.
+   * The assistant page no longer embeds CSRF tokens (to allow page caching).
+   * Instead, the widget fetches /session/token lazily before the first POST.
+   * This helper establishes the session cookie for anonymous CSRF tests.
    */
   protected function primeAnonymousSession(CookieJarInterface $cookies): void {
-    $response = $this->getHttpClient()->get($this->buildUrl('/assistant'), [
+    $response = $this->getHttpClient()->get($this->buildUrl('/session/token'), [
       'http_errors' => FALSE,
       'cookies' => $cookies,
     ]);
-    $this->assertEquals(200, $response->getStatusCode(), 'Assistant page must be accessible to prime anonymous CSRF session');
+    $this->assertEquals(200, $response->getStatusCode(),
+      '/session/token must be accessible to establish anonymous session');
   }
 
 }
