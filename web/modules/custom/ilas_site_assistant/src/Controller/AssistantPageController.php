@@ -100,8 +100,8 @@ class AssistantPageController extends ControllerBase {
         'library' => ['ilas_site_assistant/page'],
         'drupalSettings' => [
           // NOTE: csrfToken intentionally omitted — widget fetches from
-          // /session/token before the first chat POST. This avoids stale
-          // tokens in cached pages.
+          // /assistant/api/session/bootstrap before the first chat POST.
+          // This avoids stale tokens in cached pages.
           'ilasSiteAssistant' => [
             'apiBase' => '/assistant/api',
             'disclaimer' => $config->get('disclaimer_text'),

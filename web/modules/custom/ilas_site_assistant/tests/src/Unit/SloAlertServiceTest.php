@@ -130,6 +130,15 @@ class SloAlertServiceTest extends TestCase {
   }
 
   /**
+   * Returns a matcher callback for @slo_dimension warning context.
+   */
+  private function hasSloDimension(string $dimension): \Closure {
+    return static function ($context) use ($dimension): bool {
+      return is_array($context) && ($context['@slo_dimension'] ?? NULL) === $dimension;
+    };
+  }
+
+  /**
    * Tests that checkLatencySlo fires a warning when P95 exceeds target.
    *
    * @covers ::checkLatencySlo
@@ -143,7 +152,10 @@ class SloAlertServiceTest extends TestCase {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
       ->method('warning')
-      ->with($this->stringContains('P95 latency'), $this->anything());
+      ->with(
+        $this->stringContains('P95 latency'),
+        $this->callback($this->hasSloDimension('latency'))
+      );
 
     $alert = new SloAlertService($slo, $logger, $state, $perfMonitor);
     $alert->checkLatencySlo();
@@ -163,7 +175,10 @@ class SloAlertServiceTest extends TestCase {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
       ->method('warning')
-      ->with($this->stringContains('availability'), $this->anything());
+      ->with(
+        $this->stringContains('availability'),
+        $this->callback($this->hasSloDimension('availability'))
+      );
 
     $alert = new SloAlertService($slo, $logger, $state, $perfMonitor);
     $alert->checkAvailabilitySlo();
@@ -239,7 +254,10 @@ class SloAlertServiceTest extends TestCase {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
       ->method('warning')
-      ->with($this->stringContains('error rate'), $this->anything());
+      ->with(
+        $this->stringContains('error rate'),
+        $this->callback($this->hasSloDimension('error_rate'))
+      );
 
     $alert = new SloAlertService($slo, $logger, $state, $perfMonitor);
     $alert->checkErrorRateSlo();
@@ -258,7 +276,10 @@ class SloAlertServiceTest extends TestCase {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
       ->method('warning')
-      ->with($this->stringContains('cron health'), $this->anything());
+      ->with(
+        $this->stringContains('cron health'),
+        $this->callback($this->hasSloDimension('cron'))
+      );
 
     $alert = new SloAlertService($slo, $logger, $state, NULL, $cronTracker);
     $alert->checkCronSlo();
@@ -294,7 +315,10 @@ class SloAlertServiceTest extends TestCase {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
       ->method('warning')
-      ->with($this->stringContains('queue is'), $this->anything());
+      ->with(
+        $this->stringContains('queue is'),
+        $this->callback($this->hasSloDimension('queue'))
+      );
 
     $alert = new SloAlertService($slo, $logger, $state, NULL, NULL, $queueMonitor);
     $alert->checkQueueSlo();

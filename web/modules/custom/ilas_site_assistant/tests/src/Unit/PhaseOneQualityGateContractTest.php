@@ -44,7 +44,7 @@ class PhaseOneQualityGateContractTest extends TestCase {
     $this->assertStringContainsString('tests/run-quality-gate.sh', $currentState);
     $this->assertStringContainsString('scripts/ci/run-external-quality-gate.sh', $currentState);
     $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh', $currentState);
-    $this->assertStringContainsString('`main`/`release/*`', $currentState);
+    $this->assertStringContainsString('`master`/`main`/`release/*`', $currentState);
     $this->assertStringContainsString('## 8) Known unknowns', $currentState);
     $this->assertStringContainsString('Promptfoo CI ownership outside this repository', $currentState);
     $this->assertStringContainsString('### Phase 1 Objective #3 Quality Gate Disposition (2026-02-27)', $currentState);
@@ -76,7 +76,7 @@ class PhaseOneQualityGateContractTest extends TestCase {
       'scripts/ci/run-external-quality-gate.sh --env dev --mode auto',
       $runbook,
     );
-    $this->assertStringContainsString('`main`/`release/*`', $runbook);
+    $this->assertStringContainsString('`master`/`main`/`release/*`', $runbook);
   }
 
   /**
@@ -126,9 +126,12 @@ class PhaseOneQualityGateContractTest extends TestCase {
     $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh', $externalGate);
 
     $this->assertStringContainsString(
-      'if [[ "$CI_BRANCH_NAME" == "main" || "$CI_BRANCH_NAME" =~ ^release/ ]]; then',
+      'if [[ "$CI_BRANCH_NAME" == "master" || "$CI_BRANCH_NAME" == "main" || "$CI_BRANCH_NAME" =~ ^release/ ]]; then',
       $promptfooGate,
     );
+    $this->assertStringContainsString('promptfooconfig.deep.yaml', $promptfooGate);
+    $this->assertStringContainsString('promptfooconfig.abuse.yaml', $promptfooGate);
+    $this->assertStringContainsString('config_file=', $promptfooGate);
     $this->assertStringContainsString('Promptfoo gate FAILED in blocking mode', $promptfooGate);
     $this->assertStringContainsString('Promptfoo gate FAILED in advisory mode', $promptfooGate);
   }

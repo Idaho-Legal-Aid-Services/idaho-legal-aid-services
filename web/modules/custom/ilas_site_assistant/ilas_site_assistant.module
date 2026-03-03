@@ -75,8 +75,9 @@ function ilas_site_assistant_page_attachments(array &$attachments) {
   $attachments['#attached']['library'][] = 'ilas_site_assistant/widget';
 
   // Pass configuration to JavaScript.
-  // NOTE: csrfToken intentionally omitted — widget fetches from /session/token
-  // before the first chat POST. This avoids stale tokens in cached pages.
+  // NOTE: csrfToken intentionally omitted — widget fetches from
+  // /assistant/api/session/bootstrap before the first chat POST. This avoids
+  // stale tokens in cached pages.
   $attachments['#attached']['drupalSettings']['ilasSiteAssistant'] = [
     'apiBase' => '/assistant/api',
     'disclaimer' => $config->get('disclaimer_text') ?? t('I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'),
@@ -150,10 +151,6 @@ function ilas_site_assistant_cron() {
       \Drupal::service('ilas_site_assistant.safety_alert')->checkThresholds();
     }
 
-    // Check SLO alert thresholds.
-    if (\Drupal::hasService('ilas_site_assistant.slo_alert')) {
-      \Drupal::service('ilas_site_assistant.slo_alert')->checkAll();
-    }
   }
   catch (\Throwable $e) {
     $success = FALSE;
@@ -165,6 +162,18 @@ function ilas_site_assistant_cron() {
     $duration_ms = (microtime(TRUE) - $start) * 1000;
     if (\Drupal::hasService('ilas_site_assistant.cron_health_tracker')) {
       \Drupal::service('ilas_site_assistant.cron_health_tracker')->recordRun($duration_ms, $success);
+    }
+
+    // Check SLO alert thresholds after recording this cron run's health.
+    if (\Drupal::hasService('ilas_site_assistant.slo_alert')) {
+      try {
+        \Drupal::service('ilas_site_assistant.slo_alert')->checkAll();
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('ilas_site_assistant')->error('SLO alert check failed: @message', [
+          '@message' => $e->getMessage(),
+        ]);
+      }
     }
   }
 }

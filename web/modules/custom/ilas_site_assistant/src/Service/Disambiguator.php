@@ -83,8 +83,8 @@ class Disambiguator {
       'apply_for_help:services_overview' => [
         'question' => 'Are you looking for information about our services or ready to apply?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Learn about services', 'value' => 'services_overview'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Learn about services', 'intent' => 'services_overview'],
         ],
       ],
 
@@ -92,8 +92,8 @@ class Disambiguator {
       'apply_for_help:eligibility' => [
         'question' => 'Would you like to check if you qualify or start an application?',
         'options' => [
-          ['label' => 'Check eligibility', 'value' => 'eligibility'],
-          ['label' => 'Start application', 'value' => 'apply_for_help'],
+          ['label' => 'Check eligibility', 'intent' => 'eligibility'],
+          ['label' => 'Start application', 'intent' => 'apply_for_help'],
         ],
       ],
 
@@ -101,9 +101,9 @@ class Disambiguator {
       'forms_finder:guides_finder' => [
         'question' => 'What type of resource do you need?',
         'options' => [
-          ['label' => 'Court forms to fill out', 'value' => 'forms_finder'],
-          ['label' => 'Step-by-step guide', 'value' => 'guides_finder'],
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
+          ['label' => 'Court forms to fill out', 'intent' => 'forms_finder'],
+          ['label' => 'Step-by-step guide', 'intent' => 'guides_finder'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
         ],
       ],
 
@@ -111,8 +111,8 @@ class Disambiguator {
       'legal_advice_line:offices_contact' => [
         'question' => 'How would you like to reach us?',
         'options' => [
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Find office location', 'value' => 'offices_contact'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find office location', 'intent' => 'offices_contact'],
         ],
       ],
 
@@ -120,8 +120,8 @@ class Disambiguator {
       'donations:feedback' => [
         'question' => 'What would you like to do?',
         'options' => [
-          ['label' => 'Make a donation', 'value' => 'donations'],
-          ['label' => 'Volunteer or give feedback', 'value' => 'feedback'],
+          ['label' => 'Make a donation', 'intent' => 'donations'],
+          ['label' => 'Volunteer or give feedback', 'intent' => 'feedback'],
         ],
       ],
 
@@ -129,8 +129,8 @@ class Disambiguator {
       'faq:guides_finder' => [
         'question' => 'What would be most helpful?',
         'options' => [
-          ['label' => 'Quick answer to a question', 'value' => 'faq'],
-          ['label' => 'Detailed how-to guide', 'value' => 'guides_finder'],
+          ['label' => 'Quick answer to a question', 'intent' => 'faq'],
+          ['label' => 'Detailed how-to guide', 'intent' => 'guides_finder'],
         ],
       ],
 
@@ -138,8 +138,8 @@ class Disambiguator {
       'faq:services_overview' => [
         'question' => 'What are you looking for?',
         'options' => [
-          ['label' => 'Answers to common questions', 'value' => 'faq'],
-          ['label' => 'Overview of our services', 'value' => 'services_overview'],
+          ['label' => 'Answers to common questions', 'intent' => 'faq'],
+          ['label' => 'Overview of our services', 'intent' => 'services_overview'],
         ],
       ],
 
@@ -147,8 +147,8 @@ class Disambiguator {
       'apply_for_help:legal_advice_line' => [
         'question' => 'How would you like to get help?',
         'options' => [
-          ['label' => 'Apply online', 'value' => 'apply_for_help'],
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
+          ['label' => 'Apply online', 'intent' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
         ],
       ],
 
@@ -156,8 +156,8 @@ class Disambiguator {
       'apply_for_help:forms_finder' => [
         'question' => 'What kind of help do you need?',
         'options' => [
-          ['label' => 'Find court forms', 'value' => 'forms_finder'],
-          ['label' => 'Apply for a lawyer', 'value' => 'apply_for_help'],
+          ['label' => 'Find court forms', 'intent' => 'forms_finder'],
+          ['label' => 'Apply for a lawyer', 'intent' => 'apply_for_help'],
         ],
       ],
 
@@ -165,8 +165,8 @@ class Disambiguator {
       'apply_for_help:guides_finder' => [
         'question' => 'Would you prefer self-help resources or legal representation?',
         'options' => [
-          ['label' => 'Self-help guide', 'value' => 'guides_finder'],
-          ['label' => 'Apply for a lawyer', 'value' => 'apply_for_help'],
+          ['label' => 'Self-help guide', 'intent' => 'guides_finder'],
+          ['label' => 'Apply for a lawyer', 'intent' => 'apply_for_help'],
         ],
       ],
     ];
@@ -181,113 +181,122 @@ class Disambiguator {
       'help' => [
         'question' => 'How can I help you today?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Find office location', 'value' => 'offices_contact'],
-          ['label' => 'Find forms', 'value' => 'forms_finder'],
-          ['label' => 'Read a guide', 'value' => 'guides_finder'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Find office location', 'intent' => 'offices_contact'],
+          ['label' => 'Find forms', 'intent' => 'forms_finder'],
+          ['label' => 'Read a guide', 'intent' => 'guides_finder'],
         ],
       ],
       'can you help' => [
         'question' => 'How can I help you today?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Find forms', 'value' => 'forms_finder'],
-          ['label' => 'Read a guide', 'value' => 'guides_finder'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find forms', 'intent' => 'forms_finder'],
+          ['label' => 'Read a guide', 'intent' => 'guides_finder'],
         ],
       ],
       'can you help me' => [
         'question' => 'How can I help you today?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Find forms', 'value' => 'forms_finder'],
-          ['label' => 'Read a guide', 'value' => 'guides_finder'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find forms', 'intent' => 'forms_finder'],
+          ['label' => 'Read a guide', 'intent' => 'guides_finder'],
         ],
       ],
       'i need help' => [
         'question' => 'What kind of help do you need?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Find forms', 'value' => 'forms_finder'],
-          ['label' => 'Read a guide', 'value' => 'guides_finder'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find forms', 'intent' => 'forms_finder'],
+          ['label' => 'Read a guide', 'intent' => 'guides_finder'],
+        ],
+      ],
+      'i need some help' => [
+        'question' => 'What kind of help do you need?',
+        'options' => [
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find forms', 'intent' => 'forms_finder'],
+          ['label' => 'Read a guide', 'intent' => 'guides_finder'],
         ],
       ],
       'where can i get help' => [
         'question' => 'What kind of help are you looking for?',
         'options' => [
-          ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-          ['label' => 'Find office location', 'value' => 'offices_contact'],
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
+          ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+          ['label' => 'Find office location', 'intent' => 'offices_contact'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
         ],
       ],
       'forms' => [
         'question' => 'What type of forms do you need?',
         'options' => [
-          ['label' => 'Family/Divorce forms', 'value' => 'forms_finder', 'topic' => 'family'],
-          ['label' => 'Housing/Eviction forms', 'value' => 'forms_finder', 'topic' => 'housing'],
-          ['label' => 'Other forms', 'value' => 'forms_finder'],
+          ['label' => 'Family/Divorce forms', 'intent' => 'forms_finder', 'topic' => 'family'],
+          ['label' => 'Housing/Eviction forms', 'intent' => 'forms_finder', 'topic' => 'housing'],
+          ['label' => 'Other forms', 'intent' => 'forms_finder'],
         ],
       ],
       'phone' => [
         'question' => 'What phone number do you need?',
         'options' => [
-          ['label' => 'Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Office phone number', 'value' => 'offices_contact'],
+          ['label' => 'Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Office phone number', 'intent' => 'offices_contact'],
         ],
       ],
       'information' => [
         'question' => 'What information are you looking for?',
         'options' => [
-          ['label' => 'About our services', 'value' => 'services_overview'],
-          ['label' => 'Frequently asked questions', 'value' => 'faq'],
-          ['label' => 'Self-help guides', 'value' => 'guides_finder'],
+          ['label' => 'About our services', 'intent' => 'services_overview'],
+          ['label' => 'Frequently asked questions', 'intent' => 'faq'],
+          ['label' => 'Self-help guides', 'intent' => 'guides_finder'],
         ],
       ],
       'i want to apply' => [
         'question' => 'What would you like to apply for?',
         'options' => [
-          ['label' => 'Legal help from ILAS', 'value' => 'apply_for_help'],
-          ['label' => 'Learn about eligibility first', 'value' => 'eligibility'],
+          ['label' => 'Legal help from ILAS', 'intent' => 'apply_for_help'],
+          ['label' => 'Learn about eligibility first', 'intent' => 'eligibility'],
         ],
       ],
       'contact' => [
         'question' => 'How would you like to contact us?',
         'options' => [
-          ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-          ['label' => 'Find office location', 'value' => 'offices_contact'],
-          ['label' => 'Apply online', 'value' => 'apply_for_help'],
+          ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+          ['label' => 'Find office location', 'intent' => 'offices_contact'],
+          ['label' => 'Apply online', 'intent' => 'apply_for_help'],
         ],
       ],
       'contact information' => [
         'question' => 'What contact information do you need?',
         'options' => [
-          ['label' => 'Office locations & hours', 'value' => 'offices_contact'],
-          ['label' => 'Legal Advice Line', 'value' => 'legal_advice_line'],
+          ['label' => 'Office locations & hours', 'intent' => 'offices_contact'],
+          ['label' => 'Legal Advice Line', 'intent' => 'legal_advice_line'],
         ],
       ],
       'what do you do' => [
         'question' => 'What would you like to know?',
         'options' => [
-          ['label' => 'What services we offer', 'value' => 'services_overview'],
-          ['label' => 'How to apply for help', 'value' => 'apply_for_help'],
-          ['label' => 'Frequently asked questions', 'value' => 'faq'],
+          ['label' => 'What services we offer', 'intent' => 'services_overview'],
+          ['label' => 'How to apply for help', 'intent' => 'apply_for_help'],
+          ['label' => 'Frequently asked questions', 'intent' => 'faq'],
         ],
       ],
       'what can you do' => [
         'question' => 'What would you like to know?',
         'options' => [
-          ['label' => 'What services we offer', 'value' => 'services_overview'],
-          ['label' => 'How to apply for help', 'value' => 'apply_for_help'],
-          ['label' => 'Frequently asked questions', 'value' => 'faq'],
+          ['label' => 'What services we offer', 'intent' => 'services_overview'],
+          ['label' => 'How to apply for help', 'intent' => 'apply_for_help'],
+          ['label' => 'Frequently asked questions', 'intent' => 'faq'],
         ],
       ],
       'what do you offer' => [
         'question' => 'What would you like to know?',
         'options' => [
-          ['label' => 'What services we offer', 'value' => 'services_overview'],
-          ['label' => 'How to apply for help', 'value' => 'apply_for_help'],
+          ['label' => 'What services we offer', 'intent' => 'services_overview'],
+          ['label' => 'How to apply for help', 'intent' => 'apply_for_help'],
         ],
       ],
 
@@ -295,18 +304,18 @@ class Disambiguator {
       'ayuda' => [
         'question' => 'Como puedo ayudarle hoy?',
         'options' => [
-          ['label' => 'Aplicar para ayuda legal', 'value' => 'apply_for_help'],
-          ['label' => 'Encontrar oficina', 'value' => 'offices_contact'],
-          ['label' => 'Encontrar formularios', 'value' => 'forms_finder'],
-          ['label' => 'Leer una guia', 'value' => 'guides_finder'],
+          ['label' => 'Aplicar para ayuda legal', 'intent' => 'apply_for_help'],
+          ['label' => 'Encontrar oficina', 'intent' => 'offices_contact'],
+          ['label' => 'Encontrar formularios', 'intent' => 'forms_finder'],
+          ['label' => 'Leer una guia', 'intent' => 'guides_finder'],
         ],
       ],
       'formularios' => [
         'question' => 'Que tipo de formularios necesita?',
         'options' => [
-          ['label' => 'Formularios de familia/divorcio', 'value' => 'forms_finder', 'topic' => 'family'],
-          ['label' => 'Formularios de vivienda/desalojo', 'value' => 'forms_finder', 'topic' => 'housing'],
-          ['label' => 'Otros formularios', 'value' => 'forms_finder'],
+          ['label' => 'Formularios de familia/divorcio', 'intent' => 'forms_finder', 'topic' => 'family'],
+          ['label' => 'Formularios de vivienda/desalojo', 'intent' => 'forms_finder', 'topic' => 'housing'],
+          ['label' => 'Otros formularios', 'intent' => 'forms_finder'],
         ],
       ],
     ];
@@ -429,7 +438,7 @@ class Disambiguator {
         'matched_query' => $normalized,
         'confidence' => 0.3,
         'question' => $template['question'],
-        'options' => $template['options'],
+        'options' => $this->canonicalizeOptions($template['options']),
       ];
     }
 
@@ -488,12 +497,12 @@ class Disambiguator {
       'topic' => $topic['area'],
       'confidence' => 0.4,
       'question' => "I can help with {$area_label}. What would you like to do?",
-      'options' => [
-        ['label' => "Find {$area_label} forms", 'value' => 'forms_finder', 'topic' => $topic['area']],
-        ['label' => "Read {$area_label} guide", 'value' => 'guides_finder', 'topic' => $topic['area']],
-        ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-        ['label' => 'Call Legal Advice Line', 'value' => 'legal_advice_line'],
-      ],
+      'options' => $this->canonicalizeOptions([
+        ['label' => "Find {$area_label} forms", 'intent' => 'forms_finder', 'topic' => $topic['area']],
+        ['label' => "Read {$area_label} guide", 'intent' => 'guides_finder', 'topic' => $topic['area']],
+        ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+        ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+      ]),
     ];
   }
 
@@ -554,7 +563,7 @@ class Disambiguator {
         'delta' => $delta,
         'confidence' => $first['confidence'],
         'question' => $template['question'],
-        'options' => $template['options'],
+        'options' => $this->canonicalizeOptions($template['options']),
       ];
     }
 
@@ -566,12 +575,12 @@ class Disambiguator {
       'delta' => $delta,
       'confidence' => $first['confidence'],
       'question' => 'I want to make sure I help you with the right thing. What are you looking for?',
-      'options' => [
-        ['label' => 'Apply for legal help', 'value' => 'apply_for_help'],
-        ['label' => 'Find forms', 'value' => 'forms_finder'],
-        ['label' => 'Read a guide', 'value' => 'guides_finder'],
-        ['label' => 'Call advice line', 'value' => 'legal_advice_line'],
-      ],
+      'options' => $this->canonicalizeOptions([
+        ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+        ['label' => 'Find forms', 'intent' => 'forms_finder'],
+        ['label' => 'Read a guide', 'intent' => 'guides_finder'],
+        ['label' => 'Call advice line', 'intent' => 'legal_advice_line'],
+      ]),
     ];
   }
 
@@ -622,7 +631,7 @@ class Disambiguator {
         'delta' => $delta,
         'confidence' => $first['confidence'],
         'question' => $template['question'],
-        'options' => $template['options'],
+        'options' => $this->canonicalizeOptions($template['options']),
       ];
     }
 
@@ -662,6 +671,40 @@ class Disambiguator {
     // Normalize whitespace.
     $message = preg_replace('/\s+/', ' ', $message);
     return $message;
+  }
+
+  /**
+   * Ensures disambiguation options always expose canonical 'intent' keys.
+   *
+   * The canonical key is 'intent'; 'value' is deprecated. This method
+   * normalizes any remaining legacy 'value' entries for backwards compat.
+   *
+   * @param array $options
+   *   Raw option rows.
+   *
+   * @return array
+   *   Normalized options.
+   */
+  protected function canonicalizeOptions(array $options): array {
+    $normalized = [];
+    foreach ($options as $option) {
+      if (!is_array($option)) {
+        continue;
+      }
+
+      $intent = (string) ($option['intent'] ?? $option['value'] ?? '');
+      if ($intent === '') {
+        continue;
+      }
+
+      if (!isset($option['intent']) || $option['intent'] === '') {
+        $option['intent'] = $intent;
+      }
+
+      $normalized[] = $option;
+    }
+
+    return $normalized;
   }
 
   /**

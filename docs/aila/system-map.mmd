@@ -14,7 +14,10 @@ flowchart LR
     PL[Pipeline\nFlood -> Validation -> Safety -> OOS -> Policy -> Intent]
     RET[Retrieval\nFaqIndex + ResourceFinder\nSearch API + optional vector]
     GEN[Generation\nLlmEnhancer\nGemini/Vertex optional]
-    OBS[Observability\nAnalytics logger\nLangfuse tracer/queue\nSentry options subscriber]
+    DASH[Dashboard APIs\n/assistant/api/health\n/assistant/api/metrics]
+    ADR[Admin report dashboard\n/admin/reports/ilas-assistant]
+    OBS[Observability\nAnalytics logger\nLangfuse tracer/queue\nSentry options subscriber\nNormalized telemetry log schema]
+    ALT[Critical alerts\nSLO violation watchdog warnings]
     STO[(Storage\nCustom DB tables\ncache.ilas_site_assistant\nstate + queues + config)]
   end
 
@@ -33,12 +36,14 @@ flowchart LR
   U --> W
   U --> P
   W -->|POST /assistant/api/message + CSRF| R
-  W -->|POST /assistant/api/track + CSRF| R
+  W -->|POST /assistant/api/track + Origin/Referer guard| R
   W -->|GET /assistant/api/suggest, /faq| R
   W --> DL
   DL --> GA
 
   R --> PL
+  R --> DASH
+  R --> ADR
   PL --> RET
   RET --> SA
   RET -->|vector enabled| PC
@@ -47,6 +52,8 @@ flowchart LR
   GEN -->|provider=vertex_ai| VX
 
   R --> OBS
+  OBS --> ALT
+  ALT --> STO
   OBS --> LF
   OBS --> SN
   R --> STO

@@ -42,8 +42,9 @@ ACTION="${1:-eval}"
 case "$ACTION" in
   eval)
     echo "Running Promptfoo evaluation..."
-    npx promptfoo@latest eval --config "$CONFIG"
-    echo "Done. Results written to $EVALS_DIR/output/results.json"
+    OUTPUT_FILE="${PROMPTFOO_OUTPUT_FILE:-$EVALS_DIR/output/results.json}"
+    npx promptfoo@latest eval --config "$CONFIG" --output "$OUTPUT_FILE"
+    echo "Done. Results written to $OUTPUT_FILE"
     ;;
   view)
     PORT=${PROMPTFOO_PORT:-15500}

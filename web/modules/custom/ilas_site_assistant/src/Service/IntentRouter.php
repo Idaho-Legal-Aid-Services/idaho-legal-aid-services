@@ -837,7 +837,10 @@ class IntentRouter {
    */
   public function route(string $message, array $context = []) {
     // Step 1: Run through keyword extraction pipeline.
-    $extraction = $this->keywordExtractor->extract($message);
+    $extraction = $this->normalizeExtraction(
+      $this->keywordExtractor->extract($message),
+      $message
+    );
 
     // Step 2: Check for URGENT SAFETY triggers FIRST (highest priority).
     $urgent_result = $this->checkUrgentSafety($message);
@@ -908,6 +911,12 @@ class IntentRouter {
     $legal_advice_result = $this->checkLegalAdviceSeeking($message, $extraction);
     if ($legal_advice_result) {
       return $legal_advice_result;
+    }
+
+    // Step 5a3: Mixed forms+guides phrasing should clarify, not guess.
+    $mixed_resource_disambiguation = $this->checkMixedFormsGuidesDisambiguation($message, $extraction);
+    if ($mixed_resource_disambiguation) {
+      return $mixed_resource_disambiguation;
     }
 
     // Step 5b: TopicRouter - handle short/single-token topic queries.
@@ -1051,6 +1060,42 @@ class IntentRouter {
       'confidence' => 0.2,
       'extraction' => $extraction,
     ];
+  }
+
+  /**
+   * Normalizes keyword extractor output to required router keys.
+   *
+   * @param array|null $extraction
+   *   Raw extraction output.
+   * @param string $message
+   *   Original message.
+   *
+   * @return array
+   *   Extraction payload with required keys.
+   */
+  protected function normalizeExtraction(?array $extraction, string $message): array {
+    $base = [
+      'original' => $message,
+      'normalized' => mb_strtolower(trim($message)),
+      'high_risk' => NULL,
+      'out_of_scope' => FALSE,
+    ];
+
+    if (!is_array($extraction)) {
+      return $base;
+    }
+
+    $normalized = array_merge($base, $extraction);
+    $normalized['original'] = (string) ($normalized['original'] ?? $message);
+    $normalized['normalized'] = (string) ($normalized['normalized'] ?? mb_strtolower(trim($normalized['original'])));
+    $normalized['out_of_scope'] = (bool) ($normalized['out_of_scope'] ?? FALSE);
+
+    $high_risk = $normalized['high_risk'] ?? NULL;
+    $normalized['high_risk'] = is_string($high_risk) && $high_risk !== ''
+      ? $high_risk
+      : NULL;
+
+    return $normalized;
   }
 
   /**
@@ -1432,9 +1477,9 @@ class IntentRouter {
       // English: negation + display verb.
       '/\b(not|aren\'t|isn\'t|don\'t|can\'t|doesn\'t|cant|dont|arent|isnt|doesnt)\s+(show|showing|appear|load|loading|display|displaying|work|working)\b/i',
       // English: UI element + missing/gone.
-      '/\b(button|option|categor|chip|link|section|menu)\w*\s*(missing|gone|disappeared|not there|broken)\b/i',
+      '/\b(button|option|categor|chip|link|section|menu)\w*\s*(?:are|is|were|was)?\s*(missing|gone|disappeared|not there|broken)\b/i',
       // English: nothing + display verb.
-      '/\bnothing\s+(happen|show|appear|load|display|work)\w*\b/i',
+      '/\bnothing\s+(?:is|was)?\s*(happen|show|appear|load|display|work)\w*\b/i',
       // English: can't/don't see + UI element.
       '/\b(can\'t|don\'t|cannot|cant|dont)\s+see\s+(the|any|my)?\s*(button|option|categor|chip|link|result|choice|menu)\w*/i',
       // Spanish.
@@ -1453,6 +1498,46 @@ class IntentRouter {
     }
 
     return NULL;
+  }
+
+  /**
+   * Detects mixed forms/guides phrasing and forces clarify disambiguation.
+   */
+  protected function checkMixedFormsGuidesDisambiguation(string $message, array $extraction): ?array {
+    $normalized = mb_strtolower($message);
+    $has_forms = (bool) preg_match('/\b(forms?|formulario(?:s)?|court\s*forms?)\b/u', $normalized);
+    $has_guides = (bool) preg_match('/\b(guides?|guide|how[\s-]*to|manuals?|instructions?)\b/u', $normalized);
+    if (!$has_forms || !$has_guides) {
+      return NULL;
+    }
+
+    if ($this->disambiguator) {
+      $disamb_result = $this->disambiguator->check(
+        $message,
+        [
+          ['intent' => 'forms_finder', 'confidence' => 0.70],
+          ['intent' => 'guides_finder', 'confidence' => 0.69],
+        ],
+        ['extraction' => $extraction]
+      );
+      if ($disamb_result) {
+        $disamb_result['extraction'] = $extraction;
+        return $disamb_result;
+      }
+    }
+
+    return [
+      'type' => 'disambiguation',
+      'confidence' => 0.70,
+      'reason' => 'mixed_forms_guides',
+      'question' => 'What type of resource do you need?',
+      'options' => [
+        ['label' => 'Court forms to fill out', 'intent' => 'forms_finder'],
+        ['label' => 'Step-by-step guide', 'intent' => 'guides_finder'],
+        ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+      ],
+      'extraction' => $extraction,
+    ];
   }
 
   /**

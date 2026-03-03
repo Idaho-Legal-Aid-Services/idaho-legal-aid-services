@@ -73,10 +73,40 @@ Explicit mapping:
 1. Phase 0 CSRF and config-parity blockers are resolved or have approved mitigations. (Refs: current-state §8; evidence-index CLAIM-113, CLAIM-095; system-map Diagram B; runbook §2)
 2. Platform credentials and destination approvals are available for telemetry integrations. (Refs: current-state §4H; evidence-index CLAIM-098; system-map Diagram A; runbook §3)
 
+### Phase 1 Entry #1 blocker disposition (2026-03-03)
+1. B-01 is resolved for `/assistant/api/message` strict CSRF enforcement via authenticated/anonymous matrix tests and strict access-check routing contract. (Refs: current-state §6, §8; evidence-index CLAIM-012, CLAIM-123; runbook §2)
+2. `/assistant/api/track` uses approved mitigation (same-origin Origin/Referer + flood limits) for low-impact telemetry writes without CSRF/session-token dependency. (Refs: current-state §6; evidence-index CLAIM-012, CLAIM-123; runbook §2)
+3. B-02 is resolved via `vector_search` schema/export parity and drift contract tests (`VectorSearchConfigSchemaTest`, `ConfigCompletenessDriftTest`). (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-124; runbook §4)
+
+### Phase 1 Entry #2 credential and destination disposition (2026-03-02)
+1. Credential availability confirmed: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `SENTRY_DSN` provisioned via `_ilas_get_secret()` on all Pantheon environments. (Refs: evidence-index CLAIM-097, CLAIM-098, CLAIM-126; runtime artifact `phase1-observability-gates.txt`)
+2. Approved destinations: Langfuse US cloud (`https://us.cloud.langfuse.com`) for trace export; Sentry (DSN-controlled) for error tracking with PII redaction enforced. (Refs: current-state §4H, §6; evidence-index CLAIM-083, CLAIM-098)
+3. Phase constraints preserved: `langfuse.enabled=false` in exported config; `llm.enabled=false` on all environments; live sample rate policy-capped at 0.1. (Refs: evidence-index CLAIM-119, CLAIM-120)
+
 ### Exit criteria
 1. Critical alerts and dashboards operate in non-live and are tested. (Refs: current-state §4F; evidence-index CLAIM-084; system-map Diagram A; runbook §3)
 2. CI quality gate is mandatory for merge/release path. (Refs: current-state §8; evidence-index CLAIM-122; system-map Diagram A; runbook §3)
 3. Reliability failure matrix tests pass against target environments. (Refs: current-state §4B, §4D; evidence-index CLAIM-048, CLAIM-063, CLAIM-065; system-map Diagram B; runbook §4)
+
+### Phase 1 Exit #1 disposition (2026-03-03)
+1. Cron SLO evaluation ordering is corrected so `hook_cron()` records run health before `SloAlertService::checkAll()`; alert check failures are isolated and logged without crashing cron.
+2. Dashboard surfaces are verified in non-live with controller-level checks for `/assistant/api/health`, `/assistant/api/metrics`, and `/admin/reports/ilas-assistant` (local + Pantheon `dev`/`test`).
+3. Runtime proof is captured in `docs/aila/runtime/phase1-exit1-alerts-dashboards.txt`, including watchdog evidence for `SLO violation:` rows with `@slo_dimension` context.
+4. Regression locks are added via `CronHookSloAlertOrderingTest`, expanded dashboard functional tests in `AssistantApiFunctionalTest`, and `PhaseOneExitCriteriaOneGateTest`.
+5. Residual risk remains: B-04 (sustained cron/queue load behavior) is unchanged and stays outside this exit criterion.
+
+### Phase 1 Exit #3 disposition (2026-03-03)
+1. Local reliability matrix suites pass for retrieval dependency degrade, consolidated integration failure mappings, and LLM dependency-failure handling (`DependencyFailureDegradeContractTest`, `IntegrationFailureContractTest`, `LlmEnhancerHardeningTest`).
+2. Pantheon target-environment assumptions for matrix behavior are verified on `dev`/`test`/`live`: `llm.enabled=false`, `llm.fallback_on_error=true`, and `vector_search.enabled=false`.
+3. Runtime proof is captured in `docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt`.
+4. Scope constraints remain preserved: no live LLM enablement and no full retrieval-architecture redesign.
+
+### Phase 1 Sprint 2 disposition (2026-03-03)
+1. Sprint 2 scope is closed as implemented: Sentry/Langfuse bootstrap remains staged, Drupal log context is normalized with canonical telemetry fields, and initial SLO drafts remain enforced in code/docs/test gates. (Refs: current-state §4F, §8; evidence-index CLAIM-079, CLAIM-084, CLAIM-129; runbook §3)
+2. `TelemetrySchema::toLogContext()` is the canonical source for critical pipeline log contexts while preserving legacy placeholder aliases used by existing message strings. (Refs: evidence-index CLAIM-129)
+3. Critical exits and completion/error logs in `AssistantApiController::message()` now carry canonical telemetry keys `intent`, `safety_class`, `fallback_path`, `request_id`, and `env` without changing response contracts. (Refs: current-state §4B; evidence-index CLAIM-048, CLAIM-129; runbook §2)
+4. Scope boundaries remain unchanged: no live LLM rollout and no full redesign of retrieval architecture. (Refs: current-state §5, §4D; evidence-index CLAIM-119, CLAIM-060, CLAIM-065; runbook §3, §4)
+5. Residual risk remains unchanged: B-04 (sustained cron/queue load behavior) stays open and outside Sprint 2 closure. (Refs: current-state §8; evidence-index CLAIM-118, CLAIM-121; runbook §3)
 
 ### Suggested sprint breakdown
 1. Sprint 2: Sentry/Langfuse bootstrap, log schema normalization, initial SLO drafts.
@@ -155,8 +185,8 @@ Explicit mapping:
 | Cost guardrails (`IMP-COST-01`) | Observability and usage telemetry from Phase 1/2 | Phase 3 | Product + Platform |
 
 ## Critical path and blocker list
-1. **Blocker B-01:** CSRF authenticated behavior unknown blocks endpoint hardening finalization. (Refs: current-state §8; evidence-index CLAIM-012, CLAIM-113; system-map Diagram B; runbook §2)
-2. **Blocker B-02:** `vector_search` schema/export parity issue blocks reliable cross-env retrieval tuning. (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-096; system-map Diagram A; runbook §4)
+1. **Blocker B-01 (RESOLVED 2026-03-03):** `/assistant/api/message` strict CSRF path is verified; `/assistant/api/track` follows approved same-origin mitigation and no longer blocks Phase 1 entry criterion #1. (Refs: current-state §8; evidence-index CLAIM-012, CLAIM-123; system-map Diagram B; runbook §2)
+2. **Blocker B-02 (RESOLVED 2026-03-03):** `vector_search` schema/export parity is restored and enforced by drift/schema contract tests, so cross-env retrieval tuning is no longer blocked by config parity. (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-124; system-map Diagram A; runbook §4)
 3. **Blocker B-03:** CI workflow ownership/source of truth unknown blocks mandatory gate rollout. (Refs: current-state §8; evidence-index CLAIM-122; system-map Diagram A; runbook §3)
 4. **Blocker B-04:** Sustained cron/queue load behavior unverified blocks final SLO tuning for async telemetry pipelines. (Refs: current-state §8; evidence-index CLAIM-118, CLAIM-121; system-map Diagram B; runbook §3)
 

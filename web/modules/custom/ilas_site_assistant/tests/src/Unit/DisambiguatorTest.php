@@ -102,20 +102,37 @@ class DisambiguatorTest extends TestCase {
       ['forms'],
       ['phone'],
       ['contact'],
+      ['i need some help'],
       ['ayuda'],
       ['formularios'],
     ];
   }
 
   /**
-   * Tests that option values are populated (not empty strings).
+   * Tests that option intents are populated (not empty strings).
    */
   public function testOptionValuesNotEmpty(): void {
     $result = $this->disambiguator->check('custody', []);
     $this->assertNotNull($result);
     foreach ($result['options'] as $option) {
-      $this->assertNotEmpty($option['value'], 'Each option must have a non-empty value');
+      $this->assertNotEmpty($option['intent'] ?? '', 'Each option must have a non-empty canonical intent');
       $this->assertNotEmpty($option['label'], 'Each option must have a non-empty label');
+    }
+  }
+
+  /**
+   * Tests that no 'value' key remains in disambiguation options.
+   */
+  public function testOptionIntentKeyExclusive(): void {
+    $queries = ['custody', 'help', 'i need some help'];
+    foreach ($queries as $query) {
+      $result = $this->disambiguator->check($query, []);
+      $this->assertNotNull($result, "Expected disambiguation for '$query'");
+      foreach ($result['options'] as $i => $option) {
+        $this->assertArrayHasKey('intent', $option, "Option #$i for '$query' must have 'intent' key");
+        $this->assertNotEmpty($option['intent'], "Option #$i for '$query' must have non-empty 'intent'");
+        $this->assertArrayNotHasKey('value', $option, "Option #$i for '$query' must not have deprecated 'value' key");
+      }
     }
   }
 
@@ -126,9 +143,10 @@ class DisambiguatorTest extends TestCase {
     $result = $this->disambiguator->check('I need help with my custody case right now please', []);
     // This is 10 words — should not match topic_without_action.
     // It may match vague_query or return NULL.
-    if ($result) {
-      $this->assertNotEquals('topic_without_action', $result['reason']);
-    }
+    $this->assertTrue(
+      $result === NULL || ($result['reason'] ?? '') !== 'topic_without_action',
+      'Long messages should not be treated as topic_without_action disambiguation'
+    );
   }
 
   /**
@@ -137,9 +155,10 @@ class DisambiguatorTest extends TestCase {
   public function testPureModifiersReturnNull(): void {
     $result = $this->disambiguator->check('now please', []);
     // "now please" should not match any topic.
-    if ($result) {
-      $this->assertNotEquals('topic_without_action', $result['reason']);
-    }
+    $this->assertTrue(
+      $result === NULL || ($result['reason'] ?? '') !== 'topic_without_action',
+      'Pure modifiers should not map to topic_without_action disambiguation'
+    );
   }
 
   /**

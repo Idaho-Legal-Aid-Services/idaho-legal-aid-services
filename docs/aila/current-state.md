@@ -30,9 +30,9 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 | Capability | Local/config-export view | Pantheon view | Notes |
 |---|---|---|---|
 | Global widget attachment | Enabled (`enable_global_widget: true`) | Verified enabled in dev/test/live active config | Attach is conditional and path-excluded | [^CLAIM-015][^CLAIM-119] |
-| `/assistant/api/message` and `/assistant/api/track` CSRF protection | Route definitions require `_csrf_request_header_token` + `_ilas_strict_csrf_token` (dual enforcement via `StrictCsrfRequestHeaderAccessCheck`) | Route definitions match on Pantheon; local anonymous synthetic POSTs now return 403 for missing, valid-but-sessionless, and invalid tokens | CSRF enforcement verified: sessionless requests are rejected; browser-context widget uses session-bound token pair from page render | [^CLAIM-012][^CLAIM-123] |
+| Write-endpoint protection (`/assistant/api/message`, `/assistant/api/track`) | `/assistant/api/message` requires `_csrf_request_header_token` + `_ilas_strict_csrf_token` via `StrictCsrfRequestHeaderAccessCheck`; `/assistant/api/track` uses same-origin `Origin`/`Referer` validation plus flood limits (approved mitigation, no CSRF token dependency) | Route and controller contracts match current code; message CSRF matrix and track origin-mitigation behavior are covered by functional tests | Message endpoint enforces strict CSRF. Track endpoint uses approved mitigation for low-impact telemetry writes. | [^CLAIM-012][^CLAIM-123] |
 | LLM enhancement | Disabled in exported active config (`llm.enabled: false`) | Verified disabled in dev/test/live active config (`llm.enabled: false`); live runtime override hard-disables `llm.enabled` in `settings.php` | Provider wiring supports Gemini/Vertex | [^CLAIM-069][^CLAIM-094][^CLAIM-099][^CLAIM-119] |
-| Vector retrieval supplement | Present in install defaults, disabled by default | Inference: environment dependent active config | Admin form persists values; schema mapping gap exists | [^CLAIM-093][^CLAIM-095][^CLAIM-096] |
+| Vector retrieval supplement | Present in install defaults, disabled by default | Present in active config (`enabled=false`) with schema + export parity checks enforced | Admin form persists values; schema/export parity is enforced by contract tests | [^CLAIM-093][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
 | Langfuse tracing/export | Present but disabled by default | `langfuse.settings` config not present in dev/test/live; `ilas_langfuse_export` queue exists with `0` items in sampled runtime | Queue-based export on terminate/cron when enabled/configured | [^CLAIM-079][^CLAIM-082][^CLAIM-118][^CLAIM-120] |
 | Sentry integration | Conditional on secret injection | `raven.settings` config not present in dev/test/live sampled runtime | PII send disabled and payload redaction subscriber active when integration is configured | [^CLAIM-083][^CLAIM-120] |
 | GA4 tag and live rate-limit override | Not applied outside `live` env branch | Applied in `PANTHEON_ENVIRONMENT=live` branch | Sets `google_tag_id` and per-IP limits | [^CLAIM-099] |
@@ -114,7 +114,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `ilas_site_assistant.admin.conversation_detail` | `/admin/reports/ilas-assistant/conversations/{conversation_id}` | `ANY` | `view ilas site assistant conversations`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantConversationController::detail` | Conversation log detail | [^CLAIM-011] |
 | `ilas_site_assistant.api.health` | `/assistant/api/health` | `GET` | `view ilas site assistant reports`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::health` | Health check endpoint | [^CLAIM-011] |
 | `ilas_site_assistant.api.metrics` | `/assistant/api/metrics` | `GET` | `view ilas site assistant reports`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::metrics` | Metrics endpoint | [^CLAIM-011] |
-| `ilas_site_assistant.api.track` | `/assistant/api/track` | `POST` | `access content`; CSRF header required | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::track` | Analytics tracking endpoint | [^CLAIM-012] |
+| `ilas_site_assistant.api.track` | `/assistant/api/track` | `POST` | `access content`; no CSRF header requirement (controller enforces same-origin `Origin`/`Referer` mitigation) | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::track` | Analytics tracking endpoint | [^CLAIM-012] |
 
 ### Libraries inventory
 
@@ -168,6 +168,8 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Failure modes | 429 with `Retry-After`; 4xx validation errors; exceptions return 500 `internal_error` after logging/telemetry capture.[^CLAIM-033][^CLAIM-034][^CLAIM-048] |
 | Deterministic dependency degrade contract (Phase 1 Objective #2) | Dependency failure handling is deterministic by response class: retrieval dependency failures degrade to legacy/lexical paths, while uncaught controller failures always return controlled `500 internal_error` (no partial mixed-mode response).[^CLAIM-048][^CLAIM-063][^CLAIM-065] |
 | Observability | Request completion logs include intent/safety/gate; optional Langfuse trace spans/events and Sentry tagging on failures.[^CLAIM-048][^CLAIM-079][^CLAIM-080][^CLAIM-083] |
+| Integration failure contract formalization (IMP-REL-01) | All failure paths are documented as a consolidated matrix with deterministic fallback classes (legacy_fallback, lexical_preserved, original_preserved, internal_error) and cross-cutting request_id presence. Controller catch-all, observability isolation, and correlation ID header consistency are contract-tested.[^CLAIM-048] |
+| Idempotency and replay correctness (IMP-REL-02) | Correlation IDs are verified (accept valid UUID4, reject invalid, generate fallback). Cache keys are deterministic (`ilas_conv:<uuid>`). Repeated messages produce escalation (not duplication). All responses include consistent request_id in body and X-Correlation-ID header.[^CLAIM-035][^CLAIM-046] |
 
 ### C) Safety & compliance layers
 
@@ -179,7 +181,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Classifier test artifacts | Unit tests exist for SafetyClassifier and OutOfScopeClassifier behavior suites (file-level evidence only; not executed in this audit run).[^CLAIM-105] |
 | Refusal/escalation behavior | Safety and OOS classes return templated early exits with reason codes and action links.[^CLAIM-039][^CLAIM-040] |
 | Rate limiting/abuse controls | Per-IP Flood API minute/hour checks plus repeated-message abuse short-circuit behavior.[^CLAIM-033][^CLAIM-037] |
-| CSRF protections | Message + track endpoints require `_csrf_request_header_token`.[^CLAIM-012] |
+| CSRF protections | Message endpoint enforces strict CSRF (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) while track endpoint uses approved mitigation (same-origin `Origin`/`Referer` + flood limits).[^CLAIM-012][^CLAIM-123] |
 | Prompt-injection defenses | Safety classifier includes prompt-injection/jailbreak patterns; LLM system prompt instructs model to ignore instructions in retrieved content.[^CLAIM-055][^CLAIM-070] |
 | Failure/observability | Policy violations and safety exits are logged/analytics-tracked with reason codes; violations can feed safety alert logic.[^CLAIM-039][^CLAIM-047][^CLAIM-089][^CLAIM-090] |
 
@@ -193,7 +195,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Ranking/filtering | Resource/FAQ paths apply query filters and score handling; vector results normalized and merged when enabled/needed.[^CLAIM-062][^CLAIM-065] |
 | Pinecone details | Search API AI server `pinecone_vector` uses database `ilas-assistant`, collection `default`, cosine metric, Gemini embedding model, 3072 dimensions.[^CLAIM-066] |
 | Vector indexes | Vector indexes exist for FAQ paragraphs and resource nodes on `pinecone_vector` server.[^CLAIM-067] |
-| Toggles/flags | Vector supplement behavior is gated by config (`vector_search.*`), with admin form persistence and schema gap noted.[^CLAIM-061][^CLAIM-095][^CLAIM-096] |
+| Toggles/flags | Vector supplement behavior is gated by config (`vector_search.*`) with admin form persistence and schema/export parity enforcement.[^CLAIM-061][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
 | Failure modes | Vector and Search API failures degrade gracefully to empty/legacy paths; FAQ has explicit legacy entity-query fallback.[^CLAIM-063][^CLAIM-065] |
 | Deterministic degrade outcomes (formalized) | Search API unavailable or query exceptions deterministically route to legacy retrieval in FAQ/resource paths. Vector index unavailable/failing paths preserve lexical/legacy output and do not propagate unhandled dependency exceptions upstream.[^CLAIM-063][^CLAIM-065] |
 | Observability | Retrieval warnings/info are logged; quality/empty-search conditions flow into analytics/no-answer capture paths.[^CLAIM-085][^CLAIM-047] |
@@ -221,14 +223,14 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Langfuse status | Langfuse requires config + credentials; traces capture spans/events/generations and export via terminate subscriber + queue worker.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082] |
 | Runtime monitoring | `PerformanceMonitor` records rolling latency/error metrics and exposes p95/p99/error/availability values with SLO-backed thresholds via `/assistant/api/health` and `/assistant/api/metrics`.[^CLAIM-084][^CLAIM-051] |
 | SLO policy + alerts | `SloDefinitions` + `SloAlertService` define/enforce availability, latency, error-rate, cron freshness, and queue depth/age SLOs with cooldowned structured warning alerts from cron.[^CLAIM-084][^CLAIM-121] |
-| Promptfoo + quality gate harness | Existing test assets are now enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `main`/`release/*` and advisory behavior elsewhere. First-party workflow ownership remains external to this repo snapshot.[^CLAIM-086][^CLAIM-105][^CLAIM-122] |
+| Promptfoo + quality gate harness | Existing test assets are now enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. First-party workflow ownership remains external to this repo snapshot.[^CLAIM-086][^CLAIM-105][^CLAIM-122] |
 | Redaction posture | Sentry subscriber and analytics/conversation log codepaths apply redaction/truncation before persistence/export.[^CLAIM-053][^CLAIM-083][^CLAIM-085] |
 
 ### G) Cron/queues/background processes
 
 | Spec item | Current state |
 |---|---|
-| Cron entrypoint | `hook_cron()` runs analytics cleanup, conversation cleanup, violation prune, safety alert checks, and SLO alert checks.[^CLAIM-016][^CLAIM-084] |
+| Cron entrypoint | `hook_cron()` runs analytics cleanup, conversation cleanup, violation prune, safety alert checks, records cron run health, then evaluates SLO alert checks.[^CLAIM-016][^CLAIM-084][^CLAIM-127] |
 | Queue workers | `ilas_langfuse_export` queue worker is cron-enabled (`cron.time=30`) for Langfuse export batches.[^CLAIM-082] |
 | Langfuse queue behavior | Items are aged/validated, discarded when stale/disabled/misconfigured, and transient API failures suspend queue for retry; queue health tracking exposes backlog depth/utilization and oldest-item age for SLO checks.[^CLAIM-082][^CLAIM-084] |
 | Retention/cleanup | Analytics retention uses `log_retention_days`; conversation log retention uses `retention_hours` with batched deletes.[^CLAIM-087][^CLAIM-088] |
@@ -280,7 +282,8 @@ Values below are taken from install defaults, exported active config, and settin
 
 ### Protections present
 
-- Route-level CSRF header enforcement exists for message and tracking POST endpoints.[^CLAIM-012]
+- Message endpoint enforces strict CSRF header validation for write requests.[^CLAIM-012][^CLAIM-123]
+- Track endpoint uses approved mitigation: same-origin `Origin`/`Referer` validation plus flood limits, without CSRF/session-token dependency.[^CLAIM-012]
 - Per-IP Flood API limits enforce minute/hour request caps, with explicit 429 handling.[^CLAIM-033]
 - Deterministic pre-LLM safety and scope classifiers enforce early exits with reason-coded templates.[^CLAIM-038][^CLAIM-039][^CLAIM-040][^CLAIM-054][^CLAIM-056]
 - PII redaction utilities are used for storage/logging paths and Sentry payloads are scrubbed with default PII send disabled.[^CLAIM-053][^CLAIM-083][^CLAIM-085]
@@ -303,7 +306,7 @@ Values below are taken from install defaults, exported active config, and settin
 - Redaction occurs in dedicated `PiiRedactor`, analytics logger value handling, conversation logger, and Sentry before-send subscriber.[^CLAIM-053][^CLAIM-083][^CLAIM-085]
 - Conversation admin UI is permission-gated and displays redacted stored content.[^CLAIM-059]
 - Runtime endpoint schema/status checks were executed with synthetic payloads in local DDEV and captured in `docs/aila/runtime/local-endpoints.txt`.[^CLAIM-112][^CLAIM-113]
-- Known config-model gap: `vector_search` settings are saved in form but not modeled in schema export mapping.[^CLAIM-095][^CLAIM-096]
+- Historical config-model gap (`vector_search` schema/export mismatch) is resolved; schema + install + active export parity is enforced by `ConfigCompletenessDriftTest` and `VectorSearchConfigSchemaTest`.[^CLAIM-095][^CLAIM-096][^CLAIM-124]
 
 ## 7) Operational runbook summary
 
@@ -324,7 +327,7 @@ Critical command groups documented there:
 | Unknown | Why unknown now | Evidence needed to resolve |
 |---|---|---|
 | Long-run cron cadence and queue drain timing under load | Cron samples and `system.cron_last` snapshots were captured, but no continuous observation window or non-zero queue backlog was captured in this addendum | Time-series cron observations + queue depth/throughput metrics over a sustained interval | [^CLAIM-114][^CLAIM-117][^CLAIM-118][^CLAIM-121] |
-| Promptfoo CI ownership outside this repository | No first-party CI workflow file exists in repository-root CI locations in this snapshot. Enforced repo scripts now define gate behavior, but merge/release authority still depends on an external CI owner/source-of-truth. | External CI system definition/source-of-truth (if managed outside repo) | [^CLAIM-122] |
+| ~~Promptfoo CI ownership outside this repository~~ **RESOLVED** | First-party GitHub Actions workflow (`.github/workflows/quality-gate.yml`) now exists with branch protection required status checks (`PHPUnit Quality Gate` + `Promptfoo Gate`) on `master`. `enforce_admins: true` prevents bypass. Concurrency control prevents stale-run races. CI quality gate is mandatory for merge/release path. | [^CLAIM-122] |
 
 ### Phase 0 Exit #3 Dependency Disposition (2026-02-27)
 
@@ -348,7 +351,7 @@ unknown.
    enforces unit coverage, deterministic classifier Drupal-unit coverage
    (Safety + OutOfScope), and golden transcript replay checks.
 2. `scripts/ci/run-promptfoo-gate.sh` enforces branch-aware Promptfoo
-   threshold policy (`main`/`release/*` blocking; other branches advisory).
+   threshold policy (`master`/`main`/`release/*` blocking; other branches advisory).
 3. `scripts/ci/run-external-quality-gate.sh` composes PHPUnit and Promptfoo
    gates for external runners; first-party workflow ownership remains external
    to this repository.
@@ -375,6 +378,104 @@ with Redaction Validation) completion:
    consistency across controller and subscriber source files.
 6. **Residual**: B-04 (cron/queue throughput under load) remains unresolved
    until sustained post-deploy observation. Does not block IMP-OBS-01.
+
+### Phase 1 Entry #2 Credential and Destination Disposition (2026-03-02)
+
+This dated addendum records P1-ENT-02 (Platform credentials and destination
+approvals) verification:
+
+1. **Credential availability**: Runtime evidence (`phase1-observability-gates.txt`)
+   confirms `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `SENTRY_DSN` are
+   provisioned and resolved via `_ilas_get_secret()` on all Pantheon environments
+   (dev/test/live). Langfuse keys wire to `ilas_site_assistant.settings.langfuse.*`;
+   Sentry DSN wires to `raven.settings.client_key`.[^CLAIM-097][^CLAIM-098][^CLAIM-126]
+2. **Approved telemetry destinations**:
+   - Langfuse US cloud: `https://us.cloud.langfuse.com` (install config default,
+     settings.php override path). Approved for trace/span/generation/event export.
+   - Sentry (via drupal/raven): DSN-controlled destination. Approved for error
+     tracking with PII redaction enforced (`send_default_pii=false`,
+     `SentryOptionsSubscriber` before-send scrub).[^CLAIM-083][^CLAIM-098]
+3. **Phase constraints preserved**: `langfuse.enabled` remains `false` in exported
+   config; runtime overrides activate it per-environment. `llm.enabled` remains
+   `false` on all environments. Live sample rate is policy-capped at 0.1.[^CLAIM-119][^CLAIM-120]
+4. **Gate test**: `TelemetryCredentialGateTest.php` enforces settings.php wiring,
+   install config defaults, runtime evidence, and destination documentation.[^CLAIM-126]
+
+### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
+
+This dated addendum records P1-EXT-01 completion for Phase 1 Exit criterion #1.
+
+1. Critical alert and dashboard surfaces were verified in local and Pantheon non-live (dev/test) environments.
+   Verification covered `/assistant/api/health`, `/assistant/api/metrics`, and `/admin/reports/ilas-assistant`,
+   plus explicit `SloAlertService::checkAll()` invocation and watchdog evidence with `@slo_dimension` context.[^CLAIM-127]
+2. Cron ordering now records run health before SLO alert evaluation, so alert checks evaluate same-run cron state.
+   Alert-check failures are isolated and logged without failing cron execution.[^CLAIM-127]
+3. Regression and gate coverage was added for cron ordering, dashboard route behavior, and artifact/doc continuity:
+   `CronHookSloAlertOrderingTest.php`, expanded `AssistantApiFunctionalTest.php`,
+   strengthened `SloAlertServiceTest.php`, and `PhaseOneExitCriteriaOneGateTest.php`.[^CLAIM-127]
+4. Residual risk remains unchanged: B-04 (cron/queue throughput under load) remains unresolved pending sustained runtime observation.[^CLAIM-118][^CLAIM-121]
+
+### Phase 1 Exit #2 Mandatory Gate Disposition (2026-03-03)
+
+This dated addendum declares Phase 1 exit criterion #2 met: CI quality gate is
+mandatory for merge/release path.
+
+1. **GitHub Actions workflow** (`.github/workflows/quality-gate.yml`) covers
+   `push` and `pull_request` for all blocking branches (`master`, `main`,
+   `release/**`). Concurrency control (`cancel-in-progress: true`) prevents
+   stale-run races on the same branch.[^CLAIM-122]
+2. **Branch protection** on `master` requires both `PHPUnit Quality Gate` and
+   `Promptfoo Gate` status checks to pass before merge. `strict: true` requires
+   the branch to be up-to-date with the base. `enforce_admins: true` prevents
+   admin bypass.
+3. **Promptfoo branch policy** blocks threshold failures on `master`/`main`/
+   `release/*` and reports advisory-only on other branches. When
+   `ILAS_ASSISTANT_URL` is absent on blocking branches, the workflow fails
+   explicitly rather than silently skipping.
+4. **Contract tests** (`QualityGateEnforcementContractTest.php`) lock trigger
+   coverage (`release/**` in `pull_request`), concurrency control, and
+   documentation mandatory-gate declaration as enforced invariants.
+5. **Repository visibility** changed to public to unlock GitHub branch
+   protection features (free-tier requirement). No secrets in tracked files;
+   credentials are injected at runtime via `_ilas_get_secret()`.
+
+### Phase 1 Exit #3 Reliability Failure Matrix Verification (2026-03-03)
+
+This dated addendum records P1-EXT-03 completion for Phase 1 Exit criterion #3.
+
+1. Reliability failure matrix suites pass locally for retrieval dependency degrade,
+   integration failure contract mapping, and LLM dependency-failure handling:
+   `DependencyFailureDegradeContractTest.php`,
+   `IntegrationFailureContractTest.php`, and
+   `LlmEnhancerHardeningTest.php`.[^CLAIM-128]
+2. Target-environment configuration assumptions required by the matrix are
+   verified on Pantheon `dev`/`test`/`live`:
+   `llm.enabled=false`, `llm.fallback_on_error=true`, and
+   `vector_search.enabled=false`.[^CLAIM-128]
+3. Runtime verification output is captured in
+   `docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt`.[^CLAIM-128]
+4. Scope boundaries remain unchanged: no live LLM rollout and no full retrieval
+   architecture redesign.[^CLAIM-119][^CLAIM-060][^CLAIM-065]
+
+### Phase 1 Sprint 2 Closure Addendum (2026-03-03)
+
+This dated addendum records `P1-SBD-01` completion for Sprint 2 scope:
+"Sentry/Langfuse bootstrap, log schema normalization, initial SLO drafts."
+
+1. `TelemetrySchema::toLogContext()` is now the single helper for critical
+   Drupal log context emission in `AssistantApiController::message()`, while
+   preserving existing placeholder aliases so message strings remain stable.[^CLAIM-129]
+2. Canonical telemetry keys are attached consistently to critical log contexts:
+   `intent`, `safety_class`, `fallback_path`, `request_id`, `env`; legacy
+   placeholders (`@request_id`, `@intent`, `@safety`, `@gate`) are retained for
+   parser/alert compatibility.[^CLAIM-129]
+3. Sentry/Langfuse bootstrap behavior remains staged/non-live and constrained:
+   `llm.enabled=false` remains enforced on all environments through Phase 2 and
+   no full retrieval-architecture redesign is introduced.[^CLAIM-119][^CLAIM-060][^CLAIM-065][^CLAIM-129]
+4. SLO draft thresholds remain exposed via `/assistant/api/health` and `/assistant/api/metrics`
+   and continue to drive `SloAlertService` evaluation behavior.[^CLAIM-051][^CLAIM-084][^CLAIM-121][^CLAIM-129]
+5. Residual risk remains unchanged: B-04 (cron/queue throughput under load) remains unresolved
+   pending sustained runtime observation.[^CLAIM-118][^CLAIM-121]
 
 ---
 
@@ -490,3 +591,7 @@ with Redaction Validation) completion:
 [^CLAIM-123]: [CLAIM-123](evidence-index.md#claim-123)
 [^CLAIM-124]: [CLAIM-124](evidence-index.md#claim-124)
 [^CLAIM-125]: [CLAIM-125](evidence-index.md#claim-125)
+[^CLAIM-126]: [CLAIM-126](evidence-index.md#claim-126)
+[^CLAIM-127]: [CLAIM-127](evidence-index.md#claim-127)
+[^CLAIM-128]: [CLAIM-128](evidence-index.md#claim-128)
+[^CLAIM-129]: [CLAIM-129](evidence-index.md#claim-129)

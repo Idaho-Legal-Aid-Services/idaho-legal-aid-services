@@ -73,11 +73,12 @@ Evidence precedence used in this audit:
   - `docs/aila/artifacts/routes-inventory.tsv:1-12`
 
 ### CLAIM-012
-- Claim: `/assistant/api/message` and `/assistant/api/track` are POST routes with dual CSRF enforcement (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) via `StrictCsrfRequestHeaderAccessCheck`.
+- Claim: `/assistant/api/message` is a POST route with dual CSRF enforcement (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) via `StrictCsrfRequestHeaderAccessCheck`. `/assistant/api/track` is a POST route with approved origin/referer mitigation and flood limits (no CSRF token requirement).
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:9-17` (message route with `_ilas_strict_csrf_token: 'TRUE'`)
-  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:84-92` (track route with `_ilas_strict_csrf_token: 'TRUE'`)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:92-98` (track route without CSRF requirement)
   - `web/modules/custom/ilas_site_assistant/src/Access/StrictCsrfRequestHeaderAccessCheck.php:1-103` (access check implementation)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:1313-1373` (track mitigation: same-origin origin/referer + flood checks)
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml:2-6` (access_check service registration)
 
 ### CLAIM-013
@@ -217,6 +218,13 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:303-307`
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:323-330`
 
+- Addendum (2026-03-02): IMP-REL-02 contract tests verify resolveCorrelationId
+  accepts valid UUID4, rejects invalid (including UUID v1, XSS payloads, malformed),
+  and generates a valid UUID4 fallback. jsonResponse header/body consistency is
+  proven for all response paths including empty request_id omission.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IdempotencyReplayContractTest.php`
+
 ### CLAIM-036
 - Claim: Conversation state cache key is `ilas_conv:<conversation_id>` and IDs must match UUID4 pattern.
 - Evidence:
@@ -273,6 +281,13 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:1050-1057`
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:1074-1093`
 
+- Addendum (2026-03-02): IMP-REL-02 tests verify conversation cache key determinism
+  (`ilas_conv:<uuid>`), repeated-message escalation (produces `escalation`/`repeated`
+  type, not duplicate responses), and request_id consistency across all response paths
+  including 429/400/413/500 error responses.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IdempotencyReplayContractTest.php`
+
 ### CLAIM-047
 - Claim: Opt-in conversation logging stores request-linked exchanges when enabled.
 - Evidence:
@@ -292,6 +307,14 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md` (Deterministic dependency degrade contract verification subsection in §2)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneDeterministicDegradeContractTest.php`
+
+- Addendum (2026-03-02): IMP-REL-01 tests verify the controller catch-all returns
+  500 `internal_error` with request_id, observability services (AnalyticsLogger,
+  ConversationLogger, LangfuseTracer) isolate exceptions internally without
+  propagation, and a consolidated failure matrix documents all 10 dependency
+  failure → fallback class mappings with cross-cutting request_id presence.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
 
 ### CLAIM-049
 - Claim: `/assistant/api/track` validates JSON payload, allows only known event types, and returns `{ok: true}`.
@@ -636,13 +659,12 @@ Evidence precedence used in this audit:
   - `config/ilas_site_assistant.settings.yml:1-79`
 
 ### CLAIM-095
-- Claim: Config schema defines llm/fallback/safety/history/ab/langfuse mappings but no `vector_search` mapping.
-- Evidence:
-  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml:1-357`
-  - Inference basis: no `vector_search:` mapping key present in the schema file.
+- Claim: **SUPERSEDED by CLAIM-124.** Historical blocker basis: config schema previously defined llm/fallback/safety/history/ab/langfuse mappings but omitted `vector_search`.
+- Evidence (historical, pre-fix):
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (pre-fix snapshot preserved in git history)
 
 ### CLAIM-096
-- Claim: Admin settings form exposes and persists `vector_search` config values despite missing schema mapping.
+- Claim: Admin settings form exposes and persists `vector_search` config values. Historical schema mismatch from CLAIM-095 is resolved in CLAIM-124.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php:258-340`
   - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php:554-562`
@@ -880,21 +902,34 @@ Evidence precedence used in this audit:
   - `scripts/ci/run-external-quality-gate.sh`
   - `scripts/ci/run-promptfoo-gate.sh`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneQualityGateContractTest.php`
+- Addendum (2026-03-03): CI quality gate is mandatory for merge/release path.
+  First-party GitHub Actions workflow covers push+PR for all blocking branches
+  (`master`, `main`, `release/**`). Branch protection on `master` requires
+  `PHPUnit Quality Gate` + `Promptfoo Gate` status checks with
+  `enforce_admins: true`. Concurrency control prevents stale-run races.
+  Contract tests lock trigger coverage, concurrency, and mandatory-gate
+  documentation as enforced invariants. Known unknown RESOLVED.
+- Addendum evidence:
+  - `.github/workflows/quality-gate.yml` (trigger coverage + concurrency block)
+  - `docs/aila/current-state.md` (Phase 1 Exit #2 Mandatory Gate Disposition)
+  - `docs/aila/runbook.md` (Mandatory gate verification subsection in §4)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php` (trigger-coverage + mandatory-declaration tests)
 
 ---
 
 ## Post-CSRF-Hardening Verification (IMP-SEC-01)
 
 ### CLAIM-123
-- Claim: Post-fix CSRF enforcement verified: both `/assistant/api/message` and `/assistant/api/track` return 403 for all sessionless anonymous POST requests regardless of CSRF token presence/validity. The `StrictCsrfRequestHeaderAccessCheck` service enforces session-bound CSRF token validation, rejecting missing, invalid, and valid-but-sessionless tokens. Browser-context widget uses session+token pair from `drupalSettings` injection during page render. Unit test coverage: `CsrfAuthMatrixTest` (10 tests, 25 assertions). Functional test coverage: `AssistantApiFunctionalTest` 12-cell CSRF matrix.
+- Claim: Post-fix blocker closure verified: `/assistant/api/message` enforces strict session-bound CSRF validation (missing/invalid/sessionless token paths denied), while `/assistant/api/track` uses an approved mitigation model for `/assistant/api/track` (same-origin `Origin`/`Referer` validation + flood limits, no CSRF token dependency). Browser-context widget uses session+token pair from `/assistant/api/session/bootstrap` before message POSTs. Unit coverage: `CsrfAuthMatrixTest`; functional coverage includes anonymous/authenticated message matrix plus track origin-mitigation tests.
 - Evidence:
-  - `docs/aila/runtime/local-endpoints.txt:1-101` (post-fix runtime artifact showing 403 for all 6 POST cells)
+  - `docs/aila/runtime/local-endpoints.txt:1-132` (post-fix runtime artifact for message CSRF matrix + endpoint contract snapshots)
   - `web/modules/custom/ilas_site_assistant/src/Access/StrictCsrfRequestHeaderAccessCheck.php:1-103` (access check implementation)
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:9-17` (message route with dual CSRF requirements)
-  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:84-92` (track route with dual CSRF requirements)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:92-98` (track route without CSRF requirement)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:1313-1373` (track origin/referer mitigation + flood checks)
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml:2-6` (access_check service registration)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfAuthMatrixTest.php` (unit test matrix)
-  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php` (functional test 12-cell matrix)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php` (functional CSRF + track mitigation coverage)
 - Addendum evidence:
   - `docs/aila/runbook.md` (Phase 1 observability dependency gate verification)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneObservabilityDependencyGateTest.php`
@@ -927,3 +962,69 @@ Evidence precedence used in this audit:
   - `docs/aila/artifacts/services-inventory.tsv` (service continuity inventory)
   - `docs/aila/system-map.mmd` (Diagram B deterministic pipeline anchors)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ArchitectureBoundaryGuardTest.php` (contract tests)
+
+---
+
+## Telemetry Credential and Destination Approvals (`P1-ENT-02`)
+
+### CLAIM-126
+- Claim: Platform credentials for telemetry integrations (Langfuse, Sentry) are provisioned on all Pantheon environments and destination approvals are formally documented. Settings.php contains `_ilas_get_secret()` resolution for `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `SENTRY_DSN` with config override wiring. Install config defaults include all Langfuse credential keys with `enabled: false` and `host: 'https://us.cloud.langfuse.com'`. Runtime evidence confirms credentials present on dev/test/live with `llm.enabled: false` preserved.
+- Evidence:
+  - `web/sites/default/settings.php:131-141` (_ilas_get_secret helper)
+  - `web/sites/default/settings.php:215-224` (Langfuse credential override wiring)
+  - `web/sites/default/settings.php:264-279` (Sentry DSN override wiring)
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (Langfuse install defaults)
+  - `docs/aila/runtime/phase1-observability-gates.txt` (runtime verification artifact)
+  - `docs/aila/current-state.md` (Phase 1 Entry #2 Credential and Destination Disposition)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php` (gate test)
+
+---
+
+## Phase 1 Exit #1 Non-Live Alerts + Dashboards (`P1-EXT-01`)
+
+### CLAIM-127
+- Claim: Phase 1 Exit #1 (P1-EXT-01) is closed: critical alerts and dashboards operate in non-live and are tested. Cron hook records run health before `SloAlertService::checkAll()` so SLO checks evaluate same-run cron state, while dashboard and alert verification is captured for local + Pantheon `dev`/`test`.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module` (cron finally ordering and guarded SLO check)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CronHookSloAlertOrderingTest.php` (ordering regression: success and failure paths)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php` (`@slo_dimension` warning-context assertions for availability/latency/error_rate/cron/queue)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php` (health/metrics/admin-report permission and access coverage)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneExitCriteriaOneGateTest.php` (doc/evidence/runtime artifact continuity lock)
+  - `docs/aila/roadmap.md` (Phase 1 Exit #1 disposition dated 2026-03-03)
+  - `docs/aila/current-state.md` (Phase 1 Exit #1 non-live verification addendum)
+  - `docs/aila/system-map.mmd` (Diagram A dashboard + critical-alert observability surfaces)
+  - `docs/aila/runbook.md` (Phase 1 Exit #1 non-live verification command bundle)
+  - `docs/aila/runtime/phase1-exit1-alerts-dashboards.txt` (local + Pantheon non-live runtime proof)
+
+---
+
+## Phase 1 Exit #3 Reliability Failure Matrix (`P1-EXT-03`)
+
+### CLAIM-128
+- Claim: Phase 1 Exit #3 (P1-EXT-03) is closed: reliability failure matrix tests pass against target environments (local + Pantheon `dev`/`test`/`live`) with deterministic fallback-class coverage and environment assumptions verified.
+- Evidence:
+  - `docs/aila/runbook.md` (Phase 1 Exit #3 reliability failure matrix verification subsection in section 4)
+  - `docs/aila/roadmap.md` (Phase 1 Exit #3 disposition dated 2026-03-03)
+  - `docs/aila/current-state.md` (Phase 1 Exit #3 reliability failure matrix verification addendum)
+  - `docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt` (local suite outputs + Pantheon key checks)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneExitCriteriaThreeGateTest.php` (doc/evidence/runtime artifact continuity lock)
+
+---
+
+## Phase 1 Sprint 2 Gap Closure (`P1-SBD-01`)
+
+### CLAIM-129
+- Claim: Phase 1 Sprint 2 (`P1-SBD-01`) is closed in-repo: Sentry/Langfuse bootstrap remains staged, Drupal log schema normalization is enforced through canonical telemetry context keys, and initial SLO drafts remain documented and verifiable without changing live LLM or retrieval-architecture scope boundaries.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/TelemetrySchema.php` (`toLogContext()` canonical + alias context helper)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (critical exit/complete/error logs enriched via `TelemetrySchema::toLogContext()`)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetrySchemaContractTest.php` (canonical field + helper contract checks)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneSprintTwoGateTest.php` (Sprint 2 doc/code closure gate)
+  - `docs/aila/roadmap.md` (Phase 1 Sprint 2 disposition dated 2026-03-03)
+  - `docs/aila/current-state.md` (Phase 1 Sprint 2 closure addendum)
+  - `docs/aila/runbook.md` (Phase 1 Sprint 2 verification subsection)
+  - `docs/aila/backlog.md` (SLO baseline story marked done with dated closure reference)
+  - `docs/aila/system-map.mmd` (Observability node includes normalized telemetry log schema)

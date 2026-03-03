@@ -10,6 +10,7 @@
 #   bash tests/run-quality-gate.sh                               # Full gate
 #   bash tests/run-quality-gate.sh --skip-phpunit               # Skip VC-UNIT + VC-DRUPAL-UNIT, keep golden
 #   bash tests/run-quality-gate.sh --with-promptfoo             # Full gate + promptfoo abuse evals
+#   bash tests/run-quality-gate.sh --with-deep-promptfoo        # Full gate + abuse + deep promptfoo evals
 #   bash tests/run-quality-gate.sh --skip-phpunit --with-promptfoo
 #
 # Env vars for promptfoo (only needed with --with-promptfoo):
@@ -26,6 +27,7 @@
 set -euo pipefail
 
 WITH_PROMPTFOO="false"
+WITH_DEEP_PROMPTFOO="false"
 SKIP_PHPUNIT="false"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,17 +35,22 @@ while [[ $# -gt 0 ]]; do
       WITH_PROMPTFOO="true"
       shift
       ;;
+    --with-deep-promptfoo)
+      WITH_PROMPTFOO="true"
+      WITH_DEEP_PROMPTFOO="true"
+      shift
+      ;;
     --skip-phpunit)
       SKIP_PHPUNIT="true"
       shift
       ;;
     -h|--help)
-      echo "Usage: $0 [--skip-phpunit] [--with-promptfoo]" >&2
+      echo "Usage: $0 [--skip-phpunit] [--with-promptfoo] [--with-deep-promptfoo]" >&2
       exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 [--skip-phpunit] [--with-promptfoo]" >&2
+      echo "Usage: $0 [--skip-phpunit] [--with-promptfoo] [--with-deep-promptfoo]" >&2
       exit 2
       ;;
   esac
@@ -225,6 +232,50 @@ if [[ "$WITH_PROMPTFOO" == "true" ]]; then
   else
     echo "WARNING: Results file not found at $RESULTS_FILE — cannot verify pass rate"
     append_phase_result "promptfoo" "0"
+  fi
+
+  echo ""
+fi
+
+# ── Phase 3: Promptfoo deep evals (optional) ──────────────────────────
+if [[ "$WITH_DEEP_PROMPTFOO" == "true" ]]; then
+  echo "--- Phase 3: Promptfoo deep evals ---"
+
+  DEEP_RESULTS_FILE="$EVALS_DIR/output/results-deep.json"
+
+  echo "Target: $ILAS_ASSISTANT_URL"
+  echo "Delay:  ${ILAS_REQUEST_DELAY_MS:-0}ms"
+  echo ""
+
+  PROMPTFOO_OUTPUT_FILE="$DEEP_RESULTS_FILE" bash "$PROMPTFOO_SCRIPT" eval promptfooconfig.deep.yaml
+
+  if [ -f "$DEEP_RESULTS_FILE" ]; then
+    DEEP_PASS_RATE=$(node -e "
+      const r = require('$DEEP_RESULTS_FILE');
+      const results = r.results?.results || r.results || [];
+      const total = results.length;
+      const passed = results.filter(t => t.success).length;
+      const rate = total > 0 ? (100 * passed / total) : 0;
+      console.log(rate.toFixed(1));
+    " 2>/dev/null || echo "0")
+
+    echo ""
+    echo "Deep promptfoo pass rate: ${DEEP_PASS_RATE}%"
+
+    THRESHOLD=90
+    DEEP_PASS_CHECK=$(node -e "console.log(${DEEP_PASS_RATE} >= ${THRESHOLD} ? 'yes' : 'no')" 2>/dev/null || echo "no")
+
+    if [ "$DEEP_PASS_CHECK" != "yes" ]; then
+      echo "FAIL: Deep promptfoo pass rate ${DEEP_PASS_RATE}% is below ${THRESHOLD}% threshold"
+      append_phase_result "deep_promptfoo" "2"
+      exit 2
+    fi
+
+    echo "PASS: Deep promptfoo evals passed (${DEEP_PASS_RATE}% >= ${THRESHOLD}%)"
+    append_phase_result "deep_promptfoo" "0"
+  else
+    echo "WARNING: Deep results file not found at $DEEP_RESULTS_FILE — cannot verify pass rate"
+    append_phase_result "deep_promptfoo" "0"
   fi
 
   echo ""

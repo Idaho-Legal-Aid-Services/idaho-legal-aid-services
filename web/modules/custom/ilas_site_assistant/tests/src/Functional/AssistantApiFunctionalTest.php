@@ -218,6 +218,73 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Tests that track endpoint rejects cross-origin Origin headers.
+   */
+  public function testTrackEndpointRejectsCrossOriginOriginHeader(): void {
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'Origin' => 'https://evil.example',
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
+
+    $this->assertEquals(403, $response->getStatusCode(), 'Cross-origin Origin must be denied');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertSame('Forbidden', $data['error'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $data);
+  }
+
+  /**
+   * Tests that track endpoint allows same-origin Origin headers.
+   */
+  public function testTrackEndpointAllowsSameOriginOriginHeader(): void {
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'Origin' => $this->siteOrigin(),
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
+
+    $this->assertEquals(200, $response->getStatusCode(), 'Same-origin Origin must be allowed');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertTrue($data['ok'] ?? FALSE);
+  }
+
+  /**
+   * Tests that track endpoint allows same-origin Referer when Origin is absent.
+   */
+  public function testTrackEndpointAllowsSameOriginRefererHeader(): void {
+    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
+      'http_errors' => FALSE,
+      'headers' => [
+        'Content-Type' => 'application/json',
+        'Referer' => $this->siteOrigin() . '/assistant',
+      ],
+      'body' => json_encode([
+        'event_type' => 'chat_open',
+        'event_value' => '',
+      ]),
+    ]);
+
+    $this->assertEquals(200, $response->getStatusCode(), 'Same-origin Referer must be allowed');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertTrue($data['ok'] ?? FALSE);
+  }
+
+  /**
    * Tests that the track endpoint accepts valid events.
    */
   public function testTrackEndpointAcceptsValidEvent(): void {
@@ -341,6 +408,53 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     ]);
 
     $this->assertEquals(403, $response->getStatusCode());
+  }
+
+  /**
+   * Tests that the metrics endpoint is accessible to admin users.
+   */
+  public function testMetricsEndpointAccessibleToAdmin(): void {
+    $this->drupalLogin($this->adminUser);
+    $cookies = $this->getSessionCookies();
+
+    $url = $this->buildUrl('/assistant/api/metrics');
+    $response = $this->getHttpClient()->get($url, [
+      'http_errors' => FALSE,
+      'cookies' => $cookies,
+    ]);
+
+    $this->assertEquals(200, $response->getStatusCode());
+
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertArrayHasKey('timestamp', $data);
+    $this->assertArrayHasKey('metrics', $data);
+    $this->assertArrayHasKey('thresholds', $data);
+    $this->assertArrayHasKey('cron', $data);
+    $this->assertArrayHasKey('queue', $data);
+  }
+
+  /**
+   * Tests that the admin report dashboard requires proper permission.
+   */
+  public function testAdminReportDashboardPermissionCheck(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $this->drupalGet('/admin/reports/ilas-assistant');
+    $this->assertSession()->statusCodeEquals(403);
+  }
+
+  /**
+   * Tests that admin users can access the admin report dashboard.
+   */
+  public function testAdminReportDashboardAccessibleToAdmin(): void {
+    $this->drupalLogin($this->adminUser);
+
+    $this->drupalGet('/admin/reports/ilas-assistant');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Summary Statistics');
+    $this->assertSession()->pageTextContains('Top Topics Selected');
+    $this->assertSession()->pageTextContains('Top Clicked Destinations');
+    $this->assertSession()->pageTextContains('Content Gaps (No-Answer Queries)');
   }
 
   /**
@@ -652,6 +766,107 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Anonymous POST without CSRF token returns 403 with csrf_missing error code.
+   *
+   * IMP-SEC-02 error code contract: missing token → csrf_missing.
+   */
+  public function testAnonymousMessageWithoutToken_Returns403WithCsrfMissing(): void {
+    $response = $this->postJsonAnonymous('/assistant/api/message', [
+      'message' => 'Hello',
+    ]);
+
+    $this->assertEquals(403, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertNotNull($data, 'Response body must be valid JSON');
+    $this->assertTrue($data['error']);
+    $this->assertEquals('csrf_missing', $data['error_code']);
+    $this->assertNotEmpty($data['message']);
+    $this->assertEquals('application/json', $response->getHeader('Content-Type')[0] ?? '');
+    $this->assertStringContainsString('no-store', $response->getHeader('Cache-Control')[0] ?? '');
+    $this->assertEquals('nosniff', $response->getHeader('X-Content-Type-Options')[0] ?? '');
+  }
+
+  /**
+   * Anonymous POST with invalid CSRF token (with session) returns csrf_invalid.
+   *
+   * IMP-SEC-02 error code contract: invalid token + active session → csrf_invalid.
+   */
+  public function testAnonymousMessageWithInvalidToken_Returns403WithErrorCode(): void {
+    // Prime a session first so hasPreviousSession() is true during validation.
+    [$cookies] = $this->getAnonymousSessionCookiesAndToken();
+
+    $response = $this->postJsonAnonymous('/assistant/api/message', [
+      'message' => 'Hello',
+    ], 'deliberately-invalid-token', $cookies);
+
+    $this->assertEquals(403, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertNotNull($data, 'Response body must be valid JSON');
+    $this->assertTrue($data['error']);
+    $this->assertEquals('csrf_invalid', $data['error_code']);
+    $this->assertNotEmpty($data['message']);
+  }
+
+  /**
+   * POST with token from unmatched session returns csrf_expired.
+   *
+   * IMP-SEC-02 error code contract: token present + no session → csrf_expired.
+   */
+  public function testAnonymousMessageWithExpiredSession_Returns403WithCsrfExpired(): void {
+    // Send invalid token WITHOUT any session cookies — simulates expired session.
+    $response = $this->postJsonAnonymous('/assistant/api/message', [
+      'message' => 'Hello',
+    ], 'token-from-expired-session');
+
+    $this->assertEquals(403, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertNotNull($data, 'Response body must be valid JSON');
+    $this->assertTrue($data['error']);
+    $this->assertEquals('csrf_expired', $data['error_code']);
+    $this->assertNotEmpty($data['message']);
+  }
+
+  /**
+   * Recovery path: 403 → fetch fresh token → 200.
+   *
+   * IMP-SEC-02 acceptance criteria: validates end-to-end recovery path.
+   */
+  public function testAnonymousMessageRecovery_FreshTokenAfter403(): void {
+    // Step 1: POST without token → 403.
+    $response = $this->postJsonAnonymous('/assistant/api/message', [
+      'message' => 'Hello',
+    ]);
+    $this->assertEquals(403, $response->getStatusCode());
+
+    // Step 2: Fetch fresh session + token.
+    [$cookies, $token] = $this->getAnonymousSessionCookiesAndToken();
+
+    // Step 3: POST with valid token → 200.
+    $response = $this->postJsonAnonymous('/assistant/api/message', [
+      'message' => 'Hello',
+    ], $token, $cookies);
+    $this->assertEquals(200, $response->getStatusCode(), 'Recovery with fresh token should succeed');
+  }
+
+  /**
+   * Assistant bootstrap endpoint returns token and sets anonymous session.
+   */
+  public function testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie(): void {
+    $cookies = new CookieJar();
+    $response = $this->getHttpClient()->get($this->buildUrl('/assistant/api/session/bootstrap'), [
+      'http_errors' => FALSE,
+      'cookies' => $cookies,
+    ]);
+
+    $this->assertEquals(200, $response->getStatusCode());
+    $this->assertNotEmpty(trim((string) $response->getBody()), 'Bootstrap endpoint must return a CSRF token');
+    $this->assertNotEmpty($cookies->toArray(), 'Bootstrap endpoint must issue a session cookie');
+    $this->assertStringContainsString('text/plain', $response->getHeader('Content-Type')[0] ?? '');
+    $this->assertStringContainsString('no-store', $response->getHeader('Cache-Control')[0] ?? '');
+    $this->assertEquals('nosniff', $response->getHeader('X-Content-Type-Options')[0] ?? '');
+  }
+
+  /**
    * Sends a JSON POST request as anonymous.
    *
    * @param string $path
@@ -729,7 +944,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    *   The session token.
    */
   protected function getSessionToken(?CookieJarInterface $cookies = NULL): string {
-    $url = $this->buildUrl('/session/token');
+    $url = $this->buildUrl('/assistant/api/session/bootstrap');
     $options = [
       'http_errors' => FALSE,
     ];
@@ -755,19 +970,30 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Primes an anonymous cookie jar by fetching a session token.
+   * Primes an anonymous cookie jar via assistant session bootstrap endpoint.
    *
    * The assistant page no longer embeds CSRF tokens (to allow page caching).
-   * Instead, the widget fetches /session/token lazily before the first POST.
-   * This helper establishes the session cookie for anonymous CSRF tests.
+   * The widget fetches /assistant/api/session/bootstrap lazily before first
+   * POST.
    */
   protected function primeAnonymousSession(CookieJarInterface $cookies): void {
-    $response = $this->getHttpClient()->get($this->buildUrl('/session/token'), [
+    $response = $this->getHttpClient()->get($this->buildUrl('/assistant/api/session/bootstrap'), [
       'http_errors' => FALSE,
       'cookies' => $cookies,
     ]);
     $this->assertEquals(200, $response->getStatusCode(),
-      '/session/token must be accessible to establish anonymous session');
+      '/assistant/api/session/bootstrap must be accessible to establish anonymous session');
+  }
+
+  /**
+   * Returns the site origin for same-origin header assertions.
+   */
+  protected function siteOrigin(): string {
+    $parts = parse_url($this->buildUrl('/assistant'));
+    $scheme = $parts['scheme'] ?? 'http';
+    $host = $parts['host'] ?? 'localhost';
+    $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+    return "{$scheme}://{$host}{$port}";
   }
 
 }

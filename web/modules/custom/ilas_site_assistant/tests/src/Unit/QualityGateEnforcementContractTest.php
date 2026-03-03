@@ -66,10 +66,14 @@ final class QualityGateEnforcementContractTest extends TestCase {
   public function testPromptfooBranchPolicyRemainsBranchAware(): void {
     $script = self::readFile('scripts/ci/run-promptfoo-gate.sh');
 
+    $this->assertStringContainsString('$CI_BRANCH_NAME" == "master"', $script);
     $this->assertStringContainsString('$CI_BRANCH_NAME" == "main"', $script);
     $this->assertStringContainsString('=~ ^release/', $script);
     $this->assertStringContainsString('EFFECTIVE_MODE="blocking"', $script);
     $this->assertStringContainsString('EFFECTIVE_MODE="advisory"', $script);
+    $this->assertStringContainsString('promptfooconfig.deep.yaml', $script);
+    $this->assertStringContainsString('promptfooconfig.abuse.yaml', $script);
+    $this->assertStringContainsString('config_file=', $script);
   }
 
   /**
@@ -93,6 +97,54 @@ final class QualityGateEnforcementContractTest extends TestCase {
     // Branch-aware policy annotation.
     $this->assertStringContainsString('BLOCKING', $workflow);
     $this->assertStringContainsString('ADVISORY', $workflow);
+  }
+
+  /**
+   * Workflow triggers must cover all blocking branches including release.
+   */
+  public function testWorkflowTriggersCoverAllBlockingBranches(): void {
+    $workflow = self::readFile('.github/workflows/quality-gate.yml');
+
+    // pull_request section must include release/** for blocking branch coverage.
+    $prPos = strpos($workflow, 'pull_request:');
+    $this->assertNotFalse($prPos, 'pull_request trigger must exist in workflow');
+
+    // Find release/** after the pull_request: declaration.
+    $releasePos = strpos($workflow, "release/**", $prPos);
+    $this->assertNotFalse(
+      $releasePos,
+      'pull_request trigger must include release/** for blocking branch coverage'
+    );
+
+    // Concurrency control must exist to prevent stale-run races.
+    $this->assertStringContainsString(
+      'concurrency:',
+      $workflow,
+      'Workflow must include concurrency control'
+    );
+    $this->assertStringContainsString(
+      'cancel-in-progress:',
+      $workflow,
+      'Workflow must include cancel-in-progress for concurrency control'
+    );
+  }
+
+  /**
+   * Documentation must declare CI quality gate mandatory with enforcement.
+   */
+  public function testDocumentationDeclaresGateMandatory(): void {
+    $currentState = self::readFile('docs/aila/current-state.md');
+
+    $this->assertStringContainsString(
+      'CI quality gate is mandatory for merge/release path',
+      $currentState,
+      'current-state.md must declare CI quality gate mandatory'
+    );
+    $this->assertStringContainsString(
+      'branch protection',
+      $currentState,
+      'current-state.md must reference branch protection enforcement'
+    );
   }
 
   /**

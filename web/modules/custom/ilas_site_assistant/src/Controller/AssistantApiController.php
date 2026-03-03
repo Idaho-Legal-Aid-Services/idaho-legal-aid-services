@@ -54,6 +54,16 @@ class AssistantApiController extends ControllerBase {
   ];
 
   /**
+   * Clarify-loop threshold before deterministic loop-break fallback.
+   */
+  const CLARIFY_LOOP_THRESHOLD = 3;
+
+  /**
+   * TTL for conversation cache entries (seconds).
+   */
+  const CONVERSATION_STATE_TTL = 1800;
+
+  /**
    * The config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
@@ -395,6 +405,14 @@ class AssistantApiController extends ControllerBase {
     try {
 
     $user_message = $this->sanitizeInput($data['message']);
+    if ($user_message === '') {
+      return $this->jsonResponse([
+        'error' => 'Invalid request',
+        'error_code' => 'invalid_message',
+        'message' => 'Message is empty after sanitization.',
+        'request_id' => $request_id,
+      ], 400, [], $request_id);
+    }
     // Normalize for classifier checks: strips evasion techniques
     // (interstitial punctuation, Unicode tricks, spaced-out letters).
     // $user_message is kept intact for display, intent routing, and retrieval.
@@ -427,6 +445,11 @@ class AssistantApiController extends ControllerBase {
     // Parse ephemeral conversation ID (client-generated UUID).
     $conversation_id = NULL;
     $server_history = [];
+    $clarify_meta = [
+      'clarify_count' => 0,
+      'prior_question_hash' => '',
+      'updated_at' => 0,
+    ];
     if (!empty($data['conversation_id']) && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $data['conversation_id'])) {
       $conversation_id = $data['conversation_id'];
       $cache_key = 'ilas_conv:' . $conversation_id;
@@ -434,6 +457,7 @@ class AssistantApiController extends ControllerBase {
       if ($cached) {
         $server_history = $cached->data;
       }
+      $clarify_meta = $this->loadClarifyMeta($conversation_id);
 
       // Abuse detection: repeated identical messages.
       if (count($server_history) >= 3) {
@@ -539,12 +563,20 @@ class AssistantApiController extends ControllerBase {
           $response_data['_debug'] = $debug_meta;
         }
 
-        $this->logger->notice('[@request_id] Safety exit: class=@class reason=@reason level=@level', [
-          '@request_id' => $request_id,
-          '@class' => $safety_classification['class'],
-          '@reason' => $safety_classification['reason_code'],
-          '@level' => $safety_classification['escalation_level'],
-        ]);
+        $safety_telemetry = TelemetrySchema::normalize(
+          intent: 'safety_exit',
+          safety_class: $safety_classification['class'],
+          fallback_path: 'none',
+          request_id: $request_id,
+        );
+        $this->logger->notice('[@request_id] Safety exit: class=@class reason=@reason level=@level', TelemetrySchema::toLogContext(
+          $safety_telemetry,
+          [
+            '@class' => $safety_classification['class'],
+            '@reason' => $safety_classification['reason_code'],
+            '@level' => $safety_classification['escalation_level'],
+          ]
+        ));
 
         $this->langfuseTracer?->endSpan([
           'class' => $safety_classification['class'],
@@ -555,12 +587,7 @@ class AssistantApiController extends ControllerBase {
           output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
           metadata: array_merge(
             ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
-            TelemetrySchema::normalize(
-              intent: 'safety_exit',
-              safety_class: $safety_classification['class'],
-              fallback_path: 'none',
-              request_id: $request_id,
-            ),
+            $safety_telemetry,
           )
         );
 
@@ -625,11 +652,19 @@ class AssistantApiController extends ControllerBase {
           $response_data['_debug'] = $debug_meta;
         }
 
-        $this->logger->notice('[@request_id] Out-of-scope exit: category=@category reason=@reason', [
-          '@request_id' => $request_id,
-          '@category' => $oos_classification['category'],
-          '@reason' => $oos_classification['reason_code'],
-        ]);
+        $oos_telemetry = TelemetrySchema::normalize(
+          intent: 'oos_' . $oos_classification['category'],
+          safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+          fallback_path: 'none',
+          request_id: $request_id,
+        );
+        $this->logger->notice('[@request_id] Out-of-scope exit: category=@category reason=@reason', TelemetrySchema::toLogContext(
+          $oos_telemetry,
+          [
+            '@category' => $oos_classification['category'],
+            '@reason' => $oos_classification['reason_code'],
+          ]
+        ));
 
         $this->langfuseTracer?->endSpan([
           'is_out_of_scope' => TRUE,
@@ -640,12 +675,7 @@ class AssistantApiController extends ControllerBase {
           output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
           metadata: array_merge(
             ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
-            TelemetrySchema::normalize(
-              intent: 'oos_' . $oos_classification['category'],
-              safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
-              fallback_path: 'none',
-              request_id: $request_id,
-            ),
+            $oos_telemetry,
           )
         );
 
@@ -697,22 +727,25 @@ class AssistantApiController extends ControllerBase {
         $response_data['_debug'] = $debug_meta;
       }
 
-      $this->logger->notice('[@request_id] Policy violation exit: type=@type', [
-        '@request_id' => $request_id,
-        '@type' => $policy_result['type'],
-      ]);
+      $policy_telemetry = TelemetrySchema::normalize(
+        intent: 'policy_violation',
+        safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+        fallback_path: 'none',
+        request_id: $request_id,
+      );
+      $this->logger->notice('[@request_id] Policy violation exit: type=@type', TelemetrySchema::toLogContext(
+        $policy_telemetry,
+        [
+          '@type' => $policy_result['type'],
+        ]
+      ));
 
       $this->langfuseTracer?->endSpan(['violation' => TRUE, 'type' => $policy_result['type']]);
       $this->langfuseTracer?->endTrace(
         output: ['type' => 'policy_violation', 'reason_code' => 'policy_' . $policy_result['type']],
         metadata: array_merge(
           ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
-          TelemetrySchema::normalize(
-            intent: 'policy_violation',
-            safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
-            fallback_path: 'none',
-            request_id: $request_id,
-          ),
+          $policy_telemetry,
         )
       );
 
@@ -1049,6 +1082,15 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['processing_stages'][] = 'post_generation_safety';
     }
 
+    // Clarify-loop prevention: if the same clarify question repeats too many
+    // times in a conversation, force a deterministic loop-break response.
+    if ($conversation_id) {
+      $response = $this->applyClarifyLoopGuard($response, $conversation_id, $request_id, $clarify_meta);
+      if ($debug_mode) {
+        $debug_meta['clarify_loop_meta'] = $this->loadClarifyMeta($conversation_id);
+      }
+    }
+
     // Log the interaction.
     $this->analyticsLogger->log($intent['type'], $intent['value'] ?? '');
 
@@ -1156,14 +1198,19 @@ class AssistantApiController extends ControllerBase {
       $this->performanceMonitor->recordRequest($duration_ms, TRUE, $scenario, $request_id);
     }
 
-    $this->logger->info('[@request_id] Request complete: intent=@intent safety=@safety gate=@gate reason=@reason type=@type', [
-      '@request_id' => $request_id,
-      '@intent' => $intent['type'] ?? 'unknown',
-      '@safety' => $safety_classification ? $safety_classification['class'] : 'safe',
-      '@gate' => $gate_decision['decision'] ?? 'none',
-      '@reason' => $response['reason_code'] ?? 'none',
-      '@type' => $response['type'] ?? 'unknown',
-    ]);
+    $success_telemetry = TelemetrySchema::normalize(
+      intent: $intent['type'] ?? 'unknown',
+      safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+      fallback_path: $gate_decision['decision'] ?? 'none',
+      request_id: $request_id,
+    );
+    $this->logger->info('[@request_id] Request complete: intent=@intent safety=@safety gate=@gate reason=@reason type=@type', TelemetrySchema::toLogContext(
+      $success_telemetry,
+      [
+        '@reason' => $response['reason_code'] ?? 'none',
+        '@type' => $response['type'] ?? 'unknown',
+      ]
+    ));
 
     // End Langfuse trace on successful completion.
     $duration_ms = (microtime(TRUE) - $start_time) * 1000;
@@ -1185,12 +1232,7 @@ class AssistantApiController extends ControllerBase {
           'turn_type' => $turn_type,
           'fallback_level' => $response['fallback_level'] ?? NULL,
         ],
-        TelemetrySchema::normalize(
-          intent: $intent['type'] ?? 'unknown',
-          safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
-          fallback_path: $gate_decision['decision'] ?? 'none',
-          request_id: $request_id,
-        ),
+        $success_telemetry,
       )
     );
 
@@ -1203,33 +1245,33 @@ class AssistantApiController extends ControllerBase {
 
     }
     catch (\Throwable $e) {
+      $error_telemetry = TelemetrySchema::normalize(
+        intent: isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
+        safety_class: isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
+        fallback_path: 'error',
+        request_id: $request_id,
+      );
       $this->logger->error(
         '[@request_id] Unhandled exception in message pipeline: @class @message',
-        [
-          '@request_id' => $request_id,
-          '@class' => get_class($e),
-          '@message' => $e->getMessage(),
-          '@intent' => isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
-          '@safety' => isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
-        ]
+        TelemetrySchema::toLogContext(
+          $error_telemetry,
+          [
+            '@class' => get_class($e),
+            '@message' => $e->getMessage(),
+          ]
+        )
       );
 
       // Capture to Sentry with assistant-specific tags.
       if (function_exists('\Sentry\captureException')) {
-        \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($request_id, $intent, $safety_classification) {
-          $telemetry = TelemetrySchema::normalize(
-            intent: isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
-            safety_class: isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
-            fallback_path: 'error',
-            request_id: $request_id,
-          );
+        \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($error_telemetry) {
           $scope->setTag('module', 'ilas_site_assistant');
           $scope->setTag('endpoint', 'message');
-          $scope->setTag(TelemetrySchema::FIELD_REQUEST_ID, $telemetry[TelemetrySchema::FIELD_REQUEST_ID]);
-          $scope->setTag(TelemetrySchema::FIELD_INTENT, $telemetry[TelemetrySchema::FIELD_INTENT]);
-          $scope->setTag(TelemetrySchema::FIELD_SAFETY_CLASS, $telemetry[TelemetrySchema::FIELD_SAFETY_CLASS]);
-          $scope->setTag(TelemetrySchema::FIELD_FALLBACK_PATH, $telemetry[TelemetrySchema::FIELD_FALLBACK_PATH]);
-          $scope->setTag(TelemetrySchema::FIELD_ENV, $telemetry[TelemetrySchema::FIELD_ENV]);
+          $scope->setTag(TelemetrySchema::FIELD_REQUEST_ID, $error_telemetry[TelemetrySchema::FIELD_REQUEST_ID]);
+          $scope->setTag(TelemetrySchema::FIELD_INTENT, $error_telemetry[TelemetrySchema::FIELD_INTENT]);
+          $scope->setTag(TelemetrySchema::FIELD_SAFETY_CLASS, $error_telemetry[TelemetrySchema::FIELD_SAFETY_CLASS]);
+          $scope->setTag(TelemetrySchema::FIELD_FALLBACK_PATH, $error_telemetry[TelemetrySchema::FIELD_FALLBACK_PATH]);
+          $scope->setTag(TelemetrySchema::FIELD_ENV, $error_telemetry[TelemetrySchema::FIELD_ENV]);
         });
         \Sentry\captureException($e);
       }
@@ -1243,12 +1285,7 @@ class AssistantApiController extends ControllerBase {
         output: NULL,
         metadata: array_merge(
           ['success' => FALSE, 'error' => get_class($e), 'duration_ms' => (microtime(TRUE) - $start_time) * 1000],
-          TelemetrySchema::normalize(
-            intent: isset($intent) ? ($intent['type'] ?? 'unknown') : 'pre_intent',
-            safety_class: isset($safety_classification) ? ($safety_classification['class'] ?? 'unknown') : 'pre_safety',
-            fallback_path: 'error',
-            request_id: $request_id,
-          ),
+          $error_telemetry,
         )
       );
 
@@ -2249,16 +2286,32 @@ class AssistantApiController extends ControllerBase {
         $options = $intent['options'] ?? [];
         $question = $intent['question'] ?? $this->t('What are you looking for?');
         $option_links = [];
+        $legacy_value_alias_used = FALSE;
         foreach ($options as $option) {
-          // Tolerate both key schemas: IntentRouter uses 'intent',
-          // Disambiguator uses 'value'.
+          // Canonical key is 'intent'; 'value' is deprecated (IMP-REL-03).
+          if (!isset($option['intent']) && isset($option['value'])) {
+            $this->logger->warning('[@request_id] Deprecated: disambiguation option uses "value" key instead of canonical "intent". Source: @source', [
+              '@request_id' => $request_id ?: 'n/a',
+              '@source' => $intent['reason'] ?? 'unknown',
+            ]);
+            $legacy_value_alias_used = TRUE;
+          }
           $opt_intent = $option['intent'] ?? $option['value'] ?? '';
+          if ($opt_intent === '') {
+            continue;
+          }
           $opt_url = $builder->resolveIntentUrl($opt_intent);
           $option_links[] = [
             'label' => $option['label'] ?? $opt_intent,
             'action' => $opt_intent,
             'url' => $opt_url,
           ];
+        }
+        if ($legacy_value_alias_used) {
+          $this->logger->warning('[@request_id] Legacy disambiguation option alias `value` consumed; canonical key is `intent`.', [
+            '@request_id' => $request_id ?: 'n/a',
+          ]);
+          $this->analyticsLogger->log('disambiguation_legacy_value_alias', 'value_to_intent');
         }
         if (!empty($intent['competing_intents'])) {
           $best_intent = $intent['competing_intents'][0]['intent'] ?? '';
@@ -2581,6 +2634,142 @@ class AssistantApiController extends ControllerBase {
       ['label' => $this->t('Find a guide'), 'action' => 'guides'],
       ['label' => $this->t('Search FAQs'), 'action' => 'faq'],
       ['label' => $this->t('Apply for help'), 'action' => 'apply'],
+    ];
+  }
+
+  /**
+   * Loads clarify-loop metadata for a conversation.
+   */
+  protected function loadClarifyMeta(string $conversation_id): array {
+    $cached = $this->conversationCache->get('ilas_conv_meta:' . $conversation_id);
+    $data = (is_object($cached) && is_array($cached->data ?? NULL))
+      ? $cached->data
+      : [];
+
+    return [
+      'clarify_count' => max(0, (int) ($data['clarify_count'] ?? 0)),
+      'prior_question_hash' => (string) ($data['prior_question_hash'] ?? ''),
+      'updated_at' => (int) ($data['updated_at'] ?? 0),
+    ];
+  }
+
+  /**
+   * Persists clarify-loop metadata for a conversation.
+   */
+  protected function saveClarifyMeta(string $conversation_id, array $meta): void {
+    $this->conversationCache->set(
+      'ilas_conv_meta:' . $conversation_id,
+      [
+        'clarify_count' => max(0, (int) ($meta['clarify_count'] ?? 0)),
+        'prior_question_hash' => (string) ($meta['prior_question_hash'] ?? ''),
+        'updated_at' => time(),
+      ],
+      time() + self::CONVERSATION_STATE_TTL
+    );
+  }
+
+  /**
+   * Applies loop prevention for repeated clarify responses.
+   */
+  protected function applyClarifyLoopGuard(array $response, string $conversation_id, string $request_id, array $meta): array {
+    if (!$this->isClarifyLikeResponse($response)) {
+      $this->saveClarifyMeta($conversation_id, [
+        'clarify_count' => 0,
+        'prior_question_hash' => '',
+      ]);
+      return $response;
+    }
+
+    $message = trim((string) ($response['message'] ?? ''));
+    if ($message === '') {
+      $this->saveClarifyMeta($conversation_id, [
+        'clarify_count' => 0,
+        'prior_question_hash' => '',
+      ]);
+      return $response;
+    }
+
+    $normalized = mb_strtolower((string) preg_replace('/\s+/', ' ', $message));
+    $question_hash = hash('sha256', $normalized);
+    $prior_hash = (string) ($meta['prior_question_hash'] ?? '');
+    $clarify_count = ($prior_hash === $question_hash)
+      ? ((int) ($meta['clarify_count'] ?? 0) + 1)
+      : 1;
+
+    if ($clarify_count >= self::CLARIFY_LOOP_THRESHOLD) {
+      $response = [
+        'type' => 'clarify_loop_break',
+        'response_mode' => 'clarify',
+        'message' => (string) $this->t('I may be repeating myself. Choose one of these options, or contact our Legal Advice Line for direct help.'),
+        'topic_suggestions' => $this->getClarifyLoopBreakSuggestions(),
+        'actions' => $this->getEscalationActions(),
+        'reason_code' => 'clarify_loop_break',
+        'request_id' => $request_id,
+      ];
+      $clarify_count = 0;
+      $question_hash = '';
+      $this->logger->warning('[@request_id] Clarify loop-break activated for conversation @conversation_id', [
+        '@request_id' => $request_id,
+        '@conversation_id' => $conversation_id,
+      ]);
+      $this->analyticsLogger->log('clarify_loop_break', $conversation_id);
+    }
+
+    $this->saveClarifyMeta($conversation_id, [
+      'clarify_count' => $clarify_count,
+      'prior_question_hash' => $question_hash,
+    ]);
+
+    return $response;
+  }
+
+  /**
+   * Determines whether the response is clarify-like.
+   */
+  protected function isClarifyLikeResponse(array $response): bool {
+    $response_mode = (string) ($response['response_mode'] ?? '');
+    $response_type = (string) ($response['type'] ?? '');
+
+    if ($response_mode === 'clarify') {
+      return TRUE;
+    }
+
+    return in_array($response_type, [
+      'clarify',
+      'disambiguation',
+      'form_finder_clarify',
+      'guide_finder_clarify',
+      'office_location_clarify',
+    ], TRUE);
+  }
+
+  /**
+   * Returns deterministic loop-break suggestion chips.
+   */
+  protected function getClarifyLoopBreakSuggestions(): array {
+    $canonical_urls = ilas_site_assistant_get_canonical_urls();
+
+    return [
+      [
+        'label' => $this->t('Find forms'),
+        'action' => 'forms',
+        'url' => $canonical_urls['forms'],
+      ],
+      [
+        'label' => $this->t('Find guides'),
+        'action' => 'guides',
+        'url' => $canonical_urls['guides'],
+      ],
+      [
+        'label' => $this->t('Apply for help'),
+        'action' => 'apply',
+        'url' => $canonical_urls['apply'],
+      ],
+      [
+        'label' => $this->t('Call Legal Advice Line'),
+        'action' => 'hotline',
+        'url' => $canonical_urls['hotline'],
+      ],
     ];
   }
 

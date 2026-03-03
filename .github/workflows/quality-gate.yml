@@ -3,12 +3,19 @@ name: Quality Gate
 on:
   push:
     branches:
+      - master
       - main
       - 'release/**'
   pull_request:
     branches:
+      - master
       - main
+      - 'release/**'
   workflow_dispatch:
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality-gate:
@@ -77,8 +84,8 @@ jobs:
               --env dev \
               --mode auto
           else
-            if [[ "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
-              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking branches (main/release/*)."
+            if [[ "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
+              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking branches (master/main/release/*)."
               exit 1
             fi
             echo "::warning::ILAS_ASSISTANT_URL missing; running simulated promptfoo gate."
@@ -93,7 +100,7 @@ jobs:
         if: always()
         run: |
           BRANCH="${{ github.ref_name }}"
-          if [[ "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
+          if [[ "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
             echo "::notice::Promptfoo gate ran in BLOCKING mode for branch $BRANCH"
           else
             echo "::notice::Promptfoo gate ran in ADVISORY mode for branch $BRANCH"

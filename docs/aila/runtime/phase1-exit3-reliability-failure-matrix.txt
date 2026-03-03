@@ -1,0 +1,139 @@
+# Phase 1 Exit #3 Runtime Evidence (P1-EXT-03)
+Capture date: 2026-03-03
+Scope: reliability failure matrix verification (local + Pantheon dev/test/live)
+
+## Local (DDEV) reliability matrix suites
+
+### DependencyFailureDegradeContractTest
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php --testdox
+PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.23
+Configuration: /var/www/html/phpunit.xml
+
+......                                                              6 / 6 (100%)
+
+Time: 00:00.029, Memory: 10.00 MB
+
+Dependency Failure Degrade Contract (Drupal\Tests\ilas_site_assistant\Unit\DependencyFailureDegradeContract)
+ ✔ Faq search api unavailable falls back to legacy
+ ✔ Faq search api query failure falls back to legacy
+ ✔ Resource search api unavailable falls back to legacy
+ ✔ Resource search api query failure falls back to legacy
+ ✔ Faq vector unavailable preserves lexical results
+ ✔ Resource vector unavailable preserves lexical results
+
+OK, but there were issues!
+Tests: 6, Assertions: 12, PHPUnit Deprecations: 1.
+
+### IntegrationFailureContractTest
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php --testdox
+PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.23
+Configuration: /var/www/html/phpunit.xml
+
+.......................                                           23 / 23 (100%)
+
+Time: 00:00.125, Memory: 12.00 MB
+
+Integration Failure Contract (Drupal\Tests\ilas_site_assistant\Unit\IntegrationFailureContract)
+ ✔ Catch all returns 500 with internal error code
+ ✔ Catch all includes correlation id header
+ ✔ Catch all logs exception
+ ✔ Rate limit response includes request id
+ ✔ Invalid content type response includes request id
+ ✔ Request too large response includes request id
+ ✔ Invalid json response includes request id
+ ✔ Whitespace message returns invalid message 400
+ ✔ Clarify loop breaks on third repeat
+ ✔ Success response includes request id
+ ✔ Failure mode contract with data set "faq_search_api_unavailable"
+ ✔ Failure mode contract with data set "faq_search_api_query_timeout"
+ ✔ Failure mode contract with data set "resource_search_api_unavailable"
+ ✔ Failure mode contract with data set "resource_search_api_query_5xx"
+ ✔ Failure mode contract with data set "faq_vector_unavailable"
+ ✔ Failure mode contract with data set "resource_vector_unavailable"
+ ✔ Failure mode contract with data set "llm_429_rate_limited"
+ ✔ Failure mode contract with data set "llm_503_unavailable"
+ ✔ Failure mode contract with data set "llm_circuit_breaker_open"
+ ✔ Failure mode contract with data set "controller_uncaught_throwable"
+ ✔ Analytics logger internal catch swallows exception
+ ✔ Conversation logger internal catch swallows exception
+ ✔ Langfuse tracer internal catch swallows exception
+
+OK, but there were issues!
+Tests: 23, Assertions: 63, PHPUnit Deprecations: 1.
+
+### LlmEnhancerHardeningTest
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php --testdox
+PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.23
+Configuration: /var/www/html/phpunit.xml
+
+.............................                                     29 / 29 (100%)
+
+Time: 00:02.556, Memory: 12.00 MB
+
+Llm Enhancer Hardening (Drupal\Tests\ilas_site_assistant\Unit\LlmEnhancerHardening)
+ ✔ Sanitization preserves system prompt
+ ✔ Long query preserved in prompt
+ ✔ Cache hit skips api call
+ ✔ Cache miss stores result
+ ✔ Policy version in cache key
+ ✔ High temperature skips cache
+ ✔ Retry on 429
+ ✔ Retry on 503
+ ✔ Retry on 500
+ ✔ No retry on 400
+ ✔ No retry on transport timeout
+ ✔ Retries bounded by config
+ ✔ Enhance faq false skips llm
+ ✔ Enhance resources false skips llm
+ ✔ Escalation response skips llm
+ ✔ Fallback on error true swallows
+ ✔ Fallback on error false rethrows
+ ✔ Classify intent fallback when disabled
+ ✔ Classify intent fallback when api key missing
+ ✔ Classify intent skips llm for known intent
+ ✔ Circuit breaker open skips api call
+ ✔ Circuit breaker null skipped
+ ✔ Rate limiter exhausted skips api call
+ ✔ Rate limiter null skipped
+ ✔ Content fencing in faq prompt
+ ✔ Content fencing in resource prompt
+ ✔ Injection payload in faq is fenced
+ ✔ Fencing directive present in prompt
+ ✔ Fallback on error true preserves response class deterministically
+
+OK, but there were issues!
+Tests: 29, Assertions: 72, PHPUnit Deprecations: 1.
+
+## Pantheon target-environment contract checks (dev/test/live)
+
+### llm.enabled / llm.fallback_on_error / vector_search.enabled
+$ cd '/home/evancurry/idaho-legal-aid-services' && for ENV in dev test live; do echo "=== $ENV ==="; terminus remote:drush idaho-legal-aid-services.$ENV -- config:get ilas_site_assistant.settings llm.enabled; terminus remote:drush idaho-legal-aid-services.$ENV -- config:get ilas_site_assistant.settings llm.fallback_on_error; terminus remote:drush idaho-legal-aid-services.$ENV -- config:get ilas_site_assistant.settings vector_search.enabled; done
+=== dev ===
+'ilas_site_assistant.settings:llm.enabled': false
+ [notice] Command: idaho-legal-aid-services.dev -- drush config:get ilas_site_assistant.settings llm.enabled [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:llm.fallback_on_error': true
+ [notice] Command: idaho-legal-aid-services.dev -- drush config:get ilas_site_assistant.settings llm.fallback_on_error [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:vector_search.enabled': false
+ [notice] Command: idaho-legal-aid-services.dev -- drush config:get ilas_site_assistant.settings vector_search.enabled [Exit: 0] (Attempt 1/1)
+
+=== test ===
+'ilas_site_assistant.settings:llm.enabled': false
+ [notice] Command: idaho-legal-aid-services.test -- drush config:get ilas_site_assistant.settings llm.enabled [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:llm.fallback_on_error': true
+ [notice] Command: idaho-legal-aid-services.test -- drush config:get ilas_site_assistant.settings llm.fallback_on_error [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:vector_search.enabled': false
+ [notice] Command: idaho-legal-aid-services.test -- drush config:get ilas_site_assistant.settings vector_search.enabled [Exit: 0] (Attempt 1/1)
+
+=== live ===
+'ilas_site_assistant.settings:llm.enabled': false
+ [notice] Command: idaho-legal-aid-services.live -- drush config:get ilas_site_assistant.settings llm.enabled [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:llm.fallback_on_error': true
+ [notice] Command: idaho-legal-aid-services.live -- drush config:get ilas_site_assistant.settings llm.fallback_on_error [Exit: 0] (Attempt 1/1)
+'ilas_site_assistant.settings:vector_search.enabled': false
+ [notice] Command: idaho-legal-aid-services.live -- drush config:get ilas_site_assistant.settings vector_search.enabled [Exit: 0] (Attempt 1/1)

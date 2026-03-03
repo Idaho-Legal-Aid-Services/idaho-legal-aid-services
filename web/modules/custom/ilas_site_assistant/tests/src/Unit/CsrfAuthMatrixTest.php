@@ -9,6 +9,8 @@ use Drupal\ilas_site_assistant\Access\StrictCsrfRequestHeaderAccessCheck;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\Routing\Route;
 
 /**
@@ -110,6 +112,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isForbidden());
+    $this->assertEquals('csrf_missing', $request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**
@@ -134,6 +137,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isForbidden());
+    $this->assertEquals('csrf_missing', $request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**
@@ -143,6 +147,10 @@ class CsrfAuthMatrixTest extends TestCase {
     $request = Request::create('/assistant/api/message', 'POST');
     $request->headers->set('X-CSRF-Token', 'wrong-token');
     $request->attributes->set('_route', 'ilas_site_assistant.api.message');
+    // Simulate an active session so hasPreviousSession() returns true.
+    $session = new Session(new MockArraySessionStorage());
+    $request->setSession($session);
+    $request->cookies->set($session->getName(), 'test-sess-id');
     $account = $this->createAuthenticatedAccount();
 
     $this->csrfTokenGenerator->method('validate')->willReturn(FALSE);
@@ -159,6 +167,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isForbidden());
+    $this->assertEquals('csrf_invalid', $request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**
@@ -184,6 +193,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isForbidden());
+    $this->assertEquals('csrf_expired', $request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**
@@ -202,6 +212,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isAllowed());
+    $this->assertNull($request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**
@@ -220,6 +231,7 @@ class CsrfAuthMatrixTest extends TestCase {
 
     $result = $this->checker->access($request, $account);
     $this->assertTrue($result->isAllowed());
+    $this->assertNull($request->attributes->get('_ilas_csrf_denial_code'));
   }
 
   /**

@@ -62,7 +62,7 @@ class PhaseOneObservabilityDependencyGateTest extends TestCase {
     $this->assertStringContainsString('runtime override checks (`raven_client_key` presence + module enabled)', $backlog);
     $this->assertStringContainsString('Live sample rate remains policy-capped (initial 0.10)', $backlog);
     $this->assertStringContainsString('external CI runners using repo scripts (`scripts/ci/*`)', $backlog);
-    $this->assertStringContainsString('Promptfoo threshold failures block `main`/`release/*` and are advisory elsewhere.', $backlog);
+    $this->assertStringContainsString('Promptfoo threshold failures block `master`/`main`/`release/*` and are advisory elsewhere.', $backlog);
   }
 
   /**
@@ -83,7 +83,7 @@ class PhaseOneObservabilityDependencyGateTest extends TestCase {
     $this->assertStringContainsString('export ILAS_ASSISTANT_URL=', $runbook);
     $this->assertStringContainsString('npm run eval:promptfoo', $runbook);
     $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh --env test --mode auto', $runbook);
-    $this->assertStringContainsString('`main` and `release/*` branches are blocking for threshold failures.', $runbook);
+    $this->assertStringContainsString('`master`, `main`, and `release/*` branches are blocking for threshold failures.', $runbook);
     $this->assertStringContainsString('Expected readiness result', $runbook);
     $this->assertStringNotContainsString('config:get raven.settings -y', $runbook);
     $this->assertStringNotContainsString('config:get langfuse.settings -y', $runbook);

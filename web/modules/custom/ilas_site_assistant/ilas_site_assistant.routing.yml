@@ -16,6 +16,14 @@ ilas_site_assistant.api.message:
     _csrf_request_header_token: 'TRUE'
     _ilas_strict_csrf_token: 'TRUE'
 
+ilas_site_assistant.api.session_bootstrap:
+  path: '/assistant/api/session/bootstrap'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantSessionBootstrapController::bootstrap'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'
+
 ilas_site_assistant.api.suggest:
   path: '/assistant/api/suggest'
   defaults:

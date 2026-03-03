@@ -2,6 +2,7 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\ilas_site_assistant\Service\Disambiguator;
 use Drupal\ilas_site_assistant\Service\HistoryIntentResolver;
 use Drupal\ilas_site_assistant\Service\TurnClassifier;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
@@ -129,6 +130,8 @@ class GoldenTranscriptTest extends TestCase {
    * Validates expected intents match when specified.
    */
   public function testExpectedIntents(): void {
+    $disambiguator = new Disambiguator();
+
     foreach (self::$transcripts['transcripts'] as $transcript) {
       $id = $transcript['id'];
 
@@ -145,6 +148,47 @@ class GoldenTranscriptTest extends TestCase {
           $actual = TurnClassifier::resolveInventoryType($message);
           $this->assertEquals($expected_intent, $actual,
             "Transcript '$id' turn #$j: expected inventory type '$expected_intent', got '$actual'");
+        }
+
+        // For disambiguation turns, verify Disambiguator triggers.
+        if ($turn['expected_turn_type'] === 'NEW' && $expected_intent === 'disambiguation') {
+          $result = $disambiguator->check($message, []);
+          $this->assertNotNull($result,
+            "Transcript '$id' turn #$j: '$message' should trigger disambiguation");
+          $this->assertSame('disambiguation', $result['type'],
+            "Transcript '$id' turn #$j: '$message' should return type=disambiguation");
+        }
+      }
+    }
+  }
+
+  /**
+   * Validates disambiguation options expose canonical 'intent' key, no 'value'.
+   */
+  public function testDisambiguationOptionsHaveIntentKey(): void {
+    $disambiguator = new Disambiguator();
+
+    foreach (self::$transcripts['transcripts'] as $transcript) {
+      $id = $transcript['id'];
+
+      foreach ($transcript['turns'] as $j => $turn) {
+        $expected_intent = $turn['expected_intent'] ?? NULL;
+        if ($expected_intent !== 'disambiguation') {
+          continue;
+        }
+
+        $message = $turn['message'];
+        $result = $disambiguator->check($message, []);
+        $this->assertNotNull($result,
+          "Transcript '$id' turn #$j: '$message' should trigger disambiguation");
+
+        foreach ($result['options'] as $k => $option) {
+          $this->assertArrayHasKey('intent', $option,
+            "Transcript '$id' turn #$j option #$k must have 'intent' key");
+          $this->assertNotEmpty($option['intent'],
+            "Transcript '$id' turn #$j option #$k must have non-empty 'intent'");
+          $this->assertArrayNotHasKey('value', $option,
+            "Transcript '$id' turn #$j option #$k must not have deprecated 'value' key");
         }
       }
     }

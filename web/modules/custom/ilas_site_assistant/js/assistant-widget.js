@@ -217,7 +217,7 @@
     },
 
     /**
-     * Fetch a CSRF token from /session/token.
+     * Fetch a session-bound CSRF token from assistant bootstrap endpoint.
      *
      * Called lazily before the first POST to /message. Caches the promise
      * so concurrent calls share a single fetch. Pass forceRefresh=true
@@ -232,7 +232,8 @@
       }
 
       var self = this;
-      this.csrfTokenPromise = fetch('/session/token', {
+      var bootstrapUrl = ((this.config && this.config.apiBase) || '/assistant/api') + '/session/bootstrap';
+      this.csrfTokenPromise = fetch(bootstrapUrl, {
         method: 'GET',
         credentials: 'same-origin',
       })
@@ -640,7 +641,11 @@
           self.isSending = false;
           self.setSendingState(false);
           self.hideTyping();
-          self.addMessage('assistant', self.getErrorMessage(error));
+          if (error.status === 403) {
+            self.addRecoveryMessage(error, message);
+          } else {
+            self.addMessage('assistant', self.getErrorMessage(error));
+          }
           console.error('ILAS Assistant API error:', error);
         });
     },
@@ -742,7 +747,11 @@
           self.isSending = false;
           self.setSendingState(false);
           self.hideTyping();
-          self.addMessage('assistant', self.getErrorMessage(error));
+          if (error.status === 403) {
+            self.addRecoveryMessage(error, message);
+          } else {
+            self.addMessage('assistant', self.getErrorMessage(error));
+          }
         });
     },
 
@@ -1285,6 +1294,19 @@
         });
       });
 
+      // Bind recovery buttons.
+      messageEl.querySelectorAll('.recovery-btn--retry').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          var retryMsg = e.currentTarget.getAttribute('data-retry-message');
+          self.retrySend(retryMsg);
+        });
+      });
+      messageEl.querySelectorAll('.recovery-btn--refresh').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          window.location.reload();
+        });
+      });
+
       // Bind tracking to new links.
       messageEl.querySelectorAll('[data-assistant-track]').forEach(function (link) {
         link.addEventListener('click', function (e) {
@@ -1396,15 +1418,20 @@
           .then(function (response) {
             clearTimeout(timeoutId);
             if (!response.ok) {
-              var error = new Error('API request failed: ' + response.status);
-              error.status = response.status;
-              if (response.status === 429) {
-                var retryHeader = response.headers.get('Retry-After');
-                if (retryHeader) {
-                  error.retryAfter = retryHeader;
-                }
-              }
-              throw error;
+              return response.json()
+                .catch(function () { return {}; })
+                .then(function (body) {
+                  var error = new Error(body.message || ('API request failed: ' + response.status));
+                  error.status = response.status;
+                  error.errorCode = body.error_code || '';
+                  if (response.status === 429) {
+                    var retryHeader = response.headers.get('Retry-After');
+                    if (retryHeader) {
+                      error.retryAfter = retryHeader;
+                    }
+                  }
+                  throw error;
+                });
             }
             return response.json();
           })
@@ -1465,9 +1492,19 @@
         return msg;
       }
 
-      // 403 Forbidden.
+      // 403 Forbidden — branch on error code from server.
       if (error.status === 403) {
-        return Drupal.t('Access denied. Please refresh the page and try again.');
+        switch (error.errorCode) {
+          case 'csrf_missing':
+            return Drupal.t('Security session could not be established. Choose Try again to resend, or Refresh page to restart your secure session.');
+          case 'csrf_invalid':
+            return Drupal.t('Your security token could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
+          case 'csrf_expired':
+          case 'session_expired':
+            return Drupal.t('Your secure session has expired. Refresh page to continue.');
+          default:
+            return Drupal.t('Access denied. Please refresh the page and try again.');
+        }
       }
 
       // 5xx Server errors.
@@ -1477,6 +1514,124 @@
 
       // Generic fallback.
       return Drupal.t('I\'m having trouble right now. You can try again, or reach us directly through our hotline.');
+    },
+
+    /**
+     * Show an actionable recovery message for 403 errors.
+     *
+     * Renders error text and recovery buttons (retry / refresh) based on the
+     * error code. Uses role="alert" for screen-reader announcement and focuses
+     * the first button for keyboard users.
+     *
+     * @param {Error} error - The error from callApi (must have .status === 403).
+     * @param {string} lastMessageText - The user's message to replay on retry.
+     */
+    addRecoveryMessage: function (error, lastMessageText) {
+      var errorCode = (error && error.errorCode) || '';
+      var recoveryText;
+      var showRetry = false;
+
+      switch (errorCode) {
+        case 'csrf_missing':
+        case 'csrf_invalid':
+          recoveryText = Drupal.t('Security session could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
+          showRetry = true;
+          break;
+        case 'csrf_expired':
+        case 'session_expired':
+          recoveryText = Drupal.t('Your secure session has expired. Refresh page to restart your secure session.');
+          break;
+        default:
+          recoveryText = Drupal.t('Access was denied. Refresh page and try again.');
+          break;
+      }
+
+      var safeMessage = this.escapeAttr(lastMessageText || '');
+      var html = '<div class="recovery-message" role="alert">';
+      html += '<p class="recovery-text">' + this.escapeHtml(recoveryText) + '</p>';
+      html += '<div class="recovery-actions">';
+
+      if (showRetry) {
+        html += '<button type="button" class="recovery-btn--retry"'
+          + ' data-retry-message="' + safeMessage + '"'
+          + ' aria-label="' + this.escapeAttr(Drupal.t('Try sending your message again')) + '">'
+          + '<i class="fas fa-redo" aria-hidden="true"></i> '
+          + this.escapeHtml(Drupal.t('Try again'))
+          + '</button>';
+      }
+
+      html += '<button type="button" class="recovery-btn--refresh"'
+        + ' aria-label="' + this.escapeAttr(Drupal.t('Refresh this page to start a new session')) + '">'
+        + '<i class="fas fa-sync-alt" aria-hidden="true"></i> '
+        + this.escapeHtml(Drupal.t('Refresh page'))
+        + '</button>';
+
+      html += '</div></div>';
+
+      this.addMessage('assistant', html, true);
+
+      // Focus the first recovery button for keyboard / screen-reader users.
+      var self = this;
+      requestAnimationFrame(function () {
+        var chat = self.isPageMode
+          ? document.getElementById('assistant-chat')
+          : self.widget.querySelector('.assistant-chat');
+        if (chat) {
+          var firstBtn = chat.querySelector('.recovery-btn--retry, .recovery-btn--refresh');
+          if (firstBtn) firstBtn.focus();
+        }
+      });
+    },
+
+    /**
+     * Retry sending a message after a CSRF/session recovery.
+     *
+     * Force-refreshes the CSRF token, then re-sends the stored message.
+     * On 403 failure the recovery UI is shown again (no auto-loop).
+     *
+     * @param {string} messageText - The message to re-send.
+     */
+    retrySend: function (messageText) {
+      if (this.isSending || !messageText) return;
+
+      this.isSending = true;
+      this.setSendingState(true);
+      this.showTyping();
+
+      var self = this;
+
+      // Force-refresh the CSRF token before retrying.
+      this.fetchCsrfToken(true)
+        .then(function () {
+          return self.callApi('/message', {
+            method: 'POST',
+            body: JSON.stringify({
+              message: messageText,
+              conversation_id: self.conversationId,
+              context: {
+                history: self.messageHistory.slice(-5),
+                recovery_retry: true,
+              },
+            }),
+          });
+        })
+        .then(function (response) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          self.handleResponse(response);
+        })
+        .catch(function (error) {
+          self.isSending = false;
+          self.setSendingState(false);
+          self.hideTyping();
+          if (error.status === 403) {
+            self.addRecoveryMessage(error, messageText);
+          } else {
+            self.addMessage('assistant', self.getErrorMessage(error));
+          }
+          console.error('ILAS Assistant retry error:', error);
+        });
     },
 
     /**

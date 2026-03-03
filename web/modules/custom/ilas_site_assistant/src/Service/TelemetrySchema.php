@@ -62,4 +62,40 @@ final class TelemetrySchema {
     ];
   }
 
+  /**
+   * Builds structured Drupal log context with canonical telemetry keys.
+   *
+   * Preserves legacy placeholder aliases used by existing log message formats
+   * so message strings remain unchanged while context keys are normalized.
+   *
+   * @param array $telemetry
+   *   Telemetry values, typically from normalize().
+   * @param array $extra
+   *   Additional log context keys to merge.
+   *
+   * @return array
+   *   Context array with canonical and legacy alias keys.
+   */
+  public static function toLogContext(array $telemetry, array $extra = []): array {
+    $normalized = self::normalize(
+      intent: isset($telemetry[self::FIELD_INTENT]) ? (string) $telemetry[self::FIELD_INTENT] : NULL,
+      safety_class: isset($telemetry[self::FIELD_SAFETY_CLASS]) ? (string) $telemetry[self::FIELD_SAFETY_CLASS] : NULL,
+      fallback_path: isset($telemetry[self::FIELD_FALLBACK_PATH]) ? (string) $telemetry[self::FIELD_FALLBACK_PATH] : NULL,
+      request_id: isset($telemetry[self::FIELD_REQUEST_ID]) ? (string) $telemetry[self::FIELD_REQUEST_ID] : NULL,
+      env: isset($telemetry[self::FIELD_ENV]) ? (string) $telemetry[self::FIELD_ENV] : NULL,
+    );
+
+    return array_merge(
+      $normalized,
+      [
+        '@intent' => $normalized[self::FIELD_INTENT],
+        '@safety' => $normalized[self::FIELD_SAFETY_CLASS],
+        '@gate' => $normalized[self::FIELD_FALLBACK_PATH],
+        '@request_id' => $normalized[self::FIELD_REQUEST_ID],
+        '@env' => $normalized[self::FIELD_ENV],
+      ],
+      $extra,
+    );
+  }
+
 }

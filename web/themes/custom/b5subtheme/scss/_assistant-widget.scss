@@ -1081,6 +1081,88 @@
 }
 
 // =============================================================================
+// RECOVERY MESSAGE (CSRF / Session denial UX)
+// Actionable recovery for 403 errors — retry + refresh buttons.
+// =============================================================================
+.recovery-message {
+  margin-top: $spacer-sm;
+}
+
+.recovery-text {
+  font-size: 0.9rem;
+  color: $color-body;
+  margin: 0 0 $spacer-sm 0;
+}
+
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacer-sm;
+}
+
+// Shared recovery button base.
+%recovery-btn-base {
+  @include button-no-underline;
+  min-height: 44px;
+  padding: $btn-padding-y-mobile $btn-padding-x-mobile;
+  border-radius: $border-radius-sm;
+  font-weight: $weight-button;
+  font-size: $btn-font-size-mobile;
+  cursor: pointer;
+  transition: $transition-base;
+  display: inline-flex;
+  align-items: center;
+  gap: $spacer-xs * 1.5;
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  @include mobile {
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+// Primary — retry (filled, matches .escalation-btn).
+.recovery-btn--retry {
+  @extend %recovery-btn-base;
+  background: $color-primary;
+  border: 2px solid $color-primary;
+  color: $color-white;
+
+  &:hover {
+    background: $color-white;
+    border-color: $color-primary;
+    color: $color-primary;
+    transform: translateY(-2px);
+    box-shadow: $shadow-hover;
+  }
+}
+
+// Secondary — refresh (outlined/inverted).
+.recovery-btn--refresh {
+  @extend %recovery-btn-base;
+  background: $color-white;
+  border: 2px solid $color-primary;
+  color: $color-primary;
+
+  &:hover {
+    background: $color-primary;
+    border-color: $color-primary;
+    color: $color-white;
+    transform: translateY(-2px);
+    box-shadow: $shadow-hover;
+  }
+}
+
+// =============================================================================
 // DEDICATED PAGE STYLES (/assistant)
 // =============================================================================
 .ilas-assistant-page {
@@ -1248,7 +1330,9 @@
   .chat-jump-btn,
   .faq-result--best,
   .resource-result--best,
-  .ilas-assistant-page .suggestion-btn {
+  .ilas-assistant-page .suggestion-btn,
+  .recovery-btn--retry,
+  .recovery-btn--refresh {
     animation: none;
     transition: $transition-fade;
   }
@@ -1265,7 +1349,8 @@
   .assistant-toggle-btn,
   .assistant-send-btn,
   .cta-button,
-  .response-link-btn {
+  .response-link-btn,
+  .recovery-btn--retry {
     border-width: 3px;
   }
 
@@ -1275,7 +1360,8 @@
   .escalation-btn,
   .topic-suggestion-btn,
   .service-area-btn,
-  .ilas-assistant-page .suggestion-btn {
+  .ilas-assistant-page .suggestion-btn,
+  .recovery-btn--refresh {
     border-width: 2px;
     border-color: $color-black;
   }

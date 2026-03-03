@@ -115,9 +115,68 @@
         }
         return msg;
       }
-      if (error.status === 403) return Drupal.t('Access denied. Please refresh the page and try again.');
+      if (error.status === 403) {
+        switch (error.errorCode) {
+          case 'csrf_missing':
+            return Drupal.t('Security session could not be established. Choose Try again to resend, or Refresh page to restart your secure session.');
+          case 'csrf_invalid':
+            return Drupal.t('Your security token could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
+          case 'csrf_expired':
+          case 'session_expired':
+            return Drupal.t('Your secure session has expired. Refresh page to continue.');
+          default:
+            return Drupal.t('Access denied. Please refresh the page and try again.');
+        }
+      }
       if (error.status >= 500) return Drupal.t('Our server is having trouble right now. Please try again in a few minutes, or reach us through our hotline.');
       return Drupal.t("I'm having trouble right now. You can try again, or reach us directly through our hotline.");
+    },
+
+    /**
+     * Build recovery HTML (mirrors addRecoveryMessage logic for testing).
+     */
+    buildRecoveryHtml: function (error, lastMessageText) {
+      var errorCode = (error && error.errorCode) || '';
+      var recoveryText;
+      var showRetry = false;
+
+      switch (errorCode) {
+        case 'csrf_missing':
+        case 'csrf_invalid':
+          recoveryText = Drupal.t('Security session could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
+          showRetry = true;
+          break;
+        case 'csrf_expired':
+        case 'session_expired':
+          recoveryText = Drupal.t('Your secure session has expired. Refresh page to restart your secure session.');
+          break;
+        default:
+          recoveryText = Drupal.t('Access was denied. Refresh page and try again.');
+          break;
+      }
+
+      var safeMessage = SA.escapeAttr(lastMessageText || '');
+      var html = '<div class="recovery-message" role="alert">';
+      html += '<p class="recovery-text">' + SA.escapeHtml(recoveryText) + '</p>';
+      html += '<div class="recovery-actions">';
+
+      if (showRetry) {
+        html += '<button type="button" class="recovery-btn--retry"'
+          + ' data-retry-message="' + safeMessage + '"'
+          + ' aria-label="' + SA.escapeAttr(Drupal.t('Try sending your message again')) + '">'
+          + '<i class="fas fa-redo" aria-hidden="true"></i> '
+          + SA.escapeHtml(Drupal.t('Try again'))
+          + '</button>';
+      }
+
+      html += '<button type="button" class="recovery-btn--refresh"'
+        + ' aria-label="' + SA.escapeAttr(Drupal.t('Refresh this page to start a new session')) + '">'
+        + '<i class="fas fa-sync-alt" aria-hidden="true"></i> '
+        + SA.escapeHtml(Drupal.t('Refresh page'))
+        + '</button>';
+
+      html += '</div></div>';
+      return html;
     },
   };
 
@@ -204,6 +263,30 @@
 
     var nullMsg = SA.getErrorMessage(null);
     assert(nullMsg.indexOf('went wrong') !== -1, 'null error gets generic message');
+
+    // Error-code branches for 403.
+    var csrfMissingMsg = SA.getErrorMessage({ status: 403, errorCode: 'csrf_missing' });
+    assert(csrfMissingMsg.indexOf('Security session') !== -1, '403 + csrf_missing mentions Security session');
+    assert(csrfMissingMsg.indexOf('Try again') !== -1, '403 + csrf_missing mentions Try again');
+    assert(csrfMissingMsg.indexOf('Refresh page') !== -1, '403 + csrf_missing mentions Refresh page');
+
+    var csrfInvalidMsg = SA.getErrorMessage({ status: 403, errorCode: 'csrf_invalid' });
+    assert(csrfInvalidMsg.indexOf('security token') !== -1, '403 + csrf_invalid mentions security token');
+    assert(csrfInvalidMsg.indexOf('Try again') !== -1, '403 + csrf_invalid mentions Try again');
+    assert(csrfInvalidMsg.indexOf('Refresh page') !== -1, '403 + csrf_invalid mentions Refresh page');
+
+    var csrfExpiredMsg = SA.getErrorMessage({ status: 403, errorCode: 'csrf_expired' });
+    assert(csrfExpiredMsg.indexOf('session has expired') !== -1, '403 + csrf_expired mentions session has expired');
+    assert(csrfExpiredMsg.indexOf('Refresh page') !== -1, '403 + csrf_expired mentions Refresh page');
+
+    var legacySessionExpiredMsg = SA.getErrorMessage({ status: 403, errorCode: 'session_expired' });
+    assert(legacySessionExpiredMsg.indexOf('session has expired') !== -1, '403 + session_expired alias remains supported');
+
+    var unknownCodeMsg = SA.getErrorMessage({ status: 403, errorCode: 'unknown_code' });
+    assert(unknownCodeMsg.indexOf('Access denied') !== -1, '403 + unknown code falls through to Access denied');
+
+    var noCodeMsg = SA.getErrorMessage({ status: 403 });
+    assert(noCodeMsg.indexOf('Access denied') !== -1, '403 + no code falls through to Access denied');
   });
 
   // ===================================================================
@@ -364,6 +447,159 @@
     assert(btn !== null, 'button element created');
     assert(btn.getAttribute('onclick') === null, 'no onclick attribute injected');
     assert(btn.getAttribute('data-action').indexOf('"') !== -1, 'data-action preserved the raw quote as text content');
+  });
+
+  // ===================================================================
+  // 10. Recovery message rendering
+  // ===================================================================
+  suite('Recovery message rendering', function () {
+    // csrf_missing: both retry + refresh buttons.
+    var csrfMissingHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, 'Hello');
+    var csrfMissingContainer = document.createElement('div');
+    csrfMissingContainer.innerHTML = csrfMissingHtml;
+
+    assert(csrfMissingContainer.querySelector('.recovery-btn--retry') !== null,
+      'csrf_missing: retry button present');
+    assert(csrfMissingContainer.querySelector('.recovery-btn--refresh') !== null,
+      'csrf_missing: refresh button present');
+    assert(csrfMissingContainer.querySelector('.recovery-message').getAttribute('role') === 'alert',
+      'csrf_missing: role="alert" on container');
+    assert(csrfMissingContainer.querySelector('.recovery-btn--retry').getAttribute('aria-label') !== null,
+      'csrf_missing: aria-label on retry button');
+    assert(csrfMissingContainer.querySelector('.recovery-btn--refresh').getAttribute('aria-label') !== null,
+      'csrf_missing: aria-label on refresh button');
+    assert(csrfMissingContainer.querySelector('.recovery-text').textContent.indexOf('Try again') !== -1,
+      'csrf_missing: recovery copy mentions Try again');
+    assert(csrfMissingContainer.querySelector('.recovery-text').textContent.indexOf('Refresh page') !== -1,
+      'csrf_missing: recovery copy mentions Refresh page');
+
+    // csrf_invalid: both retry + refresh buttons.
+    var csrfInvalidHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_invalid' }, 'Test msg');
+    var csrfInvalidContainer = document.createElement('div');
+    csrfInvalidContainer.innerHTML = csrfInvalidHtml;
+
+    assert(csrfInvalidContainer.querySelector('.recovery-btn--retry') !== null,
+      'csrf_invalid: retry button present');
+    assert(csrfInvalidContainer.querySelector('.recovery-btn--refresh') !== null,
+      'csrf_invalid: refresh button present');
+
+    // csrf_expired: only refresh button (no retry).
+    var csrfExpiredHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_expired' }, 'Hello');
+    var csrfExpiredContainer = document.createElement('div');
+    csrfExpiredContainer.innerHTML = csrfExpiredHtml;
+
+    assert(csrfExpiredContainer.querySelector('.recovery-btn--retry') === null,
+      'csrf_expired: no retry button');
+    assert(csrfExpiredContainer.querySelector('.recovery-btn--refresh') !== null,
+      'csrf_expired: refresh button present');
+    assert(csrfExpiredContainer.querySelector('.recovery-text').textContent.indexOf('Refresh page') !== -1,
+      'csrf_expired: recovery copy mentions Refresh page');
+
+    // legacy alias still maps to refresh-only.
+    var legacySessionExpHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'session_expired' }, 'Hello');
+    var legacySessionExpContainer = document.createElement('div');
+    legacySessionExpContainer.innerHTML = legacySessionExpHtml;
+
+    assert(legacySessionExpContainer.querySelector('.recovery-btn--retry') === null,
+      'session_expired alias: no retry button');
+    assert(legacySessionExpContainer.querySelector('.recovery-btn--refresh') !== null,
+      'session_expired alias: refresh button present');
+
+    // Generic 403: only refresh button.
+    var genericHtml = SA.buildRecoveryHtml({ status: 403 }, 'Hello');
+    var genericContainer = document.createElement('div');
+    genericContainer.innerHTML = genericHtml;
+
+    assert(genericContainer.querySelector('.recovery-btn--retry') === null,
+      'generic 403: no retry button');
+    assert(genericContainer.querySelector('.recovery-btn--refresh') !== null,
+      'generic 403: refresh button present');
+
+    // XSS in message text: data-retry-message properly escaped.
+    var xssMessage = '"><img src=x onerror=alert(1)>';
+    var xssHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, xssMessage);
+    var xssContainer = document.createElement('div');
+    xssContainer.innerHTML = xssHtml;
+    var retryBtn = xssContainer.querySelector('.recovery-btn--retry');
+
+    assert(retryBtn !== null, 'XSS: retry button created');
+    assert(retryBtn.getAttribute('data-retry-message').indexOf('<') === -1,
+      'XSS: data-retry-message has no unescaped angle brackets');
+    assert(xssContainer.querySelector('img') === null,
+      'XSS: no injected img element');
+  });
+
+  // ===================================================================
+  // 11. Recovery button accessibility
+  // ===================================================================
+  suite('Recovery button accessibility', function () {
+    var html = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, 'Test');
+    var container = document.createElement('div');
+    container.innerHTML = html;
+
+    // Buttons are <button> elements (keyboard-focusable by default).
+    var buttons = container.querySelectorAll('button');
+    assert(buttons.length === 2, 'two button elements rendered (retry + refresh)');
+    assert(buttons[0].tagName === 'BUTTON', 'retry is a <button> element');
+    assert(buttons[1].tagName === 'BUTTON', 'refresh is a <button> element');
+
+    // aria-label present on all recovery buttons.
+    assert(buttons[0].getAttribute('aria-label') !== null && buttons[0].getAttribute('aria-label') !== '',
+      'retry button has non-empty aria-label');
+    assert(buttons[1].getAttribute('aria-label') !== null && buttons[1].getAttribute('aria-label') !== '',
+      'refresh button has non-empty aria-label');
+
+    // role="alert" present on recovery container.
+    var recoveryEl = container.querySelector('.recovery-message');
+    assert(recoveryEl !== null, 'recovery-message element exists');
+    assert(recoveryEl.getAttribute('role') === 'alert', 'recovery-message has role="alert"');
+
+    // Retry button stores message in data-retry-message.
+    var retryBtn = container.querySelector('.recovery-btn--retry');
+    assert(retryBtn.getAttribute('data-retry-message') === 'Test',
+      'retry button stores message in data-retry-message');
+
+    // csrf_expired: only refresh, no retry — verify accessibility still holds.
+    var sessionHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_expired' }, 'Msg');
+    var sessionContainer = document.createElement('div');
+    sessionContainer.innerHTML = sessionHtml;
+    var sessionButtons = sessionContainer.querySelectorAll('button');
+    assert(sessionButtons.length === 1, 'csrf_expired renders exactly one button');
+    assert(sessionButtons[0].getAttribute('aria-label') !== null,
+      'csrf_expired refresh button has aria-label');
+  });
+
+  // ===================================================================
+  // 12. Recovery button behavior
+  // ===================================================================
+  suite('Recovery button behavior', function () {
+    // Retry button click fires handler with correct message text.
+    var retryHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_invalid' }, 'My question');
+    var retryContainer = document.createElement('div');
+    retryContainer.innerHTML = retryHtml;
+    document.body.appendChild(retryContainer);
+
+    var capturedRetryMessage = null;
+    var retryBtn = retryContainer.querySelector('.recovery-btn--retry');
+    retryBtn.addEventListener('click', function (e) {
+      capturedRetryMessage = e.currentTarget.getAttribute('data-retry-message');
+    });
+    retryBtn.click();
+
+    assert(capturedRetryMessage === 'My question',
+      'retry click handler captures correct message text');
+
+    // Refresh button click fires handler.
+    var refreshBtn = retryContainer.querySelector('.recovery-btn--refresh');
+    var refreshClicked = false;
+    refreshBtn.addEventListener('click', function () {
+      refreshClicked = true;
+    });
+    refreshBtn.click();
+
+    assert(refreshClicked === true, 'refresh click handler fires');
+
+    document.body.removeChild(retryContainer);
   });
 
   // ===================================================================

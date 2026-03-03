@@ -82,7 +82,7 @@ COOKIE_JAR="$(mktemp -t ilas-csrf-cookie.XXXXXX)"
 # is created even when anonymous page cache is warm.
 CSRF_PRIME="$(date +%s%N)"
 curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/assistant?csrf_prime=${CSRF_PRIME}" >/dev/null
-CSRF_TOKEN=$(curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/session/token")
+CSRF_TOKEN=$(curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/assistant/api/session/bootstrap")
 
 # Synthetic message request
 curl -k -sS -X POST "${BASE_URL}/assistant/api/message" \
@@ -94,14 +94,13 @@ curl -k -sS -X POST "${BASE_URL}/assistant/api/message" \
 # Synthetic track request
 curl -k -sS -X POST "${BASE_URL}/assistant/api/track" \
   -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: ${CSRF_TOKEN}" \
-  -b "${COOKIE_JAR}" \
+  -H "Origin: ${BASE_URL%/}" \
   -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE"}'
 
 # Anonymous CSRF matrix (same cookie jar for token-bound validation).
 CSRF_PRIME="$(date +%s%N)"
 curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/assistant?csrf_prime=${CSRF_PRIME}" >/dev/null
-ANON_TOKEN=$(curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/session/token")
+ANON_TOKEN=$(curl -k -sS -c "${COOKIE_JAR}" -b "${COOKIE_JAR}" "${BASE_URL}/assistant/api/session/bootstrap")
 
 # message: missing token -> 403
 curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/message" \
@@ -123,25 +122,23 @@ curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/messag
   -b "${COOKIE_JAR}" \
   -d '{"message":"SYNTHETIC EXAMPLE: matrix valid token"}'
 
-# track: missing token -> 403
+# track request (same-origin, no CSRF required) -> 200
 curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
   -H "Content-Type: application/json" \
-  -b "${COOKIE_JAR}" \
-  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE matrix missing token"}'
+  -H "Origin: ${BASE_URL%/}" \
+  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track same-origin origin"}'
 
-# track: invalid token -> 403
+# track request (cross-origin Origin) -> 403
 curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
   -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: invalid-token" \
-  -b "${COOKIE_JAR}" \
-  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE matrix invalid token"}'
+  -H "Origin: https://evil.example" \
+  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track cross-origin origin"}'
 
-# track: valid token (same cookie jar) -> 200
+# track request (same-origin Referer, no Origin) -> 200
 curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
   -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: ${ANON_TOKEN}" \
-  -b "${COOKIE_JAR}" \
-  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE matrix valid token"}'
+  -H "Referer: ${BASE_URL%/}/assistant" \
+  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track same-origin referer"}'
 
 rm -f "${COOKIE_JAR}"
 
@@ -154,13 +151,13 @@ curl -k -sS "${BASE_URL}/assistant/api/metrics"
 
 Store status/headers/schema-key output (no secrets, synthetic payloads only) in `docs/aila/runtime/local-endpoints.txt`.[^CLAIM-112][^CLAIM-113]
 
-Matrix acceptance test command (authenticated + anonymous, valid/missing/invalid CSRF):
+Matrix acceptance test command (message CSRF matrix + track mitigation):
 
 ```bash
-ddev exec vendor/bin/phpunit \
+ddev exec bash -lc "vendor/bin/phpunit \
   --configuration /var/www/html/phpunit.xml \
   /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php \
-  --filter 'test(MessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|WithCsrfToken)|TrackEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AcceptsValidEvent)|AnonymousMessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AllowsValidCsrfToken)|AnonymousTrackEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AllowsValidCsrfToken))'
+  --filter 'test(MessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|WithCsrfToken)|AnonymousMessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AllowsValidCsrfToken)|TrackEndpoint(WithoutCsrf|AcceptsValidEvent|RejectsCrossOriginOriginHeader|AllowsSameOriginOriginHeader|AllowsSameOriginRefererHeader)|AnonymousTrackEndpointWithoutCsrf)'"
 ```
 
 CSRF deny telemetry verification:
@@ -194,6 +191,42 @@ Expected contract result:
 - LLM dependency failures degrade to deterministic non-LLM response behavior
   when `llm.fallback_on_error=true`.
 - Controller-level uncaught failures remain controlled `500 internal_error`.
+
+### Integration failure contract verification (`IMP-REL-01`)
+
+Consolidated failure-mode contract tests verifying controller catch-all behavior,
+observability isolation, and cross-cutting request_id/correlation ID consistency.
+
+```bash
+ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php
+```
+
+Expected contract result:
+- Controller catch-all returns HTTP 500 with `error.code=internal_error` and request_id.
+- Observability services (AnalyticsLogger, ConversationLogger, LangfuseTracer)
+  swallow internal exceptions without propagation.
+- All response paths (200/400/413/429/500) include request_id in body and
+  X-Correlation-ID in header.
+- Failure matrix documents all 10 dependency failure → fallback class mappings.
+
+### Idempotency and replay verification (`IMP-REL-02`)
+
+Replay/idempotency contract tests verifying correlation ID resolution, cache key
+determinism, repeated-message escalation, and request_id consistency.
+
+```bash
+ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/IdempotencyReplayContractTest.php
+```
+
+Expected contract result:
+- Valid UUID4 correlation IDs are accepted; invalid inputs are rejected with
+  deterministic UUID4 fallback generation.
+- Conversation cache keys are deterministic (`ilas_conv:<uuid>`) and differ by ID.
+- Three identical cached messages trigger repeated-message escalation (not duplication).
+- All error response paths have body request_id matching X-Correlation-ID header.
+- Replay with same input and correlation ID produces deterministic response type.
 
 ## 3) Pantheon-context verification
 
@@ -264,6 +297,82 @@ for ENV in dev test live; do
 done
 ```
 
+### Phase 1 Sprint 2 verification (`P1-SBD-01`)
+
+Use this bundle to verify Sprint 2 closure scope:
+"Sentry/Langfuse bootstrap, log schema normalization, initial SLO drafts."
+
+```bash
+# 1) Verify canonical log-context helper and controller usage.
+rg -n "toLogContext|FIELD_INTENT|FIELD_SAFETY_CLASS|FIELD_FALLBACK_PATH|FIELD_REQUEST_ID|FIELD_ENV" \
+  web/modules/custom/ilas_site_assistant/src/Service/TelemetrySchema.php \
+  web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+
+# 2) Run contract tests for telemetry schema + Sprint 2 doc/code gate.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetrySchemaContractTest.php
+
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneSprintTwoGateTest.php
+
+# 3) Validation command aliases used by implementation prompts.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-QUALITY-GATE
+ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+```
+
+Expected Sprint 2 verification result:
+- Canonical telemetry keys are normalized and present in critical log contexts
+  (`intent`, `safety_class`, `fallback_path`, `request_id`, `env`) with legacy
+  placeholders preserved for message-template stability.
+- `TelemetrySchemaContractTest.php` and `PhaseOneSprintTwoGateTest.php` pass.
+- `VC-UNIT` and `VC-QUALITY-GATE` pass.
+- Scope boundaries remain enforced (`llm.enabled=false` through Phase 2; no full
+  retrieval-architecture redesign).
+
+### Phase 1 Exit #1 non-live alerts + dashboards verification
+
+Use this command bundle to verify Phase 1 Exit criterion #1 in non-live contexts
+without enabling live LLM paths.
+
+Local (DDEV):
+
+```bash
+# Dashboard API/controller surfaces.
+# AssistantApiController::health()
+ddev drush php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$h=json_decode(\$c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys(\$h)) . PHP_EOL;"
+# AssistantApiController::metrics()
+ddev drush php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$m=json_decode(\$c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys(\$m)) . PHP_EOL;"
+# AssistantReportController::report()
+ddev drush php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantReportController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); \$r=\$c->report(); echo 'report_sections=' . implode(',', array_keys(\$r)) . PHP_EOL;"
+
+# Alert execution + watchdog context proof.
+ddev drush php:eval "\Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL;"
+ddev drush sqlq "SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5;"
+```
+
+Pantheon non-live (`dev`, `test` only):
+
+```bash
+for ENV in dev test; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$h=json_decode(\$c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys(\$h)) . PHP_EOL;"
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$m=json_decode(\$c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys(\$m)) . PHP_EOL;"
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "use Drupal\\ilas_site_assistant\\Controller\\AssistantReportController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); \$r=\$c->report(); echo 'report_sections=' . implode(',', array_keys(\$r)) . PHP_EOL;"
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "\Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL;"
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- sqlq "SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5;"
+done
+```
+
+Store sanitized output snapshots in:
+- `docs/aila/runtime/phase1-exit1-alerts-dashboards.txt`
+
 ### Promptfoo harness location check (repo-local)
 
 ```bash
@@ -308,6 +417,39 @@ Expected readiness result:
 - Telemetry activation remains a Phase 1 implementation activity after
   credential and destination approvals.
 
+### P1-ENT-02 credential and destination approval verification
+
+Use these checks to verify that P1-ENT-02 entry criterion is met: platform
+credentials are available and destinations are approved.
+
+```bash
+# 1) Verify settings.php contains telemetry credential wiring (no secret output).
+rg -n "LANGFUSE_PUBLIC_KEY|LANGFUSE_SECRET_KEY|SENTRY_DSN" \
+  web/sites/default/settings.php
+
+# 2) Verify install config includes Langfuse credential keys.
+rg -n "public_key:|secret_key:|host:" \
+  web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml
+
+# 3) Verify runtime gates artifact confirms credentials on all environments.
+rg -c "langfuse_public_key=present" docs/aila/runtime/phase1-observability-gates.txt
+rg -c "raven_client_key=present" docs/aila/runtime/phase1-observability-gates.txt
+
+# 4) Run the credential gate test.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php
+```
+
+Expected verification result:
+- Settings.php contains `_ilas_get_secret()` wiring for Langfuse and Sentry credentials.
+- Install config defaults include `langfuse.public_key`, `langfuse.secret_key`,
+  `langfuse.host` with `enabled: false`.
+- Runtime gates artifact shows 3 environments with credentials present.
+- `TelemetryCredentialGateTest` passes with all assertions green.
+- Approved destinations: Langfuse US cloud (`https://us.cloud.langfuse.com`),
+  Sentry (DSN-controlled destination with PII redaction enforced).[^CLAIM-126]
+
 ### GitHub Actions secrets vs Pantheon runtime secrets
 
 - Pantheon runtime secrets are available to the running Pantheon app, not CI
@@ -334,17 +476,21 @@ git remote -v
 Use repo scripts for provider-agnostic CI runners (Jenkins/Circle/GitLab/Buildkite/self-hosted):
 
 ```bash
-# Blocking on release branches, advisory elsewhere (auto-detected via CI_BRANCH).
+# Blocking on master/main/release branches, advisory elsewhere (auto-detected via CI_BRANCH).
 scripts/ci/run-promptfoo-gate.sh --env test --mode auto
 
 # Force advisory/blocking for local simulation.
 CI_BRANCH=feature/test scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
+CI_BRANCH=master scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 CI_BRANCH=release/2026-03 scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 ```
 
 Expected CI policy:
-- `main` and `release/*` branches are blocking for threshold failures.
+- `master`, `main`, and `release/*` branches are blocking for threshold failures.
 - Other branches are advisory (non-zero eval result reported but does not fail job).
+- Default promptfoo config in auto mode is `promptfooconfig.deep.yaml` for
+  blocking branches and `promptfooconfig.abuse.yaml` for advisory branches;
+  explicit `--config` overrides either default.
 
 ## 4) Quality gates + config parity checks (`P1-OBJ-03`, `IMP-CONF-01`)
 
@@ -358,7 +504,7 @@ gates in local and external-runner contexts.
 ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 
 # 2) Branch-aware Promptfoo threshold policy simulation (no live eval required).
-#    - release/main semantics -> blocking failure (expected non-zero on threshold fail)
+#    - release/master/main semantics -> blocking failure (expected non-zero on threshold fail)
 ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
   CI_BRANCH=release/2026-03 \
   scripts/ci/run-promptfoo-gate.sh --env dev --mode auto --skip-eval --simulate-pass-rate 85
@@ -389,13 +535,113 @@ Expected quality gate result:
 - `tests/run-quality-gate.sh` blocks on `VC-UNIT` and full
   `VC-DRUPAL-UNIT` suite regressions, plus golden transcript failures.
 - `scripts/ci/run-promptfoo-gate.sh` blocks threshold/eval failures on
-  `main`/`release/*` and reports advisory-only failures on other branches.
+  `master`/`main`/`release/*` and reports advisory-only failures on other branches.
 - `scripts/ci/run-external-quality-gate.sh` composes repo-owned gate assets for
   CI platforms where workflow ownership is external to this repository.
 
 Expected artifacts:
 - `promptfoo-evals/output/phpunit-summary.txt` (per-phase PHPUnit gate status + timestamps).
 - `promptfoo-evals/output/gate-summary.txt` (Promptfoo branch mode, threshold, pass rate, eval status).
+
+### Mandatory gate verification (`P1-EXIT-02`)
+
+Use these commands to verify CI quality gate is mandatory for merge/release path
+with branch protection enforcement.
+
+```bash
+# 1) Verify workflow triggers cover all blocking branches.
+grep -A5 'pull_request:' .github/workflows/quality-gate.yml | grep 'release/\*\*'
+grep 'concurrency:' .github/workflows/quality-gate.yml
+grep 'cancel-in-progress:' .github/workflows/quality-gate.yml
+
+# 2) Verify branch protection is configured with required status checks.
+gh api repos/{owner}/{repo}/branches/master/protection \
+  --jq '.required_status_checks.contexts'
+# Expected: ["PHPUnit Quality Gate","Promptfoo Gate"]
+
+gh api repos/{owner}/{repo}/branches/master/protection \
+  --jq '.enforce_admins.enabled'
+# Expected: true
+
+# 3) Run contract tests that lock mandatory gate invariants.
+vendor/bin/phpunit -c phpunit.pure.xml --colors=always \
+  --filter 'testWorkflowTriggersCoverAllBlockingBranches|testDocumentationDeclaresGateMandatory' \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php
+
+# 4) Simulate blocking branch gate behavior (must exit 2).
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=master scripts/ci/run-promptfoo-gate.sh \
+  --env dev --mode auto --skip-eval --simulate-pass-rate 85
+
+# 5) Simulate release branch gate behavior (must exit 2).
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=release/2026-03 scripts/ci/run-promptfoo-gate.sh \
+  --env dev --mode auto --skip-eval --simulate-pass-rate 85
+
+# 6) Simulate advisory branch gate behavior (must exit 0).
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=feature/test scripts/ci/run-promptfoo-gate.sh \
+  --env dev --mode auto --skip-eval --simulate-pass-rate 85
+```
+
+Expected mandatory gate result:
+- Branch protection requires both `PHPUnit Quality Gate` and `Promptfoo Gate`
+  to pass before merge to `master`. `enforce_admins: true` prevents bypass.
+- Workflow `pull_request` trigger covers `release/**` in addition to
+  `master`/`main`, so PRs to release branches run CI.
+- Concurrency control (`cancel-in-progress: true`) cancels stale runs on
+  rapid pushes to the same branch.
+- Contract tests lock trigger coverage, concurrency control, and
+  documentation mandatory-gate declaration as enforced invariants.
+
+### Phase 1 Exit #3 reliability failure matrix verification (`P1-EXT-03`)
+
+Use these commands to verify Phase 1 exit criterion #3:
+"Reliability failure matrix tests pass against target environments."
+
+Local reliability matrix suites (DDEV):
+
+```bash
+# 1) Retrieval dependency degrade matrix.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php
+
+# 2) Consolidated integration failure matrix.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php
+
+# 3) LLM dependency-failure matrix (deterministic fallback classes).
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php
+```
+
+Pantheon target-environment contract checks (`dev`, `test`, `live`):
+
+```bash
+for ENV in dev test live; do
+  echo "=== ${ENV} ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings llm.enabled
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings llm.fallback_on_error
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings vector_search.enabled
+done
+```
+
+Capture sanitized outputs in:
+- `docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt`
+
+Expected reliability matrix result:
+- Retrieval dependency failures map deterministically to `legacy_fallback` and
+  `lexical_preserved` classes.
+- LLM dependency failures map deterministically to `original_preserved` when
+  fallback is enabled (`llm.fallback_on_error=true`).
+- Controller-level uncaught failures map deterministically to
+  `internal_error` with request identity present.
+- Target-environment checks confirm constraints remain in place:
+  `llm.enabled=false`, `llm.fallback_on_error=true`, and
+  `vector_search.enabled=false` on `dev`/`test`/`live`.
 
 ### Config parity + drift checks (`IMP-CONF-01`)
 
@@ -608,8 +854,13 @@ Run this checklist for every future audit cycle that touches assistant routing, 
    - Verify each disambiguation option emitted by API has actionable `intent`/`action`.
    - During migration, verify legacy `value` aliases map deterministically to `intent` and emit deprecation telemetry.
 3. **Anonymous/session CSRF matrix including recovery**
-   - Execute missing/invalid/valid token cases for anonymous and authenticated sessions on `/assistant/api/message` and `/assistant/api/track`.
-   - Include expired/missing-session bootstrap path and verify UI recovery behavior is actionable.
+   - Execute missing/invalid/expired/valid token cases for `/assistant/api/message` (anonymous bootstrap + authenticated session sanity).
+   - Assert 403 JSON uses machine-readable `error_code` with canonical outputs: `csrf_missing`, `csrf_invalid`, `csrf_expired` (legacy input alias `session_expired` is normalized to `csrf_expired`).
+   - Verify deterministic recovery UX in both widget and page modes:
+     - `csrf_missing` / `csrf_invalid` => show `Try again` + `Refresh page`.
+     - `csrf_expired` => show `Refresh page` only.
+     - Recovery container keeps `role="alert"` and keyboard focus moves to first recovery action.
+   - Verify `/assistant/api/track` remains origin/referer protected and does not depend on CSRF/session token bootstrap.
 4. **Post-sanitize empty-message guard**
    - Submit payloads that sanitize to empty (e.g., whitespace/control-only strings) and assert deterministic `400 invalid_message`.
    - Verify router/retrieval code paths are not invoked for empty-effective queries.
@@ -639,3 +890,4 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-121]: [CLAIM-121](evidence-index.md#claim-121)
 [^CLAIM-122]: [CLAIM-122](evidence-index.md#claim-122)
 [^CLAIM-125]: [CLAIM-125](evidence-index.md#claim-125)
+[^CLAIM-126]: [CLAIM-126](evidence-index.md#claim-126)

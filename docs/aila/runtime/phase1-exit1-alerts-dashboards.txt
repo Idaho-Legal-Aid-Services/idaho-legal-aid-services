@@ -1,0 +1,96 @@
+# Phase 1 Exit #1 Runtime Evidence (P1-EXT-01)
+Capture date: 2026-03-03
+Scope: non-live dashboard + critical alert verification (local, Pantheon dev/test)
+
+## Local (DDEV) non-live verification
+
+### Local health controller keys
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev drush php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$h=json_decode(\$c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys(\$h)) . PHP_EOL;"
+health_keys=status,timestamp,checks
+
+### Local metrics controller keys
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev drush php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$m=json_decode(\$c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys(\$m)) . PHP_EOL;"
+metrics_keys=timestamp,metrics,thresholds,cron,queue
+
+### Local admin report sections
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev drush php:eval "use Drupal\ilas_site_assistant\Controller\AssistantReportController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); \$r=\$c->report(); echo 'report_sections=' . implode(',', array_keys(\$r)) . PHP_EOL;"
+report_sections=summary,topics,destinations,no_answer
+
+### Local SLO alert invocation
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev drush php:eval "\Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL;"
+ [warning] SLO violation: cron health is stale (age: 11587 s, failures: 0)
+slo_alert_check=invoked
+
+### Local watchdog SLO rows
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev drush sqlq "SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5;"
+3144	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:11587;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+3141	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:9934;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+3121	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:11690;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+3085	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";s:5:"never";s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+
+## Pantheon dev non-live verification
+
+### Pantheon dev health controller keys
+$ terminus remote:drush idaho-legal-aid-services.dev -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$h=json_decode(\$c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys(\$h)) . PHP_EOL;"
+ [warning] This environment is in read-only Git mode. If you want to make changes to the codebase of this site (e.g. updating modules or plugins), you will need to toggle into read/write SFTP mode first.
+health_keys=status,timestamp,checks
+ [notice] Command: idaho-legal-aid-services.dev -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantApiController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); $h=json_decode($c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys($h)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon dev metrics controller keys
+$ terminus remote:drush idaho-legal-aid-services.dev -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$m=json_decode(\$c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys(\$m)) . PHP_EOL;"
+ [warning] This environment is in read-only Git mode. If you want to make changes to the codebase of this site (e.g. updating modules or plugins), you will need to toggle into read/write SFTP mode first.
+metrics_keys=timestamp,metrics,thresholds,cron,queue
+ [notice] Command: idaho-legal-aid-services.dev -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantApiController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); $m=json_decode($c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys($m)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon dev admin report sections
+$ terminus remote:drush idaho-legal-aid-services.dev -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantReportController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); \$r=\$c->report(); echo 'report_sections=' . implode(',', array_keys(\$r)) . PHP_EOL;"
+ [warning] This environment is in read-only Git mode. If you want to make changes to the codebase of this site (e.g. updating modules or plugins), you will need to toggle into read/write SFTP mode first.
+report_sections=summary,topics,destinations,no_answer
+ [notice] Command: idaho-legal-aid-services.dev -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantReportController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); $r=$c->report(); echo 'report_sections=' . implode(',', array_keys($r)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon dev SLO alert invocation
+$ terminus remote:drush idaho-legal-aid-services.dev -- php:eval "\Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL;"
+ [warning] This environment is in read-only Git mode. If you want to make changes to the codebase of this site (e.g. updating modules or plugins), you will need to toggle into read/write SFTP mode first.
+slo_alert_check=invoked
+ [notice] Command: idaho-legal-aid-services.dev -- drush php:eval \Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon dev watchdog SLO rows
+$ terminus remote:drush idaho-legal-aid-services.dev -- sqlq "SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5;"
+ [warning] This environment is in read-only Git mode. If you want to make changes to the codebase of this site (e.g. updating modules or plugins), you will need to toggle into read/write SFTP mode first.
+57623	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:14119;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+57602	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:8961;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+57569	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:243157;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+57510	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:3:{s:7:"@status";s:5:"stale";s:4:"@age";s:5:"never";s:9:"@failures";i:0;}
+
+ [notice] Command: idaho-legal-aid-services.dev -- drush sqlq SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5; [Exit: 0] (Attempt 1/1)
+
+## Pantheon test non-live verification
+
+### Pantheon test health controller keys
+$ terminus remote:drush idaho-legal-aid-services.test -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$h=json_decode(\$c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys(\$h)) . PHP_EOL;"
+health_keys=status,timestamp,checks
+ [notice] Command: idaho-legal-aid-services.test -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantApiController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); $h=json_decode($c->health()->getContent(), TRUE); echo 'health_keys=' . implode(',', array_keys($h)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon test metrics controller keys
+$ terminus remote:drush idaho-legal-aid-services.test -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantApiController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); \$m=json_decode(\$c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys(\$m)) . PHP_EOL;"
+metrics_keys=timestamp,metrics,thresholds,cron,queue
+ [notice] Command: idaho-legal-aid-services.test -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantApiController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantApiController::class); $m=json_decode($c->metrics()->getContent(), TRUE); echo 'metrics_keys=' . implode(',', array_keys($m)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon test admin report sections
+$ terminus remote:drush idaho-legal-aid-services.test -- php:eval "use Drupal\ilas_site_assistant\Controller\AssistantReportController; \$c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); \$r=\$c->report(); echo 'report_sections=' . implode(',', array_keys(\$r)) . PHP_EOL;"
+report_sections=summary,topics,destinations,no_answer
+ [notice] Command: idaho-legal-aid-services.test -- drush php:eval use Drupal\ilas_site_assistant\Controller\AssistantReportController; $c=\Drupal::service('class_resolver')->getInstanceFromDefinition(AssistantReportController::class); $r=$c->report(); echo 'report_sections=' . implode(',', array_keys($r)) . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon test SLO alert invocation
+$ terminus remote:drush idaho-legal-aid-services.test -- php:eval "\Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL;"
+slo_alert_check=invoked
+ [notice] Command: idaho-legal-aid-services.test -- drush php:eval \Drupal::service('ilas_site_assistant.slo_alert')->checkAll(); echo 'slo_alert_check=invoked' . PHP_EOL; [Exit: 0] (Attempt 1/1)
+
+### Pantheon test watchdog SLO rows
+$ terminus remote:drush idaho-legal-aid-services.test -- sqlq "SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5;"
+55943	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:14044;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+55892	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:4:{s:7:"@status";s:5:"stale";s:4:"@age";i:245027;s:9:"@failures";i:0;s:14:"@slo_dimension";s:4:"cron";}
+55833	SLO violation: cron health is @status (age: @age s, failures: @failures)	a:3:{s:7:"@status";s:5:"stale";s:4:"@age";s:5:"never";s:9:"@failures";i:0;}
+
+ [notice] Command: idaho-legal-aid-services.test -- drush sqlq SELECT wid, message, variables FROM watchdog WHERE message LIKE 'SLO violation:%' ORDER BY wid DESC LIMIT 5; [Exit: 0] (Attempt 1/1)
+

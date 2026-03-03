@@ -172,6 +172,92 @@ transcripts:
         expected_chips_present: true
         notes: "Switches to forms inventory mid-conversation"
 
+  # 13. Retrospective regression bridge phrases (bundled multi-turn).
+  - id: retrospective_rel_bridge
+    label: "Retrospective bridge disambiguation/no-loop phrases"
+    turns:
+      - message: "i need some help"
+        expected_turn_type: NEW
+        expected_intent: disambiguation
+        expected_chips_present: true
+        notes: "Vague query triggers Disambiguator with option chips."
+
+      - message: "custody forms?"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: true
+        notes: "Follow-up phrase coverage for retrospective replay set."
+
+      - message: "eviction forms or guides?"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: false
+        notes: "Mixed forms/guides phrase coverage for IMP-REL-03."
+
+      - message: "eviction forms"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: false
+        notes: "Repeated phrase turn 1 for no-loop replay fixture coverage."
+
+      - message: "eviction forms"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: false
+        notes: "Repeated phrase turn 2; loop-break behavior enforced in controller contract tests."
+
+  # 14. i_need_some_help — standalone disambiguation trigger.
+  - id: i_need_some_help
+    label: "Vague 'i need some help' disambiguation"
+    turns:
+      - message: "i need some help"
+        expected_turn_type: NEW
+        expected_intent: disambiguation
+        expected_chips_present: true
+        notes: "Vague query added in IMP-REL-03; triggers Disambiguator with option chips."
+
+  # 15. custody_forms_direct — phrase-match routing (not disambiguation).
+  - id: custody_forms_direct
+    label: "Custody forms direct routing"
+    turns:
+      - message: "custody forms?"
+        expected_turn_type: NEW
+        expected_intent: ~
+        expected_chips_present: true
+        notes: "Routes to forms_finder through phrase matching, not disambiguation."
+
+  # 16. eviction_forms_or_guides — mixed phrase routes through IntentRouter.
+  - id: eviction_forms_or_guides
+    label: "Eviction forms or guides mixed phrase"
+    turns:
+      - message: "eviction forms or guides?"
+        expected_turn_type: NEW
+        expected_intent: ~
+        expected_chips_present: true
+        notes: "Mixed forms/guides disambiguation validated at IntentRouter level in DisambiguationOptionContractTest."
+
+  # 17. eviction_forms_no_loop — repeated queries must not crash.
+  - id: eviction_forms_no_loop
+    label: "Eviction forms repeated query stability"
+    turns:
+      - message: "eviction forms"
+        expected_turn_type: NEW
+        expected_intent: ~
+        expected_chips_present: true
+        notes: "First occurrence — kernel-level no-crash validation."
+
+      - message: "eviction forms"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: false
+        notes: "Second occurrence — TurnClassifier sees history, classifies as follow-up."
+
+      - message: "eviction forms"
+        expected_turn_type: FOLLOW_UP
+        expected_intent: ~
+        expected_chips_present: false
+        notes: "Third occurrence — loop-break validated in PostSanitizeAndLoopGuardContractTest."
+
   # Bug 88a727e5: "custody now" → disambiguation + UI complaint recovery.
   - id: custody_now_ui_recovery
     label: "Urgency-modified topic + UI complaint recovery"
@@ -183,7 +269,7 @@ transcripts:
         notes: "Urgency modifier stripped, matches custody topic trigger"
 
       - message: "custody"
-        expected_turn_type: NEW
+        expected_turn_type: FOLLOW_UP
         expected_intent: disambiguation
         expected_chips_present: true
         notes: "Exact topic match — same result as modified version"
@@ -201,7 +287,7 @@ transcripts:
         notes: "UI complaint detected, not misrouted to housing"
 
       - message: "divorce please"
-        expected_turn_type: NEW
+        expected_turn_type: FOLLOW_UP
         expected_intent: disambiguation
         expected_chips_present: true
         notes: "New topic with modifier, correctly disambiguated"

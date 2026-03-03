@@ -96,6 +96,38 @@ class TelemetrySchemaContractTest extends TestCase {
   }
 
   /**
+   * Tests that toLogContext() includes canonical keys and legacy aliases.
+   */
+  public function testToLogContextIncludesCanonicalKeysAndLegacyAliases(): void {
+    $telemetry = TelemetrySchema::normalize(
+      intent: 'faq',
+      safety_class: 'safe',
+      fallback_path: 'none',
+      request_id: 'req-123',
+      env: 'test',
+    );
+
+    $result = TelemetrySchema::toLogContext($telemetry, ['@reason' => 'example_reason']);
+
+    foreach (TelemetrySchema::REQUIRED_FIELDS as $field) {
+      $this->assertArrayHasKey($field, $result, "Missing canonical telemetry key: {$field}");
+    }
+
+    $this->assertSame('faq', $result[TelemetrySchema::FIELD_INTENT]);
+    $this->assertSame('safe', $result[TelemetrySchema::FIELD_SAFETY_CLASS]);
+    $this->assertSame('none', $result[TelemetrySchema::FIELD_FALLBACK_PATH]);
+    $this->assertSame('req-123', $result[TelemetrySchema::FIELD_REQUEST_ID]);
+    $this->assertSame('test', $result[TelemetrySchema::FIELD_ENV]);
+
+    $this->assertSame('faq', $result['@intent']);
+    $this->assertSame('safe', $result['@safety']);
+    $this->assertSame('none', $result['@gate']);
+    $this->assertSame('req-123', $result['@request_id']);
+    $this->assertSame('test', $result['@env']);
+    $this->assertSame('example_reason', $result['@reason']);
+  }
+
+  /**
    * Tests that AssistantApiController references all TelemetrySchema constants.
    */
   public function testControllerReferencesAllTelemetrySchemaConstants(): void {
@@ -132,6 +164,16 @@ class TelemetrySchemaContractTest extends TestCase {
       'TelemetrySchema::normalize(',
       $source,
       'Controller must call TelemetrySchema::normalize()',
+    );
+    $this->assertStringContainsString(
+      'TelemetrySchema::toLogContext(',
+      $source,
+      'Controller must call TelemetrySchema::toLogContext()',
+    );
+    $this->assertGreaterThanOrEqual(
+      5,
+      substr_count($source, 'TelemetrySchema::toLogContext('),
+      'Controller must use TelemetrySchema::toLogContext() for Sprint 2 critical logs',
     );
   }
 

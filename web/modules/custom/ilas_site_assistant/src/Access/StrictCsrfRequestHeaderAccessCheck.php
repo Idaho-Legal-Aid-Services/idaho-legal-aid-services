@@ -61,6 +61,7 @@ class StrictCsrfRequestHeaderAccessCheck implements AccessCheckInterface {
 
     if (!$request->headers->has('X-CSRF-Token')) {
       $this->logDeny($request, $account, 'missing');
+      $request->attributes->set('_ilas_csrf_denial_code', 'csrf_missing');
       return AccessResult::forbidden()
         ->setReason('X-CSRF-Token request header is missing')
         ->setCacheMaxAge(0);
@@ -72,6 +73,8 @@ class StrictCsrfRequestHeaderAccessCheck implements AccessCheckInterface {
 
     if (!$isValid) {
       $this->logDeny($request, $account, 'invalid');
+      $code = $request->hasPreviousSession() ? 'csrf_invalid' : 'csrf_expired';
+      $request->attributes->set('_ilas_csrf_denial_code', $code);
       return AccessResult::forbidden()
         ->setReason('X-CSRF-Token request header is invalid')
         ->setCacheMaxAge(0);

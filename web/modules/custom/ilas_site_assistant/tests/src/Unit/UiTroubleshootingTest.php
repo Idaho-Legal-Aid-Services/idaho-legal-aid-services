@@ -10,6 +10,8 @@ use Drupal\ilas_site_assistant\Service\TopicResolver;
 use Drupal\ilas_site_assistant\Service\KeywordExtractor;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\StringTranslation\TranslationInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Tests the UI troubleshooting detection in IntentRouter.
@@ -30,6 +32,15 @@ class UiTroubleshootingTest extends TestCase {
   protected function setUp(): void {
     parent::setUp();
 
+    $translation = $this->createStub(TranslationInterface::class);
+    $translation->method('translateString')->willReturnCallback(
+      fn($markup) => $markup->getUntranslatedString()
+    );
+
+    $container = new ContainerBuilder();
+    $container->set('string_translation', $translation);
+    \Drupal::setContainer($container);
+
     // Create mock config factory.
     $config = $this->createMock(ImmutableConfig::class);
     $config->method('get')->willReturn(NULL);
@@ -43,9 +54,24 @@ class UiTroubleshootingTest extends TestCase {
 
     // Create mock KeywordExtractor.
     $keywordExtractor = $this->createMock(KeywordExtractor::class);
-    $keywordExtractor->method('extract')->willReturn([]);
+    $keywordExtractor->method('extract')->willReturnCallback(function (string $message): array {
+      return [
+        'original' => $message,
+        'normalized' => mb_strtolower(trim($message)),
+        'high_risk' => NULL,
+        'out_of_scope' => FALSE,
+      ];
+    });
 
     $this->router = new IntentRouter($configFactory, $topicResolver, $keywordExtractor);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function tearDown(): void {
+    \Drupal::unsetContainer();
+    parent::tearDown();
   }
 
   /**
