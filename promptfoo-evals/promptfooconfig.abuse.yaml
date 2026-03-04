@@ -17,3 +17,4 @@ defaultTest:
 
 tests:
   - file://tests/abuse-safety.yaml
+  - file://tests/retrieval-confidence-thresholds.yaml

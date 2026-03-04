@@ -170,6 +170,20 @@ Explicit mapping:
 4. Langfuse grounding span bug fixed: citation field check now uses `sources` (produced by ResponseGrounder) rather than `citations` (populated later by contract assembly). (Refs: evidence-index CLAIM-134)
 5. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and No broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-134; runbook §3)
 
+### Phase 2 Deliverable #2 disposition (2026-03-03)
+1. Key deliverable #2 is closed as implemented: retrieval confidence/refusal threshold checks are integrated into the Promptfoo eval harness via contract-metadata assertions and dedicated threshold scenarios (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`). (Refs: current-state §4D, §4F; evidence-index CLAIM-062, CLAIM-065, CLAIM-086, CLAIM-135; runbook §4)
+2. Branch-aware regression gating now enforces metric-specific threshold policy for retrieval confidence/refusal checks in `scripts/ci/run-promptfoo-gate.sh` at 90% minimum per metric, with blocking behavior on `master`/`main`/`release/*` and advisory behavior elsewhere. (Refs: evidence-index CLAIM-086, CLAIM-135; runbook §4)
+3. Gate summary artifacts now include retrieval-confidence threshold status and per-metric pass-rate fields, enabling deterministic regression diagnosis for confidence/citation/refusal drift. (Refs: current-state §4F; evidence-index CLAIM-086, CLAIM-135; runbook §4)
+4. Backlog/risk linkage is advanced to active mitigation for retrieval-confidence ambiguity risk (`R-RAG-01`) while preserving ongoing monitoring for citation coverage and low-confidence refusal ratios. (Refs: current-state §4D, §8; evidence-index CLAIM-047, CLAIM-085, CLAIM-135; runbook §3, §4)
+5. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and no broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-135; runbook §3)
+
+### Phase 2 Deliverable #3 disposition (2026-03-04)
+1. Key deliverable #3 is closed as implemented: vector index hygiene policy, metadata standards, and refresh monitoring (`IMP-RAG-02`) are now enforced through a dedicated `VectorIndexHygieneService` with policy-versioned defaults and managed index standards for `faq_accordion_vector` and `assistant_resources_vector`. (Refs: current-state §4D, §4G; evidence-index CLAIM-066, CLAIM-067, CLAIM-136; runbook §4)
+2. Cron now invokes hygiene refresh snapshots with per-index failure isolation, incremental-only indexing (`indexItems(max_items_per_run)`), 24-hour cadence checks, overdue grace handling, tracker backlog capture, and cooldowned degraded alerts. (Refs: current-state §4G; evidence-index CLAIM-121, CLAIM-136; runbook §4)
+3. Monitoring contracts are extended additively without changing top-level payload shape: `/assistant/api/health` now exposes `checks.vector_index_hygiene`, and `/assistant/api/metrics` exposes `metrics.vector_index_hygiene` plus `thresholds.vector_index_hygiene`. (Refs: current-state §4F, §4G; evidence-index CLAIM-121, CLAIM-136; runbook §4)
+4. Backlog/risk linkage is advanced to active mitigation for vector hygiene/freshness governance risks (`R-RAG-02`, `R-GOV-02`) with drift and overdue detection signals anchored to hygiene snapshots and metadata drift fields. (Refs: current-state §8; evidence-index CLAIM-067, CLAIM-136; runbook §4)
+5. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and no broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-136; runbook §3)
+
 ### Suggested sprint breakdown
 1. Sprint 4: response contract + retrieval-confidence implementation and tests.
 2. Sprint 5: dataset expansion, provenance/freshness workflows, threshold calibration.

@@ -16,6 +16,46 @@ CONFIG_FILE=""
 DEEP_CONFIG_FILE=""
 SKIP_EVAL="false"
 SIMULATED_PASS_RATE=""
+RAG_METRIC_THRESHOLD="${RAG_CONFIDENCE_THRESHOLD:-90}"
+
+read_named_metric_rate() {
+  local results_file="$1"
+  local metric_name="$2"
+
+  node - "$results_file" "$metric_name" <<'NODE'
+const fs = require('node:fs');
+const [resultsFile, metricName] = process.argv.slice(2);
+try {
+  const json = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
+  const prompts = json?.results?.prompts;
+  if (!Array.isArray(prompts)) {
+    process.stdout.write('0 0 0\n');
+    process.exit(0);
+  }
+
+  let score = 0;
+  let count = 0;
+  for (const prompt of prompts) {
+    const namedScores = prompt?.metrics?.namedScores || {};
+    const namedCounts = prompt?.metrics?.namedScoresCount || {};
+    if (Object.prototype.hasOwnProperty.call(namedCounts, metricName)) {
+      score += Number(namedScores[metricName] || 0);
+      count += Number(namedCounts[metricName] || 0);
+    }
+  }
+
+  if (count <= 0) {
+    process.stdout.write('0 0 0\n');
+    process.exit(0);
+  }
+
+  const rate = (score * 100) / count;
+  process.stdout.write(`${rate.toFixed(1)} ${score} ${count}\n`);
+} catch (err) {
+  process.stdout.write('0 0 0\n');
+}
+NODE
+}
 
 usage() {
   cat <<USAGE
@@ -154,6 +194,31 @@ if [[ -f "$RESULTS_FILE" ]]; then
   read -r PASS_RATE TOTAL_CASES PASSED_CASES < <(node -e "const fs=require('node:fs'); const path=process.argv[1]; try { const json=JSON.parse(fs.readFileSync(path,'utf8')); const rows=json.results?.results || json.results || []; const total=Array.isArray(rows)?rows.length:0; const passed=Array.isArray(rows)?rows.filter((r)=>r&&r.success).length:0; const rate=total>0?(100*passed/total):0; process.stdout.write(rate.toFixed(1)+' '+total+' '+passed+'\\n');} catch (err) { process.stdout.write('0 0 0\\n'); }" "$RESULTS_FILE")
 fi
 
+RAG_METRICS_ENFORCED="false"
+RAG_CONTRACT_META_RATE="0"
+RAG_CONTRACT_META_SCORE="0"
+RAG_CONTRACT_META_COUNT="0"
+RAG_CITATION_COVERAGE_RATE="0"
+RAG_CITATION_COVERAGE_SCORE="0"
+RAG_CITATION_COVERAGE_COUNT="0"
+RAG_LOW_CONF_REFUSAL_RATE="0"
+RAG_LOW_CONF_REFUSAL_SCORE="0"
+RAG_LOW_CONF_REFUSAL_COUNT="0"
+RAG_CONTRACT_META_FAIL="no"
+RAG_CITATION_COVERAGE_FAIL="no"
+RAG_LOW_CONF_REFUSAL_FAIL="no"
+
+if [[ "$SKIP_EVAL" != "true" && -f "$RESULTS_FILE" ]]; then
+  RAG_METRICS_ENFORCED="true"
+  read -r RAG_CONTRACT_META_RATE RAG_CONTRACT_META_SCORE RAG_CONTRACT_META_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "rag-contract-meta-present")
+  read -r RAG_CITATION_COVERAGE_RATE RAG_CITATION_COVERAGE_SCORE RAG_CITATION_COVERAGE_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "rag-citation-coverage")
+  read -r RAG_LOW_CONF_REFUSAL_RATE RAG_LOW_CONF_REFUSAL_SCORE RAG_LOW_CONF_REFUSAL_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "rag-low-confidence-refusal")
+
+  RAG_CONTRACT_META_FAIL=$(node -e "const r=parseFloat('${RAG_CONTRACT_META_RATE}'); const c=parseFloat('${RAG_CONTRACT_META_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
+  RAG_CITATION_COVERAGE_FAIL=$(node -e "const r=parseFloat('${RAG_CITATION_COVERAGE_RATE}'); const c=parseFloat('${RAG_CITATION_COVERAGE_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
+  RAG_LOW_CONF_REFUSAL_FAIL=$(node -e "const r=parseFloat('${RAG_LOW_CONF_REFUSAL_RATE}'); const c=parseFloat('${RAG_LOW_CONF_REFUSAL_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
+fi
+
 # Deep eval (runs after primary if deep config is set).
 DEEP_EVAL_EXIT=0
 DEEP_PASS_RATE="0"
@@ -198,9 +263,30 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "deep_pass_rate=${DEEP_PASS_RATE}"
   echo "deep_total_cases=${DEEP_TOTAL_CASES}"
   echo "deep_passed_cases=${DEEP_PASSED_CASES}"
+  echo "rag_metrics_enforced=${RAG_METRICS_ENFORCED}"
+  echo "rag_metric_threshold=${RAG_METRIC_THRESHOLD}"
+  echo "rag_contract_meta_rate=${RAG_CONTRACT_META_RATE}"
+  echo "rag_contract_meta_score=${RAG_CONTRACT_META_SCORE}"
+  echo "rag_contract_meta_count=${RAG_CONTRACT_META_COUNT}"
+  echo "rag_contract_meta_fail=${RAG_CONTRACT_META_FAIL}"
+  echo "rag_citation_coverage_rate=${RAG_CITATION_COVERAGE_RATE}"
+  echo "rag_citation_coverage_score=${RAG_CITATION_COVERAGE_SCORE}"
+  echo "rag_citation_coverage_count=${RAG_CITATION_COVERAGE_COUNT}"
+  echo "rag_citation_coverage_fail=${RAG_CITATION_COVERAGE_FAIL}"
+  echo "rag_low_confidence_refusal_rate=${RAG_LOW_CONF_REFUSAL_RATE}"
+  echo "rag_low_confidence_refusal_score=${RAG_LOW_CONF_REFUSAL_SCORE}"
+  echo "rag_low_confidence_refusal_count=${RAG_LOW_CONF_REFUSAL_COUNT}"
+  echo "rag_low_confidence_refusal_fail=${RAG_LOW_CONF_REFUSAL_FAIL}"
 } > "$SUMMARY_FILE"
 
 printf 'Promptfoo gate summary: mode=%s threshold=%s pass_rate=%s%% eval_exit=%s\n' "$EFFECTIVE_MODE" "$THRESHOLD" "$PASS_RATE" "$EVAL_EXIT"
+if [[ "$RAG_METRICS_ENFORCED" == "true" ]]; then
+  printf 'RAG threshold summary: threshold=%s%% contract=%s%%(%s/%s) citations=%s%%(%s/%s) low_conf_refusal=%s%%(%s/%s)\n' \
+    "$RAG_METRIC_THRESHOLD" \
+    "$RAG_CONTRACT_META_RATE" "$RAG_CONTRACT_META_SCORE" "$RAG_CONTRACT_META_COUNT" \
+    "$RAG_CITATION_COVERAGE_RATE" "$RAG_CITATION_COVERAGE_SCORE" "$RAG_CITATION_COVERAGE_COUNT" \
+    "$RAG_LOW_CONF_REFUSAL_RATE" "$RAG_LOW_CONF_REFUSAL_SCORE" "$RAG_LOW_CONF_REFUSAL_COUNT"
+fi
 if [[ -n "$DEEP_CONFIG_FILE" ]]; then
   printf 'Deep eval summary: deep_pass_rate=%s%% deep_eval_exit=%s\n' "$DEEP_PASS_RATE" "$DEEP_EVAL_EXIT"
 fi
@@ -212,7 +298,14 @@ if [[ -n "$DEEP_CONFIG_FILE" ]]; then
   DEEP_THRESHOLD_FAIL=$(node -e "const p=parseFloat('${DEEP_PASS_RATE}'); const t=parseFloat('${THRESHOLD}'); console.log(Number.isFinite(p)&&Number.isFinite(t)&&p<t ? 'yes':'no');")
 fi
 
-if [[ "$EVAL_EXIT" -ne 0 || "$THRESHOLD_FAIL" == "yes" || "$DEEP_EVAL_EXIT" -ne 0 || "$DEEP_THRESHOLD_FAIL" == "yes" ]]; then
+RAG_THRESHOLD_FAIL="no"
+if [[ "$RAG_METRICS_ENFORCED" == "true" ]]; then
+  if [[ "$RAG_CONTRACT_META_FAIL" == "yes" || "$RAG_CITATION_COVERAGE_FAIL" == "yes" || "$RAG_LOW_CONF_REFUSAL_FAIL" == "yes" ]]; then
+    RAG_THRESHOLD_FAIL="yes"
+  fi
+fi
+
+if [[ "$EVAL_EXIT" -ne 0 || "$THRESHOLD_FAIL" == "yes" || "$DEEP_EVAL_EXIT" -ne 0 || "$DEEP_THRESHOLD_FAIL" == "yes" || "$RAG_THRESHOLD_FAIL" == "yes" ]]; then
   if [[ "$EFFECTIVE_MODE" == "blocking" ]]; then
     echo "Promptfoo gate FAILED in blocking mode" >&2
     exit 2

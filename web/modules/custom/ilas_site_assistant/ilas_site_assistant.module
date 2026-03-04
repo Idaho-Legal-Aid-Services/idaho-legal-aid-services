@@ -151,6 +151,18 @@ function ilas_site_assistant_cron() {
       \Drupal::service('ilas_site_assistant.safety_alert')->checkThresholds();
     }
 
+    // Run scheduled vector-index hygiene refresh and monitoring snapshots.
+    if (\Drupal::hasService('ilas_site_assistant.vector_index_hygiene')) {
+      try {
+        \Drupal::service('ilas_site_assistant.vector_index_hygiene')->runScheduledRefresh();
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('ilas_site_assistant')->error('Vector index hygiene refresh failed: @message', [
+          '@message' => $e->getMessage(),
+        ]);
+      }
+    }
+
   }
   catch (\Throwable $e) {
     $success = FALSE;

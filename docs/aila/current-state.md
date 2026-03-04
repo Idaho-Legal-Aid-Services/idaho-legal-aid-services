@@ -196,12 +196,13 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Ranking/filtering | Resource/FAQ paths apply query filters and score handling; vector results normalized and merged when enabled/needed.[^CLAIM-062][^CLAIM-065] |
 | Pinecone details | Search API AI server `pinecone_vector` uses database `ilas-assistant`, collection `default`, cosine metric, Gemini embedding model, 3072 dimensions.[^CLAIM-066] |
 | Vector indexes | Vector indexes exist for FAQ paragraphs and resource nodes on `pinecone_vector` server.[^CLAIM-067] |
+| Vector index hygiene + metadata standards + refresh monitoring (`P2-DEL-03`) | Managed vector indexes (`faq_accordion_vector`, `assistant_resources_vector`) now run policy-versioned hygiene snapshots with incremental-only refresh cadence checks, metadata drift detection (`server_id`/`metric`/`dimensions`), backlog counters, and overdue tracking. Monitoring is additive only: health/metrics expose nested hygiene fields without retrieval ranking/filtering side effects.[^CLAIM-066][^CLAIM-067][^CLAIM-121][^CLAIM-136] |
 | Toggles/flags | Vector supplement behavior is gated by config (`vector_search.*`) with admin form persistence and schema/export parity enforcement.[^CLAIM-061][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
 | Failure modes | Vector and Search API failures degrade gracefully to empty/legacy paths; FAQ has explicit legacy entity-query fallback.[^CLAIM-063][^CLAIM-065] |
 | Deterministic degrade outcomes (formalized) | Search API unavailable or query exceptions deterministically route to legacy retrieval in FAQ/resource paths. Vector index unavailable/failing paths preserve lexical/legacy output and do not propagate unhandled dependency exceptions upstream.[^CLAIM-063][^CLAIM-065] |
 | Observability | Retrieval warnings/info are logged; quality/empty-search conditions flow into analytics/no-answer capture paths.[^CLAIM-085][^CLAIM-047] |
 | Source freshness + provenance governance | Retrieval results now include additive governance metadata (`provenance`, `freshness`, `governance_flags`) across lexical/vector FAQ/resource classes. Governance remains soft alerts only: snapshots and cooldowned warnings are exposed in health/metrics surfaces without stale-result suppression, reranking, or architecture rewrite.[^CLAIM-067][^CLAIM-122][^CLAIM-133] |
-| Retrieval confidence formalization | FallbackGate `confidence` (float 0-1) and `reason_code` are now surfaced as formal response contract fields on all 200-response paths. Non-retrieval deterministic exits (safety/OOS/policy) receive `confidence: 1.0`. ResponseGrounder `sources[]` are formalized as `citations[]` in the response contract.[^CLAIM-062][^CLAIM-134] |
+| Retrieval confidence formalization | FallbackGate `confidence` (float 0-1) and `reason_code` are now surfaced as formal response contract fields on all 200-response paths. Non-retrieval deterministic exits (safety/OOS/policy) receive `confidence: 1.0`. ResponseGrounder `sources[]` are formalized as `citations[]` in the response contract, and Promptfoo contract-metadata assertions now gate citation coverage plus low-confidence refusal behavior thresholds in branch-aware CI policy.[^CLAIM-062][^CLAIM-134][^CLAIM-135] |
 
 ### E) Generation / LLM integration
 
@@ -226,14 +227,14 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Langfuse status | Langfuse requires config + credentials; traces capture spans/events/generations and export via terminate subscriber + queue worker.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082] |
 | Runtime monitoring | `PerformanceMonitor` records rolling latency/error metrics and exposes p95/p99/error/availability values with SLO-backed thresholds via `/assistant/api/health` and `/assistant/api/metrics`.[^CLAIM-084][^CLAIM-051] |
 | SLO policy + alerts | `SloDefinitions` + `SloAlertService` define/enforce availability, latency, error-rate, cron freshness, and queue depth/age SLOs with cooldowned structured warning alerts from cron.[^CLAIM-084][^CLAIM-121] |
-| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, and injection-resistance checks. First-party workflow (`.github/workflows/quality-gate.yml`) runs both gates on `push`/`pull_request` for blocking branches, and branch protection requires `PHPUnit Quality Gate` + `Promptfoo Gate` on `master` with `enforce_admins=true`.[^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132] |
+| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, and retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`) enforced at 90% minimum per metric.[^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135] |
 | Redaction posture | Sentry subscriber and analytics/conversation log codepaths apply redaction/truncation before persistence/export.[^CLAIM-053][^CLAIM-083][^CLAIM-085] |
 
 ### G) Cron/queues/background processes
 
 | Spec item | Current state |
 |---|---|
-| Cron entrypoint | `hook_cron()` runs analytics cleanup, conversation cleanup, violation prune, safety alert checks, records cron run health, then evaluates SLO alert checks.[^CLAIM-016][^CLAIM-084][^CLAIM-127] |
+| Cron entrypoint | `hook_cron()` runs analytics cleanup, conversation cleanup, violation prune, safety alert checks, vector-index hygiene refresh snapshots (`runScheduledRefresh()` with failure isolation), records cron run health, then evaluates SLO alert checks.[^CLAIM-016][^CLAIM-084][^CLAIM-121][^CLAIM-127][^CLAIM-136] |
 | Queue workers | `ilas_langfuse_export` queue worker is cron-enabled (`cron.time=30`) for Langfuse export batches.[^CLAIM-082] |
 | Langfuse queue behavior | Items are aged/validated, discarded when stale/disabled/misconfigured, and transient API failures suspend queue for retry; queue health tracking exposes backlog depth/utilization and oldest-item age for SLO checks.[^CLAIM-082][^CLAIM-084] |
 | Retention/cleanup | Analytics retention uses `log_retention_days`; conversation log retention uses `retention_hours` with batched deletes.[^CLAIM-087][^CLAIM-088] |
@@ -383,6 +384,56 @@ This dated addendum records `P2-DEL-01` completion for Phase 2 Key Deliverable #
 5. Scope boundaries remain unchanged: no live production LLM enablement through
    Phase 2 and no broad platform migration outside the current Pantheon
    baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-134]
+
+### Phase 2 Deliverable #2 Retrieval Confidence/Refusal Threshold Gating Disposition (2026-03-03)
+
+This dated addendum records `P2-DEL-02` completion for Phase 2 Key Deliverable #2:
+"Retrieval confidence/refusal thresholds integrated with eval harness and regression gating (`IMP-RAG-01`)."
+
+1. Promptfoo eval harness now includes retrieval confidence/refusal threshold
+   contract tests (`promptfoo-evals/tests/retrieval-confidence-thresholds.yaml`)
+   that assert machine-readable contract metadata and threshold metrics:
+   `rag-contract-meta-present`, `rag-citation-coverage`,
+   `rag-low-confidence-refusal`.[^CLAIM-086][^CLAIM-135]
+2. Promptfoo provider output now appends a deterministic `[contract_meta]` JSON
+   line carrying `confidence`, `citations_count`, `response_type`,
+   `response_mode`, `reason_code`, and `decision_reason` for metric-level
+   assertions without changing production API schema.[^CLAIM-134][^CLAIM-135]
+3. Branch-aware gate script enforcement now includes per-metric retrieval
+   thresholds at 90% minimum and records threshold outcomes in gate summary
+   artifacts; blocking/advisory branch semantics remain unchanged.[^CLAIM-086][^CLAIM-132][^CLAIM-135]
+4. Backlog/risk linkage moved to active mitigation for retrieval-confidence
+   ambiguity (`R-RAG-01`) with detection signals centered on weak-result rate,
+   citation coverage, and low-confidence refusal/clarification ratio trends.[^CLAIM-047][^CLAIM-085][^CLAIM-135]
+5. Scope boundaries remain unchanged: no live production LLM enablement through
+   Phase 2 and no broad platform migration outside the current Pantheon
+   baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-135]
+
+### Phase 2 Deliverable #3 Vector Index Hygiene + Refresh Monitoring Disposition (2026-03-04)
+
+This dated addendum records `P2-DEL-03` completion for Phase 2 Key Deliverable #3:
+"Vector index hygiene policy, metadata standards, and refresh monitoring (`IMP-RAG-02`)."
+
+1. Vector index hygiene is now an enforceable in-repo contract through
+   `VectorIndexHygieneService` with policy-versioned defaults, managed index
+   standards (`faq_accordion_vector`, `assistant_resources_vector`), and
+   incremental-only refresh operations (`indexItems(max_items_per_run)`).[^CLAIM-066][^CLAIM-067][^CLAIM-136]
+2. Metadata compliance checks now evaluate index existence/enabled state,
+   expected server ID, backend metric, and dimensions; status is surfaced per
+   index as `compliant`, `drift`, or `unknown` with explicit `drift_fields` and
+   `last_error` capture for isolated failures.[^CLAIM-066][^CLAIM-067][^CLAIM-136]
+3. Cron integration now captures hygiene snapshots every run with due/overdue
+   cadence logic (`refresh_interval_hours=24`, `overdue_grace_minutes=60`),
+   tracker backlog counters, and cooldowned degraded alerts while preserving
+   existing cron-health and SLO-ordering behavior.[^CLAIM-121][^CLAIM-127][^CLAIM-136]
+4. Monitoring contracts are extended additively: `/assistant/api/health` now
+   includes `checks.vector_index_hygiene`, and `/assistant/api/metrics` includes
+   `metrics.vector_index_hygiene` and `thresholds.vector_index_hygiene` without
+   top-level payload-shape changes.[^CLAIM-121][^CLAIM-136]
+5. Backlog/risk linkage moved to active mitigation for `R-RAG-02` and
+   `R-GOV-02`; scope boundaries remain unchanged: no live production LLM
+   enablement through Phase 2 and no broad platform migration outside the
+   current Pantheon baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-136]
 
 ### Phase 0 Exit #3 Dependency Disposition (2026-02-27)
 
@@ -716,3 +767,6 @@ This dated addendum records `P1-NDO-02` closure for the Phase 1 scope boundary:
 [^CLAIM-131]: [CLAIM-131](evidence-index.md#claim-131)
 [^CLAIM-132]: [CLAIM-132](evidence-index.md#claim-132)
 [^CLAIM-133]: [CLAIM-133](evidence-index.md#claim-133)
+[^CLAIM-134]: [CLAIM-134](evidence-index.md#claim-134)
+[^CLAIM-135]: [CLAIM-135](evidence-index.md#claim-135)
+[^CLAIM-136]: [CLAIM-136](evidence-index.md#claim-136)

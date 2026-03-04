@@ -791,6 +791,147 @@ Expected Deliverable #1 result:
 - Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
   no broad platform migration outside the current Pantheon baseline.[^CLAIM-134]
 
+### Phase 2 retrieval confidence/refusal threshold gating verification (`P2-DEL-02`)
+
+Use these commands to verify Deliverable #2:
+"Retrieval confidence/refusal thresholds integrated with eval harness and regression gating (`IMP-RAG-01`)."
+
+```bash
+# 1) Required validation suites (prompt-level).
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-KERNEL
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel
+
+# VC-QUALITY-GATE
+ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+
+# 2) Deliverable-specific gate test.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  --filter PhaseTwoDeliverableTwoGateTest
+
+# 3) Promptfoo harness wiring checks.
+rg -n "retrieval-confidence-thresholds.yaml|rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal" \
+  promptfoo-evals/promptfooconfig.abuse.yaml \
+  promptfoo-evals/tests/retrieval-confidence-thresholds.yaml
+
+rg -n "\\[contract_meta\\]|citations_count|decision_reason|response_mode|reason_code" \
+  promptfoo-evals/providers/ilas-live.js
+
+rg -n "rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal|RAG_METRIC_THRESHOLD|rag_metrics_enforced" \
+  scripts/ci/run-promptfoo-gate.sh
+
+# 4) Regression-gate simulation (non-live) for threshold failure branch behavior.
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=master scripts/ci/run-promptfoo-gate.sh \
+  --env dev --mode auto --skip-eval --simulate-pass-rate 85
+
+ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
+  CI_BRANCH=feature/p2-del-02 scripts/ci/run-promptfoo-gate.sh \
+  --env dev --mode auto --skip-eval --simulate-pass-rate 85
+```
+
+Expected Deliverable #2 result:
+- Promptfoo abuse config includes retrieval-confidence threshold tests, and
+  provider output emits parseable `[contract_meta]` metadata line.
+- Gate script enforces metric-specific 90% thresholds for
+  `rag-contract-meta-present`, `rag-citation-coverage`, and
+  `rag-low-confidence-refusal` when eval data is present.
+- Gate summary includes retrieval-threshold metric rates/counts/fail flags.
+- Blocking/advisory branch behavior remains unchanged for regression gating.
+- Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
+  no broad platform migration outside the current Pantheon baseline.[^CLAIM-135]
+
+### Phase 2 vector index hygiene, metadata standards, and refresh monitoring verification (`P2-DEL-03`)
+
+Use these commands to verify Deliverable #3:
+"Vector index hygiene policy, metadata standards, and refresh monitoring (`IMP-RAG-02`)."
+
+```bash
+# 1) Required validation suites (deliverable-level).
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-KERNEL
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel
+
+# VC-QUALITY-GATE
+ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+
+# 2) Deliverable-specific gate + service behavior suites.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  --filter PhaseTwoDeliverableThreeGateTest
+
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  --filter VectorIndexHygieneServiceTest
+
+# 3) Contract/config/service anchors.
+rg -n "vector_index_hygiene|p2_del_03_v1|faq_accordion_vector|assistant_resources_vector" \
+  web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml \
+  config/ilas_site_assistant.settings.yml \
+  web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
+
+rg -n "ilas_site_assistant.vector_index_hygiene|VectorIndexHygieneService" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml \
+  web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php
+
+rg -n "runScheduledRefresh|Vector index hygiene refresh failed" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.module
+
+rg -n "checks\\['vector_index_hygiene'\\]|metrics\\['vector_index_hygiene'\\]|thresholds\\['vector_index_hygiene'\\]" \
+  web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+
+# 4) Non-prod hygiene state inspection/reset workflow.
+ddev exec drush state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=yaml
+ddev exec drush state:get ilas_site_assistant.vector_index_hygiene.last_alert
+
+ddev exec drush state:delete ilas_site_assistant.vector_index_hygiene.snapshot
+ddev exec drush state:delete ilas_site_assistant.vector_index_hygiene.last_alert
+
+# Optional read-only live inspection (no delete).
+for ENV in dev test live; do
+  echo "=== ${ENV} ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- \
+    state:get ilas_site_assistant.vector_index_hygiene.snapshot
+done
+```
+
+Expected Deliverable #3 result:
+- `vector_index_hygiene` policy exists in install + active config with schema
+  parity and two managed indexes (`faq_vector`, `resource_vector`) mapped to
+  `faq_accordion_vector` and `assistant_resources_vector`.
+- Scheduled hygiene snapshots enforce incremental-only refresh checks, due/
+  overdue timing fields, tracker backlog counters, and per-index failure
+  isolation.
+- Metadata compliance status (`compliant`/`drift`/`unknown`) and drift fields
+  are recorded for each managed index using expected server/metric/dimensions
+  policy values.
+- Monitoring surfaces are additive: health includes
+  `checks.vector_index_hygiene`; metrics include
+  `metrics.vector_index_hygiene` and `thresholds.vector_index_hygiene`.
+- Backlog/risk linkage is active for `R-RAG-02` and `R-GOV-02`.
+- Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
+  no broad platform migration outside the current Pantheon baseline.[^CLAIM-136]
+
 ### Phase 1 Exit #3 reliability failure matrix verification (`P1-EXT-03`)
 
 Use these commands to verify Phase 1 exit criterion #3:
@@ -1134,3 +1275,6 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-125]: [CLAIM-125](evidence-index.md#claim-125)
 [^CLAIM-126]: [CLAIM-126](evidence-index.md#claim-126)
 [^CLAIM-133]: [CLAIM-133](evidence-index.md#claim-133)
+[^CLAIM-134]: [CLAIM-134](evidence-index.md#claim-134)
+[^CLAIM-135]: [CLAIM-135](evidence-index.md#claim-135)
+[^CLAIM-136]: [CLAIM-136](evidence-index.md#claim-136)

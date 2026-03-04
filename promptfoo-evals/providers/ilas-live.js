@@ -335,8 +335,20 @@ class IlasLiveProvider {
       parts.push(absolutizeRelativePathsInText(data.caveat));
     }
 
-    // Final safety pass (catches any stray relative paths in concatenated output)
-    const output = absolutizeRelativePathsInText(parts.join('\n\n')) || JSON.stringify(data);
+    const contractMeta = {
+      confidence: typeof data.confidence === 'number' ? data.confidence : null,
+      citations_count: Array.isArray(data.citations)
+        ? data.citations.length
+        : (Array.isArray(data.sources) ? data.sources.length : 0),
+      response_type: data.type || null,
+      response_mode: data.response_mode || null,
+      reason_code: data.reason_code || null,
+      decision_reason: data.decision_reason || null,
+    };
+
+    // Final safety pass for human-readable content only.
+    const humanOutput = absolutizeRelativePathsInText(parts.join('\n\n')) || JSON.stringify(data);
+    const output = `${humanOutput}\n\n[contract_meta]${JSON.stringify(contractMeta)}`;
 
     return {
       output,

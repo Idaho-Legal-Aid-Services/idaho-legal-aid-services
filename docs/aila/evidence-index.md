@@ -1188,3 +1188,57 @@ Evidence precedence used in this audit:
   - `docs/aila/roadmap.md` (Phase 2 Deliverable #1 disposition dated 2026-03-03)
   - `docs/aila/current-state.md` (Section 4B contract expansion row + Section 4D retrieval confidence row + P2-DEL-01 disposition)
   - `docs/aila/runbook.md` (P2-DEL-01 verification subsection in section 4)
+
+---
+
+## Phase 2 Deliverable #2 Retrieval Confidence/Refusal Threshold Gating (`P2-DEL-02`)
+
+### CLAIM-135
+- Claim: Phase 2 Deliverable #2 (`P2-DEL-02`) is closed in-repo: retrieval
+  confidence/refusal thresholds are integrated with the Promptfoo eval harness
+  and branch-aware regression gating. Harness assertions now enforce three
+  retrieval-specific metrics (`rag-contract-meta-present`,
+  `rag-citation-coverage`, `rag-low-confidence-refusal`) and gate policy
+  enforces a 90% minimum per metric when eval data is present. Gate summary
+  artifacts expose per-metric rates/counts/fail flags. Scope constraints remain
+  unchanged (no live LLM enablement, no broad platform migration).
+- Evidence:
+  - `promptfoo-evals/providers/ilas-live.js` (appended `[contract_meta]` JSON metadata line for eval assertions)
+  - `promptfoo-evals/tests/retrieval-confidence-thresholds.yaml` (metric assertions for metadata, citation coverage, low-confidence refusal/clarify behavior)
+  - `promptfoo-evals/promptfooconfig.abuse.yaml` (includes retrieval confidence threshold suite in primary gate config)
+  - `scripts/ci/run-promptfoo-gate.sh` (metric parsing via namedScores/namedScoresCount + 90% per-metric threshold enforcement + summary fields)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableTwoGateTest.php` (closure continuity/enforcement lock)
+  - `docs/aila/roadmap.md` (Phase 2 Deliverable #2 disposition dated 2026-03-03)
+  - `docs/aila/current-state.md` (Section 4D retrieval row + Section 4F harness row + P2-DEL-02 disposition)
+  - `docs/aila/runbook.md` (P2-DEL-02 verification subsection in section 4)
+  - `docs/aila/backlog.md` (Retrieval Quality row moved to active mitigation posture)
+  - `docs/aila/risk-register.md` (`R-RAG-01` moved to active mitigation with threshold-gated detection signals)
+
+---
+
+## Phase 2 Deliverable #3 Vector Index Hygiene + Refresh Monitoring (`P2-DEL-03`)
+
+### CLAIM-136
+- Claim: Phase 2 Deliverable #3 (`P2-DEL-03`) is closed in-repo: vector index
+  hygiene policy, metadata standards, and refresh monitoring (`IMP-RAG-02`) are
+  enforced through a dedicated service, policy-versioned config/schema defaults,
+  cron-driven incremental refresh snapshots, metadata drift detection, and
+  additive health/metrics exposure. Enforcement remains non-invasive for
+  retrieval behavior (no ranking/filtering penalties), and scope constraints
+  remain unchanged (no live LLM enablement, no broad platform migration).
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php` (policy defaults, metadata checks, incremental refresh cadence, per-index failure isolation, snapshot + cooldowned alert behavior)
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (`vector_index_hygiene` defaults)
+  - `config/ilas_site_assistant.settings.yml` (`vector_index_hygiene` active config)
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (`vector_index_hygiene` typed mapping + managed indexes)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml` (`ilas_site_assistant.vector_index_hygiene` registration)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module` (`hook_cron()` hygiene refresh invocation with failure isolation)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (health `checks.vector_index_hygiene`; metrics `metrics.vector_index_hygiene` + `thresholds.vector_index_hygiene`)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableThreeGateTest.php`
+  - `docs/aila/roadmap.md` (Phase 2 Deliverable #3 disposition dated 2026-03-04)
+  - `docs/aila/current-state.md` (Section 4D retrieval row + Section 4G cron row + P2-DEL-03 disposition)
+  - `docs/aila/runbook.md` (P2-DEL-03 verification subsection in section 4)
+  - `docs/aila/system-map.mmd` (Diagram A vector-index-hygiene node/path anchors)
+  - `docs/aila/backlog.md` (Retrieval Quality row moved to active mitigation for `IMP-RAG-02 / P2-DEL-03`)
+  - `docs/aila/risk-register.md` (`R-RAG-02` and `R-GOV-02` moved to active mitigation with hygiene drift/overdue signals)

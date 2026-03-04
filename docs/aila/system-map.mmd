@@ -14,6 +14,7 @@ flowchart LR
     PL[Pipeline\nFlood -> Validation -> Safety -> OOS -> Policy -> Intent]
     RET[Retrieval\nFaqIndex + ResourceFinder\nSearch API + optional vector]
     SGOV[Source governance\nfreshness + provenance\nsoft alerts + snapshot]
+    VHYG[Vector index hygiene\nmetadata standards + refresh cadence\ndrift + overdue monitoring]
     GEN[Generation\nLlmEnhancer\nGemini/Vertex optional]
     DASH[Dashboard APIs\n/assistant/api/health\n/assistant/api/metrics]
     ADR[Admin report dashboard\n/admin/reports/ilas-assistant]
@@ -47,8 +48,11 @@ flowchart LR
   R --> ADR
   PL --> RET
   RET --> SGOV
+  RET --> VHYG
   SGOV --> DASH
   SGOV --> ALT
+  VHYG --> DASH
+  VHYG --> ALT
   RET --> SA
   RET -->|vector enabled| PC
   PL --> GEN

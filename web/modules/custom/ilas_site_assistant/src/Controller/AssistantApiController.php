@@ -31,6 +31,7 @@ use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -198,6 +199,13 @@ class AssistantApiController extends ControllerBase {
   protected $sourceGovernance;
 
   /**
+   * The vector-index hygiene/refresh monitoring service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\VectorIndexHygieneService|null
+   */
+  protected $vectorIndexHygiene;
+
+  /**
    * The Top Intents Pack service.
    *
    * @var \Drupal\ilas_site_assistant\Service\TopIntentsPack|null
@@ -251,7 +259,8 @@ class AssistantApiController extends ControllerBase {
     SafetyViolationTracker $violation_tracker = NULL,
     LangfuseTracer $langfuse_tracer = NULL,
     TopIntentsPack $top_intents_pack = NULL,
-    SourceGovernanceService $source_governance = NULL
+    SourceGovernanceService $source_governance = NULL,
+    VectorIndexHygieneService $vector_index_hygiene = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -276,6 +285,7 @@ class AssistantApiController extends ControllerBase {
     $this->langfuseTracer = $langfuse_tracer;
     $this->topIntentsPack = $top_intents_pack;
     $this->sourceGovernance = $source_governance;
+    $this->vectorIndexHygiene = $vector_index_hygiene;
   }
 
   /**
@@ -305,7 +315,8 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.safety_violation_tracker') ? $container->get('ilas_site_assistant.safety_violation_tracker') : NULL,
       $container->has('ilas_site_assistant.langfuse_tracer') ? $container->get('ilas_site_assistant.langfuse_tracer') : NULL,
       $container->has('ilas_site_assistant.top_intents_pack') ? $container->get('ilas_site_assistant.top_intents_pack') : NULL,
-      $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL
+      $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL,
+      $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL
     );
   }
 
@@ -3258,6 +3269,15 @@ class AssistantApiController extends ControllerBase {
       }
     }
 
+    if ($this->vectorIndexHygiene) {
+      $vector_index_hygiene = $this->vectorIndexHygiene->getSnapshot();
+      $checks['vector_index_hygiene'] = $vector_index_hygiene;
+      if (($vector_index_hygiene['status'] ?? 'unknown') === 'degraded') {
+        $status = 'degraded';
+        $httpCode = 503;
+      }
+    }
+
     if ($status !== 'healthy' && $status !== 'degraded') {
       $httpCode = 503;
     }
@@ -3335,6 +3355,22 @@ class AssistantApiController extends ControllerBase {
         'by_source_class' => $source_governance['by_source_class'] ?? [],
       ];
       $response['thresholds']['source_governance'] = $source_governance['thresholds'] ?? [];
+    }
+
+    if ($this->vectorIndexHygiene) {
+      $vector_index_hygiene = $this->vectorIndexHygiene->getSnapshot();
+      $response['metrics']['vector_index_hygiene'] = [
+        'status' => $vector_index_hygiene['status'] ?? 'unknown',
+        'policy_version' => $vector_index_hygiene['policy_version'] ?? 'p2_del_03_v1',
+        'refresh_mode' => $vector_index_hygiene['refresh_mode'] ?? 'incremental',
+        'recorded_at' => $vector_index_hygiene['recorded_at'] ?? NULL,
+        'totals' => $vector_index_hygiene['totals'] ?? [],
+        'indexes' => $vector_index_hygiene['indexes'] ?? [],
+        'last_alert_at' => $vector_index_hygiene['last_alert_at'] ?? NULL,
+        'next_alert_eligible_at' => $vector_index_hygiene['next_alert_eligible_at'] ?? NULL,
+        'cooldown_seconds_remaining' => $vector_index_hygiene['cooldown_seconds_remaining'] ?? 0,
+      ];
+      $response['thresholds']['vector_index_hygiene'] = $vector_index_hygiene['thresholds'] ?? [];
     }
 
     return $this->jsonResponse($response);

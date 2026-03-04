@@ -241,6 +241,28 @@ source_governance:
       max_age_days: 180
       require_source_url: true
 
+vector_index_hygiene:
+  enabled: true
+  policy_version: 'p2_del_03_v1'
+  refresh_mode: 'incremental'
+  refresh_interval_hours: 24
+  overdue_grace_minutes: 60
+  max_items_per_run: 50
+  alert_cooldown_minutes: 60
+  managed_indexes:
+    faq_vector:
+      index_id: 'faq_accordion_vector'
+      owner_role: 'Content Operations Lead'
+      expected_server_id: 'pinecone_vector'
+      expected_metric: 'cosine_similarity'
+      expected_dimensions: 3072
+    resource_vector:
+      index_id: 'assistant_resources_vector'
+      owner_role: 'Content Operations Lead'
+      expected_server_id: 'pinecone_vector'
+      expected_metric: 'cosine_similarity'
+      expected_dimensions: 3072
+
 audit_governance:
   audit_domain_classes:
     - legal_advice

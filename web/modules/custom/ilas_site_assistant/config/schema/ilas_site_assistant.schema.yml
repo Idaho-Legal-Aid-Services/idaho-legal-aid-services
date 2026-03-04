@@ -476,6 +476,73 @@ ilas_site_assistant.settings:
                 require_source_url:
                   type: boolean
                   label: 'Whether resource vector source must include source URL'
+    vector_index_hygiene:
+      type: mapping
+      label: 'Vector index hygiene and refresh monitoring settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable vector index hygiene policy enforcement'
+        policy_version:
+          type: string
+          label: 'Vector hygiene policy version identifier'
+        refresh_mode:
+          type: string
+          label: 'Refresh mode (incremental only in Phase 2)'
+        refresh_interval_hours:
+          type: integer
+          label: 'Refresh cadence in hours'
+        overdue_grace_minutes:
+          type: integer
+          label: 'Additional grace minutes before overdue state'
+        max_items_per_run:
+          type: integer
+          label: 'Maximum incremental index items processed per run'
+        alert_cooldown_minutes:
+          type: integer
+          label: 'Minimum minutes between degraded hygiene alerts'
+        managed_indexes:
+          type: mapping
+          label: 'Managed vector index metadata standards'
+          mapping:
+            faq_vector:
+              type: mapping
+              label: 'FAQ vector index hygiene policy'
+              mapping:
+                index_id:
+                  type: string
+                  label: 'FAQ vector Search API index id'
+                owner_role:
+                  type: string
+                  label: 'Owner role for FAQ vector index hygiene'
+                expected_server_id:
+                  type: string
+                  label: 'Expected Search API server id'
+                expected_metric:
+                  type: string
+                  label: 'Expected vector similarity metric'
+                expected_dimensions:
+                  type: integer
+                  label: 'Expected embedding dimensions'
+            resource_vector:
+              type: mapping
+              label: 'Resource vector index hygiene policy'
+              mapping:
+                index_id:
+                  type: string
+                  label: 'Resource vector Search API index id'
+                owner_role:
+                  type: string
+                  label: 'Owner role for resource vector index hygiene'
+                expected_server_id:
+                  type: string
+                  label: 'Expected Search API server id'
+                expected_metric:
+                  type: string
+                  label: 'Expected vector similarity metric'
+                expected_dimensions:
+                  type: integer
+                  label: 'Expected embedding dimensions'
     audit_governance:
       type: mapping
       label: 'Audit governance configuration'
