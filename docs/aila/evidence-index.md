@@ -1286,7 +1286,7 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md` (P2-OBJ-03 verification subsection in section 4)
 - Follow-on addendum (2026-03-03): balanced ratio+sample degrade thresholds
   are now enforced for unknown/missing governance status (`min_observations=20`,
-  `unknown_ratio_degrade_pct=25.0`, `missing_source_url_ratio_degrade_pct=10.0`)
+  `unknown_ratio_degrade_pct=22.0`, `missing_source_url_ratio_degrade_pct=9.0`)
   while stale-ratio degradation stays unchanged. Snapshot payload now includes
   cooldown transparency fields (`last_alert_at`, `next_alert_eligible_at`,
   `cooldown_seconds_remaining`) to support deterministic operations checks.
@@ -1401,13 +1401,15 @@ Evidence precedence used in this audit:
 ### CLAIM-137
 - Claim: Phase 2 Deliverable #4 (`P2-DEL-04`) is closed in-repo: promptfoo
   dataset coverage is expanded with explicit weak-grounding, escalation, and
-  safety-boundary scenarios (36 total, 12 per family) wired into the primary
-  abuse promptfoo config. Coverage asserts contract-metadata continuity and
-  family-specific behavior checks while preserving existing branch-aware gate
-  policy and Phase 2 scope constraints (no live LLM enablement, no broad
-  platform migration).
+  safety-boundary scenarios (initial closure baseline: 36 total, 12 per family)
+  wired into the primary abuse promptfoo config. Coverage asserts
+  contract-metadata continuity and family-specific behavior checks while
+  preserving existing branch-aware gate policy and Phase 2 scope constraints
+  (no live LLM enablement, no broad platform migration). Sprint 5 (`CLAIM-144`)
+  subsequently calibrates this dataset to 60 scenarios while preserving the
+  same family/metric contract model.
 - Evidence:
-  - `promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml` (36 scenarios; `metadata.scenario_family` families + `p2del04-*` metrics)
+  - `promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml` (`metadata.scenario_family` families + `p2del04-*` metrics; later calibrated to 60 scenarios under `CLAIM-144`)
   - `promptfoo-evals/promptfooconfig.abuse.yaml` (dataset wiring in primary abuse gate config)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableFourGateTest.php` (closure continuity/enforcement lock)
   - `docs/aila/roadmap.md` (Phase 2 Deliverable #4 disposition dated 2026-03-04)
@@ -1565,3 +1567,40 @@ Evidence precedence used in this audit:
   - `docs/aila/runtime/phase2-sprint4-closure.txt` (sanitized VC alias output + scope guardrails)
   - `docs/aila/backlog.md` (retrieval-quality row continuity addendum)
   - `docs/aila/risk-register.md` (`R-RAG-01` detection-signal addendum)
+
+---
+
+## Phase 2 Sprint 5 Dataset Expansion + Provenance/Freshness + Threshold Calibration Closure (`P2-SBD-02`)
+
+### CLAIM-144
+- Claim: Phase 2 Sprint 5 closure item (`P2-SBD-02`) is completed in-repo as
+  specified: "Sprint 5: dataset expansion, provenance/freshness workflows,
+  threshold calibration." Promptfoo dataset coverage is expanded to 60 scenarios
+  with exact 20/20/20 family distribution; gate policy now enforces calibrated
+  defaults (`RAG_METRIC_MIN_COUNT=10`, `P2DEL04_METRIC_THRESHOLD=85`,
+  `P2DEL04_METRIC_MIN_COUNT=10`) with `p2del04_*` summary/fail fields included
+  in pass/fail outcomes. Source-governance and vector-hygiene thresholds are
+  calibrated in install + active config and mirrored in service defaults while
+  remaining soft-governance/non-invasive. Scope constraints remain unchanged:
+  no live LLM enablement through Phase 2 and no broad platform migration
+  outside the current Pantheon baseline. No system-map diagram change is
+  required because no new architecture edge was introduced.
+- Evidence:
+  - `promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml` (60 scenarios; exact family distribution; calibrated `p2del04-*` metric floors)
+  - `scripts/ci/run-promptfoo-gate.sh` (`RAG_METRIC_MIN_COUNT=10`; `P2DEL04_*` defaults; `p2del04_*` summary/fail fields; blocking/advisory fail-path enforcement)
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (calibrated source-governance + vector-hygiene defaults)
+  - `config/ilas_site_assistant.settings.yml` (active export calibration parity)
+  - `web/modules/custom/ilas_site_assistant/src/Service/SourceGovernanceService.php` (mirrored source-governance defaults)
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php` (mirrored vector-hygiene defaults)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoSprintFiveGateTest.php` (Sprint 5 closure continuity/enforcement lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableFourGateTest.php` (dataset 60 + exact family distribution lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableTwoGateTest.php` (`p2del04_*` gate summary/fail field lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoObjectiveThreeGateTest.php` (governance threshold calibration lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableThreeGateTest.php` (vector-hygiene threshold calibration lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SourceGovernanceServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+  - `docs/aila/roadmap.md` (Phase 2 Sprint 5 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P2-SBD-02 closure addendum)
+  - `docs/aila/runbook.md` (P2-SBD-02 verification subsection in section 4)
+  - `docs/aila/runtime/phase2-sprint5-closure.txt` (sanitized VC alias output + calibration anchors + scope guardrails)
+  - `docs/aila/system-map.mmd` (verified unchanged; no new architecture edge introduced)

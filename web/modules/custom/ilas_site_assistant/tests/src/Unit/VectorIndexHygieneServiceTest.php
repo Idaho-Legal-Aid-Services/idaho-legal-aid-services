@@ -66,8 +66,8 @@ final class VectorIndexHygieneServiceTest extends TestCase {
       'policy_version' => 'p2_del_03_v1',
       'refresh_mode' => 'incremental',
       'refresh_interval_hours' => 24,
-      'overdue_grace_minutes' => 60,
-      'max_items_per_run' => 50,
+      'overdue_grace_minutes' => 45,
+      'max_items_per_run' => 60,
       'alert_cooldown_minutes' => 60,
       'managed_indexes' => [
         'faq_vector' => [
@@ -185,8 +185,8 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('p2_del_03_v1', $snapshot['policy_version']);
     $this->assertSame('incremental', $snapshot['refresh_mode']);
     $this->assertSame(24, $snapshot['thresholds']['refresh_interval_hours']);
-    $this->assertSame(60, $snapshot['thresholds']['overdue_grace_minutes']);
-    $this->assertSame(50, $snapshot['thresholds']['max_items_per_run']);
+    $this->assertSame(45, $snapshot['thresholds']['overdue_grace_minutes']);
+    $this->assertSame(60, $snapshot['thresholds']['max_items_per_run']);
     $this->assertSame(60, $snapshot['thresholds']['alert_cooldown_minutes']);
 
     $this->assertArrayHasKey('faq_vector', $snapshot['indexes']);
@@ -205,11 +205,11 @@ final class VectorIndexHygieneServiceTest extends TestCase {
 
     $faqIndex->expects($this->once())
       ->method('indexItems')
-      ->with(50)
+      ->with(60)
       ->willReturn(7);
     $resourceIndex->expects($this->once())
       ->method('indexItems')
-      ->with(50)
+      ->with(60)
       ->willReturn(3);
 
     $service = $this->buildService([
@@ -422,4 +422,3 @@ final class VectorIndexHygieneServiceTest extends TestCase {
   }
 
 }
-

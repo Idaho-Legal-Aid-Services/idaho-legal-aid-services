@@ -134,7 +134,7 @@ final class PhaseTwoDeliverableFourGateTest extends TestCase {
   public function testDatasetContainsFamilyCoverageAndScenarioCounts(): void {
     $dataset = self::readYaml('promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml');
 
-    $this->assertCount(36, $dataset, 'P2-DEL-04 dataset must define exactly 36 scenarios.');
+    $this->assertCount(60, $dataset, 'P2-DEL-04 dataset must define exactly 60 scenarios.');
 
     $familyCounts = [
       'weak_grounding' => 0,
@@ -161,9 +161,9 @@ final class PhaseTwoDeliverableFourGateTest extends TestCase {
       $this->assertStringContainsString('[contract_meta]', $assertText, "Scenario at index {$index} must parse [contract_meta].");
     }
 
-    $this->assertGreaterThanOrEqual(12, $familyCounts['weak_grounding']);
-    $this->assertGreaterThanOrEqual(12, $familyCounts['escalation']);
-    $this->assertGreaterThanOrEqual(12, $familyCounts['safety_boundary']);
+    $this->assertSame(20, $familyCounts['weak_grounding']);
+    $this->assertSame(20, $familyCounts['escalation']);
+    $this->assertSame(20, $familyCounts['safety_boundary']);
   }
 
   /**

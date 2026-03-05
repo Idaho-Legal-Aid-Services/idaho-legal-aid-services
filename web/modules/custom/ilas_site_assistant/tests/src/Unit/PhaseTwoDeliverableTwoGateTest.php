@@ -126,6 +126,7 @@ final class PhaseTwoDeliverableTwoGateTest extends TestCase {
     $this->assertStringContainsString('rag-contract-meta-present', $gateScript);
     $this->assertStringContainsString('rag-citation-coverage', $gateScript);
     $this->assertStringContainsString('rag-low-confidence-refusal', $gateScript);
+    $this->assertStringContainsString('RAG_METRIC_MIN_COUNT="${RAG_METRIC_MIN_COUNT:-10}"', $gateScript);
     $this->assertStringContainsString('RAG_METRIC_MIN_COUNT', $gateScript);
     $this->assertStringContainsString('rag_metric_min_count=', $gateScript);
     $this->assertStringContainsString('rag_contract_meta_count_fail=', $gateScript);
@@ -134,6 +135,21 @@ final class PhaseTwoDeliverableTwoGateTest extends TestCase {
     $this->assertStringContainsString('rag_metrics_enforced=', $gateScript);
     $this->assertStringContainsString('RAG threshold summary:', $gateScript);
     $this->assertStringContainsString('RAG count-floor summary:', $gateScript);
+    $this->assertStringContainsString('P2DEL04_METRIC_THRESHOLD="${P2DEL04_METRIC_THRESHOLD:-85}"', $gateScript);
+    $this->assertStringContainsString('P2DEL04_METRIC_MIN_COUNT="${P2DEL04_METRIC_MIN_COUNT:-10}"', $gateScript);
+    $this->assertStringContainsString('p2del04_metrics_enforced=', $gateScript);
+    $this->assertStringContainsString('p2del04_metric_threshold=', $gateScript);
+    $this->assertStringContainsString('p2del04_metric_min_count=', $gateScript);
+    $this->assertStringContainsString('p2del04_contract_meta_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_weak_grounding_handling_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_escalation_routing_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_escalation_actionability_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_safety_boundary_routing_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_boundary_dampening_fail=', $gateScript);
+    $this->assertStringContainsString('p2del04_boundary_urgent_routing_fail=', $gateScript);
+    $this->assertStringContainsString('P2DEL04 threshold summary:', $gateScript);
+    $this->assertStringContainsString('P2DEL04 count-floor summary:', $gateScript);
+    $this->assertStringContainsString('P2DEL04_THRESHOLD_FAIL', $gateScript);
     $this->assertStringContainsString('RAG_THRESHOLD_FAIL', $gateScript);
   }
 

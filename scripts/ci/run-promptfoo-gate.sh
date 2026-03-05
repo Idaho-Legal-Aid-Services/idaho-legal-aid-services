@@ -17,7 +17,9 @@ DEEP_CONFIG_FILE=""
 SKIP_EVAL="false"
 SIMULATED_PASS_RATE=""
 RAG_METRIC_THRESHOLD="${RAG_CONFIDENCE_THRESHOLD:-90}"
-RAG_METRIC_MIN_COUNT="${RAG_METRIC_MIN_COUNT:-1}"
+RAG_METRIC_MIN_COUNT="${RAG_METRIC_MIN_COUNT:-10}"
+P2DEL04_METRIC_THRESHOLD="${P2DEL04_METRIC_THRESHOLD:-85}"
+P2DEL04_METRIC_MIN_COUNT="${P2DEL04_METRIC_MIN_COUNT:-10}"
 
 read_named_metric_rate() {
   local results_file="$1"
@@ -211,6 +213,42 @@ RAG_LOW_CONF_REFUSAL_COUNT_FAIL="no"
 RAG_CONTRACT_META_FAIL="no"
 RAG_CITATION_COVERAGE_FAIL="no"
 RAG_LOW_CONF_REFUSAL_FAIL="no"
+P2DEL04_METRICS_ENFORCED="false"
+P2DEL04_CONTRACT_META_RATE="0"
+P2DEL04_CONTRACT_META_SCORE="0"
+P2DEL04_CONTRACT_META_COUNT="0"
+P2DEL04_CONTRACT_META_COUNT_FAIL="no"
+P2DEL04_CONTRACT_META_FAIL="no"
+P2DEL04_WEAK_GROUNDING_RATE="0"
+P2DEL04_WEAK_GROUNDING_SCORE="0"
+P2DEL04_WEAK_GROUNDING_COUNT="0"
+P2DEL04_WEAK_GROUNDING_COUNT_FAIL="no"
+P2DEL04_WEAK_GROUNDING_FAIL="no"
+P2DEL04_ESCALATION_ROUTING_RATE="0"
+P2DEL04_ESCALATION_ROUTING_SCORE="0"
+P2DEL04_ESCALATION_ROUTING_COUNT="0"
+P2DEL04_ESCALATION_ROUTING_COUNT_FAIL="no"
+P2DEL04_ESCALATION_ROUTING_FAIL="no"
+P2DEL04_ESCALATION_ACTIONABILITY_RATE="0"
+P2DEL04_ESCALATION_ACTIONABILITY_SCORE="0"
+P2DEL04_ESCALATION_ACTIONABILITY_COUNT="0"
+P2DEL04_ESCALATION_ACTIONABILITY_COUNT_FAIL="no"
+P2DEL04_ESCALATION_ACTIONABILITY_FAIL="no"
+P2DEL04_SAFETY_BOUNDARY_ROUTING_RATE="0"
+P2DEL04_SAFETY_BOUNDARY_ROUTING_SCORE="0"
+P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT="0"
+P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT_FAIL="no"
+P2DEL04_SAFETY_BOUNDARY_ROUTING_FAIL="no"
+P2DEL04_BOUNDARY_DAMPENING_RATE="0"
+P2DEL04_BOUNDARY_DAMPENING_SCORE="0"
+P2DEL04_BOUNDARY_DAMPENING_COUNT="0"
+P2DEL04_BOUNDARY_DAMPENING_COUNT_FAIL="no"
+P2DEL04_BOUNDARY_DAMPENING_FAIL="no"
+P2DEL04_BOUNDARY_URGENT_ROUTING_RATE="0"
+P2DEL04_BOUNDARY_URGENT_ROUTING_SCORE="0"
+P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT="0"
+P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT_FAIL="no"
+P2DEL04_BOUNDARY_URGENT_ROUTING_FAIL="no"
 
 if [[ "$SKIP_EVAL" != "true" && -f "$RESULTS_FILE" ]]; then
   RAG_METRICS_ENFORCED="true"
@@ -225,6 +263,31 @@ if [[ "$SKIP_EVAL" != "true" && -f "$RESULTS_FILE" ]]; then
   RAG_CONTRACT_META_FAIL=$(node -e "const r=parseFloat('${RAG_CONTRACT_META_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_CONTRACT_META_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
   RAG_CITATION_COVERAGE_FAIL=$(node -e "const r=parseFloat('${RAG_CITATION_COVERAGE_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_CITATION_COVERAGE_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
   RAG_LOW_CONF_REFUSAL_FAIL=$(node -e "const r=parseFloat('${RAG_LOW_CONF_REFUSAL_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_LOW_CONF_REFUSAL_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+
+  P2DEL04_METRICS_ENFORCED="true"
+  read -r P2DEL04_CONTRACT_META_RATE P2DEL04_CONTRACT_META_SCORE P2DEL04_CONTRACT_META_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-contract-meta-present")
+  read -r P2DEL04_WEAK_GROUNDING_RATE P2DEL04_WEAK_GROUNDING_SCORE P2DEL04_WEAK_GROUNDING_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-weak-grounding-handling")
+  read -r P2DEL04_ESCALATION_ROUTING_RATE P2DEL04_ESCALATION_ROUTING_SCORE P2DEL04_ESCALATION_ROUTING_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-escalation-routing")
+  read -r P2DEL04_ESCALATION_ACTIONABILITY_RATE P2DEL04_ESCALATION_ACTIONABILITY_SCORE P2DEL04_ESCALATION_ACTIONABILITY_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-escalation-actionability")
+  read -r P2DEL04_SAFETY_BOUNDARY_ROUTING_RATE P2DEL04_SAFETY_BOUNDARY_ROUTING_SCORE P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-safety-boundary-routing")
+  read -r P2DEL04_BOUNDARY_DAMPENING_RATE P2DEL04_BOUNDARY_DAMPENING_SCORE P2DEL04_BOUNDARY_DAMPENING_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-boundary-dampening")
+  read -r P2DEL04_BOUNDARY_URGENT_ROUTING_RATE P2DEL04_BOUNDARY_URGENT_ROUTING_SCORE P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "p2del04-boundary-urgent-routing")
+
+  P2DEL04_CONTRACT_META_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_CONTRACT_META_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_WEAK_GROUNDING_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_WEAK_GROUNDING_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_ESCALATION_ROUTING_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_ESCALATION_ROUTING_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_ESCALATION_ACTIONABILITY_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_ESCALATION_ACTIONABILITY_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_BOUNDARY_DAMPENING_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_BOUNDARY_DAMPENING_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT_FAIL=$(node -e "const c=parseFloat('${P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT}'); const m=parseFloat('${P2DEL04_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+
+  P2DEL04_CONTRACT_META_FAIL=$(node -e "const r=parseFloat('${P2DEL04_CONTRACT_META_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_CONTRACT_META_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_WEAK_GROUNDING_FAIL=$(node -e "const r=parseFloat('${P2DEL04_WEAK_GROUNDING_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_WEAK_GROUNDING_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_ESCALATION_ROUTING_FAIL=$(node -e "const r=parseFloat('${P2DEL04_ESCALATION_ROUTING_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_ESCALATION_ROUTING_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_ESCALATION_ACTIONABILITY_FAIL=$(node -e "const r=parseFloat('${P2DEL04_ESCALATION_ACTIONABILITY_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_ESCALATION_ACTIONABILITY_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_SAFETY_BOUNDARY_ROUTING_FAIL=$(node -e "const r=parseFloat('${P2DEL04_SAFETY_BOUNDARY_ROUTING_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_BOUNDARY_DAMPENING_FAIL=$(node -e "const r=parseFloat('${P2DEL04_BOUNDARY_DAMPENING_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_BOUNDARY_DAMPENING_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  P2DEL04_BOUNDARY_URGENT_ROUTING_FAIL=$(node -e "const r=parseFloat('${P2DEL04_BOUNDARY_URGENT_ROUTING_RATE}'); const t=parseFloat('${P2DEL04_METRIC_THRESHOLD}'); const cf='${P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
 fi
 
 # Deep eval (runs after primary if deep config is set).
@@ -289,6 +352,44 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "rag_low_confidence_refusal_count=${RAG_LOW_CONF_REFUSAL_COUNT}"
   echo "rag_low_confidence_refusal_count_fail=${RAG_LOW_CONF_REFUSAL_COUNT_FAIL}"
   echo "rag_low_confidence_refusal_fail=${RAG_LOW_CONF_REFUSAL_FAIL}"
+  echo "p2del04_metrics_enforced=${P2DEL04_METRICS_ENFORCED}"
+  echo "p2del04_metric_threshold=${P2DEL04_METRIC_THRESHOLD}"
+  echo "p2del04_metric_min_count=${P2DEL04_METRIC_MIN_COUNT}"
+  echo "p2del04_contract_meta_rate=${P2DEL04_CONTRACT_META_RATE}"
+  echo "p2del04_contract_meta_score=${P2DEL04_CONTRACT_META_SCORE}"
+  echo "p2del04_contract_meta_count=${P2DEL04_CONTRACT_META_COUNT}"
+  echo "p2del04_contract_meta_count_fail=${P2DEL04_CONTRACT_META_COUNT_FAIL}"
+  echo "p2del04_contract_meta_fail=${P2DEL04_CONTRACT_META_FAIL}"
+  echo "p2del04_weak_grounding_handling_rate=${P2DEL04_WEAK_GROUNDING_RATE}"
+  echo "p2del04_weak_grounding_handling_score=${P2DEL04_WEAK_GROUNDING_SCORE}"
+  echo "p2del04_weak_grounding_handling_count=${P2DEL04_WEAK_GROUNDING_COUNT}"
+  echo "p2del04_weak_grounding_handling_count_fail=${P2DEL04_WEAK_GROUNDING_COUNT_FAIL}"
+  echo "p2del04_weak_grounding_handling_fail=${P2DEL04_WEAK_GROUNDING_FAIL}"
+  echo "p2del04_escalation_routing_rate=${P2DEL04_ESCALATION_ROUTING_RATE}"
+  echo "p2del04_escalation_routing_score=${P2DEL04_ESCALATION_ROUTING_SCORE}"
+  echo "p2del04_escalation_routing_count=${P2DEL04_ESCALATION_ROUTING_COUNT}"
+  echo "p2del04_escalation_routing_count_fail=${P2DEL04_ESCALATION_ROUTING_COUNT_FAIL}"
+  echo "p2del04_escalation_routing_fail=${P2DEL04_ESCALATION_ROUTING_FAIL}"
+  echo "p2del04_escalation_actionability_rate=${P2DEL04_ESCALATION_ACTIONABILITY_RATE}"
+  echo "p2del04_escalation_actionability_score=${P2DEL04_ESCALATION_ACTIONABILITY_SCORE}"
+  echo "p2del04_escalation_actionability_count=${P2DEL04_ESCALATION_ACTIONABILITY_COUNT}"
+  echo "p2del04_escalation_actionability_count_fail=${P2DEL04_ESCALATION_ACTIONABILITY_COUNT_FAIL}"
+  echo "p2del04_escalation_actionability_fail=${P2DEL04_ESCALATION_ACTIONABILITY_FAIL}"
+  echo "p2del04_safety_boundary_routing_rate=${P2DEL04_SAFETY_BOUNDARY_ROUTING_RATE}"
+  echo "p2del04_safety_boundary_routing_score=${P2DEL04_SAFETY_BOUNDARY_ROUTING_SCORE}"
+  echo "p2del04_safety_boundary_routing_count=${P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT}"
+  echo "p2del04_safety_boundary_routing_count_fail=${P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT_FAIL}"
+  echo "p2del04_safety_boundary_routing_fail=${P2DEL04_SAFETY_BOUNDARY_ROUTING_FAIL}"
+  echo "p2del04_boundary_dampening_rate=${P2DEL04_BOUNDARY_DAMPENING_RATE}"
+  echo "p2del04_boundary_dampening_score=${P2DEL04_BOUNDARY_DAMPENING_SCORE}"
+  echo "p2del04_boundary_dampening_count=${P2DEL04_BOUNDARY_DAMPENING_COUNT}"
+  echo "p2del04_boundary_dampening_count_fail=${P2DEL04_BOUNDARY_DAMPENING_COUNT_FAIL}"
+  echo "p2del04_boundary_dampening_fail=${P2DEL04_BOUNDARY_DAMPENING_FAIL}"
+  echo "p2del04_boundary_urgent_routing_rate=${P2DEL04_BOUNDARY_URGENT_ROUTING_RATE}"
+  echo "p2del04_boundary_urgent_routing_score=${P2DEL04_BOUNDARY_URGENT_ROUTING_SCORE}"
+  echo "p2del04_boundary_urgent_routing_count=${P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT}"
+  echo "p2del04_boundary_urgent_routing_count_fail=${P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT_FAIL}"
+  echo "p2del04_boundary_urgent_routing_fail=${P2DEL04_BOUNDARY_URGENT_ROUTING_FAIL}"
 } > "$SUMMARY_FILE"
 
 printf 'Promptfoo gate summary: mode=%s threshold=%s pass_rate=%s%% eval_exit=%s\n' "$EFFECTIVE_MODE" "$THRESHOLD" "$PASS_RATE" "$EVAL_EXIT"
@@ -303,6 +404,26 @@ if [[ "$RAG_METRICS_ENFORCED" == "true" ]]; then
     "$RAG_CONTRACT_META_COUNT_FAIL" \
     "$RAG_CITATION_COVERAGE_COUNT_FAIL" \
     "$RAG_LOW_CONF_REFUSAL_COUNT_FAIL"
+fi
+if [[ "$P2DEL04_METRICS_ENFORCED" == "true" ]]; then
+  printf 'P2DEL04 threshold summary: threshold=%s%% contract=%s%%(%s/%s) weak_grounding=%s%%(%s/%s) escalation_routing=%s%%(%s/%s) escalation_actionability=%s%%(%s/%s) safety_boundary=%s%%(%s/%s) boundary_dampening=%s%%(%s/%s) boundary_urgent=%s%%(%s/%s)\n' \
+    "$P2DEL04_METRIC_THRESHOLD" \
+    "$P2DEL04_CONTRACT_META_RATE" "$P2DEL04_CONTRACT_META_SCORE" "$P2DEL04_CONTRACT_META_COUNT" \
+    "$P2DEL04_WEAK_GROUNDING_RATE" "$P2DEL04_WEAK_GROUNDING_SCORE" "$P2DEL04_WEAK_GROUNDING_COUNT" \
+    "$P2DEL04_ESCALATION_ROUTING_RATE" "$P2DEL04_ESCALATION_ROUTING_SCORE" "$P2DEL04_ESCALATION_ROUTING_COUNT" \
+    "$P2DEL04_ESCALATION_ACTIONABILITY_RATE" "$P2DEL04_ESCALATION_ACTIONABILITY_SCORE" "$P2DEL04_ESCALATION_ACTIONABILITY_COUNT" \
+    "$P2DEL04_SAFETY_BOUNDARY_ROUTING_RATE" "$P2DEL04_SAFETY_BOUNDARY_ROUTING_SCORE" "$P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT" \
+    "$P2DEL04_BOUNDARY_DAMPENING_RATE" "$P2DEL04_BOUNDARY_DAMPENING_SCORE" "$P2DEL04_BOUNDARY_DAMPENING_COUNT" \
+    "$P2DEL04_BOUNDARY_URGENT_ROUTING_RATE" "$P2DEL04_BOUNDARY_URGENT_ROUTING_SCORE" "$P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT"
+  printf 'P2DEL04 count-floor summary: min_count=%s contract_count_fail=%s weak_grounding_count_fail=%s escalation_routing_count_fail=%s escalation_actionability_count_fail=%s safety_boundary_count_fail=%s boundary_dampening_count_fail=%s boundary_urgent_count_fail=%s\n' \
+    "$P2DEL04_METRIC_MIN_COUNT" \
+    "$P2DEL04_CONTRACT_META_COUNT_FAIL" \
+    "$P2DEL04_WEAK_GROUNDING_COUNT_FAIL" \
+    "$P2DEL04_ESCALATION_ROUTING_COUNT_FAIL" \
+    "$P2DEL04_ESCALATION_ACTIONABILITY_COUNT_FAIL" \
+    "$P2DEL04_SAFETY_BOUNDARY_ROUTING_COUNT_FAIL" \
+    "$P2DEL04_BOUNDARY_DAMPENING_COUNT_FAIL" \
+    "$P2DEL04_BOUNDARY_URGENT_ROUTING_COUNT_FAIL"
 fi
 if [[ -n "$DEEP_CONFIG_FILE" ]]; then
   printf 'Deep eval summary: deep_pass_rate=%s%% deep_eval_exit=%s\n' "$DEEP_PASS_RATE" "$DEEP_EVAL_EXIT"
@@ -322,7 +443,14 @@ if [[ "$RAG_METRICS_ENFORCED" == "true" ]]; then
   fi
 fi
 
-if [[ "$EVAL_EXIT" -ne 0 || "$THRESHOLD_FAIL" == "yes" || "$DEEP_EVAL_EXIT" -ne 0 || "$DEEP_THRESHOLD_FAIL" == "yes" || "$RAG_THRESHOLD_FAIL" == "yes" ]]; then
+P2DEL04_THRESHOLD_FAIL="no"
+if [[ "$P2DEL04_METRICS_ENFORCED" == "true" ]]; then
+  if [[ "$P2DEL04_CONTRACT_META_FAIL" == "yes" || "$P2DEL04_WEAK_GROUNDING_FAIL" == "yes" || "$P2DEL04_ESCALATION_ROUTING_FAIL" == "yes" || "$P2DEL04_ESCALATION_ACTIONABILITY_FAIL" == "yes" || "$P2DEL04_SAFETY_BOUNDARY_ROUTING_FAIL" == "yes" || "$P2DEL04_BOUNDARY_DAMPENING_FAIL" == "yes" || "$P2DEL04_BOUNDARY_URGENT_ROUTING_FAIL" == "yes" ]]; then
+    P2DEL04_THRESHOLD_FAIL="yes"
+  fi
+fi
+
+if [[ "$EVAL_EXIT" -ne 0 || "$THRESHOLD_FAIL" == "yes" || "$DEEP_EVAL_EXIT" -ne 0 || "$DEEP_THRESHOLD_FAIL" == "yes" || "$RAG_THRESHOLD_FAIL" == "yes" || "$P2DEL04_THRESHOLD_FAIL" == "yes" ]]; then
   if [[ "$EFFECTIVE_MODE" == "blocking" ]]; then
     echo "Promptfoo gate FAILED in blocking mode" >&2
     exit 2

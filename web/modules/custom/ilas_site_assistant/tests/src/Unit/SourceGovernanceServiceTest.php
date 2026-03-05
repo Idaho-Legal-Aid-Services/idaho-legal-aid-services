@@ -60,10 +60,10 @@ final class SourceGovernanceServiceTest extends TestCase {
       'enabled' => TRUE,
       'policy_version' => 'p2_obj_03_v1',
       'observation_window_hours' => 24,
-      'stale_ratio_alert_pct' => 20.0,
+      'stale_ratio_alert_pct' => 18.0,
       'min_observations' => 20,
-      'unknown_ratio_degrade_pct' => 25.0,
-      'missing_source_url_ratio_degrade_pct' => 10.0,
+      'unknown_ratio_degrade_pct' => 22.0,
+      'missing_source_url_ratio_degrade_pct' => 9.0,
       'alert_cooldown_minutes' => 60,
       'source_classes' => [
         'faq_lexical' => [

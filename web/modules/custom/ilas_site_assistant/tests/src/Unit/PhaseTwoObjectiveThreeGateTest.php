@@ -144,10 +144,10 @@ final class PhaseTwoObjectiveThreeGateTest extends TestCase {
       $this->assertTrue($config['source_governance']['enabled']);
       $this->assertSame('p2_obj_03_v1', $config['source_governance']['policy_version']);
       $this->assertSame(24, $config['source_governance']['observation_window_hours']);
-      $this->assertSame(20.0, (float) $config['source_governance']['stale_ratio_alert_pct']);
+      $this->assertSame(18.0, (float) $config['source_governance']['stale_ratio_alert_pct']);
       $this->assertSame(20, $config['source_governance']['min_observations']);
-      $this->assertSame(25.0, (float) $config['source_governance']['unknown_ratio_degrade_pct']);
-      $this->assertSame(10.0, (float) $config['source_governance']['missing_source_url_ratio_degrade_pct']);
+      $this->assertSame(22.0, (float) $config['source_governance']['unknown_ratio_degrade_pct']);
+      $this->assertSame(9.0, (float) $config['source_governance']['missing_source_url_ratio_degrade_pct']);
       $this->assertSame(60, $config['source_governance']['alert_cooldown_minutes']);
 
       $classes = $config['source_governance']['source_classes'];

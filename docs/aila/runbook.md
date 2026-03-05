@@ -893,8 +893,8 @@ Expected Objective #3 result:
   `resource_vector`).
 - Degraded status for unknown/missing governance classes is thresholded with
   balanced ratio+sample policy (`min_observations=20`,
-  `unknown_ratio_degrade_pct=25.0`,
-  `missing_source_url_ratio_degrade_pct=10.0`), reducing small-batch noise.
+  `unknown_ratio_degrade_pct=22.0`,
+  `missing_source_url_ratio_degrade_pct=9.0`), reducing small-batch noise.
 - Retrieval outputs include additive governance metadata (`provenance`,
   `freshness`, `governance_flags`) and observation snapshots are recorded for
   monitoring surfaces.
@@ -1147,7 +1147,7 @@ rg -n "R-MNT-02|R-LLM-01|Promptfoo dataset|PhaseTwoDeliverableFourGateTest|statu
 
 Expected Deliverable #4 result:
 - Promptfoo abuse config includes `grounding-escalation-safety-boundaries.yaml`
-  with 36 scenarios split across `weak_grounding`, `escalation`, and
+  with 60 scenarios split across `weak_grounding`, `escalation`, and
   `safety_boundary` families.
 - Dataset assertions verify contract metadata continuity plus family-specific
   weak-grounding handling, escalation actionability, and safety-boundary
@@ -1210,6 +1210,61 @@ Expected Sprint 4 result:
   diagnostics in gate summary artifacts.
 - Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
   no broad platform migration outside the current Pantheon baseline.[^CLAIM-143]
+
+### Phase 2 Sprint 5 verification (`P2-SBD-02`)
+
+Use these commands to verify Sprint 5 closure:
+"Sprint 5: dataset expansion, provenance/freshness workflows, threshold calibration."
+
+```bash
+# 1) Required validation aliases.
+# VC-UNIT
+vendor/bin/phpunit --configuration phpunit.xml --group ilas_site_assistant \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-QUALITY-GATE
+bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+
+# 2) Sprint-closure specific gate coverage.
+vendor/bin/phpunit --configuration phpunit.xml --group ilas_site_assistant \
+  --filter "PhaseTwoSprintFiveGateTest|PhaseTwoDeliverableFourGateTest|PhaseTwoDeliverableThreeGateTest|PhaseTwoObjectiveThreeGateTest|PhaseTwoDeliverableTwoGateTest|SourceGovernanceServiceTest|VectorIndexHygieneServiceTest"
+
+# 3) Dataset count/family/metric anchors.
+rg -n "scenario_family: weak_grounding|scenario_family: escalation|scenario_family: safety_boundary" \
+  promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml
+
+rg -n "metric: p2del04-(contract-meta-present|weak-grounding-handling|escalation-routing|escalation-actionability|safety-boundary-routing|boundary-dampening|boundary-urgent-routing)" \
+  promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml
+
+# 4) Gate threshold anchors and summary keys.
+rg -n "RAG_METRIC_MIN_COUNT|P2DEL04_METRIC_THRESHOLD|P2DEL04_METRIC_MIN_COUNT|p2del04_.*_fail|p2del04_metric_(threshold|min_count)" \
+  scripts/ci/run-promptfoo-gate.sh
+
+# 5) Governance/vector calibration anchors.
+rg -n "stale_ratio_alert_pct|unknown_ratio_degrade_pct|missing_source_url_ratio_degrade_pct|overdue_grace_minutes|max_items_per_run" \
+  web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml \
+  config/ilas_site_assistant.settings.yml \
+  web/modules/custom/ilas_site_assistant/src/Service/SourceGovernanceService.php \
+  web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php
+```
+
+Capture sanitized outputs in:
+- `docs/aila/runtime/phase2-sprint5-closure.txt`[^CLAIM-144]
+
+Expected Sprint 5 result:
+- `VC-UNIT` and `VC-QUALITY-GATE` pass with Sprint 5 closure tests included.
+- Promptfoo dataset coverage is 60 scenarios with exact family split
+  (`weak_grounding=20`, `escalation=20`, `safety_boundary=20`) and calibrated
+  `p2del04-*` metric floors.
+- Promptfoo gate defaults are calibrated (`RAG_METRIC_MIN_COUNT=10`,
+  `P2DEL04_METRIC_THRESHOLD=85`, `P2DEL04_METRIC_MIN_COUNT=10`) and
+  `p2del04_*` summary/fail fields are emitted/enforced in gate outcomes.
+- Source-governance and vector-hygiene threshold values are calibrated in
+  install + active config and mirrored in service defaults.
+- System-map continuity remains unchanged; no diagram change required for
+  Sprint 5 scope.
+- Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
+  no broad platform migration outside the current Pantheon baseline.[^CLAIM-144]
 
 ### Phase 2 exit #1 retrieval contract + confidence threshold verification (`P2-EXT-01`)
 
@@ -1636,6 +1691,8 @@ sed -E \
   - `docs/aila/runtime/phase2-exit2-citation-coverage-refusal-targets.txt`[^CLAIM-141]
 - Phase 2 Exit #3 live LLM disablement continuity proof is captured in:
   - `docs/aila/runtime/phase2-exit3-live-llm-disabled-phase3-readiness.txt`[^CLAIM-142]
+- Phase 2 Sprint 5 closure proof is captured in:
+  - `docs/aila/runtime/phase2-sprint5-closure.txt`[^CLAIM-144]
 
 ## 7) Retrospective regression checklist (mandatory)
 
@@ -1696,3 +1753,4 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-141]: [CLAIM-141](evidence-index.md#claim-141)
 [^CLAIM-142]: [CLAIM-142](evidence-index.md#claim-142)
 [^CLAIM-143]: [CLAIM-143](evidence-index.md#claim-143)
+[^CLAIM-144]: [CLAIM-144](evidence-index.md#claim-144)

@@ -258,10 +258,10 @@ class SourceGovernanceService {
       'enabled' => TRUE,
       'policy_version' => 'p2_obj_03_v1',
       'observation_window_hours' => 24,
-      'stale_ratio_alert_pct' => 20.0,
+      'stale_ratio_alert_pct' => 18.0,
       'min_observations' => 20,
-      'unknown_ratio_degrade_pct' => 25.0,
-      'missing_source_url_ratio_degrade_pct' => 10.0,
+      'unknown_ratio_degrade_pct' => 22.0,
+      'missing_source_url_ratio_degrade_pct' => 9.0,
       'alert_cooldown_minutes' => 60,
       'source_classes' => [
         'faq_lexical' => $default_class + ['provenance_label' => 'search_api.index.faq_accordion'],
@@ -377,10 +377,10 @@ class SourceGovernanceService {
       'by_source_class' => [],
       'status' => 'unknown',
       'thresholds' => [
-        'stale_ratio_alert_pct' => (float) ($policy['stale_ratio_alert_pct'] ?? 20.0),
+        'stale_ratio_alert_pct' => (float) ($policy['stale_ratio_alert_pct'] ?? 18.0),
         'min_observations' => max(1, (int) ($policy['min_observations'] ?? 20)),
-        'unknown_ratio_degrade_pct' => (float) ($policy['unknown_ratio_degrade_pct'] ?? 25.0),
-        'missing_source_url_ratio_degrade_pct' => (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 10.0),
+        'unknown_ratio_degrade_pct' => (float) ($policy['unknown_ratio_degrade_pct'] ?? 22.0),
+        'missing_source_url_ratio_degrade_pct' => (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 9.0),
         'observation_window_hours' => (int) ($policy['observation_window_hours'] ?? 24),
         'alert_cooldown_minutes' => (int) ($policy['alert_cooldown_minutes'] ?? 60),
       ],
@@ -399,7 +399,7 @@ class SourceGovernanceService {
     }
 
     $stale_ratio = (float) ($snapshot['stale_ratio_pct'] ?? 0.0);
-    $stale_threshold = (float) ($policy['stale_ratio_alert_pct'] ?? 20.0);
+    $stale_threshold = (float) ($policy['stale_ratio_alert_pct'] ?? 18.0);
 
     if ($stale_ratio >= $stale_threshold) {
       return 'degraded';
@@ -410,8 +410,8 @@ class SourceGovernanceService {
     if ($min_observations_met) {
       $unknown_ratio = (float) ($snapshot['unknown_ratio_pct'] ?? 0.0);
       $missing_ratio = (float) ($snapshot['missing_source_url_ratio_pct'] ?? 0.0);
-      $unknown_threshold = (float) ($policy['unknown_ratio_degrade_pct'] ?? 25.0);
-      $missing_threshold = (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 10.0);
+      $unknown_threshold = (float) ($policy['unknown_ratio_degrade_pct'] ?? 22.0);
+      $missing_threshold = (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 9.0);
 
       if ($unknown_ratio >= $unknown_threshold || $missing_ratio >= $missing_threshold) {
         return 'degraded';
@@ -453,10 +453,10 @@ class SourceGovernanceService {
     $snapshot['next_alert_eligible_at'] = $next_alert_eligible_at > 0 ? $next_alert_eligible_at : NULL;
     $snapshot['cooldown_seconds_remaining'] = $cooldown_seconds_remaining;
     $snapshot['thresholds'] = [
-      'stale_ratio_alert_pct' => (float) ($policy['stale_ratio_alert_pct'] ?? 20.0),
+      'stale_ratio_alert_pct' => (float) ($policy['stale_ratio_alert_pct'] ?? 18.0),
       'min_observations' => $min_observations,
-      'unknown_ratio_degrade_pct' => (float) ($policy['unknown_ratio_degrade_pct'] ?? 25.0),
-      'missing_source_url_ratio_degrade_pct' => (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 10.0),
+      'unknown_ratio_degrade_pct' => (float) ($policy['unknown_ratio_degrade_pct'] ?? 22.0),
+      'missing_source_url_ratio_degrade_pct' => (float) ($policy['missing_source_url_ratio_degrade_pct'] ?? 9.0),
       'observation_window_hours' => (int) ($policy['observation_window_hours'] ?? 24),
       'alert_cooldown_minutes' => (int) ($policy['alert_cooldown_minutes'] ?? 60),
     ];
@@ -468,7 +468,7 @@ class SourceGovernanceService {
    * Emits stale-ratio alert logs with cooldown protection.
    */
   protected function emitStaleRatioAlertIfNeeded(array $snapshot, array $policy): void {
-    $threshold = (float) ($policy['stale_ratio_alert_pct'] ?? 20.0);
+    $threshold = (float) ($policy['stale_ratio_alert_pct'] ?? 18.0);
     $ratio = (float) ($snapshot['stale_ratio_pct'] ?? 0.0);
 
     if ($ratio < $threshold) {

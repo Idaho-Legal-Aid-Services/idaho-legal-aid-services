@@ -192,7 +192,7 @@ final class VectorIndexHygieneService {
 
     if ($index_snapshot['due'] && $index_snapshot['enabled'] && ($policy['refresh_mode'] ?? 'incremental') === 'incremental') {
       try {
-        $batch = max(1, (int) ($policy['max_items_per_run'] ?? 50));
+        $batch = max(1, (int) ($policy['max_items_per_run'] ?? 60));
         $processed = (int) $index->indexItems($batch);
         $index_snapshot['items_processed_last_run'] = $processed;
         $index_snapshot['last_refresh_at'] = $now;
@@ -334,7 +334,7 @@ final class VectorIndexHygieneService {
    */
   protected function applyRefreshScheduleFields(array &$snapshot, array $policy, int $now): void {
     $interval_seconds = max(1, (int) ($policy['refresh_interval_hours'] ?? 24)) * 3600;
-    $grace_seconds = max(0, (int) ($policy['overdue_grace_minutes'] ?? 60)) * 60;
+    $grace_seconds = max(0, (int) ($policy['overdue_grace_minutes'] ?? 45)) * 60;
     $last_refresh_at = isset($snapshot['last_refresh_at']) ? (int) $snapshot['last_refresh_at'] : 0;
 
     $snapshot['refresh_interval_seconds'] = $interval_seconds;
@@ -355,8 +355,8 @@ final class VectorIndexHygieneService {
       'policy_version' => 'p2_del_03_v1',
       'refresh_mode' => 'incremental',
       'refresh_interval_hours' => 24,
-      'overdue_grace_minutes' => 60,
-      'max_items_per_run' => 50,
+      'overdue_grace_minutes' => 45,
+      'max_items_per_run' => 60,
       'alert_cooldown_minutes' => 60,
       'managed_indexes' => [
         'faq_vector' => [
@@ -431,8 +431,8 @@ final class VectorIndexHygieneService {
       ],
       'thresholds' => [
         'refresh_interval_hours' => max(1, (int) ($policy['refresh_interval_hours'] ?? 24)),
-        'overdue_grace_minutes' => max(0, (int) ($policy['overdue_grace_minutes'] ?? 60)),
-        'max_items_per_run' => max(1, (int) ($policy['max_items_per_run'] ?? 50)),
+        'overdue_grace_minutes' => max(0, (int) ($policy['overdue_grace_minutes'] ?? 45)),
+        'max_items_per_run' => max(1, (int) ($policy['max_items_per_run'] ?? 60)),
         'alert_cooldown_minutes' => max(1, (int) ($policy['alert_cooldown_minutes'] ?? 60)),
       ],
       'last_alert_at' => NULL,
@@ -565,8 +565,8 @@ final class VectorIndexHygieneService {
 
     $snapshot['thresholds'] = [
       'refresh_interval_hours' => max(1, (int) ($policy['refresh_interval_hours'] ?? 24)),
-      'overdue_grace_minutes' => max(0, (int) ($policy['overdue_grace_minutes'] ?? 60)),
-      'max_items_per_run' => max(1, (int) ($policy['max_items_per_run'] ?? 50)),
+      'overdue_grace_minutes' => max(0, (int) ($policy['overdue_grace_minutes'] ?? 45)),
+      'max_items_per_run' => max(1, (int) ($policy['max_items_per_run'] ?? 60)),
       'alert_cooldown_minutes' => max(1, (int) ($policy['alert_cooldown_minutes'] ?? 60)),
     ];
     $snapshot['last_alert_at'] = $last_alert > 0 ? $last_alert : NULL;

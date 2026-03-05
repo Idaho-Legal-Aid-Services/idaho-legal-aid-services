@@ -227,7 +227,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Langfuse status | Langfuse requires config + credentials; traces capture spans/events/generations and export via terminate subscriber + queue worker.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082] |
 | Runtime monitoring | `PerformanceMonitor` records rolling latency/error metrics and exposes p95/p99/error/availability values with SLO-backed thresholds via `/assistant/api/health` and `/assistant/api/metrics`.[^CLAIM-084][^CLAIM-051] |
 | SLO policy + alerts | `SloDefinitions` + `SloAlertService` define/enforce availability, latency, error-rate, cron freshness, and queue depth/age SLOs with cooldowned structured warning alerts from cron.[^CLAIM-084][^CLAIM-121] |
-| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`), and explicit deliverable-level weak-grounding/escalation/safety-boundary scenario coverage (`p2del04-contract-meta-present`, `p2del04-weak-grounding-handling`, `p2del04-escalation-routing`, `p2del04-escalation-actionability`, `p2del04-safety-boundary-routing`, `p2del04-boundary-dampening`, `p2del04-boundary-urgent-routing`).[^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135][^CLAIM-137] |
+| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`), and calibrated weak-grounding/escalation/safety-boundary scenario coverage (`p2del04-contract-meta-present`, `p2del04-weak-grounding-handling`, `p2del04-escalation-routing`, `p2del04-escalation-actionability`, `p2del04-safety-boundary-routing`, `p2del04-boundary-dampening`, `p2del04-boundary-urgent-routing`) across 60 Sprint 5 scenarios (20 per family).[^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135][^CLAIM-137][^CLAIM-144] |
 | Redaction posture | Sentry subscriber and analytics/conversation log codepaths apply redaction/truncation before persistence/export.[^CLAIM-053][^CLAIM-083][^CLAIM-085] |
 
 ### G) Cron/queues/background processes
@@ -356,7 +356,7 @@ This dated addendum records `P2-OBJ-03` completion for Phase 2 Objective #3:
 5. Follow-on tuning keeps soft-alert semantics but reduces small-sample noise:
    degraded status for `unknown_freshness`/`missing_source_url` now uses
    ratio+minimum-observation thresholds (`min_observations=20`,
-   `unknown_ratio_degrade_pct=25.0`, `missing_source_url_ratio_degrade_pct=10.0`)
+   `unknown_ratio_degrade_pct=22.0`, `missing_source_url_ratio_degrade_pct=9.0`)
    while stale-ratio degradation remains unchanged. Snapshot fields expose
    cooldown timing (`last_alert_at`, `next_alert_eligible_at`,
    `cooldown_seconds_remaining`) for deterministic operations visibility.[^CLAIM-133]
@@ -423,7 +423,7 @@ This dated addendum records `P2-DEL-03` completion for Phase 2 Key Deliverable #
    index as `compliant`, `drift`, or `unknown` with explicit `drift_fields` and
    `last_error` capture for isolated failures.[^CLAIM-066][^CLAIM-067][^CLAIM-136]
 3. Cron integration now captures hygiene snapshots every run with due/overdue
-   cadence logic (`refresh_interval_hours=24`, `overdue_grace_minutes=60`),
+   cadence logic (`refresh_interval_hours=24`, `overdue_grace_minutes=45`),
    tracker backlog counters, and cooldowned degraded alerts while preserving
    existing cron-health and SLO-ordering behavior.[^CLAIM-121][^CLAIM-127][^CLAIM-136]
 4. Monitoring contracts are extended additively: `/assistant/api/health` now
@@ -442,8 +442,9 @@ This dated addendum records `P2-DEL-04` completion for Phase 2 Key Deliverable #
 
 1. Promptfoo regression coverage now includes a dedicated `P2-DEL-04` dataset
    (`promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml`) with
-   36 scenarios split evenly across `weak_grounding`, `escalation`, and
-   `safety_boundary` families, each tagged in `metadata.scenario_family`.[^CLAIM-086][^CLAIM-137]
+   baseline `P2-DEL-04` family structure (`weak_grounding`, `escalation`,
+   `safety_boundary`) tagged in `metadata.scenario_family`; Sprint 5 calibration
+   expands this same dataset to 60 scenarios with 20 per family.[^CLAIM-086][^CLAIM-137][^CLAIM-144]
 2. The new suite asserts contract metadata continuity
    (`confidence`, `response_type`, `response_mode`, `reason_code`,
    `decision_reason`) and family-specific behavior checks for weak-grounding
@@ -488,6 +489,39 @@ This dated addendum records `P2-SBD-01` completion for Phase 2 Sprint 4 closure:
 5. Scope boundaries remain unchanged: no live production LLM enablement through
    Phase 2 and no broad platform migration outside the current Pantheon
    baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-143]
+
+### Phase 2 Sprint 5 Dataset Expansion + Provenance/Freshness Workflow Calibration + Threshold Calibration Disposition (2026-03-05)
+
+This dated addendum records `P2-SBD-02` completion for Phase 2 Sprint 5 closure:
+"Sprint 5: dataset expansion, provenance/freshness workflows, threshold calibration."
+
+1. Sprint 5 promptfoo dataset calibration is now locked in repo state:
+   `promptfoo-evals/tests/grounding-escalation-safety-boundaries.yaml` defines
+   60 scenarios with exact family distribution (`weak_grounding=20`,
+   `escalation=20`, `safety_boundary=20`) and required `p2del04-*` metric
+   coverage/floors (`contract-meta=60`, family checks=20 each,
+   boundary dampening/urgent routing `>=10`).[^CLAIM-086][^CLAIM-137][^CLAIM-144]
+2. Promptfoo gate policy is calibrated in `scripts/ci/run-promptfoo-gate.sh`:
+   `RAG_METRIC_MIN_COUNT=10`, `P2DEL04_METRIC_THRESHOLD=85`,
+   `P2DEL04_METRIC_MIN_COUNT=10`, plus `p2del04_*` summary/fail fields that are
+   included in blocking/advisory pass-fail evaluation paths.[^CLAIM-086][^CLAIM-135][^CLAIM-144]
+3. Source-governance threshold calibration is applied in both install and active
+   config and mirrored in service defaults:
+   `stale_ratio_alert_pct=18.0`, `unknown_ratio_degrade_pct=22.0`,
+   `missing_source_url_ratio_degrade_pct=9.0`. Governance remains soft-alert-only
+   with no retrieval filtering/ranking side effects.[^CLAIM-067][^CLAIM-133][^CLAIM-144]
+4. Vector-index hygiene threshold calibration is applied in both install and
+   active config and mirrored in service defaults:
+   `refresh_interval_hours=24`, `overdue_grace_minutes=45`,
+   `max_items_per_run=60`, `alert_cooldown_minutes=60`.[^CLAIM-066][^CLAIM-136][^CLAIM-144]
+5. Sprint-level closure continuity is enforced through docs/evidence/runtime
+   anchors and `PhaseTwoSprintFiveGateTest.php` with required aliases
+   `VC-UNIT` and `VC-QUALITY-GATE` captured in
+   `docs/aila/runtime/phase2-sprint5-closure.txt`.[^CLAIM-105][^CLAIM-144]
+6. System-map continuity is unchanged for Sprint 5 scope; no diagram change
+   required because no new architecture edge was introduced. Scope boundaries
+   remain unchanged: no live production LLM enablement through Phase 2 and no
+   broad platform migration outside the current Pantheon baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-144]
 
 ### Phase 0 Exit #3 Dependency Disposition (2026-02-27)
 
@@ -951,3 +985,4 @@ This dated addendum records `P1-NDO-02` closure for the Phase 1 scope boundary:
 [^CLAIM-141]: [CLAIM-141](evidence-index.md#claim-141)
 [^CLAIM-142]: [CLAIM-142](evidence-index.md#claim-142)
 [^CLAIM-143]: [CLAIM-143](evidence-index.md#claim-143)
+[^CLAIM-144]: [CLAIM-144](evidence-index.md#claim-144)

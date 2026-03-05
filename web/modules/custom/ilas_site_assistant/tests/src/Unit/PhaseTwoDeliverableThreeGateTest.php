@@ -150,8 +150,8 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
       $this->assertSame('p2_del_03_v1', $policy['policy_version']);
       $this->assertSame('incremental', $policy['refresh_mode']);
       $this->assertSame(24, $policy['refresh_interval_hours']);
-      $this->assertSame(60, $policy['overdue_grace_minutes']);
-      $this->assertSame(50, $policy['max_items_per_run']);
+      $this->assertSame(45, $policy['overdue_grace_minutes']);
+      $this->assertSame(60, $policy['max_items_per_run']);
       $this->assertSame(60, $policy['alert_cooldown_minutes']);
 
       $managed = $policy['managed_indexes'];

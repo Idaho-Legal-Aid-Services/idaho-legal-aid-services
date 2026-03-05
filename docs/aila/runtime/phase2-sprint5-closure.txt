@@ -1,0 +1,49 @@
+# Phase 2 Sprint 5 Runtime Evidence (P2-SBD-02)
+
+Date: 2026-03-05
+
+### VC-UNIT
+command=vendor/bin/phpunit --configuration phpunit.xml --group ilas_site_assistant web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+tests=1620
+assertions=7459
+phpunit_deprecations=171
+skipped=1
+
+### VC-QUALITY-GATE
+command=bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+status=passed
+exit_code=0
+phase1_unit_tests=1620
+phase1_drupal_unit_tests=556
+golden_transcript_tests=7
+
+### Calibration Anchors
+phase2-sprint5-status=closed
+dataset_total=60
+dataset_family_weak_grounding=20
+dataset_family_escalation=20
+dataset_family_safety_boundary=20
+metric_p2del04_contract_meta_present=60
+metric_p2del04_weak_grounding_handling=20
+metric_p2del04_escalation_routing=20
+metric_p2del04_escalation_actionability=20
+metric_p2del04_safety_boundary_routing=20
+metric_p2del04_boundary_dampening=10
+metric_p2del04_boundary_urgent_routing=10
+gate_rag_metric_min_count=10
+gate_p2del04_metric_threshold=85
+gate_p2del04_metric_min_count=10
+source_governance_stale_ratio_alert_pct=18.0
+source_governance_unknown_ratio_degrade_pct=22.0
+source_governance_missing_source_url_ratio_degrade_pct=9.0
+vector_index_hygiene_refresh_interval_hours=24
+vector_index_hygiene_overdue_grace_minutes=45
+vector_index_hygiene_max_items_per_run=60
+vector_index_hygiene_alert_cooldown_minutes=60
+system_map_change_required=no
+
+### Scope Guardrails
+`llm.enabled=false` remains enforced through Phase 2.
+No broad platform migration outside the current Pantheon baseline.
