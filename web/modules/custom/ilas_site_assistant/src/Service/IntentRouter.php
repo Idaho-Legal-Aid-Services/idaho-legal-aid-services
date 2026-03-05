@@ -175,6 +175,8 @@ class IntentRouter {
         'patterns' => [
           // Explicit hotline/advice line keywords.
           '/\b(hotline|hot\s*line|help\s*line|advice\s*line|advise\s*line)\b/i',
+          '/\b(what|which)\s*hours?\s*(can|do)\s*i\s*call\b/i',
+          '/\b(when)\s*(is|are)\s*(the\s*)?(hotline|advice\s*line)\s*(open|available)\b/i',
           // "Call you" / "call legal aid" patterns (user wants to contact ILAS).
           '/\b(call|phone)\s*(you(r)?|legal\s*aid|the\s*office|someone\s*there)\b/i',
           '/\bcontact\s*(a|the)?\s*(lawyer|attorney|someone)\b/i',
@@ -209,7 +211,8 @@ class IntentRouter {
           '/\b(office|offic|location|locaton|address|adress|where\s*(are\s*you|is))/i',
           '/\b(near\s*me|closest|nearby|nearest)/i',
           '/\bvisit\s*(in\s*person|your\s*office)/i',
-          '/\b(hours|horas|horario)\s*(of\s*operation|of\s*opperation)?/i',
+          '/\b(office\s*hours?|hours?\s*(for|of)\s*(the\s*)?office)\b/i',
+          '/\b(what\s*(are|r)\s*(your|the)\s*hours)\b/i',
           '/\b(what\s*time|when)\s*(do\s*you|are\s*you)\s*open/i',
           '/\b(open\s*on|closed\s*on)\s*(saturday|sunday|weekend)/i',
           '/\bemail\s*address/i',
@@ -218,7 +221,7 @@ class IntentRouter {
           '/\b(donde\s*(esta|queda)|oficina|ubicacion|direccion)/i',
           '/\bhorario\s*de\s*oficina/i',
         ],
-        'keywords' => ['office', 'offices', 'location', 'address', 'near_me', 'visit', 'hours', 'oficina', 'donde', 'horario'],
+        'keywords' => ['office', 'offices', 'location', 'address', 'near_me', 'visit', 'office_hours', 'oficina', 'donde', 'horario'],
         'weight' => 0.85,
       ],
 
@@ -292,6 +295,7 @@ class IntentRouter {
           '/\bapplication\s*form/i',
           '/\b(eviction|divorce|custody|guardianship|bankruptcy|small\s*claims)\s*(form|paperwork|papers)/i',
           '/\b(court\s*papers|legal\s*documents)/i',
+          '/\b(download|get)\s*(legal\s*)?(documents?|paperwork|forms?)\b/i',
           '/\bprotective\s*order\s*(form|paperwork)/i',
           '/\brestraining\s*order\s*(form|paperwork)/i',
           '/\bchild\s*custody\s*(form|papers)/i',
@@ -1027,17 +1031,7 @@ class IntentRouter {
       ];
     }
 
-    // Step 11: Check if message looks like a question about finding something.
-    if (preg_match('/\b(where|how|find|get|need|looking\s*for)\b/i', $message)) {
-      return [
-        'type' => 'resources',
-        'topic' => $message,
-        'confidence' => 0.5,
-        'extraction' => $extraction,
-      ];
-    }
-
-    // Step 11b: TopIntentsPack synonym fallback — catches sub-topic intents
+    // Step 11: TopIntentsPack synonym fallback — catches sub-topic intents
     // like "custody", "eviction", "debt collection" that have no regex
     // patterns but do have synonyms in the pack.
     if ($this->topIntentsPack && mb_strlen(trim($message)) >= 4) {
@@ -1052,6 +1046,18 @@ class IntentRouter {
           'extraction' => $extraction,
         ];
       }
+    }
+
+    // Step 11b: Generic resource fallback (last resort before unknown).
+    $has_resource_verb = (bool) preg_match('/\b(where|how|find|get|need|looking\s*for)\b/i', $message);
+    $has_resource_noun = (bool) preg_match('/\b(resource|resources|form|forms|guide|guides|faq|information|info|help|services?)\b/i', $message);
+    if ($has_resource_verb && $has_resource_noun) {
+      return [
+        'type' => 'resources',
+        'topic' => $message,
+        'confidence' => 0.5,
+        'extraction' => $extraction,
+      ];
     }
 
     // Step 12: Default: unknown intent (triggers fallback).
@@ -1294,9 +1300,19 @@ class IntentRouter {
     if (!empty($this->patterns[$intent]['keywords'])) {
       $message_lower = strtolower($original);
       foreach ($this->patterns[$intent]['keywords'] as $keyword) {
-        if (strpos($message_lower, strtolower($keyword)) !== FALSE ||
-            strpos($message_lower, str_replace('_', ' ', strtolower($keyword))) !== FALSE) {
-          $keyword_matches++;
+        $keyword_lower = strtolower($keyword);
+        $candidates = [$keyword_lower];
+        $keyword_spaced = str_replace('_', ' ', $keyword_lower);
+        if ($keyword_spaced !== $keyword_lower) {
+          $candidates[] = $keyword_spaced;
+        }
+
+        foreach (array_unique($candidates) as $candidate) {
+          $pattern = '/\b' . preg_quote($candidate, '/') . '\b/';
+          if (preg_match($pattern, $message_lower)) {
+            $keyword_matches++;
+            break;
+          }
         }
       }
     }

@@ -227,7 +227,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Langfuse status | Langfuse requires config + credentials; traces capture spans/events/generations and export via terminate subscriber + queue worker.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082] |
 | Runtime monitoring | `PerformanceMonitor` records rolling latency/error metrics and exposes p95/p99/error/availability values with SLO-backed thresholds via `/assistant/api/health` and `/assistant/api/metrics`.[^CLAIM-084][^CLAIM-051] |
 | SLO policy + alerts | `SloDefinitions` + `SloAlertService` define/enforce availability, latency, error-rate, cron freshness, and queue depth/age SLOs with cooldowned structured warning alerts from cron.[^CLAIM-084][^CLAIM-121] |
-| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`), and calibrated weak-grounding/escalation/safety-boundary scenario coverage (`p2del04-contract-meta-present`, `p2del04-weak-grounding-handling`, `p2del04-escalation-routing`, `p2del04-escalation-actionability`, `p2del04-safety-boundary-routing`, `p2del04-boundary-dampening`, `p2del04-boundary-urgent-routing`) across 60 Sprint 5 scenarios (20 per family).[^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135][^CLAIM-137][^CLAIM-144] |
+| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`), and calibrated weak-grounding/escalation/safety-boundary scenario coverage (`p2del04-contract-meta-present`, `p2del04-weak-grounding-handling`, `p2del04-escalation-routing`, `p2del04-escalation-actionability`, `p2del04-safety-boundary-routing`, `p2del04-boundary-dampening`, `p2del04-boundary-urgent-routing`) across 60 Sprint 5 scenarios (20 per family). Harness integrity controls now additionally enforce multiline JS assertion return linting, deterministic per-run eval conversation salting via `ILAS_EVAL_RUN_ID`, and failure adjudication artifact generation without relaxing the 90% blocking threshold. [^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135][^CLAIM-137][^CLAIM-144][^CLAIM-150] |
 | Redaction posture | Sentry subscriber and analytics/conversation log codepaths apply redaction/truncation before persistence/export.[^CLAIM-053][^CLAIM-083][^CLAIM-085] |
 
 ### G) Cron/queues/background processes
@@ -906,17 +906,70 @@ This dated addendum records `P3-OBJ-02` closure for Phase 3 Objective #2:
    limiter integration (`CLAIM-077`), while SLO/performance monitoring guardrails
    remain enforced through `PerformanceMonitor` + `SloAlertService` (`CLAIM-084`)
    with no runtime architecture expansion.[^CLAIM-077][^CLAIM-084][^CLAIM-147]
-2. Runbook section-3 verification for `P3-OBJ-02` now requires `VC-UNIT` and
+2. `CostControlPolicy` service implements `IMP-COST-01` acceptance criteria:
+   daily/monthly budget caps, LLM sampling gate, cache-hit-rate monitoring,
+   cost estimation, and consolidated kill-switch evaluator. Integrated into
+   `LlmEnhancer` as nullable dependency with full unit test coverage in
+   `CostControlPolicyTest.php`.[^CLAIM-147]
+3. Runbook section-3 verification for `P3-OBJ-02` now requires `VC-UNIT` and
    `VC-DRUPAL-UNIT` plus source-anchor checks for
    `LlmEnhancer`/`LlmCircuitBreaker`/`LlmRateLimiter`/`PerformanceMonitor`/
-   `SloAlertService`, and captures sanitized runtime proof in
+   `SloAlertService`/`CostControlPolicy`, and captures sanitized runtime proof in
    `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`.[^CLAIM-147]
-3. Cost governance linkage is promoted to active mitigation for
+4. Cost governance linkage is promoted to active mitigation for
    backlog/risk artifacts (`IMP-COST-01`, `R-PERF-01`) with closure continuity
    enforced by `PhaseThreeObjectiveTwoGateTest.php`.[^CLAIM-147]
 4. Scope boundaries remain unchanged: no net-new assistant channels or
    third-party model expansion beyond audited providers, and no platform-wide
    refactor of unrelated Drupal subsystems.[^CLAIM-010][^CLAIM-073][^CLAIM-074][^CLAIM-147]
+
+### Phase 3 Objective #3 Release Readiness + Governance Attestation Disposition (2026-03-05)
+
+This dated addendum records `P3-OBJ-03` closure for Phase 3 Objective #3:
+"Deliver release readiness package and governance attestation."
+
+1. Release readiness package closure is now codified through section-4
+   verification continuity anchored to local runtime preflight evidence
+   (`local-preflight.txt`, `CLAIM-108`) and Pantheon runtime verification
+   evidence (`pantheon-dev`/`test`/`live`, `CLAIM-115`) with no runtime
+   architecture expansion.[^CLAIM-108][^CLAIM-115][^CLAIM-148]
+2. Runbook section-4 verification for `P3-OBJ-03` now requires `VC-UNIT` and
+   `VC-DRUPAL-UNIT`, objective continuity checks across roadmap/current-state/
+   evidence/backlog/risk markers, Diagram A anchor continuity validation, and
+   captures sanitized runtime proof in
+   `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt`.[^CLAIM-148]
+3. Governance attestation linkage is promoted to active mitigation for
+   governance/compliance artifacts (`IMP-GOV-01` row, retention/access
+   attestation workflow row, `R-GOV-01`) with closure continuity enforced by
+   `PhaseThreeObjectiveThreeGateTest.php`.[^CLAIM-148]
+4. Scope boundaries remain unchanged: no net-new assistant channels or
+   third-party model expansion beyond audited providers, and no platform-wide
+   refactor of unrelated Drupal subsystems.[^CLAIM-010][^CLAIM-073][^CLAIM-074][^CLAIM-148]
+
+### Phase 3 Objective #1 Accessibility + Mobile UX Acceptance Disposition (2026-03-05)
+
+This dated addendum records `P3-OBJ-01` closure for Phase 3 Objective #1:
+"Complete accessibility and mobile UX hardening with explicit acceptance gates."
+
+1. Accessibility and mobile UX acceptance gates are now objective-level closure
+   artifacts: widget accessibility semantics remain enforced through dialog
+   roles/labels, focus trap, and ARIA announcements (`CLAIM-025`), page Twig
+   template ARIA labels and screen-reader text (`CLAIM-032`), API client
+   timeout/error mapping (`CLAIM-026`), and mobile/reduced-motion SCSS contracts
+   (`CLAIM-031`) with no runtime architecture expansion.[^CLAIM-025][^CLAIM-026][^CLAIM-031][^CLAIM-032][^CLAIM-149]
+2. Runbook section-2 verification for `P3-OBJ-01` now requires `VC-UNIT` and
+   `VC-DRUPAL-UNIT`, targeted `AccessibilityMobileUxAcceptanceGateTest`,
+   `RecoveryUxContractTest`, and `assistant-widget-hardening.test.js` execution,
+   source-anchor checks for accessibility/mobile UX claims, and captures
+   sanitized runtime proof in
+   `docs/aila/runtime/phase3-obj1-ux-a11y-mobile-acceptance.txt`.[^CLAIM-149]
+3. Governance posture is updated to active mitigation for accessibility
+   regression controls (`R-UX-01`) and mobile error-state quality controls
+   (`R-UX-02`) with closure continuity enforced by
+   `PhaseThreeObjectiveOneGateTest.php`.[^CLAIM-149]
+4. Scope boundaries remain unchanged: no net-new assistant channels or
+   third-party model expansion beyond audited providers, and no platform-wide
+   refactor of unrelated Drupal subsystems.[^CLAIM-010][^CLAIM-073][^CLAIM-074][^CLAIM-149]
 
 ---
 
@@ -1054,3 +1107,6 @@ This dated addendum records `P3-OBJ-02` closure for Phase 3 Objective #2:
 [^CLAIM-145]: [CLAIM-145](evidence-index.md#claim-145)
 [^CLAIM-146]: [CLAIM-146](evidence-index.md#claim-146)
 [^CLAIM-147]: [CLAIM-147](evidence-index.md#claim-147)
+[^CLAIM-148]: [CLAIM-148](evidence-index.md#claim-148)
+[^CLAIM-149]: [CLAIM-149](evidence-index.md#claim-149)
+[^CLAIM-150]: [CLAIM-150](evidence-index.md#claim-150)

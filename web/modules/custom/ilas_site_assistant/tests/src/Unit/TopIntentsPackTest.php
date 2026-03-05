@@ -130,6 +130,31 @@ class TopIntentsPackTest extends TestCase {
   }
 
   /**
+   * Synonym matching uses word boundaries and avoids substring contamination.
+   */
+  public function testMatchSynonymsUsesWordBoundaries(): void {
+    $this->assertNotSame(
+      'feedback',
+      $this->pack->matchSynonyms('my landlord retaliated because i complained'),
+      'feedback should not trigger from "complained" substring'
+    );
+    $this->assertNotSame(
+      'legal_advice_line',
+      $this->pack->matchSynonyms('a debt collector keeps calling me'),
+      'hotline should not trigger from bare "calling" substring'
+    );
+  }
+
+  /**
+   * Phrase-level synonyms still match expected navigation intents.
+   */
+  public function testMatchSynonymsPhraseAliasesStillWork(): void {
+    $this->assertSame('feedback', $this->pack->matchSynonyms('i need to file a complaint'));
+    $this->assertSame('legal_advice_line', $this->pack->matchSynonyms('what is the call hotline number'));
+    $this->assertSame('donations', $this->pack->matchSynonyms('how can i give money'));
+  }
+
+  /**
    * Custody chips include key follow-up intents.
    */
   public function testCustodyChipsContainExpectedIntents(): void {

@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DERIVE_SCRIPT="$SCRIPT_DIR/derive-assistant-url.sh"
 PROMPTFOO_SCRIPT="$REPO_ROOT/promptfoo-evals/scripts/run-promptfoo.sh"
+ASSERTION_LINTER="$REPO_ROOT/promptfoo-evals/scripts/lint-javascript-assertions.mjs"
 RESULTS_FILE="$REPO_ROOT/promptfoo-evals/output/results.json"
 SUMMARY_FILE="$REPO_ROOT/promptfoo-evals/output/gate-summary.txt"
 
@@ -20,6 +21,60 @@ RAG_METRIC_THRESHOLD="${RAG_CONFIDENCE_THRESHOLD:-90}"
 RAG_METRIC_MIN_COUNT="${RAG_METRIC_MIN_COUNT:-10}"
 P2DEL04_METRIC_THRESHOLD="${P2DEL04_METRIC_THRESHOLD:-85}"
 P2DEL04_METRIC_MIN_COUNT="${P2DEL04_METRIC_MIN_COUNT:-10}"
+ILAS_HOURLY_LIMIT_PREFLIGHT="${ILAS_HOURLY_LIMIT_PREFLIGHT:-true}"
+ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR="${ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR:-}"
+
+count_cases_for_config() {
+  local config_rel="$1"
+  local config_abs="$REPO_ROOT/promptfoo-evals/$config_rel"
+  local total=0
+
+  if [[ ! -f "$config_abs" ]]; then
+    echo "0"
+    return 0
+  fi
+
+  mapfile -t test_files < <(
+    grep -E '^[[:space:]]*-[[:space:]]*file://tests/.+\.ya?ml[[:space:]]*$' "$config_abs" \
+      | sed -E 's|^[[:space:]]*-[[:space:]]*file://||'
+  )
+
+  if [[ "${#test_files[@]}" -eq 0 ]]; then
+    echo "0"
+    return 0
+  fi
+
+  for test_rel in "${test_files[@]}"; do
+    local test_abs="$REPO_ROOT/promptfoo-evals/$test_rel"
+    if [[ -f "$test_abs" ]]; then
+      local case_count
+      case_count=$(grep -E '^[[:space:]]*-[[:space:]]*vars:' "$test_abs" | wc -l | awk '{print $1}')
+      total=$((total + case_count))
+    fi
+  done
+
+  echo "$total"
+}
+
+resolve_configured_hour_limit() {
+  if [[ -n "$ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR" ]]; then
+    echo "$ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR"
+    return 0
+  fi
+
+  if ! command -v terminus >/dev/null 2>&1; then
+    echo ""
+    return 0
+  fi
+
+  local raw
+  if ! raw="$(terminus remote:drush "${SITE_NAME}.${ENV_NAME}" -- config:get ilas_site_assistant.settings rate_limit_per_hour 2>/dev/null)"; then
+    echo ""
+    return 0
+  fi
+
+  echo "$raw" | grep -Eo '[0-9]+' | tail -n1
+}
 
 read_named_metric_rate() {
   local results_file="$1"
@@ -132,6 +187,13 @@ if ! command -v node >/dev/null 2>&1; then
   exit 127
 fi
 
+if [[ ! -f "$ASSERTION_LINTER" ]]; then
+  echo "Promptfoo assertion linter not found: $ASSERTION_LINTER" >&2
+  exit 1
+fi
+
+node "$ASSERTION_LINTER"
+
 CI_BRANCH_NAME="${CI_BRANCH:-${GIT_BRANCH:-$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)}}"
 if [[ "$MODE" == "auto" ]]; then
   if [[ "$CI_BRANCH_NAME" == "master" || "$CI_BRANCH_NAME" == "main" || "$CI_BRANCH_NAME" =~ ^release/ ]]; then
@@ -168,13 +230,43 @@ if [[ -z "${ILAS_REQUEST_DELAY_MS:-}" ]]; then
   if [[ "$ENV_NAME" == "live" ]]; then
     export ILAS_REQUEST_DELAY_MS=31000
   else
-    export ILAS_REQUEST_DELAY_MS=0
+    export ILAS_REQUEST_DELAY_MS=4500
   fi
 fi
 
 mkdir -p "$(dirname "$SUMMARY_FILE")"
 
 RESULTS_FILE_DEEP="$REPO_ROOT/promptfoo-evals/output/results-deep.json"
+PLANNED_PRIMARY_CASE_COUNT="$(count_cases_for_config "$CONFIG_FILE")"
+PLANNED_DEEP_CASE_COUNT="0"
+if [[ -n "$DEEP_CONFIG_FILE" ]]; then
+  PLANNED_DEEP_CASE_COUNT="$(count_cases_for_config "$DEEP_CONFIG_FILE")"
+fi
+PLANNED_CASE_COUNT=$((PLANNED_PRIMARY_CASE_COUNT + PLANNED_DEEP_CASE_COUNT))
+CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE=""
+RATE_LIMIT_PREFLIGHT_STATUS="skipped"
+
+if [[ "$SKIP_EVAL" != "true" && "$ILAS_HOURLY_LIMIT_PREFLIGHT" == "true" ]]; then
+  CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE="$(resolve_configured_hour_limit)"
+  if [[ -n "$CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE" ]]; then
+    RATE_LIMIT_PREFLIGHT_STATUS="checked"
+    if [[ "$CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE" -lt "$PLANNED_CASE_COUNT" ]]; then
+      cat >&2 <<EOF
+Promptfoo hourly-rate preflight failed:
+  configured_hour_limit=${CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE}
+  planned_case_count=${PLANNED_CASE_COUNT}
+  primary_cases=${PLANNED_PRIMARY_CASE_COUNT}
+  deep_cases=${PLANNED_DEEP_CASE_COUNT}
+Configured hourly limit is lower than planned eval volume and will likely cause 429 failures.
+Either raise the target env rate_limit_per_hour temporarily, or reduce planned eval scope.
+EOF
+      exit 2
+    fi
+  else
+    RATE_LIMIT_PREFLIGHT_STATUS="unresolved"
+    echo "Promptfoo hourly-rate preflight: unable to resolve configured hour limit; continuing without fail-fast check." >&2
+  fi
+fi
 
 EVAL_EXIT=0
 if [[ "$SKIP_EVAL" != "true" ]]; then
@@ -326,6 +418,11 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "deep_config_file=${DEEP_CONFIG_FILE}"
   echo "assistant_url=${ILAS_ASSISTANT_URL}"
   echo "request_delay_ms=${ILAS_REQUEST_DELAY_MS}"
+  echo "planned_case_count=${PLANNED_CASE_COUNT}"
+  echo "planned_primary_case_count=${PLANNED_PRIMARY_CASE_COUNT}"
+  echo "planned_deep_case_count=${PLANNED_DEEP_CASE_COUNT}"
+  echo "configured_rate_limit_per_hour=${CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE}"
+  echo "hourly_limit_preflight=${RATE_LIMIT_PREFLIGHT_STATUS}"
   echo "eval_exit=${EVAL_EXIT}"
   echo "pass_rate=${PASS_RATE}"
   echo "total_cases=${TOTAL_CASES}"

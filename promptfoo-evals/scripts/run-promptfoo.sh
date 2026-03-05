@@ -13,6 +13,9 @@ export PROMPTFOO_DISABLE_UPDATE=1
 export PROMPTFOO_DISABLE_REMOTE_GENERATION=true
 export PROMPTFOO_DISABLE_SHARING=1
 export PROMPTFOO_SELF_HOSTED=1
+# Keep eval runtime deterministic in CI by disabling promptfoo's adaptive
+# scheduler retry loop (which can honor long Retry-After windows).
+export PROMPTFOO_DISABLE_ADAPTIVE_SCHEDULER="${PROMPTFOO_DISABLE_ADAPTIVE_SCHEDULER:-1}"
 
 # ── Resolve paths ────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

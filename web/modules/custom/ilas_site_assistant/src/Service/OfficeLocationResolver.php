@@ -18,30 +18,35 @@ class OfficeLocationResolver {
       'name' => 'Boise',
       'address' => '310 N 5th Street, Boise, ID 83702',
       'phone' => '(208) 345-0106',
+      'hours' => 'Monday-Friday, 8:30 a.m.-4:30 p.m. (call to confirm current office hours).',
       'url' => '/contact/offices/boise',
     ],
     'pocatello' => [
       'name' => 'Pocatello',
       'address' => '201 N 8th Ave, Suite 100, Pocatello, ID 83201',
       'phone' => '(208) 233-0079',
+      'hours' => 'Monday-Friday, 8:30 a.m.-4:30 p.m. (call to confirm current office hours).',
       'url' => '/contact/offices/pocatello',
     ],
     'twin_falls' => [
       'name' => 'Twin Falls',
       'address' => '496 Shoup Ave W, Twin Falls, ID 83301',
       'phone' => '(208) 734-7024',
+      'hours' => 'Monday-Friday, 8:30 a.m.-4:30 p.m. (call to confirm current office hours).',
       'url' => '/contact/offices/twin-falls',
     ],
     'lewiston' => [
       'name' => 'Lewiston',
       'address' => '1424 Main Street, Lewiston, ID 83501',
       'phone' => '(208) 746-7541',
+      'hours' => 'Monday-Friday, 8:30 a.m.-4:30 p.m. (call to confirm current office hours).',
       'url' => '/contact/offices/lewiston',
     ],
     'idaho_falls' => [
       'name' => 'Idaho Falls',
       'address' => '482 Constitution Way, Suite 101, Idaho Falls, ID 83402',
       'phone' => '(208) 524-3660',
+      'hours' => 'Monday-Friday, 8:30 a.m.-4:30 p.m. (call to confirm current office hours).',
       'url' => '/contact/offices/idaho-falls',
     ],
   ];
@@ -173,7 +178,7 @@ class OfficeLocationResolver {
    *   The user's message (e.g. "boise", "Ada County").
    *
    * @return array|null
-   *   Office data array with name, address, phone, url keys, or NULL.
+   *   Office data array with name, address, phone, hours, url keys, or NULL.
    */
   public function resolve(string $message): ?array {
     $normalized = $this->normalize($message);
@@ -192,6 +197,13 @@ class OfficeLocationResolver {
       return self::OFFICES[self::CITY_MAP[$normalized]];
     }
 
+    // Fuzzy city phrase match inside longer messages.
+    foreach (self::CITY_MAP as $city => $office_slug) {
+      if (preg_match('/\b' . preg_quote($city, '/') . '\b/u', $normalized)) {
+        return self::OFFICES[$office_slug];
+      }
+    }
+
     // Check county map: handle "X county" and bare county names.
     $county = $normalized;
     if (preg_match('/^(.+?)\s+county$/', $normalized, $m)) {
@@ -199,6 +211,14 @@ class OfficeLocationResolver {
     }
     if (isset(self::COUNTY_MAP[$county])) {
       return self::OFFICES[self::COUNTY_MAP[$county]];
+    }
+
+    // Fuzzy county phrase match inside longer messages.
+    foreach (self::COUNTY_MAP as $county_name => $office_slug) {
+      if (preg_match('/\b' . preg_quote($county_name, '/') . '\s*county\b/u', $normalized) ||
+        preg_match('/\b' . preg_quote($county_name, '/') . '\b/u', $normalized)) {
+        return self::OFFICES[$office_slug];
+      }
     }
 
     return NULL;

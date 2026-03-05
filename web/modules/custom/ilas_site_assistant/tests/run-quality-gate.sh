@@ -180,12 +180,25 @@ if [[ "$WITH_PROMPTFOO" == "true" ]]; then
 
   EVALS_DIR="$REPO_ROOT/promptfoo-evals"
   PROMPTFOO_SCRIPT="$EVALS_DIR/scripts/run-promptfoo.sh"
+  ASSERTION_LINTER="$EVALS_DIR/scripts/lint-javascript-assertions.mjs"
 
   if [ ! -f "$PROMPTFOO_SCRIPT" ]; then
     echo "ERROR: Promptfoo runner not found at $PROMPTFOO_SCRIPT" >&2
     append_phase_result "promptfoo" "2"
     exit 2
   fi
+
+  if [ ! -f "$ASSERTION_LINTER" ]; then
+    echo "ERROR: Promptfoo assertion linter not found at $ASSERTION_LINTER" >&2
+    append_phase_result "promptfoo_assert_lint" "2"
+    exit 2
+  fi
+
+  node "$ASSERTION_LINTER" || {
+    append_phase_result "promptfoo_assert_lint" "2"
+    exit 2
+  }
+  append_phase_result "promptfoo_assert_lint" "0"
 
   if [ -z "${ILAS_ASSISTANT_URL:-}" ]; then
     echo "ERROR: ILAS_ASSISTANT_URL not set. Export it before running." >&2

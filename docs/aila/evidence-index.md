@@ -156,6 +156,15 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js:385-390`
   - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js:500-543`
   - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js:1234-1249`
+- Addendum (2026-03-05): Phase 3 Objective #1 (`P3-OBJ-01`) closes accessibility
+  acceptance gates by locking `AccessibilityMobileUxAcceptanceGateTest` (20 test
+  methods), `RecoveryUxContractTest` (4 test methods), and
+  `assistant-widget-hardening.test.js` (12 test suites) as gating verification
+  for dialog roles, focus management, ARIA announcements, and keyboard flows.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AccessibilityMobileUxAcceptanceGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RecoveryUxContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/assistant-widget-hardening.test.js`
 
 ### CLAIM-026
 - Claim: Widget API client sends CSRF header, uses 15s AbortController timeout, maps 429/403/5xx error behaviors.
@@ -196,6 +205,13 @@ Evidence precedence used in this audit:
 - Claim: Assistant page Twig template includes ARIA labels, screen-reader text, and quick-action buttons.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/templates/assistant-page.html.twig:14-79`
+- Addendum (2026-03-05): Phase 3 Objective #1 (`P3-OBJ-01`) closes accessibility
+  and recovery UX acceptance gates by anchoring Twig ARIA/screen-reader markup
+  verification to `AccessibilityMobileUxAcceptanceGateTest` and
+  `RecoveryUxContractTest` as part of objective-level closure artifacts.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AccessibilityMobileUxAcceptanceGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RecoveryUxContractTest.php`
 
 ---
 
@@ -576,12 +592,18 @@ Evidence precedence used in this audit:
   continuity (`VC-UNIT`, `VC-DRUPAL-UNIT`), source-anchor verification for
   LLM guardrail services, runtime proof capture, and closure guard-test
   enforcement without net-new assistant channels or model-provider expansion.
+- Addendum (2026-03-05, IMP-COST-01): `CostControlPolicy` service implements
+  budget caps (daily/monthly), sampling gate, cache-hit-rate monitoring, cost
+  estimation, and consolidated kill-switch evaluator. Integrated into
+  `LlmEnhancer` as nullable dependency.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 Objective #2 disposition dated 2026-03-05)
   - `docs/aila/current-state.md` (P3-OBJ-02 operational disposition addendum)
   - `docs/aila/runbook.md` (P3-OBJ-02 verification subsection in section 3)
   - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveTwoGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php`
 
 ### CLAIM-078
 - Claim: Post-generation legal-advice detection blocks unsafe generated output.
@@ -921,6 +943,15 @@ Evidence precedence used in this audit:
   - `docs/aila/runtime/local-preflight.txt:4-10`
   - `docs/aila/runtime/local-preflight.txt:20-27`
   - `docs/aila/runtime/local-preflight.txt:74-80`
+- Addendum (2026-03-05): Phase 3 Objective #3 (`P3-OBJ-03`) locks release-
+  readiness package continuity to local preflight/runtime anchors as part of
+  objective-level closure artifacts and governance attestation verification.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (Phase 3 Objective #3 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P3-OBJ-03 release-readiness disposition addendum)
+  - `docs/aila/runbook.md` (P3-OBJ-03 verification subsection in section 4)
+  - `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveThreeGateTest.php`
 
 ### CLAIM-109
 - Claim: Local DDEV stack started and Drupal bootstrap succeeded for runtime verification.
@@ -968,6 +999,15 @@ Evidence precedence used in this audit:
   - `docs/aila/runtime/pantheon-dev.txt:10-40`
   - `docs/aila/runtime/pantheon-test.txt:10-39`
   - `docs/aila/runtime/pantheon-live.txt:10-39`
+- Addendum (2026-03-05): Phase 3 Objective #3 (`P3-OBJ-03`) formalizes release
+  readiness + governance attestation continuity by requiring Pantheon runtime
+  verification anchors to remain present in objective closure evidence.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (Phase 3 Objective #3 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P3-OBJ-03 release-readiness disposition addendum)
+  - `docs/aila/runbook.md` (P3-OBJ-03 verification subsection in section 4)
+  - `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveThreeGateTest.php`
 
 ### CLAIM-116
 - Claim: Pantheon `config:status` results differ by environment in sampled runtime (`dev`/`test` no diffs; `live` contains a reported diff).
@@ -1694,3 +1734,90 @@ Evidence precedence used in this audit:
   - `docs/aila/risk-register.md` (`R-PERF-01` active mitigation row)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveTwoGateTest.php` (objective closure continuity/enforcement lock)
   - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+  - `web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php` (IMP-COST-01 budget/sampling/kill-switch policy service)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php` (IMP-COST-01 acceptance test coverage)
+
+---
+
+## Phase 3 Objective #3 Release Readiness Package + Governance Attestation Closure (`P3-OBJ-03`)
+
+### CLAIM-148
+- Claim: Phase 3 Objective #3 is closed as implemented — release readiness
+  package and governance attestation are delivered through reproducible
+  runbook section-4 verification (`VC-UNIT`, `VC-DRUPAL-UNIT`), continuity
+  anchors grounded in local and Pantheon runtime evidence (`CLAIM-108`,
+  `CLAIM-115`), objective runtime proof artifacts, governance posture updates
+  for backlog/risk controls (`IMP-GOV-01`, retention/access attestation
+  workflow, `R-GOV-01`), and objective guard-test enforcement without net-new
+  assistant channels, third-party model-provider expansion, or unrelated
+  platform refactors.
+- Evidence:
+  - `docs/aila/roadmap.md` (Phase 3 Objective #3 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P3-OBJ-03 release-readiness disposition addendum)
+  - `docs/aila/runbook.md` (P3-OBJ-03 verification subsection in section 4)
+  - `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt` (sanitized VC alias output + readiness/governance proof markers)
+  - `docs/aila/backlog.md` (governance/compliance rows moved to objective-linked active mitigation)
+  - `docs/aila/risk-register.md` (`R-GOV-01` active mitigation linkage + detection markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveThreeGateTest.php` (objective closure continuity/enforcement lock)
+  - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+
+---
+
+## Phase 3 Objective #1 Accessibility + Mobile UX Acceptance Closure (`P3-OBJ-01`)
+
+### CLAIM-149
+- Claim: Phase 3 Objective #1 is closed as implemented — accessibility and
+  mobile UX hardening acceptance gates are delivered through reproducible
+  runbook section-2 verification (`VC-UNIT`, `VC-DRUPAL-UNIT`), acceptance
+  test suites anchored to widget accessibility semantics (`CLAIM-025`), page
+  Twig ARIA/screen-reader markup (`CLAIM-032`), API client timeout/error
+  mapping (`CLAIM-026`), mobile/reduced-motion SCSS contracts (`CLAIM-031`),
+  runtime proof artifacts, governance posture updates for UX/accessibility
+  risk controls (`R-UX-01`, `R-UX-02`), and objective guard-test enforcement
+  without net-new assistant channels, third-party model-provider expansion,
+  or unrelated platform refactors.
+- Evidence:
+  - `docs/aila/roadmap.md` (Phase 3 Objective #1 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P3-OBJ-01 accessibility/mobile UX disposition addendum)
+  - `docs/aila/runbook.md` (P3-OBJ-01 verification subsection in section 2)
+  - `docs/aila/runtime/phase3-obj1-ux-a11y-mobile-acceptance.txt` (sanitized VC alias output + a11y/mobile proof markers)
+  - `docs/aila/backlog.md` (UX/accessibility rows moved to Done with test references)
+  - `docs/aila/risk-register.md` (`R-UX-01` and `R-UX-02` active mitigation linkage + detection markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AccessibilityMobileUxAcceptanceGateTest.php` (20 acceptance test methods)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RecoveryUxContractTest.php` (4 recovery UX contract test methods)
+  - `web/modules/custom/ilas_site_assistant/tests/assistant-widget-hardening.test.js` (12 widget hardening test suites)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveOneGateTest.php` (objective closure continuity/enforcement lock)
+  - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+
+---
+
+### CLAIM-150
+- Claim: Promptfoo gate integrity remediation for Pantheon push recovery is now
+  enforced without threshold relaxation: multiline custom-JS assertions are
+  linted for explicit `return`, eval runs support deterministic per-run
+  conversation ID salting (`ILAS_EVAL_RUN_ID`) to prevent cache bleed,
+  adjudication artifacts classify failures by root cause, and assistant/product
+  defects are corrected via bounded office follow-up state, boundary-safe
+  synonym routing, office-detail response enrichment, and expanded wrongdoing
+  safety coverage.
+- Evidence:
+  - `promptfoo-evals/scripts/lint-javascript-assertions.mjs`
+  - `promptfoo-evals/tests/abuse-safety.yaml`
+  - `scripts/ci/run-promptfoo-gate.sh`
+  - `web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh`
+  - `promptfoo-evals/providers/ilas-live.js`
+  - `promptfoo-evals/scripts/adjudicate-failures.mjs`
+  - `promptfoo-evals/output/failure-adjudication.json`
+  - `promptfoo-evals/tests/conversations-deep.yaml`
+  - `promptfoo-evals/tests/conversations-deep.src.yaml`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/IntentRouter.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/TopIntentsPack.php`
+  - `web/modules/custom/ilas_site_assistant/config/intents/top_intents.yml`
+  - `web/modules/custom/ilas_site_assistant/src/Service/OfficeLocationResolver.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/SafetyClassifier.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/OfficeFollowupGuardContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/TopIntentsPackTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/DrupalUnit/IntentRouterServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/OfficeLocationResolverTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/DrupalUnit/SafetyClassifierTest.php`

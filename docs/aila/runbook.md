@@ -228,6 +228,74 @@ Expected contract result:
 - All error response paths have body request_id matching X-Correlation-ID header.
 - Replay with same input and correlation ID produces deterministic response type.
 
+### Phase 3 objective #1 accessibility + mobile UX acceptance verification (`P3-OBJ-01`)
+
+Use this command bundle to verify Phase 3 Objective #1:
+"Complete accessibility and mobile UX hardening with explicit acceptance gates."
+
+```bash
+# 1) Required prompt validation aliases.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-DRUPAL-UNIT
+vendor/bin/phpunit \
+  --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
+  --testsuite drupal-unit
+
+# 2) Targeted acceptance test execution.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/AccessibilityMobileUxAcceptanceGateTest.php
+
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/RecoveryUxContractTest.php
+
+# 3) Source-anchor checks (accessibility + mobile UX claims).
+rg -n "CLAIM-025|CLAIM-032|dialog roles|focus trap|ARIA|Escape-to-close" \
+  docs/aila/evidence-index.md
+
+rg -n "CLAIM-026|CLAIM-031|timeout|offline|reduced-motion|mobile layout" \
+  docs/aila/evidence-index.md
+
+# 4) Governance linkage checks (backlog/risk).
+rg -n "Done \(IMP-UX-01, 2026-03-05\)" \
+  docs/aila/backlog.md
+
+rg -n "R-UX-01|R-UX-02|phase3-obj1-ux-a11y-mobile-acceptance.txt|Active mitigation" \
+  docs/aila/risk-register.md
+
+# 5) Objective closure guard test.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveOneGateTest.php
+```
+
+Expected `P3-OBJ-01` verification result:
+- `VC-UNIT` and `VC-DRUPAL-UNIT` pass with objective closure guard coverage included.
+- `AccessibilityMobileUxAcceptanceGateTest` (20 test methods) and
+  `RecoveryUxContractTest` (4 test methods) pass for widget accessibility,
+  ARIA semantics, focus management, and recovery UX contracts.
+- Source-anchor checks confirm accessibility (`CLAIM-025`, `CLAIM-032`) and
+  mobile UX (`CLAIM-026`, `CLAIM-031`) evidence remains present.
+- UX/accessibility backlog rows are marked Done and risk register entries
+  (`R-UX-01`, `R-UX-02`) show active mitigation posture.
+- `PhaseThreeObjectiveOneGateTest.php` passes across roadmap/current-state/
+  runbook/evidence/runtime artifact/backlog/risk/system-map continuity checks.
+- Scope boundaries remain unchanged: no net-new assistant channels or
+  third-party model expansion beyond audited providers, and no platform-wide
+  refactor of unrelated Drupal subsystems.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase3-obj1-ux-a11y-mobile-acceptance.txt`[^CLAIM-149]
+
 ## 3) Pantheon-context verification
 
 Direct verification commands:
@@ -331,6 +399,9 @@ rg -n "class PerformanceMonitor|recordRequest|getSummary|THRESHOLD_P95_MS|THRESH
 rg -n "class SloAlertService|checkAll|SLO violation|checkLatencySlo|checkErrorRateSlo|checkQueueSlo" \
   web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php
 
+rg -n "class CostControlPolicy|isRequestAllowed|evaluateKillSwitch|estimateCost|getSummary|isDailyBudgetExhausted|isMonthlyBudgetExhausted" \
+  web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php
+
 # 3) Objective closure guard test.
 ddev exec vendor/bin/phpunit \
   --configuration /var/www/html/phpunit.xml \
@@ -345,6 +416,8 @@ Expected `P3-OBJ-02` verification result:
   expansion.
 - Performance/SLO guardrail anchors remain present in `PerformanceMonitor` and
   `SloAlertService`.
+- `CostControlPolicy` anchors remain present with budget caps, sampling gate,
+  cache-hit monitoring, cost estimation, and kill-switch evaluator (IMP-COST-01).
 - `PhaseThreeObjectiveTwoGateTest.php` passes across roadmap/current-state/
   runbook/evidence/runtime artifact/backlog/risk continuity checks.
 - Scope boundaries remain unchanged: no net-new assistant channels or
@@ -353,6 +426,82 @@ Expected `P3-OBJ-02` verification result:
 
 Store sanitized output in:
 - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`[^CLAIM-147]
+
+### Phase 3 objective #3 release readiness package + governance attestation verification (`P3-OBJ-03`)
+
+Use this command bundle to verify Phase 3 Objective #3:
+"Deliver release readiness package and governance attestation."
+
+```bash
+# 1) Required prompt validation aliases.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-DRUPAL-UNIT
+vendor/bin/phpunit \
+  --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
+  --testsuite drupal-unit
+
+# 2) Objective continuity checks (roadmap/current-state/evidence).
+rg -n "Phase 3 Objective #3 disposition \(2026-03-05\)|P3-OBJ-03|phase3-obj3-release-readiness-governance-attestation.txt|CLAIM-108|CLAIM-115|CLAIM-148|PhaseThreeObjectiveThreeGateTest.php" \
+  docs/aila/roadmap.md
+
+rg -n "Phase 3 Objective #3 Release Readiness \+ Governance Attestation Disposition \(2026-03-05\)|P3-OBJ-03|phase3-obj3-release-readiness-governance-attestation.txt|\[\^CLAIM-148\]" \
+  docs/aila/current-state.md
+
+rg -n "### CLAIM-108|### CLAIM-115|Addendum \(2026-03-05\): Phase 3 Objective #3|P3-OBJ-03|## Phase 3 Objective #3 Release Readiness Package \+ Governance Attestation Closure|### CLAIM-148|PhaseThreeObjectiveThreeGateTest.php" \
+  docs/aila/evidence-index.md
+
+# 3) Runtime readiness evidence anchor checks.
+rg -n "Local Preflight|ddev version|docker info" \
+  docs/aila/runtime/local-preflight.txt
+
+rg -n "Pantheon Runtime Verification: idaho-legal-aid-services.dev|Drupal bootstrap : Successful|config:get ilas_site_assistant.settings -y" \
+  docs/aila/runtime/pantheon-dev.txt
+
+rg -n "Pantheon Runtime Verification: idaho-legal-aid-services.test|Drupal bootstrap : Successful|config:get ilas_site_assistant.settings -y" \
+  docs/aila/runtime/pantheon-test.txt
+
+rg -n "Pantheon Runtime Verification: idaho-legal-aid-services.live|Drupal bootstrap : Successful|config:get ilas_site_assistant.settings -y" \
+  docs/aila/runtime/pantheon-live.txt
+
+# 4) Governance attestation linkage checks (backlog/risk).
+rg -n "Active mitigation \(IMP-GOV-01 / P3-OBJ-03, 2026-03-05\)|Active mitigation \(Retention/Access Attestation / P3-OBJ-03, 2026-03-05\)" \
+  docs/aila/backlog.md
+
+rg -n "R-GOV-01|phase3-obj3-release-readiness-governance-attestation.txt|Active mitigation" \
+  docs/aila/risk-register.md
+
+# 5) Diagram A continuity checks.
+rg -n "flowchart LR|Drupal 11 / ilas_site_assistant|External Integrations|CI\\[External CI runner|PF\\[Promptfoo harness" \
+  docs/aila/system-map.mmd
+
+# 6) Objective closure guard test.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveThreeGateTest.php
+```
+
+Expected `P3-OBJ-03` verification result:
+- `VC-UNIT` and `VC-DRUPAL-UNIT` pass with objective closure guard coverage included.
+- Roadmap/current-state/evidence-index continuity markers for `P3-OBJ-03`,
+  `CLAIM-108`, `CLAIM-115`, and `CLAIM-148` are present.
+- Local and Pantheon runtime readiness anchors remain present in
+  `local-preflight.txt` and `pantheon-dev`/`test`/`live` artifacts.
+- Governance attestation linkage is active in governance backlog rows and
+  `R-GOV-01` risk posture with runtime proof continuity.
+- `PhaseThreeObjectiveThreeGateTest.php` passes across roadmap/current-state/
+  runbook/evidence/runtime artifact/backlog/risk/system-map continuity checks.
+- Scope boundaries remain unchanged: no net-new assistant channels or
+  third-party model expansion beyond audited providers, and no platform-wide
+  refactor of unrelated Drupal subsystems.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt`[^CLAIM-148]
 
 ### Phase 1 Sprint 2 verification (`P1-SBD-01`)
 
@@ -1892,6 +2041,8 @@ sed -E \
   - `docs/aila/runtime/phase2-ndo2-no-broad-platform-migration.txt`[^CLAIM-146]
 - Phase 3 Objective #2 performance + cost guardrails operational proof is captured in:
   - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`[^CLAIM-147]
+- Phase 3 Objective #3 release readiness package + governance attestation proof is captured in:
+  - `docs/aila/runtime/phase3-obj3-release-readiness-governance-attestation.txt`[^CLAIM-148]
 
 ## 7) Retrospective regression checklist (mandatory)
 
@@ -1956,3 +2107,4 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-145]: [CLAIM-145](evidence-index.md#claim-145)
 [^CLAIM-146]: [CLAIM-146](evidence-index.md#claim-146)
 [^CLAIM-147]: [CLAIM-147](evidence-index.md#claim-147)
+[^CLAIM-148]: [CLAIM-148](evidence-index.md#claim-148)

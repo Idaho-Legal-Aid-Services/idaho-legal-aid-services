@@ -25,6 +25,8 @@ promptfoo-evals/
 │   ├── live-10convos.yaml        # Generated: 10 convos x 5 turns (from generator)
 │   └── simulated-user-smoke.yaml # Smoke test suite (5 tests)
 ├── scripts/
+│   ├── adjudicate-failures.mjs   # Classifies failed eval cases for audit
+│   ├── lint-javascript-assertions.mjs # Fails on multiline JS asserts without return
 │   ├── generate-multiturn.js     # Converts 50 single-turn → 10 multi-turn convos
 │   ├── run-promptfoo.sh          # Bash wrapper (Linux/macOS)
 │   └── run-promptfoo.ps1         # PowerShell wrapper (Windows)
@@ -51,6 +53,15 @@ This sets `ILAS_ASSISTANT_URL` inline and runs the 5-test smoke suite against
 the production assistant. The custom provider at `providers/ilas-live.js`
 automatically fetches a Drupal CSRF token before the first request and retries
 once on 403 (token expiry).
+
+For deterministic, cache-safe reruns of the same scenarios, set a run salt:
+
+```bash
+ILAS_EVAL_RUN_ID=eval-remediate-1 npm run eval:promptfoo:live
+```
+
+When `ILAS_EVAL_RUN_ID` is set, conversation IDs are deterministic within the
+run and isolated across runs, preventing cross-run cache bleed.
 
 **Safety notes:**
 - Keep the test set small (5 tests at concurrency 1 = ~5 requests)
@@ -105,6 +116,7 @@ All wrapper scripts automatically set these environment variables:
 | `PROMPTFOO_DISABLE_REMOTE_GENERATION`| `true` | No remote test generation        |
 | `PROMPTFOO_DISABLE_SHARING`          | `1`    | No result sharing                |
 | `PROMPTFOO_SELF_HOSTED`             | `1`    | Self-hosted mode                 |
+| `PROMPTFOO_DISABLE_ADAPTIVE_SCHEDULER` | `1` | Deterministic runtime (no long retry loops) |
 
 You can also add these to a `.env` file in `promptfoo-evals/` or export them
 in your shell profile.
@@ -157,6 +169,26 @@ conversation has an empty history; turn 5 has 4 prior messages.
 
 Re-run the generator after editing the source questions in
 `live-50.sanitized.yaml`.
+
+## Harness integrity checks
+
+Run the JS assertion linter before gate/eval runs:
+
+```bash
+node promptfoo-evals/scripts/lint-javascript-assertions.mjs
+```
+
+This catches promptfoo custom JS assertions that would otherwise return
+`undefined` in multiline blocks and create false negatives.
+
+Generate a failure adjudication artifact from current result files:
+
+```bash
+node promptfoo-evals/scripts/adjudicate-failures.mjs
+```
+
+This writes `output/failure-adjudication.json` with per-case classification:
+`harness_false_negative`, `rubric_false_negative`, or `product_defect`.
 
 ## Adding new test suites
 

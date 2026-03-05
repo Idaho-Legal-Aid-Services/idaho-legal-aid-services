@@ -1,0 +1,35 @@
+# Phase 3 Objective #3 Runtime Evidence (P3-OBJ-03)
+
+Date: 2026-03-05
+
+### VC-UNIT
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+
+### VC-DRUPAL-UNIT
+command=vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --testsuite drupal-unit
+status=passed
+exit_code=0
+
+### Release Readiness Anchors
+release-readiness-anchor-claim-108=present
+release-readiness-anchor-claim-115=present
+release-readiness-anchor-local-preflight=present
+release-readiness-anchor-pantheon-dev=present
+release-readiness-anchor-pantheon-test=present
+release-readiness-anchor-pantheon-live=present
+
+### Governance Attestation Anchors
+governance-attestation-anchor-backlog-imp-gov-01=present
+governance-attestation-anchor-backlog-retention-attestation=present
+governance-attestation-anchor-risk-r-gov-01=present
+
+### Scope Guardrails
+No net-new assistant channels or third-party model expansion beyond audited providers.
+No platform-wide refactor of unrelated Drupal subsystems.
+
+### Disposition Markers
+p3-obj-03-status=closed
+p3-obj-03-enforcement=runbook+guard-test+runtime-artifact
+p3-obj-03-scope=objective-closure-artifacts-only

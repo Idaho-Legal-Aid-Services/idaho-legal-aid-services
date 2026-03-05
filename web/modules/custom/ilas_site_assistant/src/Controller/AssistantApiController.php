@@ -66,6 +66,11 @@ class AssistantApiController extends ControllerBase {
   const CONVERSATION_STATE_TTL = 1800;
 
   /**
+   * Max turns to keep office follow-up slot-fill active.
+   */
+  const OFFICE_FOLLOWUP_MAX_TURNS = 2;
+
+  /**
    * The config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
@@ -782,24 +787,32 @@ class AssistantApiController extends ControllerBase {
     // Policy passed.
     $this->langfuseTracer?->endSpan(['violation' => FALSE]);
 
-    // Pending follow-up slot-fill: if the previous response asked for a
-    // location, try to resolve this message as a city/county before intent
-    // routing. This fires AFTER safety + policy checks.
+    // Pending follow-up slot-fill: consume only explicit office follow-up
+    // turns or location-like replies. Unrelated turns continue normally.
     if ($conversation_id) {
-      $followup_key = 'ilas_conv_followup:' . $conversation_id;
-      $pending = $this->conversationCache->get($followup_key);
-      if ($pending && ($pending->data['type'] ?? '') === 'office_location') {
-        // Clear immediately (consumed regardless of outcome).
-        $this->conversationCache->delete($followup_key);
-
+      $followup_state = $this->loadOfficeFollowupState($conversation_id);
+      if ($followup_state !== NULL) {
         $resolver = new OfficeLocationResolver();
         $office = $resolver->resolve($user_message);
+        $is_location_like = $this->isLocationLikeOfficeReply($user_message);
+        $is_explicit_office_followup = $this->isExplicitOfficeFollowupTurn($user_message);
 
         if ($office) {
+          $this->clearOfficeFollowupState($conversation_id);
           return $this->handleOfficeFollowUp($office, $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
         }
-        else {
+
+        if ($is_location_like || $is_explicit_office_followup) {
+          $this->clearOfficeFollowupState($conversation_id);
           return $this->handleOfficeFollowUpClarify($resolver->getAllOffices(), $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
+        }
+
+        $followup_state['remaining_turns'] = max(0, ((int) ($followup_state['remaining_turns'] ?? 1)) - 1);
+        if ((int) $followup_state['remaining_turns'] > 0) {
+          $this->saveOfficeFollowupState($conversation_id, $followup_state);
+        }
+        else {
+          $this->clearOfficeFollowupState($conversation_id);
         }
       }
     }
@@ -1155,11 +1168,12 @@ class AssistantApiController extends ControllerBase {
     // Set pending follow-up flag when apply intent includes a followup prompt.
     $normalized_intent = ResponseBuilder::normalizeIntentType($intent['type'] ?? 'unknown');
     if ($conversation_id && $normalized_intent === 'apply' && !empty($response['followup'])) {
-      $this->conversationCache->set(
-        'ilas_conv_followup:' . $conversation_id,
-        ['type' => 'office_location', 'timestamp' => time()],
-        time() + 1800
-      );
+      $this->saveOfficeFollowupState($conversation_id, [
+        'type' => 'office_location',
+        'origin_intent' => $normalized_intent,
+        'remaining_turns' => self::OFFICE_FOLLOWUP_MAX_TURNS,
+        'created_at' => time(),
+      ]);
     }
 
     // Store conversation turn in cache for multi-turn continuity.
@@ -2267,6 +2281,39 @@ class AssistantApiController extends ControllerBase {
         break;
 
       case 'offices':
+        $resolver = new OfficeLocationResolver();
+        $office = $this->resolveOfficeFromMessageOrHistory($message, $server_history, $resolver);
+        if ($office && $this->isOfficeDetailRequest($message)) {
+          $response['type'] = 'office_location';
+          $response['response_mode'] = 'navigate';
+          $response['message'] = $this->t('Here are the details for the @office office:', [
+            '@office' => $office['name'],
+          ]);
+          $response['office'] = [
+            'name' => $office['name'],
+            'address' => $office['address'],
+            'phone' => $office['phone'],
+            'hours' => $office['hours'] ?? $this->t('Hours may vary. Please call to confirm current office hours.'),
+          ];
+          $response['url'] = $office['url'];
+          $response['primary_action'] = [
+            'label' => $this->t('@name Office Details', ['@name' => $office['name']]),
+            'url' => $office['url'],
+          ];
+          $response['secondary_actions'] = [
+            [
+              'label' => $this->t('Call @phone', ['@phone' => $office['phone']]),
+              'url' => 'tel:' . preg_replace('/[^\d]/', '', $office['phone']),
+            ],
+            [
+              'label' => $this->t('All Offices'),
+              'url' => $canonical_urls['offices'],
+            ],
+          ];
+          $response['reason_code'] = 'office_detail_requested';
+          break;
+        }
+
         $response['cta'] = $this->t('Find Offices');
         $response['message'] = $this->t('Find an office near you:');
         break;
@@ -2921,6 +2968,142 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Loads pending office follow-up state for a conversation.
+   */
+  protected function loadOfficeFollowupState(string $conversation_id): ?array {
+    $cached = $this->conversationCache->get('ilas_conv_followup:' . $conversation_id);
+    if (!$cached || !is_array($cached->data)) {
+      return NULL;
+    }
+
+    $data = $cached->data;
+    if (($data['type'] ?? '') !== 'office_location') {
+      return NULL;
+    }
+
+    $created_at = (int) ($data['created_at'] ?? $data['timestamp'] ?? 0);
+    $remaining_turns = (int) ($data['remaining_turns'] ?? 1);
+    if ($created_at <= 0) {
+      $this->clearOfficeFollowupState($conversation_id);
+      return NULL;
+    }
+
+    if ((time() - $created_at) > self::CONVERSATION_STATE_TTL || $remaining_turns <= 0) {
+      $this->clearOfficeFollowupState($conversation_id);
+      return NULL;
+    }
+
+    return [
+      'type' => 'office_location',
+      'origin_intent' => $data['origin_intent'] ?? 'apply',
+      'remaining_turns' => $remaining_turns,
+      'created_at' => $created_at,
+    ];
+  }
+
+  /**
+   * Persists office follow-up state with bounded lifecycle metadata.
+   */
+  protected function saveOfficeFollowupState(string $conversation_id, array $state): void {
+    $created_at = (int) ($state['created_at'] ?? time());
+    if ($created_at <= 0) {
+      $created_at = time();
+    }
+
+    $payload = [
+      'type' => 'office_location',
+      'origin_intent' => $state['origin_intent'] ?? 'apply',
+      'remaining_turns' => max(0, (int) ($state['remaining_turns'] ?? self::OFFICE_FOLLOWUP_MAX_TURNS)),
+      'created_at' => $created_at,
+    ];
+
+    $this->conversationCache->set(
+      'ilas_conv_followup:' . $conversation_id,
+      $payload,
+      $created_at + self::CONVERSATION_STATE_TTL
+    );
+  }
+
+  /**
+   * Clears pending office follow-up state for a conversation.
+   */
+  protected function clearOfficeFollowupState(string $conversation_id): void {
+    $this->conversationCache->delete('ilas_conv_followup:' . $conversation_id);
+  }
+
+  /**
+   * Returns TRUE when a message looks like a location reply.
+   */
+  protected function isLocationLikeOfficeReply(string $message): bool {
+    $normalized = mb_strtolower(trim($message));
+    if ($normalized === '') {
+      return FALSE;
+    }
+
+    if (preg_match('/\b(county|city|boise|pocatello|twin\s*falls|lewiston|idaho\s*falls|coeur\s*d\'?alene|nampa|meridian)\b/u', $normalized)) {
+      return TRUE;
+    }
+
+    if (preg_match('/\b(ada|canyon|kootenai|bonneville|bannock|twin\s*falls|latah|nez\s*perce)\s*county\b/u', $normalized)) {
+      return TRUE;
+    }
+
+    if (preg_match('/^[a-z\'\-\s]{2,40}$/u', $normalized)) {
+      $token_count = count(array_filter(preg_split('/\s+/', $normalized) ?: []));
+      $legal_topic_tokens = '/\b(eviction|custody|divorce|benefits?|snap|hearing|court|landlord|tenant|lawsuit|disability|scam|fraud)\b/u';
+      if ($token_count > 0 && $token_count <= 4 && !preg_match($legal_topic_tokens, $normalized)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Returns TRUE when user explicitly continues office/location discussion.
+   */
+  protected function isExplicitOfficeFollowupTurn(string $message): bool {
+    $normalized = mb_strtolower(trim($message));
+    if ($normalized === '') {
+      return FALSE;
+    }
+
+    return (bool) preg_match('/\b(office|location|address|hours?|open|close|closest|near\s*me|which\s*office|directions?)\b/u', $normalized);
+  }
+
+  /**
+   * Returns TRUE if message is asking for office details.
+   */
+  protected function isOfficeDetailRequest(string $message): bool {
+    $normalized = mb_strtolower(trim($message));
+    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go)\b/u', $normalized);
+  }
+
+  /**
+   * Resolves office from current message, then recent conversation history.
+   */
+  protected function resolveOfficeFromMessageOrHistory(string $message, array $server_history, OfficeLocationResolver $resolver): ?array {
+    $office = $resolver->resolve($message);
+    if ($office) {
+      return $office;
+    }
+
+    $recent = array_reverse(array_slice($server_history, -6));
+    foreach ($recent as $entry) {
+      $text = (string) ($entry['text'] ?? '');
+      if ($text === '') {
+        continue;
+      }
+      $history_office = $resolver->resolve($text);
+      if ($history_office) {
+        return $history_office;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
    * Backwards-compatible wrapper for form finder keyword extraction.
    */
   protected function extractFormTopicKeywords(string $query): string {
@@ -3037,7 +3220,6 @@ class AssistantApiController extends ControllerBase {
    *   JSON response with office details.
    */
   protected function handleOfficeFollowUp(array $office, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta): JsonResponse {
-    $slug = strtolower(str_replace(' ', '-', $office['name']));
     $response = [
       'type' => 'office_location',
       'response_mode' => 'navigate',
@@ -3046,6 +3228,7 @@ class AssistantApiController extends ControllerBase {
         'name' => $office['name'],
         'address' => $office['address'],
         'phone' => $office['phone'],
+        'hours' => $office['hours'] ?? $this->t('Hours may vary. Please call to confirm current office hours.'),
       ],
       'primary_action' => [
         'label' => $this->t('@name Office Details', ['@name' => $office['name']]),

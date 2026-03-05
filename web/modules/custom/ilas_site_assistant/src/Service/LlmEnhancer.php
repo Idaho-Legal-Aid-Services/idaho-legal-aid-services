@@ -76,6 +76,13 @@ class LlmEnhancer {
   protected ?LlmRateLimiter $rateLimiter;
 
   /**
+   * The cost control policy service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\CostControlPolicy|null
+   */
+  protected ?CostControlPolicy $costControlPolicy;
+
+  /**
    * Token usage from the most recent LLM API call.
    *
    * @var array|null
@@ -226,6 +233,7 @@ PROMPT,
     CacheBackendInterface $cache = NULL,
     LlmCircuitBreaker $circuit_breaker = NULL,
     LlmRateLimiter $rate_limiter = NULL,
+    ?CostControlPolicy $cost_control_policy = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->httpClient = $http_client;
@@ -234,6 +242,7 @@ PROMPT,
     $this->cache = $cache;
     $this->circuitBreaker = $circuit_breaker;
     $this->rateLimiter = $rate_limiter;
+    $this->costControlPolicy = $cost_control_policy;
   }
 
   /**
@@ -584,7 +593,17 @@ PROMPT,
       $cached = $this->cache->get($cacheKey);
       if ($cached) {
         $this->lastUsage = NULL;
+        $this->costControlPolicy?->recordCacheHit();
         return $cached->data;
+      }
+    }
+
+    // Cost control policy check (after cache, before API call).
+    $this->costControlPolicy?->recordCacheMiss();
+    if ($this->costControlPolicy) {
+      $policyResult = $this->costControlPolicy->isRequestAllowed();
+      if (!$policyResult['allowed']) {
+        throw new \RuntimeException('Cost control policy denied request: ' . $policyResult['reason']);
       }
     }
 
@@ -607,6 +626,7 @@ PROMPT,
       }
       $this->circuitBreaker?->recordSuccess();
       $this->rateLimiter?->recordCall();
+      $this->costControlPolicy?->recordCall($this->lastUsage);
     }
     catch (\Exception $e) {
       $this->circuitBreaker?->recordFailure();

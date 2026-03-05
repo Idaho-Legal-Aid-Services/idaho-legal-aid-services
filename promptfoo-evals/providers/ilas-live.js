@@ -24,6 +24,8 @@ const crypto = require('node:crypto');
 const REQUEST_DELAY_MS = parseInt(process.env.ILAS_REQUEST_DELAY_MS || '0', 10);
 const MAX_429_RETRIES = parseInt(process.env.ILAS_429_MAX_RETRIES || '5', 10);
 const BASE_429_WAIT_MS = parseInt(process.env.ILAS_429_BASE_WAIT_MS || '65000', 10);
+const MAX_429_WAIT_MS = parseInt(process.env.ILAS_429_MAX_WAIT_MS || '180000', 10);
+const EVAL_RUN_ID = (process.env.ILAS_EVAL_RUN_ID || '').trim();
 
 /** Shared timestamp of last successful request (across all provider instances). */
 let lastRequestTime = 0;
@@ -99,6 +101,24 @@ function extractFirstSetCookieValue(setCookieHeader) {
   const first = setCookieHeader.split('\n')[0] || setCookieHeader;
   const cookiePair = first.split(';')[0]?.trim();
   return cookiePair || null;
+}
+
+function deterministicUuidV4(seed) {
+  const digest = crypto.createHash('sha256').update(String(seed)).digest();
+  const bytes = Buffer.from(digest.subarray(0, 16));
+
+  // RFC 4122 v4 bits.
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = bytes.toString('hex');
+  return (
+    `${hex.slice(0, 8)}-` +
+    `${hex.slice(8, 12)}-` +
+    `${hex.slice(12, 16)}-` +
+    `${hex.slice(16, 20)}-` +
+    `${hex.slice(20, 32)}`
+  );
 }
 
 class IlasLiveProvider {
@@ -178,12 +198,29 @@ class IlasLiveProvider {
       v?.metadata ||
       {};
 
-    return (
+    const explicitConversationId =
       m.conversationId ||
       v.conversation_id ||
       v.conversationId ||
-      crypto.randomUUID()
-    );
+      null;
+
+    if (!EVAL_RUN_ID) {
+      return explicitConversationId || crypto.randomUUID();
+    }
+
+    const stableFallbackKey = [
+      v.scenario_id,
+      m.conversationName,
+      m.turn,
+      context?.testIdx,
+      context?.promptIdx,
+      v.question || prompt,
+    ]
+      .filter((value) => value !== null && value !== undefined && value !== '')
+      .join('|');
+
+    const baseKey = explicitConversationId || stableFallbackKey || crypto.randomUUID();
+    return deterministicUuidV4(`${EVAL_RUN_ID}:${baseKey}`);
   }
 
   async callApi(prompt, context) {
@@ -255,12 +292,15 @@ class IlasLiveProvider {
       if (res.status === 429) {
         attempt++;
         if (attempt > MAX_429_RETRIES) {
-          return { error: `Rate limited (429) after ${MAX_429_RETRIES} retries. Giving up.` };
+          return { error: `HTTP 429 after ${MAX_429_RETRIES} retries. Giving up.` };
         }
         const retryAfter = res.headers.get('Retry-After');
-        const waitMs = retryAfter
+        const rawWaitMs = retryAfter
           ? parseInt(retryAfter, 10) * 1000
           : BASE_429_WAIT_MS * Math.pow(1.5, attempt - 1);
+        const waitMs = Number.isFinite(MAX_429_WAIT_MS) && MAX_429_WAIT_MS > 0
+          ? Math.min(rawWaitMs, MAX_429_WAIT_MS)
+          : rawWaitMs;
         requestCount++;
         const shortQ = question.length > 40 ? question.slice(0, 40) + '...' : question;
         console.log(

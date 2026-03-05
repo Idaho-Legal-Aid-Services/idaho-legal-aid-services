@@ -574,6 +574,44 @@ ilas_site_assistant.settings:
         signoff_deadline_days:
           type: integer
           label: 'Days after period end to complete signoff'
+    cost_control:
+      type: mapping
+      label: 'Cost control policy settings'
+      mapping:
+        daily_call_limit:
+          type: integer
+          label: 'Maximum LLM API calls per day (0 = unlimited)'
+        monthly_call_limit:
+          type: integer
+          label: 'Maximum LLM API calls per month (0 = unlimited)'
+        sample_rate:
+          type: float
+          label: 'Sampling rate for LLM calls (0.0-1.0)'
+        cache_hit_rate_target:
+          type: float
+          label: 'Target cache hit rate (0.0-1.0)'
+        cache_stats_window_seconds:
+          type: integer
+          label: 'Cache stats observation window in seconds'
+        manual_kill_switch:
+          type: boolean
+          label: 'Manual kill switch for LLM calls'
+        pricing:
+          type: mapping
+          label: 'LLM pricing for cost estimation'
+          mapping:
+            model:
+              type: string
+              label: 'Model name for pricing reference'
+            input_per_1m_tokens:
+              type: float
+              label: 'Cost per 1M input tokens (USD)'
+            output_per_1m_tokens:
+              type: float
+              label: 'Cost per 1M output tokens (USD)'
+        alert_cooldown_minutes:
+          type: integer
+          label: 'Minimum minutes between cost alerts'
     langfuse:
       type: mapping
       label: 'Langfuse observability settings'

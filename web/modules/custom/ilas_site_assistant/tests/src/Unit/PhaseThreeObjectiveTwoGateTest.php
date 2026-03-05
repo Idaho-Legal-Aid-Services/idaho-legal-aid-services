@@ -127,6 +127,7 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('guard-anchor-llm-rate-limiter=present', $artifact);
     $this->assertStringContainsString('guard-anchor-performance-monitor=present', $artifact);
     $this->assertStringContainsString('guard-anchor-slo-alert-service=present', $artifact);
+    $this->assertStringContainsString('guard-anchor-cost-control-policy=present', $artifact);
   }
 
   /**
@@ -181,6 +182,12 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('class SloAlertService', $sloAlert);
     $this->assertStringContainsString('public function checkAll(): void', $sloAlert);
     $this->assertStringContainsString('SLO violation: P95 latency', $sloAlert);
+
+    $costPolicy = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php');
+    $this->assertStringContainsString('class CostControlPolicy', $costPolicy);
+    $this->assertStringContainsString('public function isRequestAllowed(): array', $costPolicy);
+    $this->assertStringContainsString('public function evaluateKillSwitch(): array', $costPolicy);
+    $this->assertStringContainsString('public function estimateCost(array $tokenUsage): float', $costPolicy);
   }
 
 }

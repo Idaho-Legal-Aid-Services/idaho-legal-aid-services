@@ -69,8 +69,8 @@ class TopIntentsPack {
   /**
    * Reverse synonym lookup: finds intent key from normalized user input.
    *
-   * Checks if any synonym from the intents pack appears as a substring
-   * in the normalized input. Returns the first matching intent key.
+   * Checks if any synonym from the intents pack appears as a whole-word/phrase
+   * match in the normalized input. Returns the first matching intent key.
    *
    * @param string $normalized_input
    *   Lowercased, trimmed user input.
@@ -83,12 +83,29 @@ class TopIntentsPack {
     $input = mb_strtolower(trim($normalized_input));
 
     foreach ($index as $synonym => $intent_key) {
-      if (str_contains($input, $synonym)) {
+      if ($this->matchesSynonym($input, $synonym)) {
         return $intent_key;
       }
     }
 
     return NULL;
+  }
+
+  /**
+   * Checks whether a synonym matches as a bounded word/phrase.
+   */
+  protected function matchesSynonym(string $input, string $synonym): bool {
+    $normalized_synonym = mb_strtolower(trim($synonym));
+    if ($normalized_synonym === '') {
+      return FALSE;
+    }
+
+    $escaped = preg_quote($normalized_synonym, '/');
+    // Allow flexible whitespace for phrase synonyms.
+    $escaped = str_replace('\ ', '\s+', $escaped);
+    $pattern = '/(?<![\p{L}\p{N}_])' . $escaped . '(?![\p{L}\p{N}_])/u';
+
+    return (bool) preg_match($pattern, $input);
   }
 
   /**

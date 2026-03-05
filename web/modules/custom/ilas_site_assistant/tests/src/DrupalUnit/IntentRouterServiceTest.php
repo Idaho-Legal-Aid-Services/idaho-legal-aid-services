@@ -493,4 +493,36 @@ class IntentRouterServiceTest extends UnitTestCase {
     $this->assertEquals('consumer', $result['area']);
   }
 
+  /**
+   * Deposit narratives containing "give" must not route to donations.
+   *
+   * @covers ::route
+   */
+  public function testDepositNarrativeDoesNotRouteToDonate(): void {
+    $result = $this->intentRouter->route('she didnt give me any kind of list of what she took money for');
+    $this->assertNotEquals('donations', $result['type']);
+  }
+
+  /**
+   * Housing retaliation concerns must not route to feedback.
+   *
+   * @covers ::route
+   */
+  public function testRetaliationConcernDoesNotRouteToFeedback(): void {
+    $result = $this->intentRouter->route('my landlord is not renewing my lease because i complained');
+    $this->assertNotEquals('feedback', $result['type']);
+    $this->assertEquals('service_area', $result['type']);
+    $this->assertEquals('housing', $result['area']);
+  }
+
+  /**
+   * Hotline-hours queries must route to hotline, not offices.
+   *
+   * @covers ::route
+   */
+  public function testHotlineHoursRoutesToHotline(): void {
+    $result = $this->intentRouter->route('what hours can i call');
+    $this->assertEquals('legal_advice_line', $result['type']);
+  }
+
 }

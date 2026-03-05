@@ -281,3 +281,16 @@ audit_governance:
   signoff_required_permission: 'approve ilas site assistant audit'
   report_retention_days: 365
   signoff_deadline_days: 14
+
+cost_control:
+  daily_call_limit: 5000
+  monthly_call_limit: 100000
+  sample_rate: 1.0
+  cache_hit_rate_target: 0.30
+  cache_stats_window_seconds: 86400
+  manual_kill_switch: false
+  pricing:
+    model: 'gemini-1.5-flash'
+    input_per_1m_tokens: 0.075
+    output_per_1m_tokens: 0.30
+  alert_cooldown_minutes: 60

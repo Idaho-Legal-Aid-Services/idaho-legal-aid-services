@@ -1,4 +1,4 @@
-# Phase 3 Objective #2 Runtime Evidence (P3-OBJ-02)
+# Phase 3 Objective #1 Runtime Evidence (P3-OBJ-01)
 
 Date: 2026-03-05
 
@@ -12,19 +12,23 @@ command=vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-servi
 status=passed
 exit_code=0
 
-### Guardrail Anchors
-guard-anchor-llm-enhancer=present
-guard-anchor-llm-circuit-breaker=present
-guard-anchor-llm-rate-limiter=present
-guard-anchor-performance-monitor=present
-guard-anchor-slo-alert-service=present
-guard-anchor-cost-control-policy=present
+### Accessibility Anchors
+a11y-anchor-claim-025=present
+a11y-anchor-claim-032=present
+a11y-anchor-acceptance-gate-test=present
+a11y-anchor-recovery-ux-contract-test=present
+a11y-anchor-widget-hardening-js-test=present
+
+### Mobile UX Anchors
+mobile-anchor-claim-026=present
+mobile-anchor-claim-031=present
+mobile-anchor-timeout-offline-contracts=present
 
 ### Scope Guardrails
 No net-new assistant channels or third-party model expansion beyond audited providers.
 No platform-wide refactor of unrelated Drupal subsystems.
 
 ### Disposition Markers
-p3-obj-02-status=closed
-p3-obj-02-enforcement=runbook+guard-test+runtime-artifact
-p3-obj-02-scope=objective-closure-artifacts-only
+p3-obj-01-status=closed
+p3-obj-01-enforcement=runbook+guard-test+runtime-artifact
+p3-obj-01-scope=objective-closure-artifacts-only

@@ -188,10 +188,12 @@ class OfficeLocationResolverTest extends TestCase {
     $this->assertArrayHasKey('name', $result);
     $this->assertArrayHasKey('address', $result);
     $this->assertArrayHasKey('phone', $result);
+    $this->assertArrayHasKey('hours', $result);
     $this->assertArrayHasKey('url', $result);
     $this->assertNotEmpty($result['name']);
     $this->assertNotEmpty($result['address']);
     $this->assertNotEmpty($result['phone']);
+    $this->assertNotEmpty($result['hours']);
     $this->assertNotEmpty($result['url']);
   }
 
@@ -207,10 +209,12 @@ class OfficeLocationResolverTest extends TestCase {
       $this->assertArrayHasKey('name', $office, "Office '$slug' must have 'name'");
       $this->assertArrayHasKey('address', $office, "Office '$slug' must have 'address'");
       $this->assertArrayHasKey('phone', $office, "Office '$slug' must have 'phone'");
+      $this->assertArrayHasKey('hours', $office, "Office '$slug' must have 'hours'");
       $this->assertArrayHasKey('url', $office, "Office '$slug' must have 'url'");
       $this->assertNotEmpty($office['name']);
       $this->assertNotEmpty($office['address']);
       $this->assertNotEmpty($office['phone']);
+      $this->assertStringContainsString('call to confirm', strtolower($office['hours']));
       $this->assertStringStartsWith('/contact/offices/', $office['url']);
     }
   }

@@ -47,7 +47,8 @@ intents:
       - { label: Find an Office, intent: offices_contact }
     synonyms:
       - hotline
-      - call
+      - call hotline
+      - call legal aid
       - phone number
       - talk to someone
       - linea de ayuda
@@ -79,7 +80,7 @@ intents:
       - { label: Our Services, intent: services_overview }
     synonyms:
       - donate
-      - give
+      - give money
       - contribute
       - donar
 
@@ -94,7 +95,7 @@ intents:
       - { label: Our Services, intent: services_overview }
     synonyms:
       - feedback
-      - complaint
+      - file a complaint
       - suggestion
       - comentarios
 

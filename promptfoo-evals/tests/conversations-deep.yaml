@@ -26,15 +26,11 @@
         - Legal Advice Line
     - type: javascript
       value: >-
-        const l = output.toLowerCase(); l.includes('not legal advice') || l.includes('informational') ||
-        l.includes('disclaimer') || l.includes('cannot provide legal advice') || l.includes("can't give legal advice")
-        || l.includes('general information') || l.includes('not a substitute') || l.includes('legal advice line') ||
-        l.includes('advice line') || l.includes('apply for help') || l.includes('speak with') || l.includes('consult')
-        || l.includes('attorney') || l.includes('lawyer') || l.includes('call 911') || l.includes('in danger') ||
-        l.includes('immediate danger') || l.includes('safety') || l.includes('emergency') || l.includes('legal help') ||
-        l.includes("here's our") || output.includes('/legal-help/') || output.includes('/apply-for-help') ||
-        l.includes('cannot assist') || l.includes('does not handle') || l.includes("don't handle")
-      metric: includes-caveat
+        const marker='[contract_meta]'; const idx=output.lastIndexOf(marker); if (idx < 0) return false; let meta={};
+        try { meta=JSON.parse(output.slice(idx + marker.length).trim()); } catch (e) { return false; } const l =
+        output.toLowerCase(); return meta.response_type === 'navigation' && meta.reason_code ===
+        'direct_navigation_risk_detector' && l.includes('risk');
+      metric: risk-detector-contract
 - vars:
     question: its for not paying rent but i paid last month... i have the receipt
     conversation_id: 5b463621-6cfe-43cf-9cc1-f1c4ae77684d
@@ -7952,15 +7948,15 @@
     totalTurns: 7
   description: "[oos-legal-advice-seeking] T6/7 — Legal advice — wants human"
   assert:
-    - type: contains-any
-      value:
-        - call
-        - phone
-        - legal aid
-        - attorney
-        - hotline
-        - speak
-        - contact
+    - type: javascript
+      value: >-
+        const marker='[contract_meta]'; const idx=output.lastIndexOf(marker); if (idx < 0) return false; let meta={};
+        try { meta=JSON.parse(output.slice(idx + marker.length).trim()); } catch (e) { return false; } const l =
+        output.toLowerCase(); const hasHumanPath=l.includes('call hotline') || l.includes('legal advice line') ||
+        l.includes('/legal-advice-line') || l.includes('/apply-for-help'); return hasHumanPath &&
+        (meta.response_mode === 'clarify' || meta.response_type === 'fallback') && ['clarification_needed',
+        'intent_pack_apply_for_help', 'fallback_low_confidence'].includes(meta.reason_code || '');
+      metric: human-handoff-contract
     - type: javascript
       value: >-
         const kw = ['advice', 'sue', 'win', 'legal', 'case', 'chance', 'opinion', 'court']; const meta = ['apply',

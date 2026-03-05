@@ -13,6 +13,12 @@
 4. Add/update tests for code changes unless explicitly N/A.
 5. Return changed files, command outputs summary, residual risks, and rollback notes.
 
+### Promptfoo Gate Integrity Addendum (2026-03-05)
+1. Keep the blocking threshold unchanged at `90%`; do not lower thresholds to pass.
+2. Enforce `promptfoo-evals/scripts/lint-javascript-assertions.mjs` before promptfoo gates.
+3. Use `ILAS_EVAL_RUN_ID` for deterministic per-run conversation salting when proving rerun stability.
+4. Preserve adjudication evidence in `promptfoo-evals/output/failure-adjudication.json` when classifying gate failures as harness/rubric/product.
+
 ## Validation command matrix
 | Profile | Command |
 |---|---|
