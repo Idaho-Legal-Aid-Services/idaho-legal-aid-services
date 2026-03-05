@@ -238,6 +238,30 @@ class FallbackGateTest extends TestCase {
   }
 
   /**
+   * Tests no-results retrieval path caps high-intent confidence at 0.49.
+   */
+  public function testNoResultsHighIntentConfidenceIsCapped(): void {
+    $intent = [
+      'type' => 'faq',
+      'extraction' => [
+        'keywords' => ['tenant', 'rights'],
+        'phrases_found' => ['tenant rights'],
+        'synonyms_applied' => [],
+      ],
+    ];
+
+    $decision = $this->fallbackGate->evaluate($intent, [], [], [
+      'message' => 'What are Idaho tenant rights for eviction notices?',
+    ]);
+
+    $this->assertEquals(FallbackGate::DECISION_ANSWER, $decision['decision']);
+    $this->assertEquals(FallbackGate::REASON_NO_RESULTS, $decision['reason_code']);
+    $this->assertLessThanOrEqual(0.49, $decision['confidence']);
+    $this->assertSame(TRUE, $decision['details']['no_results_confidence_capped'] ?? NULL);
+    $this->assertArrayHasKey('no_results_uncapped_confidence', $decision['details']);
+  }
+
+  /**
    * Tests policy violation triggers hard route.
    */
   public function testPolicyViolationHardRoute(): void {

@@ -1,0 +1,24 @@
+# Phase 2 Sprint 4 Runtime Evidence (P2-SBD-01)
+Capture date: 2026-03-05
+Scope: Sprint 4 closure verification (response contract + retrieval-confidence implementation and tests)
+
+## Validation commands
+
+### VC-UNIT
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+exit_code=0
+summary=OK, but there were issues! Tests: 1613, Assertions: 6809, PHPUnit Deprecations: 171, Skipped: 1.
+
+### VC-QUALITY-GATE
+$ cd '/home/evancurry/idaho-legal-aid-services' && ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+exit_code=0
+summary=Quality gate PASSED (unit: 1613 tests, drupal-unit: 556 tests, golden transcript: 7 tests)
+
+## Linked runtime artifacts
+- docs/aila/runtime/phase2-exit1-retrieval-contract-confidence-thresholds.txt
+- docs/aila/runtime/phase2-exit2-citation-coverage-refusal-targets.txt
+
+## Scope guardrails (unchanged)
+- `llm.enabled=false` remains enforced through Phase 2.
+- No broad platform migration outside the current Pantheon baseline.
+- phase2-sprint4-status=closed

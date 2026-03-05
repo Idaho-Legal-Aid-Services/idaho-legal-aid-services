@@ -1318,6 +1318,16 @@ Evidence precedence used in this audit:
   - `docs/aila/roadmap.md` (Phase 2 Deliverable #1 disposition dated 2026-03-03)
   - `docs/aila/current-state.md` (Section 4B contract expansion row + Section 4D retrieval confidence row + P2-DEL-01 disposition)
   - `docs/aila/runbook.md` (P2-DEL-01 verification subsection in section 4)
+- Addendum (2026-03-05): Sprint 4 closure (`P2-SBD-01`) retunes response
+  contract normalization to clamp confidence to finite `[0,1]`, keep contract
+  fields additive, and derive citations safely from retrieval results when
+  `sources[]` are sparse.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (normalization helpers in `assembleContractFields()`)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ResponseContractNormalizationTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableOneGateTest.php`
+  - `docs/aila/current-state.md` (P2-SBD-01 closure addendum)
+  - `docs/aila/runbook.md` (P2-SBD-01 verification subsection)
 
 ---
 
@@ -1343,6 +1353,17 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md` (P2-DEL-02 verification subsection in section 4)
   - `docs/aila/backlog.md` (Retrieval Quality row moved to active mitigation posture)
   - `docs/aila/risk-register.md` (`R-RAG-01` moved to active mitigation with threshold-gated detection signals)
+- Addendum (2026-03-05): Sprint 4 closure (`P2-SBD-01`) keeps 90%
+  retrieval-threshold policy while adding metric count-floor diagnostics
+  (`rag_metric_min_count`, `rag_*_count_fail`) and replacing one brittle
+  citation scenario prompt for improved deterministic retrieval grounding.
+- Addendum evidence:
+  - `scripts/ci/run-promptfoo-gate.sh` (metric count-floor summary fields + fail flags)
+  - `promptfoo-evals/tests/retrieval-confidence-thresholds.yaml` (retuned citation scenario text)
+  - `promptfoo-evals/providers/ilas-live.js` (normalized `contract_meta.confidence`)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableTwoGateTest.php`
+  - `docs/aila/current-state.md` (P2-SBD-01 closure addendum)
+  - `docs/aila/runbook.md` (P2-SBD-01 verification subsection)
 
 ---
 
@@ -1512,3 +1533,35 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php` (live guard behavior contract)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/FallbackGateTest.php` (live fallback decision contract)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoExitCriteriaThreeGateTest.php` (closure continuity/enforcement lock)
+
+---
+
+## Phase 2 Sprint 4 Response Contract + Retrieval Confidence Retune Closure (`P2-SBD-01`)
+
+### CLAIM-143
+- Claim: Phase 2 Sprint 4 closure item (`P2-SBD-01`) is completed in-repo as
+  specified: "Sprint 4: response contract + retrieval-confidence implementation
+  and tests." Runtime behavior is retuned additively by normalizing response
+  contract fields (`confidence`, `citations[]`, `decision_reason`), capping
+  high-intent/no-results retrieval confidence at `<= 0.49` while preserving
+  answer routing (`REASON_NO_RESULTS`), and extending promptfoo gate summaries
+  with metric count-floor diagnostics under unchanged 90% threshold policy.
+  Scope constraints remain unchanged: no live LLM enablement through Phase 2
+  and no broad platform migration outside the current Pantheon baseline.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (`assembleContractFields()` normalization helpers)
+  - `web/modules/custom/ilas_site_assistant/src/Service/FallbackGate.php` (no-results high-intent confidence cap + debug markers)
+  - `promptfoo-evals/providers/ilas-live.js` (normalized `contract_meta.confidence`)
+  - `promptfoo-evals/tests/retrieval-confidence-thresholds.yaml` (retuned citation scenario while preserving 10+10 metric anchors)
+  - `scripts/ci/run-promptfoo-gate.sh` (`rag_metric_min_count` + `rag_*_count_fail` summary enforcement)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ResponseContractNormalizationTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/FallbackGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableOneGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableTwoGateTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoSprintFourGateTest.php`
+  - `docs/aila/roadmap.md` (Phase 2 Sprint 4 disposition dated 2026-03-05)
+  - `docs/aila/current-state.md` (P2-SBD-01 closure addendum)
+  - `docs/aila/runbook.md` (P2-SBD-01 verification subsection in section 4)
+  - `docs/aila/runtime/phase2-sprint4-closure.txt` (sanitized VC alias output + scope guardrails)
+  - `docs/aila/backlog.md` (retrieval-quality row continuity addendum)
+  - `docs/aila/risk-register.md` (`R-RAG-01` detection-signal addendum)

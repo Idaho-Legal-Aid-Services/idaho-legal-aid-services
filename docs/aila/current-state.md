@@ -460,6 +460,35 @@ This dated addendum records `P2-DEL-04` completion for Phase 2 Key Deliverable #
    Phase 2 and no broad platform migration outside the current Pantheon
    baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-137]
 
+### Phase 2 Sprint 4 Response Contract + Retrieval Confidence Retune Disposition (2026-03-05)
+
+This dated addendum records `P2-SBD-01` completion for Phase 2 Sprint 4 closure:
+"Sprint 4: response contract + retrieval-confidence implementation and tests."
+
+1. Response contract fields remain additive and stable on all 200-response paths:
+   `confidence`, `citations[]`, and `decision_reason` are still assembled at the
+   same call sites, while confidence is now normalized/clamped to a finite
+   float in `[0,1]` and citations are safely derived from result metadata when
+   `sources[]` are sparse.[^CLAIM-134][^CLAIM-143]
+2. Retrieval-confidence gate retune preserves current routing posture for
+   high-intent/no-results retrieval: `REASON_NO_RESULTS` still answers, but
+   confidence is capped at `<= 0.49` with explicit decision-details markers for
+   debugging and threshold tuning. This closure explicitly enforces confidence
+   cap (`<= 0.49`) for `REASON_NO_RESULTS` to keep weak-grounding behavior
+   measurable without changing route class outcomes.[^CLAIM-062][^CLAIM-135][^CLAIM-143]
+3. Promptfoo threshold policy remains unchanged at 90% per metric; gate
+   summaries now include count-floor diagnostics
+   (`rag_metric_min_count`, `rag_contract_meta_count_fail`,
+   `rag_citation_coverage_count_fail`, `rag_low_confidence_refusal_count_fail`)
+   to distinguish low-sample failures from pass-rate drift.[^CLAIM-086][^CLAIM-135][^CLAIM-143]
+4. Sprint closure is now enforced by dedicated guard coverage
+   (`PhaseTwoSprintFourGateTest.php`) and response-contract normalization tests
+   (`ResponseContractNormalizationTest.php`) tied to required aliases
+   `VC-UNIT` and `VC-QUALITY-GATE`.[^CLAIM-105][^CLAIM-143]
+5. Scope boundaries remain unchanged: no live production LLM enablement through
+   Phase 2 and no broad platform migration outside the current Pantheon
+   baseline.[^CLAIM-115][^CLAIM-119][^CLAIM-143]
+
 ### Phase 0 Exit #3 Dependency Disposition (2026-02-27)
 
 This dated addendum preserves the historical baseline above and records the
@@ -921,3 +950,4 @@ This dated addendum records `P1-NDO-02` closure for the Phase 1 scope boundary:
 [^CLAIM-140]: [CLAIM-140](evidence-index.md#claim-140)
 [^CLAIM-141]: [CLAIM-141](evidence-index.md#claim-141)
 [^CLAIM-142]: [CLAIM-142](evidence-index.md#claim-142)
+[^CLAIM-143]: [CLAIM-143](evidence-index.md#claim-143)

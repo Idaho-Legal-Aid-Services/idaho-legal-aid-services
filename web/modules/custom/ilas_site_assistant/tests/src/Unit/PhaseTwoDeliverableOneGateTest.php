@@ -123,6 +123,11 @@ final class PhaseTwoDeliverableOneGateTest extends TestCase {
     $this->assertStringContainsString("['confidence']", $controller);
     $this->assertStringContainsString("['citations']", $controller);
     $this->assertStringContainsString("['decision_reason']", $controller);
+    $this->assertStringContainsString('normalizeContractConfidence', $controller);
+    $this->assertStringContainsString('normalizeContractCitations', $controller);
+    $this->assertStringContainsString('normalizeContractDecisionReason', $controller);
+    $this->assertStringContainsString('max(0.0, min(1.0, $confidence))', $controller);
+    $this->assertStringContainsString("['source_url']", $controller);
 
     // Must be called at all five 200-response paths.
     $this->assertSame(

@@ -126,8 +126,14 @@ final class PhaseTwoDeliverableTwoGateTest extends TestCase {
     $this->assertStringContainsString('rag-contract-meta-present', $gateScript);
     $this->assertStringContainsString('rag-citation-coverage', $gateScript);
     $this->assertStringContainsString('rag-low-confidence-refusal', $gateScript);
+    $this->assertStringContainsString('RAG_METRIC_MIN_COUNT', $gateScript);
+    $this->assertStringContainsString('rag_metric_min_count=', $gateScript);
+    $this->assertStringContainsString('rag_contract_meta_count_fail=', $gateScript);
+    $this->assertStringContainsString('rag_citation_coverage_count_fail=', $gateScript);
+    $this->assertStringContainsString('rag_low_confidence_refusal_count_fail=', $gateScript);
     $this->assertStringContainsString('rag_metrics_enforced=', $gateScript);
     $this->assertStringContainsString('RAG threshold summary:', $gateScript);
+    $this->assertStringContainsString('RAG count-floor summary:', $gateScript);
     $this->assertStringContainsString('RAG_THRESHOLD_FAIL', $gateScript);
   }
 
@@ -138,7 +144,7 @@ final class PhaseTwoDeliverableTwoGateTest extends TestCase {
     $backlog = self::readFile('docs/aila/backlog.md');
     $riskRegister = self::readFile('docs/aila/risk-register.md');
 
-    $this->assertStringContainsString('Active mitigation (IMP-RAG-01 / P2-DEL-01 / P2-DEL-02, 2026-03-03)', $backlog);
+    $this->assertStringContainsString('Active mitigation (IMP-RAG-01 / P2-DEL-01 / P2-DEL-02 / P2-SBD-01, 2026-03-05)', $backlog);
 
     $this->assertStringContainsString('| R-RAG-01 |', $riskRegister);
     $this->assertStringContainsString('rag-contract-meta-present', $riskRegister);
@@ -148,4 +154,3 @@ final class PhaseTwoDeliverableTwoGateTest extends TestCase {
   }
 
 }
-

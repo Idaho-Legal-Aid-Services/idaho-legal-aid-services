@@ -17,6 +17,7 @@ DEEP_CONFIG_FILE=""
 SKIP_EVAL="false"
 SIMULATED_PASS_RATE=""
 RAG_METRIC_THRESHOLD="${RAG_CONFIDENCE_THRESHOLD:-90}"
+RAG_METRIC_MIN_COUNT="${RAG_METRIC_MIN_COUNT:-1}"
 
 read_named_metric_rate() {
   local results_file="$1"
@@ -198,12 +199,15 @@ RAG_METRICS_ENFORCED="false"
 RAG_CONTRACT_META_RATE="0"
 RAG_CONTRACT_META_SCORE="0"
 RAG_CONTRACT_META_COUNT="0"
+RAG_CONTRACT_META_COUNT_FAIL="no"
 RAG_CITATION_COVERAGE_RATE="0"
 RAG_CITATION_COVERAGE_SCORE="0"
 RAG_CITATION_COVERAGE_COUNT="0"
+RAG_CITATION_COVERAGE_COUNT_FAIL="no"
 RAG_LOW_CONF_REFUSAL_RATE="0"
 RAG_LOW_CONF_REFUSAL_SCORE="0"
 RAG_LOW_CONF_REFUSAL_COUNT="0"
+RAG_LOW_CONF_REFUSAL_COUNT_FAIL="no"
 RAG_CONTRACT_META_FAIL="no"
 RAG_CITATION_COVERAGE_FAIL="no"
 RAG_LOW_CONF_REFUSAL_FAIL="no"
@@ -214,9 +218,13 @@ if [[ "$SKIP_EVAL" != "true" && -f "$RESULTS_FILE" ]]; then
   read -r RAG_CITATION_COVERAGE_RATE RAG_CITATION_COVERAGE_SCORE RAG_CITATION_COVERAGE_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "rag-citation-coverage")
   read -r RAG_LOW_CONF_REFUSAL_RATE RAG_LOW_CONF_REFUSAL_SCORE RAG_LOW_CONF_REFUSAL_COUNT < <(read_named_metric_rate "$RESULTS_FILE" "rag-low-confidence-refusal")
 
-  RAG_CONTRACT_META_FAIL=$(node -e "const r=parseFloat('${RAG_CONTRACT_META_RATE}'); const c=parseFloat('${RAG_CONTRACT_META_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
-  RAG_CITATION_COVERAGE_FAIL=$(node -e "const r=parseFloat('${RAG_CITATION_COVERAGE_RATE}'); const c=parseFloat('${RAG_CITATION_COVERAGE_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
-  RAG_LOW_CONF_REFUSAL_FAIL=$(node -e "const r=parseFloat('${RAG_LOW_CONF_REFUSAL_RATE}'); const c=parseFloat('${RAG_LOW_CONF_REFUSAL_COUNT}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); console.log(!Number.isFinite(r) || c <= 0 || r < t ? 'yes' : 'no');")
+  RAG_CONTRACT_META_COUNT_FAIL=$(node -e "const c=parseFloat('${RAG_CONTRACT_META_COUNT}'); const m=parseFloat('${RAG_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  RAG_CITATION_COVERAGE_COUNT_FAIL=$(node -e "const c=parseFloat('${RAG_CITATION_COVERAGE_COUNT}'); const m=parseFloat('${RAG_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+  RAG_LOW_CONF_REFUSAL_COUNT_FAIL=$(node -e "const c=parseFloat('${RAG_LOW_CONF_REFUSAL_COUNT}'); const m=parseFloat('${RAG_METRIC_MIN_COUNT}'); console.log(!Number.isFinite(c) || !Number.isFinite(m) || c < m ? 'yes' : 'no');")
+
+  RAG_CONTRACT_META_FAIL=$(node -e "const r=parseFloat('${RAG_CONTRACT_META_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_CONTRACT_META_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  RAG_CITATION_COVERAGE_FAIL=$(node -e "const r=parseFloat('${RAG_CITATION_COVERAGE_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_CITATION_COVERAGE_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
+  RAG_LOW_CONF_REFUSAL_FAIL=$(node -e "const r=parseFloat('${RAG_LOW_CONF_REFUSAL_RATE}'); const t=parseFloat('${RAG_METRIC_THRESHOLD}'); const cf='${RAG_LOW_CONF_REFUSAL_COUNT_FAIL}'; console.log(!Number.isFinite(r) || !Number.isFinite(t) || r < t || cf === 'yes' ? 'yes' : 'no');")
 fi
 
 # Deep eval (runs after primary if deep config is set).
@@ -265,17 +273,21 @@ TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "deep_passed_cases=${DEEP_PASSED_CASES}"
   echo "rag_metrics_enforced=${RAG_METRICS_ENFORCED}"
   echo "rag_metric_threshold=${RAG_METRIC_THRESHOLD}"
+  echo "rag_metric_min_count=${RAG_METRIC_MIN_COUNT}"
   echo "rag_contract_meta_rate=${RAG_CONTRACT_META_RATE}"
   echo "rag_contract_meta_score=${RAG_CONTRACT_META_SCORE}"
   echo "rag_contract_meta_count=${RAG_CONTRACT_META_COUNT}"
+  echo "rag_contract_meta_count_fail=${RAG_CONTRACT_META_COUNT_FAIL}"
   echo "rag_contract_meta_fail=${RAG_CONTRACT_META_FAIL}"
   echo "rag_citation_coverage_rate=${RAG_CITATION_COVERAGE_RATE}"
   echo "rag_citation_coverage_score=${RAG_CITATION_COVERAGE_SCORE}"
   echo "rag_citation_coverage_count=${RAG_CITATION_COVERAGE_COUNT}"
+  echo "rag_citation_coverage_count_fail=${RAG_CITATION_COVERAGE_COUNT_FAIL}"
   echo "rag_citation_coverage_fail=${RAG_CITATION_COVERAGE_FAIL}"
   echo "rag_low_confidence_refusal_rate=${RAG_LOW_CONF_REFUSAL_RATE}"
   echo "rag_low_confidence_refusal_score=${RAG_LOW_CONF_REFUSAL_SCORE}"
   echo "rag_low_confidence_refusal_count=${RAG_LOW_CONF_REFUSAL_COUNT}"
+  echo "rag_low_confidence_refusal_count_fail=${RAG_LOW_CONF_REFUSAL_COUNT_FAIL}"
   echo "rag_low_confidence_refusal_fail=${RAG_LOW_CONF_REFUSAL_FAIL}"
 } > "$SUMMARY_FILE"
 
@@ -286,6 +298,11 @@ if [[ "$RAG_METRICS_ENFORCED" == "true" ]]; then
     "$RAG_CONTRACT_META_RATE" "$RAG_CONTRACT_META_SCORE" "$RAG_CONTRACT_META_COUNT" \
     "$RAG_CITATION_COVERAGE_RATE" "$RAG_CITATION_COVERAGE_SCORE" "$RAG_CITATION_COVERAGE_COUNT" \
     "$RAG_LOW_CONF_REFUSAL_RATE" "$RAG_LOW_CONF_REFUSAL_SCORE" "$RAG_LOW_CONF_REFUSAL_COUNT"
+  printf 'RAG count-floor summary: min_count=%s contract_count_fail=%s citations_count_fail=%s low_conf_refusal_count_fail=%s\n' \
+    "$RAG_METRIC_MIN_COUNT" \
+    "$RAG_CONTRACT_META_COUNT_FAIL" \
+    "$RAG_CITATION_COVERAGE_COUNT_FAIL" \
+    "$RAG_LOW_CONF_REFUSAL_COUNT_FAIL"
 fi
 if [[ -n "$DEEP_CONFIG_FILE" ]]; then
   printf 'Deep eval summary: deep_pass_rate=%s%% deep_eval_exit=%s\n' "$DEEP_PASS_RATE" "$DEEP_EVAL_EXIT"

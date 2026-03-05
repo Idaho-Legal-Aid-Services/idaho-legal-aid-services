@@ -351,8 +351,14 @@ class IlasLiveProvider {
       parts.push(absolutizeRelativePathsInText(data.caveat));
     }
 
+    const rawConfidence =
+      typeof data.confidence === 'number' ? data.confidence : Number(data.confidence);
+    const normalizedConfidence = Number.isFinite(rawConfidence)
+      ? Number(Math.max(0, Math.min(1, rawConfidence)).toFixed(4))
+      : null;
+
     const contractMeta = {
-      confidence: typeof data.confidence === 'number' ? data.confidence : null,
+      confidence: normalizedConfidence,
       citations_count: Array.isArray(data.citations)
         ? data.citations.length
         : (Array.isArray(data.sources) ? data.sources.length : 0),

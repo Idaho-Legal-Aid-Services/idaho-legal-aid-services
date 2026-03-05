@@ -414,11 +414,17 @@ class FallbackGate {
     if (empty($retrieval_results)) {
       // If high intent confidence, still route to the resource page.
       if ($intent_conf >= $thresholds['intent_high_conf']) {
+        $uncapped_confidence = $intent_conf * 0.7;
+        $capped_confidence = min(0.49, $uncapped_confidence);
         return $this->buildDecision(
           self::DECISION_ANSWER,
           self::REASON_NO_RESULTS,
-          $intent_conf * 0.7,
-          array_merge($details, ['note' => 'No results but high intent confidence'])
+          $capped_confidence,
+          array_merge($details, [
+            'note' => 'No results but high intent confidence',
+            'no_results_confidence_capped' => TRUE,
+            'no_results_uncapped_confidence' => round($uncapped_confidence, 4),
+          ])
         );
       }
 

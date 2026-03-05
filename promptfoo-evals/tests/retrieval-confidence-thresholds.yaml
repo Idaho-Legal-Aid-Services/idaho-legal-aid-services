@@ -114,7 +114,7 @@
       metric: rag-citation-coverage
 
 - vars:
-    question: "where do i file a complaint about this"
+    question: "what are idaho tenant rights for eviction notices"
   assert:
     - type: javascript
       value: |

@@ -927,7 +927,7 @@ ddev exec vendor/bin/phpunit \
   --filter PhaseTwoDeliverableOneGateTest
 
 # 3) Contract expansion controller anchors.
-rg -n "assembleContractFields" \
+rg -n "assembleContractFields|normalizeContractConfidence|normalizeContractCitations|normalizeContractDecisionReason" \
   web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
 
 rg -n "confidence|citations|decision_reason" \
@@ -949,6 +949,8 @@ Expected Deliverable #1 result:
   (safety, OOS, policy, repeated-message, normal pipeline).
 - Contract fields `confidence`, `citations`, `decision_reason` are set in the
   method body and present on all 200-response paths.
+- Contract normalization clamps confidence to finite `[0,1]` values and safely
+  derives citations from result metadata when `sources[]` are sparse.
 - Error responses (429/400/413/500) do NOT include contract expansion fields.
 - Langfuse grounding span checks `$response['sources']` (not `$response['citations']`).
 - FallbackGate `getReasonCodeDescriptions()` covers all 13 REASON_* constants.
@@ -991,7 +993,7 @@ rg -n "retrieval-confidence-thresholds.yaml|rag-contract-meta-present|rag-citati
 rg -n "\\[contract_meta\\]|citations_count|decision_reason|response_mode|reason_code" \
   promptfoo-evals/providers/ilas-live.js
 
-rg -n "rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal|RAG_METRIC_THRESHOLD|rag_metrics_enforced" \
+rg -n "rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal|RAG_METRIC_THRESHOLD|RAG_METRIC_MIN_COUNT|rag_metrics_enforced|rag_.*_count_fail" \
   scripts/ci/run-promptfoo-gate.sh
 
 # 4) Regression-gate simulation (non-live) for threshold failure branch behavior.
@@ -1010,6 +1012,10 @@ Expected Deliverable #2 result:
 - Gate script enforces metric-specific 90% thresholds for
   `rag-contract-meta-present`, `rag-citation-coverage`, and
   `rag-low-confidence-refusal` when eval data is present.
+- Gate summary includes count-floor diagnostics
+  (`rag_metric_min_count`, `rag_contract_meta_count_fail`,
+  `rag_citation_coverage_count_fail`, `rag_low_confidence_refusal_count_fail`)
+  in addition to pass-rate fail flags.
 - Gate summary includes retrieval-threshold metric rates/counts/fail flags.
 - Blocking/advisory branch behavior remains unchanged for regression gating.
 - Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
@@ -1152,6 +1158,58 @@ Expected Deliverable #4 result:
   values.
 - Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
   no broad platform migration outside the current Pantheon baseline.[^CLAIM-137]
+
+### Phase 2 Sprint 4 verification (`P2-SBD-01`)
+
+Use these commands to verify Sprint 4 closure:
+"Sprint 4: response contract + retrieval-confidence implementation and tests."
+
+```bash
+# 1) Required validation aliases.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-QUALITY-GATE
+ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+
+# 2) Sprint-closure and retune-specific tests.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  --filter "ResponseContractNormalizationTest|PhaseTwoSprintFourGateTest|PhaseTwoDeliverableOneGateTest|PhaseTwoDeliverableTwoGateTest|FallbackGateTest"
+
+# 3) Runtime/eval retune anchors.
+rg -n "no_results_confidence_capped|<= 0.49|REASON_NO_RESULTS" \
+  web/modules/custom/ilas_site_assistant/src/Service/FallbackGate.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/FallbackGateTest.php
+
+rg -n "normalizeContractConfidence|normalizeContractCitations|normalizeContractDecisionReason" \
+  web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+
+rg -n "RAG_METRIC_MIN_COUNT|rag_metric_min_count|rag_contract_meta_count_fail|rag_citation_coverage_count_fail|rag_low_confidence_refusal_count_fail" \
+  scripts/ci/run-promptfoo-gate.sh
+
+rg -n "what are idaho tenant rights for eviction notices|metric: rag-citation-coverage|metric: rag-low-confidence-refusal" \
+  promptfoo-evals/tests/retrieval-confidence-thresholds.yaml
+```
+
+Capture sanitized outputs in:
+- `docs/aila/runtime/phase2-sprint4-closure.txt`[^CLAIM-143]
+
+Expected Sprint 4 result:
+- `VC-UNIT` and `VC-QUALITY-GATE` pass with Sprint 4 retune/closure tests
+  included.
+- Response contract semantics remain additive while confidence/citations/
+  decision-reason normalization behavior is enforced by dedicated unit tests.
+- Retrieval no-results high-intent path remains answer-routed but is confidence
+  capped (`<= 0.49`) with explicit debug marker fields.
+- Promptfoo retrieval threshold policy remains 90% and includes count-floor
+  diagnostics in gate summary artifacts.
+- Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
+  no broad platform migration outside the current Pantheon baseline.[^CLAIM-143]
 
 ### Phase 2 exit #1 retrieval contract + confidence threshold verification (`P2-EXT-01`)
 
@@ -1637,3 +1695,4 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-140]: [CLAIM-140](evidence-index.md#claim-140)
 [^CLAIM-141]: [CLAIM-141](evidence-index.md#claim-141)
 [^CLAIM-142]: [CLAIM-142](evidence-index.md#claim-142)
+[^CLAIM-143]: [CLAIM-143](evidence-index.md#claim-143)

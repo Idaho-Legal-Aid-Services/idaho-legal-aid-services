@@ -3406,32 +3406,121 @@ class AssistantApiController extends ControllerBase {
    *   The response data with contract fields added.
    */
   private function assembleContractFields(array $response, ?array $gate_decision, string $path_type): array {
-    // confidence: float 0-1, always present on 200 responses.
-    $response['confidence'] = $gate_decision !== NULL
-      ? $gate_decision['confidence']
-      : 1.0;  // Deterministic hard-route paths (safety/OOS/policy).
+    // confidence: normalized float 0-1, always present on 200 responses.
+    $response['confidence'] = $this->normalizeContractConfidence($response, $gate_decision, $path_type);
 
-    // citations: formalized array from ResponseGrounder sources.
-    $response['citations'] = !empty($response['sources'])
-      ? $response['sources']
-      : [];
+    // citations: prefer ResponseGrounder sources; derive safely from results when needed.
+    $response['citations'] = $this->normalizeContractCitations($response);
 
-    // decision_reason: human-readable string from reason codes.
-    $reason_code = $response['reason_code'] ?? ($gate_decision['reason_code'] ?? NULL);
-    if ($reason_code !== NULL) {
-      $descriptions = FallbackGate::getReasonCodeDescriptions();
-      $response['decision_reason'] = $descriptions[$reason_code] ?? $reason_code;
-    }
-    else {
-      $path_reasons = [
-        'safety' => 'Safety classification triggered immediate routing',
-        'oos' => 'Request classified as outside service scope',
-        'policy' => 'Policy filter triggered immediate routing',
-      ];
-      $response['decision_reason'] = $path_reasons[$path_type] ?? 'Deterministic routing';
-    }
+    // decision_reason: human-readable string from reason codes or path defaults.
+    $response['decision_reason'] = $this->normalizeContractDecisionReason($response, $gate_decision, $path_type);
 
     return $response;
+  }
+
+  /**
+   * Normalizes response confidence to a finite float in [0, 1].
+   */
+  private function normalizeContractConfidence(array $response, ?array $gate_decision, string $path_type): float {
+    $raw_confidence = $gate_decision['confidence'] ?? ($response['confidence'] ?? NULL);
+
+    if (!is_numeric($raw_confidence)) {
+      // Deterministic hard-route paths default to full confidence.
+      if (in_array($path_type, ['safety', 'oos', 'policy'], TRUE)) {
+        return 1.0;
+      }
+      return 0.0;
+    }
+
+    $confidence = (float) $raw_confidence;
+    if (!is_finite($confidence)) {
+      if (in_array($path_type, ['safety', 'oos', 'policy'], TRUE)) {
+        return 1.0;
+      }
+      return 0.0;
+    }
+
+    return round(max(0.0, min(1.0, $confidence)), 4);
+  }
+
+  /**
+   * Normalizes citations from sources, with safe fallback derivation.
+   */
+  private function normalizeContractCitations(array $response): array {
+    if (!empty($response['sources']) && is_array($response['sources'])) {
+      return array_values(array_filter($response['sources'], static fn($item): bool => is_array($item)));
+    }
+
+    if (empty($response['results']) || !is_array($response['results'])) {
+      return [];
+    }
+
+    $citations = [];
+    foreach ($response['results'] as $result) {
+      if (!is_array($result)) {
+        continue;
+      }
+
+      $title = NULL;
+      if (!empty($result['title']) && is_string($result['title'])) {
+        $title = $result['title'];
+      }
+      elseif (!empty($result['question']) && is_string($result['question'])) {
+        $title = $result['question'];
+      }
+
+      $url = NULL;
+      if (!empty($result['source_url']) && is_string($result['source_url'])) {
+        $url = $result['source_url'];
+      }
+      elseif (!empty($result['url']) && is_string($result['url'])) {
+        $url = $result['url'];
+      }
+
+      $source = NULL;
+      if (!empty($result['source_class']) && is_string($result['source_class'])) {
+        $source = $result['source_class'];
+      }
+      elseif (!empty($result['source']) && is_string($result['source'])) {
+        $source = $result['source'];
+      }
+
+      if ($title === NULL && $url === NULL && $source === NULL) {
+        continue;
+      }
+
+      $citation = [];
+      if ($title !== NULL) {
+        $citation['title'] = $title;
+      }
+      if ($url !== NULL) {
+        $citation['url'] = $url;
+      }
+      if ($source !== NULL) {
+        $citation['source'] = $source;
+      }
+      $citations[] = $citation;
+    }
+
+    return $citations;
+  }
+
+  /**
+   * Normalizes decision reason from reason code descriptions or path defaults.
+   */
+  private function normalizeContractDecisionReason(array $response, ?array $gate_decision, string $path_type): string {
+    $reason_code = $response['reason_code'] ?? ($gate_decision['reason_code'] ?? NULL);
+    if (is_string($reason_code) && $reason_code !== '') {
+      $descriptions = FallbackGate::getReasonCodeDescriptions();
+      return $descriptions[$reason_code] ?? $reason_code;
+    }
+
+    $path_reasons = [
+      'safety' => 'Safety classification triggered immediate routing',
+      'oos' => 'Request classified as outside service scope',
+      'policy' => 'Policy filter triggered immediate routing',
+    ];
+    return $path_reasons[$path_type] ?? 'Deterministic routing';
   }
 
   private function isValidOrigin(Request $request): bool {

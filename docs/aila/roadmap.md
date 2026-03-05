@@ -222,6 +222,13 @@ Explicit mapping:
 5. Risk linkage is recorded for `R-MNT-02` and `R-LLM-01` with conservative text updates only; existing risk status values remain unchanged. (Refs: docs/aila/risk-register.md; evidence-index CLAIM-137)
 6. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and no broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-137; runbook §3)
 
+### Phase 2 Sprint 4 disposition (2026-03-05)
+1. Sprint 4 closure item is completed as specified: "Sprint 4: response contract + retrieval-confidence implementation and tests." Runtime retune is implemented across response contract normalization (`confidence`, `citations[]`, `decision_reason`) and retrieval no-results confidence handling while preserving existing response shape and call-path coverage. (Refs: current-state §4B, §4D; evidence-index CLAIM-143; runbook §4)
+2. Retrieval gate behavior remains additive and deterministic: high-intent no-results retrieval paths keep `REASON_NO_RESULTS` answer routing but cap confidence at `<= 0.49`, with explicit debug marker fields for tuning observability and no change to live-LLM guardrails. (Refs: current-state §4B, §4D; evidence-index CLAIM-119, CLAIM-143; runbook §3, §4)
+3. Promptfoo regression policy remains at 90% per-metric thresholds and now adds metric-count floor diagnostics (`rag_metric_min_count`, `rag_*_count_fail`) in gate summaries to reduce brittle pass/fail interpretation when scenario counts are insufficient. (Refs: current-state §4F; evidence-index CLAIM-086, CLAIM-135, CLAIM-143; runbook §4)
+4. Sprint-level closure enforcement is now anchored through docs/runtime evidence plus dedicated guard tests (`PhaseTwoSprintFourGateTest.php`, `ResponseContractNormalizationTest.php`) and required validation aliases (`VC-UNIT`, `VC-QUALITY-GATE`). (Refs: current-state §8; evidence-index CLAIM-105, CLAIM-143; runbook §4)
+5. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and no broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-143; runbook §3)
+
 ### Suggested sprint breakdown
 1. Sprint 4: response contract + retrieval-confidence implementation and tests.
 2. Sprint 5: dataset expansion, provenance/freshness workflows, threshold calibration.
