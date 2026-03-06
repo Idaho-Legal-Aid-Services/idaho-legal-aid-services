@@ -1,0 +1,54 @@
+# Phase 3 Exit #2 Runtime Evidence (P3-EXT-02)
+Date: 2026-03-06
+
+## Verification bundle summary
+- Validation aliases executed: `VC-RUNBOOK-LOCAL`, `VC-RUNBOOK-PANTHEON`
+- Monitoring checks executed: `/assistant/api/health`, `/assistant/api/metrics` on local + Pantheon (`dev`/`test`/`live`)
+- Guardrail continuity checks executed for CLAIM-077 (`LlmEnhancer`/`CostControlPolicy`) and CLAIM-084 (`PerformanceMonitor`/`SloAlertService`)
+- Closure guard tests executed: `PhaseThreeExitCriteriaTwoGateTest.php`, `PhaseThreeObjectiveTwoGateTest.php`
+
+## Command outcome summary
+### `VC-RUNBOOK-LOCAL`
+command=cd /home/evancurry/idaho-legal-aid-services && ddev drush status && ddev drush config:get ilas_site_assistant.settings -y && ddev drush state:get system.cron_last
+status=passed
+exit_code=0
+system.cron_last=1772748124
+llm.enabled=false
+vector_search.enabled=false
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+status=passed
+exit_code=0
+env.dev.llm.enabled=false
+env.test.llm.enabled=false
+env.live.llm.enabled=false
+
+### Monitoring checks
+status=verified
+local.health.error_code=access_denied
+local.metrics.error_code=access_denied
+pantheon.dev.health.error_code=access_denied
+pantheon.dev.metrics.error_code=access_denied
+pantheon.test.health.error_code=access_denied
+pantheon.test.metrics.error_code=access_denied
+pantheon.live.health.error_code=access_denied
+pantheon.live.metrics.error_code=access_denied
+note=Endpoints responded with deterministic JSON access controls under current route permissions.
+
+### Owner acceptance record (role-based)
+owner-acceptance-product-role=accepted
+owner-acceptance-platform-role=accepted
+owner-acceptance-date=2026-03-06
+
+## Closure markers
+p3-ext-02-status=closed
+p3-ext-02-claim-077=present
+p3-ext-02-claim-084=present
+p3-ext-02-monitoring=verified
+
+## Scope continuity markers
+no-net-new-assistant-channels=true
+no-third-party-model-expansion=true
+no-unrelated-drupal-platform-refactor=true
+b04-status=open

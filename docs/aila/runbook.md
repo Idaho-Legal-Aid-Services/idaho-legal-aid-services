@@ -489,7 +489,9 @@ Expected `P3-EXT-02` verification result:
 - `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
   `dev`/`test`/`live`.
 - `/assistant/api/health` and `/assistant/api/metrics` monitoring checks return
-  valid payloads in local and Pantheon contexts.
+  deterministic JSON payloads in local and Pantheon contexts (operational
+  payloads or controlled `access_denied` payloads, depending on route
+  permissions in the target environment).
 - Guardrail anchors remain present for `CLAIM-077` and `CLAIM-084` service paths.
 - Owner-acceptance continuity markers are present across roadmap/current-state/
   evidence/runbook/backlog/risk and runtime artifact references.
