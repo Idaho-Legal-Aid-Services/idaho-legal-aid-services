@@ -1,0 +1,37 @@
+# Phase 0 Cross-Phase Dependency Row #2 Runtime Evidence (`XDP-02`)
+Date: 2026-03-06
+
+## Verification bundle summary
+- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
+- Dependency prerequisites checked: schema mapping + env drift checks
+- Guard-test continuity anchor: `CrossPhaseDependencyRowTwoGateTest.php`
+
+## Command outcome summary
+### `VC-UNIT`
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+note=Unit coverage includes `VectorSearchConfigSchemaTest.php`, `ConfigCompletenessDriftTest.php`, and `CrossPhaseDependencyRowTwoGateTest.php`.
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings vector_search --format=yaml; done
+status=passed
+exit_code=0
+env.dev.vector_search.read=ok
+env.test.vector_search.read=ok
+env.live.vector_search.read=ok
+
+## Dependency prerequisite status
+dependency.schema-mapping=pass
+dependency.env-drift-checks=pass
+
+## Unresolved dependency report
+xdp-02-unresolved-dependency-count=0
+xdp-02-unresolved-dependencies=none
+
+## Closure markers
+xdp-02-status=closed
+xdp-02-workstream=IMP-CONF-01
+xdp-02-owner-role=Drupal Lead
+xdp-02-consumed-in=Phase 0 -> prerequisite for Phase 2 retrieval tuning
+xdp-02-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+docs-guard-test

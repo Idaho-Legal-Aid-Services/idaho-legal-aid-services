@@ -910,6 +910,72 @@ Expected `P2-NDO-02` verification result:
 Store sanitized output in:
 - `docs/aila/runtime/phase2-ndo2-no-broad-platform-migration.txt`[^CLAIM-146]
 
+### Phase 3 NDO #1 no net-new assistant channels or third-party model expansion verification (`P3-NDO-01`)
+
+Use this command bundle to verify Phase 3 "What we will NOT do #1":
+"No net-new assistant channels or third-party model expansion beyond audited providers."
+
+```bash
+# VC-TOGGLE-CHECK
+cd /home/evancurry/idaho-legal-aid-services && \
+  rg -n "llm.enabled|vector_search|rate_limit_per_minute|conversation_logging" \
+    docs/aila/current-state.md docs/aila/evidence-index.md
+
+# Boundary continuity checks
+rg -n "Phase 3 NDO #1 disposition \(2026-03-06\)|No net-new assistant channels or third-party model expansion beyond audited providers|CLAIM-158|PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php|phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt" \
+  docs/aila/roadmap.md
+
+rg -n "Phase 3 NDO #1 No Net-New Assistant Channels \+ No Third-Party Model Expansion Disposition \(2026-03-06\)|P3-NDO-01|phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt|\[\^CLAIM-158\]" \
+  docs/aila/current-state.md
+
+rg -n "## Phase 3 NDO #1 No Net-New Assistant Channels \+ No Third-Party Model Expansion Boundary \(`P3-NDO-01`\)|### CLAIM-158|Addendum \(2026-03-06\): Phase 3 NDO #1 \(`P3-NDO-01`\)|PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php" \
+  docs/aila/evidence-index.md
+
+# Assistant channel continuity anchors
+rg -n "/assistant'|/assistant/api/message|/assistant/api/session/bootstrap|/assistant/api/suggest|/assistant/api/faq|/assistant/api/health|/assistant/api/metrics|/assistant/api/track" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml
+
+rg -n "flowchart LR|Drupal 11 / ilas_site_assistant|External Integrations|CI\\[External CI runner|PF\\[Promptfoo harness" \
+  docs/aila/system-map.mmd
+
+# Audited-provider allowlist continuity anchors
+rg -n "GEMINI_API_ENDPOINT|VERTEX_AI_ENDPOINT|provider === 'gemini_api'|provider === 'vertex_ai'|x-goog-api-key|Authorization' => 'Bearer '" \
+  web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php
+
+rg -n "'gemini_api' =>| 'vertex_ai' =>|llm_provider" \
+  web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php
+
+rg -n "LLM provider \\(gemini_api or vertex_ai\\)" \
+  web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
+
+rg -n "provider: 'gemini_api'.*gemini_api.*vertex_ai" \
+  web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml
+
+# Guard test
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php
+```
+
+Expected `P3-NDO-01` verification result:
+- `VC-TOGGLE-CHECK` succeeds with documented toggle continuity anchors present.
+- Roadmap/current-state/evidence continuity markers for `P3-NDO-01` and
+  `CLAIM-158` are present.
+- Assistant channel anchors remain unchanged across route inventory and Diagram A
+  continuity context.
+- Audited-provider allowlist anchors remain limited to Gemini API and Vertex AI
+  across service dispatch/auth flow, admin provider options, schema, and install
+  defaults.
+- `PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php` passes with
+  docs/runtime/source continuity assertions enforced.
+- Scope boundaries remain unchanged: no net-new assistant channels or
+  third-party model expansion beyond audited providers, and no platform-wide
+  refactor of unrelated Drupal subsystems.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt`[^CLAIM-158]
+
 ### Phase 3 entry #1 retrieval quality targets met + documented verification (P3-ENT-01)
 
 Use this command bundle to verify Phase 3 Entry criterion #1: all Phase 2
@@ -1355,6 +1421,397 @@ Expected readiness result:
   (`scripts/ci/derive-assistant-url.sh`).
 - Telemetry activation remains a Phase 1 implementation activity after
   credential and destination approvals.
+
+### Cross-phase dependency row #1 CSRF hardening verification (`XDP-01`)
+
+Use this command bundle to verify cross-phase dependency row #1:
+"CSRF hardening (`IMP-SEC-01`)" remains closure-locked and unblocked for
+downstream phase continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+done
+
+# 2) Prerequisite anchor checks: CSRF matrix + route enforcement verification.
+rg -n "_ilas_strict_csrf_token: 'TRUE'|ilas_site_assistant.api.track" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml
+
+rg -n "testAuthenticatedWithInvalidTokenIsForbiddenAndLogged|testAnonymousWithValidTokenIsAllowed" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfAuthMatrixTest.php
+
+rg -n "testAnonymousMessageEndpointAllowsValidCsrfToken|testTrackEndpointRejectsCrossOriginOriginHeader|testTrackEndpointAllowsSameOriginRefererHeader" \
+  web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
+
+rg -n "POST /assistant/api/message \\+ CSRF|POST /assistant/api/track \\+ Origin/Referer guard" \
+  docs/aila/system-map.mmd
+
+# 3) Targeted gate test for row #1 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowOneGateTest.php
+```
+
+Expected `XDP-01` dependency result:
+- `VC-UNIT` passes with row #1 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for authenticated matrix + route enforcement remain
+  present in routes/tests/system map.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-01-status=blocked`;
+  all prerequisites present => `xdp-01-status=closed`,
+  `xdp-01-unresolved-dependency-count=0`,
+  `xdp-01-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-01` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase0-xdp01-csrf-hardening-dependency-gate.txt`[^CLAIM-160]
+
+### Cross-phase dependency row #2 config parity verification (`XDP-02`)
+
+Use this command bundle to verify cross-phase dependency row #2:
+"Config parity (`IMP-CONF-01`)" remains closure-locked and unblocked for
+downstream phase continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- \
+    config:get ilas_site_assistant.settings vector_search --format=yaml
+done
+
+# 2) Prerequisite anchor checks: schema mapping + env drift checks.
+rg -n "vector_search|fallback_gate" \
+  web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
+
+rg -n "testSchemaCoversAllInstallDefaultKeys|testActiveVectorSearchValuesMatchInstallDefaults" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php
+
+rg -n "testActiveConfigContainsAllInstallTopLevelKeys|testSchemaCoversAllInstallTopLevelKeys" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php
+
+rg -n "Config parity \\+ drift checks \\(`IMP-CONF-01`\\)|vector-search-drift-report.txt|for ENV in dev test live; do" \
+  docs/aila/runbook.md
+
+rg -n "Config parity and retrieval tuning controls are stable across environments|vector_search|fallback_gate" \
+  docs/aila/runtime/phase2-entry2-config-parity-retrieval-tuning.txt
+
+# 3) Targeted gate test for row #2 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowTwoGateTest.php
+```
+
+Expected `XDP-02` dependency result:
+- `VC-UNIT` passes with row #2 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for schema mapping + env drift checks remain present in
+  schema/tests/runbook/runtime artifacts.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-02-status=blocked`;
+  all prerequisites present => `xdp-02-status=closed`,
+  `xdp-02-unresolved-dependency-count=0`,
+  `xdp-02-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-02` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase0-xdp02-config-parity-dependency-gate.txt`[^CLAIM-161]
+
+### Cross-phase dependency row #3 observability baseline verification (`XDP-03`)
+
+Use this command bundle to verify cross-phase dependency row #3:
+"Observability baseline (`IMP-OBS-01`)" remains closure-locked and unblocked
+for downstream Phase 2/3 optimization continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+done
+
+# 2) Prerequisite anchor checks: credentials readiness + redaction validation.
+rg -n "LANGFUSE_PUBLIC_KEY|LANGFUSE_SECRET_KEY|SENTRY_DSN" \
+  web/sites/default/settings.php
+
+rg -n "langfuse_public_key=present|langfuse_secret_key=present|raven_client_key=present" \
+  docs/aila/runtime/phase1-observability-gates.txt
+
+rg -n "testRuntimeGatesArtifactShowsCredentialsPresentOnAllEnvironments|testSettingsPhpContainsLangfuseCredentialOverrideWiring|testSettingsPhpContainsSentryDsnOverrideWiring" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php
+
+rg -n "testAllNinePiiTypesRedactedAcrossAllSentryFields|testSentryEventGetsEnvironmentTagsAndPiiScrubbed" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php
+
+rg -n "testSentryBeforeSendRedactsAllNinePiiTypes|testSentryBeforeSendRedactsExceptionPii|testSentryBeforeSendRedactsExtraContextPii" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php
+
+rg -n "Observability|Langfuse tracer/queue|Sentry options subscriber|Sentry tag \\+ Langfuse error \\+ 500 internal_error" \
+  docs/aila/system-map.mmd
+
+# 3) Targeted gate test for row #3 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowThreeGateTest.php
+```
+
+Expected `XDP-03` dependency result:
+- `VC-UNIT` passes with row #3 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for Sentry/Langfuse credential readiness and redaction
+  validation remain present in settings/tests/runtime artifacts/system map.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-03-status=blocked`;
+  all prerequisites present => `xdp-03-status=closed`,
+  `xdp-03-unresolved-dependency-count=0`,
+  `xdp-03-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-03` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase1-xdp03-observability-baseline-dependency-gate.txt`[^CLAIM-162]
+
+### Cross-phase dependency row #4 CI quality gate verification (`XDP-04`)
+
+Use this command bundle to verify cross-phase dependency row #4:
+"CI quality gate (`IMP-TST-01`)" remains closure-locked and unblocked for
+downstream release-gate continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+done
+
+# 2) Prerequisite anchor checks: CI owner/platform decision continuity.
+rg -n "name: Quality Gate|release/\\*\\*|cancel-in-progress|name: PHPUnit Quality Gate|name: Promptfoo Gate" \
+  .github/workflows/quality-gate.yml
+
+rg -n "run-quality-gate.sh|run-promptfoo-gate.sh|--mode auto|--skip-eval|--simulate-pass-rate" \
+  scripts/ci/run-external-quality-gate.sh scripts/ci/run-promptfoo-gate.sh
+
+rg -n "testWorkflowTriggersCoverAllBlockingBranches|testDocumentationDeclaresGateMandatory|testPromptfooBranchPolicyRemainsBranchAware" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php
+
+rg -n "testCurrentStateFormalizesQualityGateContract|testRunbookContainsEnforcedQualityGateVerificationSteps" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneQualityGateContractTest.php
+
+rg -n "name: Quality Gate|name: PHPUnit Quality Gate|name: Promptfoo Gate|cancel-in-progress: true" \
+  docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt
+
+rg -n "CI\\[External CI runner|PF\\[Promptfoo harness|CI -->\\|drives scripted quality gates\\| PF" \
+  docs/aila/system-map.mmd
+
+# 3) Targeted gate test for row #4 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFourGateTest.php
+```
+
+Expected `XDP-04` dependency result:
+- `VC-UNIT` passes with row #4 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for CI owner/platform decision continuity remain present
+  in workflow/scripts/tests/runtime/system-map artifacts.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-04-status=blocked`;
+  all prerequisites present => `xdp-04-status=closed`,
+  `xdp-04-unresolved-dependency-count=0`,
+  `xdp-04-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-04` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase1-xdp04-ci-quality-gate-dependency-gate.txt`[^CLAIM-163]
+
+### Cross-phase dependency row #5 retrieval confidence contract verification (`XDP-05`)
+
+Use this command bundle to verify cross-phase dependency row #5:
+"Retrieval confidence contract (`IMP-RAG-01`)" remains closure-locked and
+unblocked for downstream Phase 3 readiness signoff continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+done
+
+# 2) Prerequisite anchor checks: config parity + observability signals + eval harness.
+rg -n "vector_search|fallback_gate" \
+  web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
+
+rg -n "testSchemaCoversAllInstallDefaultKeys|testActiveConfigContainsAllInstallTopLevelKeys" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php
+
+rg -n "Config Parity \\+ Retrieval Tuning Stability Verification|vector_search|fallback_gate" \
+  docs/aila/runtime/phase2-entry2-config-parity-retrieval-tuning.txt
+
+rg -n "langfuse_public_key=present|langfuse_secret_key=present|raven_client_key=present" \
+  docs/aila/runtime/phase1-observability-gates.txt
+
+rg -n "testRuntimeGatesArtifactShowsCredentialsPresentOnAllEnvironments|testSentryBeforeSendRedactsAllNinePiiTypes" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php
+
+rg -n "retrieval-confidence-thresholds.yaml|rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal" \
+  promptfoo-evals/promptfooconfig.abuse.yaml \
+  promptfoo-evals/tests/retrieval-confidence-thresholds.yaml
+
+rg -n "\\[contract_meta\\]|citations_count|decision_reason" \
+  promptfoo-evals/providers/ilas-live.js
+
+rg -n "RAG_METRIC_THRESHOLD|RAG_METRIC_MIN_COUNT|rag-contract-meta-present|rag-citation-coverage|rag-low-confidence-refusal" \
+  scripts/ci/run-promptfoo-gate.sh
+
+rg -n "rag_contract_meta_fail=|rag_citation_coverage_fail=|rag_low_confidence_refusal_fail=" \
+  docs/aila/runtime/phase2-exit1-retrieval-contract-confidence-thresholds.txt
+
+# 3) Phase 3 readiness-signoff continuity anchors.
+rg -n "Phase 3 Entry #1 disposition|phase3-entry1-retrieval-quality-targets.txt" \
+  docs/aila/roadmap.md docs/aila/current-state.md
+
+rg -n "Phase 2 Deliverable #2 disposition \\(2026-03-03\\): present|CLAIM-086" \
+  docs/aila/runtime/phase3-entry1-retrieval-quality-targets.txt
+
+# 4) Targeted gate test for row #5 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFiveGateTest.php
+```
+
+Expected `XDP-05` dependency result:
+- `VC-UNIT` passes with row #5 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for config parity, observability signals, and eval
+  harness continuity remain present in schema/tests/runtime artifacts/scripts.
+- Phase 3 readiness-signoff continuity anchors remain present in roadmap,
+  current-state, and runtime closure artifacts.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-05-status=blocked`;
+  all prerequisites present => `xdp-05-status=closed`,
+  `xdp-05-unresolved-dependency-count=0`,
+  `xdp-05-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-05` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase2-xdp05-retrieval-confidence-contract-dependency-gate.txt`[^CLAIM-164]
+
+### Cross-phase dependency row #6 cost guardrails verification (`XDP-06`)
+
+Use this command bundle to verify cross-phase dependency row #6:
+"Cost guardrails (`IMP-COST-01`)" remains closure-locked and unblocked for
+downstream Phase 3 cost-guardrail continuity.
+
+```bash
+# 1) Required validation aliases from prompt matrix.
+# VC-UNIT
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# VC-RUNBOOK-PANTHEON
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+done
+
+# 2) Prerequisite anchor checks: observability + usage telemetry continuity from Phase 1/2.
+rg -n "langfuse_public_key=present|langfuse_secret_key=present|raven_client_key=present" \
+  docs/aila/runtime/phase1-observability-gates.txt
+
+rg -n "health_keys=status,timestamp,checks|metrics_keys=timestamp,metrics,thresholds,cron,queue|slo_alert_check=invoked|SLO violation:" \
+  docs/aila/runtime/phase1-exit1-alerts-dashboards.txt
+
+rg -n "VC-RUNBOOK-LOCAL|VC-TOGGLE-CHECK|system\\.cron_last=|name: Quality Gate|CI -->\\|drives scripted quality gates\\| PF" \
+  docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt
+
+# 3) Phase 3 cost-guardrail continuity anchors.
+rg -n "p3-obj-02-status=closed|guard-anchor-cost-control-policy=present" \
+  docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt
+
+rg -n "p3-ext-02-status=closed|owner-acceptance-product-role=accepted|owner-acceptance-platform-role=accepted" \
+  docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt
+
+# 4) Targeted gate test for row #6 dependency enforcement.
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixGateTest.php
+```
+
+Expected `XDP-06` dependency result:
+- `VC-UNIT` passes with row #6 gate coverage included.
+- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+  `dev`/`test`/`live`.
+- Prerequisite anchors for Phase 1/2 observability and usage telemetry
+  continuity remain present in runtime artifacts.
+- Phase 3 cost-guardrail continuity anchors remain present in objective/exit
+  runtime closure artifacts.
+- Dependency status semantics remain deterministic:
+  any missing prerequisite => `xdp-06-status=blocked`;
+  all prerequisites present => `xdp-06-status=closed`,
+  `xdp-06-unresolved-dependency-count=0`,
+  `xdp-06-unresolved-dependencies=none`.
+- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+  treat `XDP-06` closure continuity as blocked until authenticated output is
+  captured.
+
+Store sanitized output in:
+- `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt`[^CLAIM-165]
 
 ### P1-ENT-02 credential and destination approval verification
 
@@ -2326,6 +2783,81 @@ rg -n "PhaseOneNoRetrievalArchitectureRedesignGuardTest" \
 Treat any command failure as a scope-boundary violation for `P1-NDO-02` and
 reject full retrieval-architecture redesign changes in Phase 1.
 
+### Phase 3 NDO #2 no platform-wide refactor of unrelated Drupal subsystems verification (`P3-NDO-02`)
+
+Use these commands to verify and enforce Phase 3 "What we will NOT do #2":
+"No platform-wide refactor of unrelated Drupal subsystems."
+
+Allowed scope in this closure:
+- Documentation, runbook, runtime-artifact, and guard-test continuity updates
+  that enforce the boundary without runtime behavior change.
+- Additive verification anchors that confirm module/system continuity for
+  `ilas_site_assistant`.
+
+Prohibited scope in this closure:
+- Platform-wide refactors across unrelated Drupal subsystems.
+- Runtime architecture rewrites outside boundary-enforcement artifact work.
+
+```bash
+# VC-TOGGLE-CHECK
+cd /home/evancurry/idaho-legal-aid-services && \
+  rg -n "llm.enabled|vector_search|rate_limit_per_minute|conversation_logging" \
+    docs/aila/current-state.md docs/aila/evidence-index.md
+
+# Boundary continuity checks
+rg -n "Phase 3 NDO #2 disposition \(2026-03-06\)|No platform-wide refactor of unrelated Drupal subsystems|CLAIM-159|PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php|phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt" \
+  docs/aila/roadmap.md
+
+rg -n "Phase 3 NDO #2 No Platform-Wide Refactor of Unrelated Drupal Subsystems Disposition \(2026-03-06\)|P3-NDO-02|phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt|\[\^CLAIM-159\]" \
+  docs/aila/current-state.md
+
+rg -n '## Phase 3 NDO #2 No Platform-Wide Refactor of Unrelated Drupal Subsystems Boundary \(`P3-NDO-02`\)|### CLAIM-159|Addendum \(2026-03-06\): Phase 3 NDO #2 \(`P3-NDO-02`\)|PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php' \
+  docs/aila/evidence-index.md
+
+# Module-scope continuity anchors
+rg -n "name: 'ILAS Site Assistant'|core_version_requirement: \^10 \|\| \^11|drupal:search_api|drupal:paragraphs" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml
+
+# Seam-service continuity anchors
+rg -n "ilas_site_assistant.policy_filter|ilas_site_assistant.intent_router|ilas_site_assistant.faq_index|ilas_site_assistant.resource_finder|ilas_site_assistant.response_grounder|ilas_site_assistant.safety_classifier|ilas_site_assistant.llm_enhancer" \
+  web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml
+
+# Service inventory continuity guard (bounded, non-exact).
+SERVICE_ROWS=$(awk 'NR>1 && NF>0 {count++} END {print count+0}' docs/aila/artifacts/services-inventory.tsv)
+echo "services_inventory_rows=${SERVICE_ROWS}"
+test "${SERVICE_ROWS}" -ge 30
+test "${SERVICE_ROWS}" -le 80
+
+# Diagram A continuity anchors remain documented.
+rg -n "flowchart LR|Drupal 11 / ilas_site_assistant|External Integrations|CI\\[External CI runner|PF\\[Promptfoo harness" \
+  docs/aila/system-map.mmd
+
+# Guard test
+ddev exec vendor/bin/phpunit \
+  --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php
+```
+
+Expected `P3-NDO-02` verification result:
+- `VC-TOGGLE-CHECK` succeeds with documented toggle continuity anchors present.
+- Roadmap/current-state/evidence continuity markers for `P3-NDO-02` and
+  `CLAIM-159` are present.
+- Module-scope anchors remain stable in
+  `ilas_site_assistant.info.yml` (custom module scope + dependency anchors).
+- Seam-service continuity anchors remain present in
+  `ilas_site_assistant.services.yml`.
+- `services_inventory_rows=<n>` is within bounded continuity range (`30..80`).
+- Diagram A continuity anchors remain present in `docs/aila/system-map.mmd`.
+- `PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php`
+  passes with docs/runtime/source continuity assertions enforced.
+- Scope boundaries remain unchanged: no net-new assistant channels or
+  third-party model expansion beyond audited providers, and no platform-wide
+  refactor of unrelated Drupal subsystems.
+
+Treat any command failure as a scope-boundary violation for `P3-NDO-02` and
+reject prohibited platform-wide refactor changes.[^CLAIM-159]
+
 ### Architectural boundary verification (`P0-NDO-03`)
 
 Use these commands to enforce the Phase 0 architectural boundary:
@@ -2471,6 +3003,18 @@ sed -E \
   - `docs/aila/runtime/pantheon-live.txt`
 - Promptfoo/CI location search output is captured in:
   - `docs/aila/runtime/promptfoo-ci-search.txt`[^CLAIM-122]
+- Cross-phase dependency row #1 CSRF hardening gate proof is captured in:
+  - `docs/aila/runtime/phase0-xdp01-csrf-hardening-dependency-gate.txt`[^CLAIM-160]
+- Cross-phase dependency row #2 config parity gate proof is captured in:
+  - `docs/aila/runtime/phase0-xdp02-config-parity-dependency-gate.txt`[^CLAIM-161]
+- Cross-phase dependency row #3 observability baseline gate proof is captured in:
+  - `docs/aila/runtime/phase1-xdp03-observability-baseline-dependency-gate.txt`[^CLAIM-162]
+- Cross-phase dependency row #4 CI quality gate proof is captured in:
+  - `docs/aila/runtime/phase1-xdp04-ci-quality-gate-dependency-gate.txt`[^CLAIM-163]
+- Cross-phase dependency row #5 retrieval confidence contract gate proof is captured in:
+  - `docs/aila/runtime/phase2-xdp05-retrieval-confidence-contract-dependency-gate.txt`[^CLAIM-164]
+- Cross-phase dependency row #6 cost guardrails gate proof is captured in:
+  - `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt`[^CLAIM-165]
 - Phase 2 Entry #1 observability + CI baseline proof is captured in:
   - `docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt`[^CLAIM-138]
 - Phase 2 Exit #1 retrieval contract + confidence threshold proof is captured in:
@@ -2497,6 +3041,8 @@ sed -E \
   - `docs/aila/runtime/phase3-sprint6-week1-ux-a11y-mobile-hardening.txt`[^CLAIM-156]
 - Phase 3 Sprint 6 Week 2 performance/cost guardrails + governance signoff closure proof is captured in:
   - `docs/aila/runtime/phase3-sprint6-week2-performance-cost-governance-signoff.txt`[^CLAIM-157]
+- Phase 3 NDO #2 no platform-wide refactor of unrelated Drupal subsystems proof is captured in:
+  - `docs/aila/runtime/phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt`[^CLAIM-159]
 - Phase 3 Exit #2 cost/performance controls + owner acceptance closure proof is captured in:
   - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`[^CLAIM-154]
 - Phase 3 Exit #3 final release packet known-unknown disposition + residual risk signoff proof is captured in:
@@ -2574,3 +3120,11 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 [^CLAIM-155]: [CLAIM-155](evidence-index.md#claim-155)
 [^CLAIM-156]: [CLAIM-156](evidence-index.md#claim-156)
 [^CLAIM-157]: [CLAIM-157](evidence-index.md#claim-157)
+[^CLAIM-158]: [CLAIM-158](evidence-index.md#claim-158)
+[^CLAIM-159]: [CLAIM-159](evidence-index.md#claim-159)
+[^CLAIM-160]: [CLAIM-160](evidence-index.md#claim-160)
+[^CLAIM-161]: [CLAIM-161](evidence-index.md#claim-161)
+[^CLAIM-162]: [CLAIM-162](evidence-index.md#claim-162)
+[^CLAIM-163]: [CLAIM-163](evidence-index.md#claim-163)
+[^CLAIM-164]: [CLAIM-164](evidence-index.md#claim-164)
+[^CLAIM-165]: [CLAIM-165](evidence-index.md#claim-165)

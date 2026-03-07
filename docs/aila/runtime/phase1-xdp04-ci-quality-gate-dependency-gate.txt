@@ -1,0 +1,37 @@
+# Phase 1 Cross-Phase Dependency Row #4 Runtime Evidence (`XDP-04`)
+Date: 2026-03-06
+
+## Verification bundle summary
+- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
+- Dependency prerequisites checked: CI owner/platform decision continuity + mandatory merge/release gate continuity
+- Guard-test continuity anchor: `CrossPhaseDependencyRowFourGateTest.php`
+
+## Command outcome summary
+### `VC-UNIT`
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+note=Unit coverage includes `QualityGateEnforcementContractTest.php`, `PhaseOneQualityGateContractTest.php`, and `CrossPhaseDependencyRowFourGateTest.php`.
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+status=passed
+exit_code=0
+env.dev.config.read=ok
+env.test.config.read=ok
+env.live.config.read=ok
+
+## Dependency prerequisite status
+dependency.ci-owner-platform-decisions=pass
+dependency.mandatory-merge-release-gate=pass
+
+## Unresolved dependency report
+xdp-04-unresolved-dependency-count=0
+xdp-04-unresolved-dependencies=none
+
+## Closure markers
+xdp-04-status=closed
+xdp-04-workstream=IMP-TST-01
+xdp-04-owner-role=QA/Automation Engineer + TPM
+xdp-04-consumed-in=Phase 1 -> prerequisite for all subsequent release gates
+xdp-04-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+docs-guard-test

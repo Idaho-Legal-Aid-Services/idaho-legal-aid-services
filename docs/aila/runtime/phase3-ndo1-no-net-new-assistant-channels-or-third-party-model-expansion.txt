@@ -1,0 +1,65 @@
+P3-NDO-01 - No Net-New Assistant Channels or Third-Party Model Expansion (Phase 3)
+===================================================================================
+Captured: 2026-03-06
+Guard test: PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php
+
+## VC-TOGGLE-CHECK output (sanitized)
+
+`VC-TOGGLE-CHECK` confirms toggle continuity anchors remain documented in
+current-state and evidence-index:
+
+  current-state.md: LLM master switch | `llm.enabled` | `false` | `false`
+  current-state.md: Provider wiring supports Gemini API + Vertex AI
+  evidence-index.md: CLAIM-073 and CLAIM-074 provider anchors remain present
+
+## Assistant channel continuity verification
+
+Assistant channel surface remains unchanged:
+
+  guard-anchor-assistant-route-page=present
+    - /assistant
+
+  guard-anchor-assistant-route-api=present
+    - /assistant/api/message
+    - /assistant/api/session/bootstrap
+    - /assistant/api/suggest
+    - /assistant/api/faq
+    - /assistant/api/health
+    - /assistant/api/metrics
+    - /assistant/api/track
+
+  guard-anchor-system-map-diagram-a=present
+    - flowchart LR
+    - Drupal 11 / ilas_site_assistant
+    - External Integrations
+    - CI[External CI runner]
+    - PF[Promptfoo harness]
+
+## Audited-provider allowlist continuity verification
+
+Provider allowlist anchors remain restricted to audited providers:
+
+  guard-anchor-provider-allowlist-service=present
+    - LlmEnhancer provider dispatch: `gemini_api` and `vertex_ai`
+    - Gemini auth header: x-goog-api-key
+    - Vertex auth header: Authorization: Bearer
+
+  guard-anchor-provider-allowlist-form=present
+    - AssistantSettingsForm provider options include Gemini API and Vertex AI only
+
+  guard-anchor-provider-allowlist-schema=present
+    - schema label: LLM provider (gemini_api or vertex_ai)
+
+  guard-anchor-provider-allowlist-install-default=present
+    - install default provider documents `gemini_api` or `vertex_ai`
+
+## Disposition markers
+
+p3-ndo-01-status=closed
+p3-ndo-01-claim-073=present
+p3-ndo-01-claim-074=present
+p3-ndo-01-enforcement=guard-test+channel-provider-anchors
+p3-ndo-01-scope=boundary-enforcement-artifacts-only
+no-net-new-assistant-channels=true
+no-third-party-model-expansion=true
+no-unrelated-drupal-platform-refactor=true

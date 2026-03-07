@@ -1,0 +1,38 @@
+# Phase 2 Cross-Phase Dependency Row #5 Runtime Evidence (`XDP-05`)
+Date: 2026-03-06
+
+## Verification bundle summary
+- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
+- Dependency prerequisites checked: config parity + observability signals + eval harness
+- Guard-test continuity anchor: `CrossPhaseDependencyRowFiveGateTest.php`
+
+## Command outcome summary
+### `VC-UNIT`
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+note=Unit coverage includes config parity (`VectorSearchConfigSchemaTest.php`, `ConfigCompletenessDriftTest.php`), observability (`TelemetryCredentialGateTest.php`, `ObservabilityRedactionContractTest.php`), retrieval confidence eval-harness continuity (`PhaseTwoDeliverableTwoGateTest.php`), and `CrossPhaseDependencyRowFiveGateTest.php`.
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+status=passed
+exit_code=0
+env.dev.config.read=ok
+env.test.config.read=ok
+env.live.config.read=ok
+
+## Dependency prerequisite status
+dependency.config-parity=pass
+dependency.observability-signals=pass
+dependency.eval-harness=pass
+
+## Unresolved dependency report
+xdp-05-unresolved-dependency-count=0
+xdp-05-unresolved-dependencies=none
+
+## Closure markers
+xdp-05-status=closed
+xdp-05-workstream=IMP-RAG-01
+xdp-05-owner-role=AI/RAG Engineer
+xdp-05-consumed-in=Phase 2 -> prerequisite for Phase 3 readiness signoff
+xdp-05-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+docs-guard-test

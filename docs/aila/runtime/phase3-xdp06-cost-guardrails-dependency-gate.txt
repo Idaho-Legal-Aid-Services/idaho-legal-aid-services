@@ -1,0 +1,38 @@
+# Phase 3 Cross-Phase Dependency Row #6 Runtime Evidence (`XDP-06`)
+Date: 2026-03-07
+
+## Verification bundle summary
+- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
+- Dependency prerequisites checked: Phase 1 observability gates + Phase 1 alerts/dashboards + Phase 2 observability/CI baseline
+- Guard-test continuity anchor: `CrossPhaseDependencyRowSixGateTest.php`
+
+## Command outcome summary
+### `VC-UNIT`
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+note=Unit coverage includes Phase 1 observability prerequisites (`TelemetryCredentialGateTest.php`, `PhaseOneObservabilityDependencyGateTest.php`), Phase 1 usage telemetry prerequisites (`PhaseOneExitCriteriaOneGateTest.php`), Phase 2 observability/CI prerequisites (`PhaseTwoEntryCriteriaOneGateTest.php`), and `CrossPhaseDependencyRowSixGateTest.php`.
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+status=passed
+exit_code=0
+env.dev.config.read=ok
+env.test.config.read=ok
+env.live.config.read=ok
+
+## Dependency prerequisite status
+dependency.phase1-observability-gates=pass
+dependency.phase1-alerts-dashboards=pass
+dependency.phase2-observability-ci-baseline=pass
+
+## Unresolved dependency report
+xdp-06-unresolved-dependency-count=0
+xdp-06-unresolved-dependencies=none
+
+## Closure markers
+xdp-06-status=closed
+xdp-06-workstream=IMP-COST-01
+xdp-06-owner-role=Product + Platform
+xdp-06-consumed-in=Phase 3
+xdp-06-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+docs-guard-test

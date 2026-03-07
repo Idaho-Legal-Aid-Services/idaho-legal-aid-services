@@ -65,6 +65,20 @@ Evidence precedence used in this audit:
 - Claim: Core Aila implementation is the custom module `ilas_site_assistant` with Search API + Paragraph dependencies.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml:1-12`
+- Addendum (2026-03-06): Phase 3 NDO #2 (`P3-NDO-02`) closes the scope
+  boundary "No platform-wide refactor of unrelated Drupal subsystems" through
+  section-4 verification continuity, module-scope/service/system-map anchor
+  checks, dedicated runtime proof markers, and boundary guard-test enforcement
+  without runtime behavior change.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (Phase 3 NDO #2 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (P3-NDO-02 scope-boundary disposition addendum)
+  - `docs/aila/runbook.md` (P3-NDO-02 verification subsection in section 4)
+  - `docs/aila/runtime/phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `docs/aila/system-map.mmd`
 
 ### CLAIM-011
 - Claim: Aila route inventory includes `/assistant` page, API endpoints, and admin report/settings routes.
@@ -589,6 +603,21 @@ Evidence precedence used in this audit:
 - Claim: Gemini and Vertex API endpoints are explicitly defined in code.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:96-97`
+- Addendum (2026-03-06): Phase 3 NDO #1 (`P3-NDO-01`) enforces the audited
+  provider boundary (Gemini API + Vertex AI only) and no net-new assistant
+  channel/model-provider expansion through section-3 `VC-TOGGLE-CHECK`
+  continuity checks, source-anchor verification, dedicated runtime proof
+  markers, and guard-test enforcement.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (Phase 3 NDO #1 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (P3-NDO-01 scope-boundary disposition addendum)
+  - `docs/aila/runbook.md` (P3-NDO-01 verification subsection in section 3)
+  - `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
 
 ### CLAIM-074
 - Claim: Gemini API path uses `x-goog-api-key`; Vertex uses service-account JWT or metadata-server bearer token.
@@ -596,6 +625,17 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:617-646`
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:804-815`
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:826-903`
+- Addendum (2026-03-06): Phase 3 NDO #1 (`P3-NDO-01`) keeps third-party model
+  expansion out of scope by continuity-locking audited provider auth flows
+  (Gemini API key path and Vertex JWT/metadata token paths) without adding new
+  provider branches.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (Phase 3 NDO #1 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (P3-NDO-01 scope-boundary disposition addendum)
+  - `docs/aila/runbook.md` (P3-NDO-01 verification subsection in section 3)
+  - `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php` (provider dispatch + auth flow anchors)
 
 ### CLAIM-075
 - Claim: LLM path has retry/backoff and request timeout controls.
@@ -646,6 +686,19 @@ Evidence precedence used in this audit:
   - `docs/aila/backlog.md` (`IMP-COST-01` row with P3-EXT-02 owner-acceptance traceability)
   - `docs/aila/risk-register.md` (`R-PERF-01` row with P3-EXT-02 runtime-marker continuity)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaTwoGateTest.php`
+- Addendum (2026-03-07): Cross-phase dependency row #6 (`XDP-06`) closes
+  cost-guardrail dependency continuity by requiring Phase 1/2 observability and
+  usage telemetry prerequisites, deterministic unresolved-dependency reporting,
+  and docs/runtime guard-test continuity for Phase 3 consumption.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #6 disposition dated 2026-03-07)
+  - `docs/aila/current-state.md` (XDP-06 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-06 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixGateTest.php`
+  - `docs/aila/runtime/phase1-observability-gates.txt` (Phase 1 observability prerequisite anchor)
+  - `docs/aila/runtime/phase1-exit1-alerts-dashboards.txt` (Phase 1 usage telemetry prerequisite anchor)
+  - `docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt` (Phase 2 observability/CI baseline prerequisite anchor)
 
 ### CLAIM-078
 - Claim: Post-generation legal-advice detection blocks unsafe generated output.
@@ -1163,6 +1216,16 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneObservabilityDependencyGateTest.php`
   - `docs/aila/current-state.md` (Phase 0 Exit #3 Dependency Disposition)
   - `docs/aila/runtime/phase1-observability-gates.txt`
+- Addendum (2026-03-06): Cross-phase dependency row #3 (`XDP-03`) closes
+  observability baseline dependency guardrails with deterministic unresolved-
+  dependency reporting and docs/runtime continuity enforcement anchored by
+  dedicated guard tests.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #3 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-03 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-03 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase1-xdp03-observability-baseline-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowThreeGateTest.php`
 
 ### CLAIM-121
 - Claim: Pantheon cron watchdog output includes `ilas_site_assistant_cron()` execution, and sampled timestamps show roughly hourly-to-two-hour cron intervals during the captured windows.
@@ -1259,6 +1322,16 @@ Evidence precedence used in this audit:
   - `docs/aila/runtime/phase3-exit3-release-packet-known-unknown-risk-signoff.txt`
   - `docs/aila/risk-register.md` (`R-REL-02` row with P3-EXT-03 runtime-marker + signoff linkage)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaThreeGateTest.php`
+- Addendum (2026-03-06): Cross-phase dependency row #4 (`XDP-04`) closes
+  CI quality gate dependency guardrails with deterministic unresolved-dependency
+  reporting and docs/runtime continuity enforcement anchored by dedicated guard
+  tests.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #4 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-04 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-04 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase1-xdp04-ci-quality-gate-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFourGateTest.php`
 
 ---
 
@@ -1280,6 +1353,15 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneObservabilityDependencyGateTest.php`
   - `docs/aila/current-state.md` (Phase 0 Exit #3 Dependency Disposition)
   - `docs/aila/runtime/phase1-observability-gates.txt`
+- Addendum (2026-03-06): Cross-phase dependency row #1 (`XDP-01`) closes
+  CSRF dependency guardrails with deterministic unresolved-dependency reporting
+  and docs/runtime continuity enforcement anchored by dedicated guard tests.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #1 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-01 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-01 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase0-xdp01-csrf-hardening-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowOneGateTest.php`
 
 ---
 
@@ -1292,6 +1374,16 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (install defaults source of truth)
   - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (schema coverage)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php` (5 tests: top-level key parity, schema coverage, orphan detection, LLM sub-key completeness, disabled-by-default enforcement)
+- Addendum (2026-03-06): Cross-phase dependency row #2 (`XDP-02`) closes
+  config parity dependency guardrails with deterministic unresolved-dependency
+  reporting and docs/runtime continuity enforcement anchored by dedicated guard
+  tests.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #2 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-02 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-02 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase0-xdp02-config-parity-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowTwoGateTest.php`
 
 ---
 
@@ -1536,6 +1628,18 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableTwoGateTest.php`
   - `docs/aila/current-state.md` (P2-SBD-01 closure addendum)
   - `docs/aila/runbook.md` (P2-SBD-01 verification subsection)
+- Addendum (2026-03-06): Cross-phase dependency row #5 (`XDP-05`) closes
+  retrieval-confidence-contract dependency guardrails with deterministic
+  unresolved-dependency reporting and docs/runtime continuity enforcement
+  anchored by dedicated guard tests and Phase 3 readiness-signoff continuity
+  markers.
+- Addendum evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #5 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-05 cross-phase dependency addendum)
+  - `docs/aila/runbook.md` (XDP-05 verification subsection + runtime bundle reference)
+  - `docs/aila/runtime/phase2-xdp05-retrieval-confidence-contract-dependency-gate.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFiveGateTest.php`
+  - `docs/aila/runtime/phase3-entry1-retrieval-quality-targets.txt` (Phase 3 readiness-signoff continuity anchor)
 
 ---
 
@@ -2077,3 +2181,170 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaTwoGateTest.php` (cost/performance exit continuity)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaThreeGateTest.php` (governance signoff exit continuity)
   - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+
+## Phase 3 NDO #1 No Net-New Assistant Channels + No Third-Party Model Expansion Boundary (`P3-NDO-01`)
+
+### CLAIM-158
+- Claim: Phase 3 "What we will NOT do #1" is closed as enforced — no net-new
+  assistant channels and no third-party model expansion beyond audited providers.
+  Enforcement is reproducible through section-3 `VC-TOGGLE-CHECK` alias
+  continuity, explicit assistant-channel and audited-provider anchor checks, a
+  dedicated runtime proof artifact, and guard-test continuity without runtime
+  behavior change or unrelated Drupal platform refactors.
+- Evidence:
+  - `docs/aila/roadmap.md` (Phase 3 NDO #1 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (P3-NDO-01 boundary disposition addendum)
+  - `docs/aila/runbook.md` (P3-NDO-01 verification subsection in section 3)
+  - `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt` (sanitized VC-TOGGLE-CHECK output + closure markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php` (boundary continuity lock)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml` (assistant channel surface anchors)
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php` (audited provider endpoint/auth-flow anchors)
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php` (provider allowlist UI anchors)
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (provider allowlist schema anchor)
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (provider default anchor)
+  - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+
+## Phase 3 NDO #2 No Platform-Wide Refactor of Unrelated Drupal Subsystems Boundary (`P3-NDO-02`)
+
+### CLAIM-159
+- Claim: Phase 3 "What we will NOT do #2" is closed as enforced — no
+  platform-wide refactor of unrelated Drupal subsystems. Enforcement is
+  reproducible through section-4 `VC-TOGGLE-CHECK` alias continuity, explicit
+  module-scope and seam-service continuity anchors, bounded service-inventory
+  checks, Diagram A continuity checks, a dedicated runtime proof artifact, and
+  guard-test continuity without runtime behavior change.
+- Evidence:
+  - `docs/aila/roadmap.md` (Phase 3 NDO #2 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (P3-NDO-02 boundary disposition addendum)
+  - `docs/aila/runbook.md` (P3-NDO-02 verification subsection in section 4)
+  - `docs/aila/runtime/phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt` (sanitized VC-TOGGLE-CHECK output + closure markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php` (boundary continuity lock)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml` (module-scope anchor continuity)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml` (seam-service continuity anchors)
+  - `docs/aila/artifacts/services-inventory.tsv` (bounded service-inventory continuity anchor)
+  - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
+
+## Cross-Phase Dependency Row #1 CSRF Hardening Guardrail (`XDP-01`)
+
+### CLAIM-160
+- Claim: Cross-phase dependency row #1 for CSRF hardening (`IMP-SEC-01`) is
+  closed as an enforceable dependency guardrail: authenticated CSRF matrix and
+  route-enforcement prerequisites are continuity-locked for Phase 0 to Phase
+  1-3 consumption, and unresolved prerequisites deterministically report blocked
+  status (`xdp-01-status=blocked`) until count/list markers resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #1 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-01 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-01 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase0-xdp01-csrf-hardening-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowOneGateTest.php` (dependency guard continuity lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfAuthMatrixTest.php` (authenticated/anonymous matrix prerequisite)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php` (route enforcement + matrix prerequisite)
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml` (strict message CSRF + track mitigation route requirements)
+  - `docs/aila/system-map.mmd` (Diagram B route labels for message/track enforcement continuity)
+
+## Cross-Phase Dependency Row #2 Config Parity Guardrail (`XDP-02`)
+
+### CLAIM-161
+- Claim: Cross-phase dependency row #2 for config parity (`IMP-CONF-01`) is
+  closed as an enforceable dependency guardrail: schema mapping and env
+  drift-check prerequisites are continuity-locked for Phase 0 to Phase 2
+  retrieval-tuning consumption, and unresolved prerequisites deterministically
+  report blocked status (`xdp-02-status=blocked`) until count/list markers
+  resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #2 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-02 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-02 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase0-xdp02-config-parity-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowTwoGateTest.php` (dependency guard continuity lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php` (schema mapping prerequisite)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php` (env drift-check prerequisite)
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (vector_search/fallback_gate schema anchors)
+  - `docs/aila/runtime/phase2-entry2-config-parity-retrieval-tuning.txt` (cross-environment config parity + retrieval tuning anchor)
+
+## Cross-Phase Dependency Row #3 Observability Baseline Guardrail (`XDP-03`)
+
+### CLAIM-162
+- Claim: Cross-phase dependency row #3 for observability baseline (`IMP-OBS-01`)
+  is closed as an enforceable dependency guardrail: Sentry/Langfuse credential
+  readiness and redaction-validation prerequisites are continuity-locked for
+  Phase 1 to Phase 2/3 optimization consumption, and unresolved prerequisites
+  deterministically report blocked status (`xdp-03-status=blocked`) until
+  count/list markers resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #3 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-03 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-03 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase1-xdp03-observability-baseline-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowThreeGateTest.php` (dependency guard continuity lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php` (credentials readiness prerequisite)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php` (redaction validation + observability acceptance prerequisite)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php` (redaction contract prerequisite)
+  - `docs/aila/runtime/phase1-observability-gates.txt` (credential-ready runtime anchor)
+
+## Cross-Phase Dependency Row #4 CI Quality Gate Guardrail (`XDP-04`)
+
+### CLAIM-163
+- Claim: Cross-phase dependency row #4 for CI quality gate (`IMP-TST-01`) is
+  closed as an enforceable dependency guardrail: CI owner/platform decision
+  prerequisites are continuity-locked for Phase 1 to all subsequent release
+  gates, and unresolved prerequisites deterministically report blocked status
+  (`xdp-04-status=blocked`) until count/list markers resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #4 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-04 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-04 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase1-xdp04-ci-quality-gate-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFourGateTest.php` (dependency guard continuity lock)
+  - `.github/workflows/quality-gate.yml` (first-party workflow trigger + concurrency + gate job anchors)
+  - `scripts/ci/run-promptfoo-gate.sh` (branch-aware blocking/advisory owner-decision policy anchor)
+  - `scripts/ci/run-external-quality-gate.sh` (scripted CI composition anchor)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php` (mandatory gate invariants anchor)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneQualityGateContractTest.php` (quality-gate formalization continuity anchor)
+  - `docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt` (CI baseline continuity runtime anchor)
+  - `docs/aila/system-map.mmd` (Diagram A CI + Promptfoo pathway continuity anchor)
+
+## Cross-Phase Dependency Row #5 Retrieval Confidence Contract Guardrail (`XDP-05`)
+
+### CLAIM-164
+- Claim: Cross-phase dependency row #5 for retrieval confidence contract
+  (`IMP-RAG-01`) is closed as an enforceable dependency guardrail: config
+  parity, observability signals, and eval-harness prerequisites are
+  continuity-locked for Phase 2 to Phase 3 readiness-signoff consumption, and
+  unresolved prerequisites deterministically report blocked status
+  (`xdp-05-status=blocked`) until count/list markers resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #5 disposition dated 2026-03-06)
+  - `docs/aila/current-state.md` (XDP-05 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-05 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase2-xdp05-retrieval-confidence-contract-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowFiveGateTest.php` (dependency guard continuity lock)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php` (config parity prerequisite anchor)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php` (config parity drift prerequisite anchor)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/TelemetryCredentialGateTest.php` (observability signals prerequisite anchor)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php` (observability redaction prerequisite anchor)
+  - `promptfoo-evals/tests/retrieval-confidence-thresholds.yaml` (eval harness metric prerequisite anchor)
+  - `promptfoo-evals/providers/ilas-live.js` (eval contract metadata prerequisite anchor)
+  - `scripts/ci/run-promptfoo-gate.sh` (eval threshold enforcement prerequisite anchor)
+  - `docs/aila/runtime/phase3-entry1-retrieval-quality-targets.txt` (Phase 3 readiness-signoff continuity anchor)
+
+## Cross-Phase Dependency Row #6 Cost Guardrails Guardrail (`XDP-06`)
+
+### CLAIM-165
+- Claim: Cross-phase dependency row #6 for cost guardrails (`IMP-COST-01`) is
+  closed as an enforceable dependency guardrail: Phase 1/2 observability and
+  usage-telemetry prerequisites are continuity-locked for Phase 3 consumption,
+  and unresolved prerequisites deterministically report blocked status
+  (`xdp-06-status=blocked`) until count/list markers resolve to zero/none.
+- Evidence:
+  - `docs/aila/roadmap.md` (cross-phase dependency row #6 disposition dated 2026-03-07)
+  - `docs/aila/current-state.md` (XDP-06 cross-phase dependency disposition addendum)
+  - `docs/aila/runbook.md` (XDP-06 verification subsection and runtime bundle references)
+  - `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixGateTest.php` (dependency guard continuity lock)
+  - `docs/aila/runtime/phase1-observability-gates.txt` (Phase 1 observability prerequisite anchor)
+  - `docs/aila/runtime/phase1-exit1-alerts-dashboards.txt` (Phase 1 usage telemetry prerequisite anchor)
+  - `docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt` (Phase 2 observability/CI baseline prerequisite anchor)
+  - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt` (Phase 3 objective continuity anchor)
+  - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt` (Phase 3 exit continuity anchor)

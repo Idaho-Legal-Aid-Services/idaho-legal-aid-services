@@ -1,0 +1,64 @@
+P3-NDO-02 - No Platform-Wide Refactor of Unrelated Drupal Subsystems (Phase 3)
+===============================================================================
+Captured: 2026-03-06
+Guard test: PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php
+
+## VC-TOGGLE-CHECK output (sanitized)
+
+`VC-TOGGLE-CHECK` confirms toggle continuity anchors remain documented in
+current-state and evidence-index:
+
+  current-state.md: LLM master switch | `llm.enabled` | `false` | `false`
+  current-state.md: Vector supplement | `vector_search.*` | present, enabled=false
+  current-state.md: Flood per-minute | `rate_limit_per_minute` | `15`
+  current-state.md: Conversation logging | `conversation_logging.*` | present
+  evidence-index.md: continuity anchors for CLAIM-010 and CLAIM-159 are present
+
+## Module-scope continuity verification
+
+Module scope remains bounded to `ilas_site_assistant` architecture anchors:
+
+  guard-anchor-module-info=present
+    - name: ILAS Site Assistant
+    - core_version_requirement: ^10 || ^11
+    - dependencies include drupal:search_api and drupal:paragraphs
+
+  guard-anchor-core-seam-services=present
+    - policy_filter
+    - intent_router
+    - faq_index
+    - resource_finder
+    - response_grounder
+    - safety_classifier
+    - llm_enhancer
+
+  guard-anchor-services-inventory-bounded=present
+    - services_inventory_rows=35
+    - bounded continuity range: 30..80
+
+## Diagram A continuity verification
+
+System-map Diagram A continuity anchors remain present:
+
+  guard-anchor-system-map-diagram-a=present
+    - flowchart LR
+    - Drupal 11 / ilas_site_assistant
+    - External Integrations
+    - CI[External CI runner]
+    - PF[Promptfoo harness]
+
+## Scope boundary summary
+
+No runtime behavior changes or platform-wide refactor actions are introduced by
+this closure artifact set. Enforcement is boundary-governance only.
+
+## Disposition markers
+
+p3-ndo-02-status=closed
+p3-ndo-02-enforcement=guard-test+module-scope-anchors
+p3-ndo-02-scope=boundary-enforcement-artifacts-only
+p3-ndo-02-claim-010=present
+p3-ndo-02-claim-159=present
+no-net-new-assistant-channels=true
+no-third-party-model-expansion=true
+no-platform-wide-refactor-of-unrelated-drupal-subsystems=true

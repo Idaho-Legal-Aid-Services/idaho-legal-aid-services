@@ -344,6 +344,20 @@ Explicit mapping:
 3. Sprint closure enforcement is continuity-locked by `PhaseThreeSprintSixWeekTwoGateTest.php` across roadmap/current-state/runbook/evidence/runtime/system-map anchors for `P3-SBD-02`. (Refs: evidence-index CLAIM-157; runbook §4)
 4. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-157; system-map Diagram A; runbook §3, §4)
 
+### Phase 3 NDO #1 disposition (2026-03-06)
+1. Phase 3 "What we will NOT do #1" is closed as enforced: no net-new assistant channels or third-party model expansion beyond audited providers. Closure continuity is anchored to the audited provider wiring posture (Gemini API + Vertex AI only) and existing assistant channel surface (`/assistant` page + existing `/assistant/api/*` endpoints) without runtime architecture expansion. (Refs: current-state §4E; evidence-index CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A; runbook §3)
+2. Enforcement is codified through runbook section-3 `VC-TOGGLE-CHECK` alias continuity plus explicit channel/provider anchor checks and a dedicated guard test (`PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php`) that locks roadmap/current-state/evidence/runbook/runtime/source continuity markers. (Refs: evidence-index CLAIM-158; runbook §3)
+3. This closure is boundary enforcement only: no runtime behavior changes, no new assistant channel routes/surfaces, and no provider expansion beyond audited Gemini/Vertex paths. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A)
+4. Runtime verification output is captured in `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt` with sanitized `VC-TOGGLE-CHECK` output, assistant channel continuity markers, audited-provider continuity markers, and closure status fields. (Refs: evidence-index CLAIM-158; runbook §3)
+5. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A; runbook §3, §4)
+
+### Phase 3 NDO #2 disposition (2026-03-06)
+1. Phase 3 "What we will NOT do #2" is closed as enforced: no platform-wide refactor of unrelated Drupal subsystems. Closure continuity remains anchored to current architecture scope in current-state §1 and module/system boundary anchors for `ilas_site_assistant` with no runtime architecture expansion. (Refs: current-state §1; evidence-index CLAIM-010, CLAIM-159; system-map Diagram A; runbook §4)
+2. Enforcement is codified through runbook section-4 `VC-TOGGLE-CHECK` alias continuity plus explicit module-scope and seam-service anchor checks and a dedicated guard test (`PhaseThreeNoPlatformWideRefactorOfUnrelatedDrupalSubsystemsGuardTest.php`) that locks roadmap/current-state/evidence/runbook/runtime/source continuity markers. (Refs: evidence-index CLAIM-159; runbook §4)
+3. This closure is boundary enforcement only: no runtime behavior changes, no assistant channel/provider expansion, and no broad refactor across unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-159; system-map Diagram A)
+4. Runtime verification output is captured in `docs/aila/runtime/phase3-ndo2-no-platform-wide-refactor-of-unrelated-drupal-subsystems.txt` with sanitized `VC-TOGGLE-CHECK` output, module/system continuity markers, and closure status fields. (Refs: evidence-index CLAIM-159; runbook §4)
+5. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-159; system-map Diagram A; runbook §3, §4)
+
 ### Suggested sprint breakdown
 1. Sprint 6 Week 1: UX/a11y and mobile hardening.
 2. Sprint 6 Week 2: performance/cost guardrails and governance signoff.
@@ -362,6 +376,104 @@ Explicit mapping:
 | CI quality gate (`IMP-TST-01`) | CI owner/platform decisions | Phase 1 -> prerequisite for all subsequent release gates | QA/Automation Engineer + TPM |
 | Retrieval confidence contract (`IMP-RAG-01`) | Config parity + observability signals + eval harness | Phase 2 -> prerequisite for Phase 3 readiness signoff | AI/RAG Engineer |
 | Cost guardrails (`IMP-COST-01`) | Observability and usage telemetry from Phase 1/2 | Phase 3 | Product + Platform |
+
+### Cross-phase dependency row #1 disposition (2026-03-06)
+1. Dependency row #1 (`XDP-01`) is closed as implemented for CSRF hardening
+   (`IMP-SEC-01`): authenticated test matrix and route-enforcement verification
+   remain locked as Phase 0 prerequisite evidence consumed by Phases 1-3.
+   (Refs: current-state §6, §8; evidence-index CLAIM-012, CLAIM-123, CLAIM-160; system-map Diagram B; runbook §2)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowOneGateTest.php`; downstream dependency work is
+   blocked whenever unresolved dependency count is non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase0-xdp01-csrf-hardening-dependency-gate.txt` with
+   deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row:
+   Security Engineer + Drupal Lead.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
+
+### Cross-phase dependency row #2 disposition (2026-03-06)
+1. Dependency row #2 (`XDP-02`) is closed as implemented for config parity
+   (`IMP-CONF-01`): schema mapping and env drift checks remain locked as
+   Phase 0 prerequisite evidence consumed by Phase 2 retrieval tuning.
+   (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-124, CLAIM-161; system-map Diagram A; runbook §3, §4)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowTwoGateTest.php`; downstream retrieval-tuning work is
+   blocked whenever unresolved dependency count is non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase0-xdp02-config-parity-dependency-gate.txt` with
+   deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row: Drupal Lead.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
+
+### Cross-phase dependency row #3 disposition (2026-03-06)
+1. Dependency row #3 (`XDP-03`) is closed as implemented for observability
+   baseline (`IMP-OBS-01`): Sentry/Langfuse credential readiness and redaction
+   validation remain locked as Phase 1 prerequisite evidence consumed by
+   Phase 2/3 optimization work.
+   (Refs: current-state §4F, §6; evidence-index CLAIM-083, CLAIM-120, CLAIM-126, CLAIM-162; system-map Diagram A; runbook §3, §5)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowThreeGateTest.php`; downstream Phase 2/3
+   optimization work is blocked whenever unresolved dependency count is
+   non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase1-xdp03-observability-baseline-dependency-gate.txt`
+   with deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row:
+   SRE/Platform Engineer.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
+
+### Cross-phase dependency row #4 disposition (2026-03-06)
+1. Dependency row #4 (`XDP-04`) is closed as implemented for CI quality gate
+   (`IMP-TST-01`): CI owner/platform decision continuity remains locked as
+   Phase 1 prerequisite evidence consumed by all subsequent release gates.
+   (Refs: current-state §4F, §8; evidence-index CLAIM-122, CLAIM-130, CLAIM-163; system-map Diagram A; runbook §3, §4)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowFourGateTest.php`; downstream release-gate work is
+   blocked whenever unresolved dependency count is non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase1-xdp04-ci-quality-gate-dependency-gate.txt`
+   with deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row:
+   QA/Automation Engineer + TPM.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
+
+### Cross-phase dependency row #5 disposition (2026-03-06)
+1. Dependency row #5 (`XDP-05`) is closed as implemented for retrieval
+   confidence contract (`IMP-RAG-01`): config parity, observability signals, and
+   eval-harness continuity remain locked as Phase 2 prerequisite evidence
+   consumed by Phase 3 readiness signoff.
+   (Refs: current-state §4D, §4F, §6; evidence-index CLAIM-120, CLAIM-124, CLAIM-135, CLAIM-151, CLAIM-164; system-map Diagram B; runbook §4)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowFiveGateTest.php`; downstream Phase 3 readiness
+   signoff work is blocked whenever unresolved dependency count is non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase2-xdp05-retrieval-confidence-contract-dependency-gate.txt`
+   with deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row:
+   AI/RAG Engineer.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
+
+### Cross-phase dependency row #6 disposition (2026-03-07)
+1. Dependency row #6 (`XDP-06`) is closed as implemented for cost guardrails
+   (`IMP-COST-01`): observability and usage telemetry continuity from Phase 1/2
+   remains locked as prerequisite evidence consumed in Phase 3.
+   (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-126, CLAIM-127, CLAIM-138, CLAIM-147, CLAIM-154, CLAIM-165; system-map Diagram A; runbook §3)
+2. Dependency-gate enforcement is codified through docs/runtime continuity and
+   `CrossPhaseDependencyRowSixGateTest.php`; downstream Phase 3 cost-guardrail
+   work is blocked whenever unresolved dependency count is non-zero.
+3. Runtime proof is captured in
+   `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt` with
+   deterministic status and unresolved-dependency markers.
+4. Owner-role continuity remains unchanged for this row:
+   Product + Platform.
+5. Scope boundaries remain unchanged: preserve roadmap sequencing and all phase
+   boundaries; no runtime behavior expansion.
 
 ## Critical path and blocker list
 1. **Blocker B-01 (RESOLVED 2026-03-03):** `/assistant/api/message` strict CSRF path is verified; `/assistant/api/track` follows approved same-origin mitigation and no longer blocks Phase 1 entry criterion #1. (Refs: current-state §8; evidence-index CLAIM-012, CLAIM-123; system-map Diagram B; runbook §2)

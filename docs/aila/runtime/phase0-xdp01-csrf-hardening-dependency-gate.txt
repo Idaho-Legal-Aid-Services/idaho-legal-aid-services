@@ -1,0 +1,37 @@
+# Phase 0 Cross-Phase Dependency Row #1 Runtime Evidence (`XDP-01`)
+Date: 2026-03-06
+
+## Verification bundle summary
+- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
+- Dependency prerequisites checked: authenticated test matrix + route-enforcement verification
+- Guard-test continuity anchor: `CrossPhaseDependencyRowOneGateTest.php`
+
+## Command outcome summary
+### `VC-UNIT`
+command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+status=passed
+exit_code=0
+note=Unit coverage includes `CsrfAuthMatrixTest.php` and `CrossPhaseDependencyRowOneGateTest.php`.
+
+### `VC-RUNBOOK-PANTHEON`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+status=passed
+exit_code=0
+env.dev.config.read=ok
+env.test.config.read=ok
+env.live.config.read=ok
+
+## Dependency prerequisite status
+dependency.authenticated-test-matrix=pass
+dependency.route-enforcement-verification=pass
+
+## Unresolved dependency report
+xdp-01-unresolved-dependency-count=0
+xdp-01-unresolved-dependencies=none
+
+## Closure markers
+xdp-01-status=closed
+xdp-01-workstream=IMP-SEC-01
+xdp-01-owner-role=Security Engineer + Drupal Lead
+xdp-01-consumed-in=Phase 0 -> prerequisite for Phases 1-3
+xdp-01-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+docs-guard-test
