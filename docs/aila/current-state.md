@@ -271,7 +271,7 @@ Values below are taken from install defaults, exported active config, and settin
 | LLM provider/model | `llm.provider`, `llm.model` | `gemini_api`, `gemini-1.5-flash` | `gemini_api`, `gemini-1.5-flash` | Verified `gemini_api` + `gemini-1.5-flash` on dev/test/live | Endpoint constants support both providers | [^CLAIM-073][^CLAIM-074][^CLAIM-093][^CLAIM-094][^CLAIM-119] |
 | LLM credentials | `ILAS_GEMINI_API_KEY`, `ILAS_VERTEX_SA_JSON`, `llm.project_id` | API key empty, project ID empty, no service-account blob key in install config | API key/project ID empty; `service_account_json` absent from export | `settings.php` injects Gemini via config override and Vertex via runtime-only site setting | Values redacted intentionally; Vertex JSON is no longer exportable through Drupal config | [^CLAIM-069][^CLAIM-098] |
 | LLM generation params | `llm.max_tokens`, `llm.temperature` + hard-coded `topP=0.8`, `topK=40` | `150`, `0.3` | `150`, `0.3` | Same code path | Safety threshold key also applied | [^CLAIM-072][^CLAIM-093][^CLAIM-094] |
-| LLM retries/timeout | `llm.max_retries`; code timeout `10s` | `2` | `2` (synced) | Matches install default | Retryable HTTP codes include 429/5xx | [^CLAIM-075][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
+| LLM retries/timeout | `llm.max_retries`; code timeout `10s` | `1` | `1` (synced) | Matches install default | Retryable HTTP codes include 429/5xx; sync retry delay capped at `<=250ms` | [^CLAIM-075][^CLAIM-093][^CLAIM-094][^CLAIM-124][^CLAIM-167] |
 | LLM cache | `llm.cache_ttl` | `3600` | `3600` (synced) | Matches install default | Cache key includes policy version | [^CLAIM-076][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
 | LLM circuit breaker | `llm.circuit_breaker.*` | threshold/window/cooldown present in install defaults | Present (synced) | Matches install defaults | State-backed breaker service | [^CLAIM-077][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
 | LLM global rate limit | `llm.global_rate_limit.*` | present in install defaults | Present (synced) | Matches install defaults | State-backed limiter service | [^CLAIM-077][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
@@ -752,6 +752,29 @@ and `F-15`.
    runtime-secret presence remains deployment-bound and must be rechecked after
    deployment before the finding can be marked fully fixed in a live
    environment.
+
+### Re-Audit Remediation RAUD-05 LLM Transport Hardening (2026-03-09)
+
+This dated addendum records re-audit remediation `RAUD-05` for findings `C3`,
+`C4`, and `LLM-1`.
+
+1. `LlmEnhancer` now caches Vertex bearer tokens in
+   `cache.ilas_site_assistant` using source-specific cache keys derived from
+   either the runtime service-account JSON hash or the metadata-server fallback
+   path.
+2. Cached token TTLs now apply a 100-second safety buffer and a 3500-second
+   ceiling; malformed or missing `expires_in` values fall back to the capped
+   3500-second window instead of forcing a fresh token fetch on every request.
+3. Synchronous retry behavior is now bounded to one retry with a maximum
+   `250ms` backoff window, eliminating the earlier exponential multi-second
+   sleep path on ordinary `429`/`5xx` failures.
+4. Install/default/exported config now pins `llm.max_retries` to `1` so the
+   transport ceiling is explicit in the synced config contract.
+5. Regression coverage in `LlmEnhancerHardeningTest.php` now proves cross-
+   instance token reuse, buffered-expiry refresh, single-retry ceilings, and
+   bounded retry delays.
+6. Local verification and post-change latency evidence are captured in
+   `docs/aila/runtime/raud-05-llm-transport-hardening.txt`.[^CLAIM-167]
 
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 
@@ -1486,3 +1509,4 @@ This dated addendum records `P3-NDO-02` closure for the Phase 3 scope boundary:
 [^CLAIM-163]: [CLAIM-163](evidence-index.md#claim-163)
 [^CLAIM-164]: [CLAIM-164](evidence-index.md#claim-164)
 [^CLAIM-165]: [CLAIM-165](evidence-index.md#claim-165)
+[^CLAIM-167]: [CLAIM-167](evidence-index.md#claim-167)

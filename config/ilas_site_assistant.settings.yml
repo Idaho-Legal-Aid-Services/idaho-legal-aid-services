@@ -78,7 +78,7 @@ llm:
   fallback_on_error: true
   safety_threshold: BLOCK_MEDIUM_AND_ABOVE
   cache_ttl: 3600
-  max_retries: 2
+  max_retries: 1
   circuit_breaker:
     failure_threshold: 3
     failure_window_seconds: 60

@@ -221,6 +221,10 @@ class VertexRuntimeCredentialGuardTest extends TestCase {
    * The custom key provider must read from the runtime site setting.
    */
   public function testRuntimeKeyProviderReadsDrupalSiteSetting(): void {
+    if (!class_exists('Drupal\\key\\Plugin\\KeyProviderBase') || !interface_exists('Drupal\\key\\KeyInterface')) {
+      $this->markTestSkipped('drupal/key is not available in the pure test harness.');
+    }
+
     new Settings([
       'ilas_vertex_sa_json' => '{"private_key":"runtime-key"}',
     ]);
@@ -324,22 +328,31 @@ class VertexCredentialTestableEnhancer extends LlmEnhancer {
    * Exposes the protected token-resolution method for testing.
    */
   public function exposedGetVertexAiAccessToken(): string {
-    return $this->getVertexAiAccessToken();
+    $token = $this->getVertexAiAccessToken();
+    return $token['access_token'];
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getTokenFromServiceAccount(string $json): string {
+  protected function getTokenFromServiceAccount(string $json): array {
     $this->capturedJson = $json;
-    return 'runtime-token';
+    return [
+      'access_token' => 'runtime-token',
+      'expires_at' => time() + 3600,
+      'cache_ttl' => 3500,
+    ];
   }
 
   /**
    * {@inheritdoc}
    */
-  protected function getTokenFromMetadataServer(): string {
-    return 'metadata-token';
+  protected function getTokenFromMetadataServer(): array {
+    return [
+      'access_token' => 'metadata-token',
+      'expires_at' => time() + 3600,
+      'cache_ttl' => 3500,
+    ];
   }
 
 }

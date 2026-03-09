@@ -1900,6 +1900,28 @@ Expected verification result:
   - Optional runtime-presence check without printing the secret:
     `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal::service('key.repository')->getKey('vertex_sa_credentials')->getKeyValue() ? 'present' : 'missing';"`
 
+### RAUD-05 LLM transport hardening verification
+
+- Baseline before the remediation: `LlmEnhancer::makeApiRequest()` retried
+  `429`/`5xx` failures with synchronous exponential `usleep()` backoff, and the
+  Vertex path fetched a fresh OAuth/metadata token on every LLM request.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-PURE`
+  - `VC-QUALITY-GATE`
+- Targeted local checks:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerApiKeyTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php`
+  - `/usr/bin/time -f 'elapsed=%E' vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --filter testRetryOn429 /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+- Expected contract after the remediation:
+  - Retryable `429`/`5xx` paths perform at most one synchronous retry and the
+    scheduled backoff never exceeds `250ms`.
+  - Vertex service-account and metadata-server auth paths reuse cached bearer
+    tokens until the buffered cache window expires.
+  - Install and active config both pin `llm.max_retries: 1`.
+- Archive the executed command summaries and measured latency result in
+  `docs/aila/runtime/raud-05-llm-transport-hardening.txt`.
+
 ### GitHub mirror onboarding (WSL2)
 
 ```bash

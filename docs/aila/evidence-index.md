@@ -2378,3 +2378,17 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php`
   - `docs/aila/runtime/raud-03-vertex-runtime-secret-remediation.txt`
+
+### CLAIM-167
+- Claim: Re-audit remediation `RAUD-05` caches Vertex access tokens in the
+  shared assistant cache with source-specific keys and buffered TTL handling,
+  while capping synchronous LLM transport retries to one bounded `<=250ms`
+  delay.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+  - `config/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerApiKeyTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
+  - `docs/aila/runtime/raud-05-llm-transport-hardening.txt`

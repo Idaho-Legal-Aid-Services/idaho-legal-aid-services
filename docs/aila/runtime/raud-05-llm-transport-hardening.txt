@@ -1,0 +1,53 @@
+RAUD-05 LLM Transport Hardening Verification
+Date: 2026-03-09
+Workspace: /home/evancurry/idaho-legal-aid-services
+
+Prior status
+- `LlmEnhancer::makeApiRequest()` retried retryable `429`/`5xx` failures with
+  synchronous exponential `usleep()` backoff.
+- Baseline filtered retry timings before the remediation:
+  - `testRetryOn429`: `Time: 00:00.645`, `elapsed=0:00.95`
+  - `testRetriesBoundedByConfig`: `Time: 00:00.707`, `elapsed=0:01.01`
+- `callVertexAi()` always fetched a fresh OAuth2 or metadata-server token;
+  there was no shared Vertex auth token cache.
+
+Post-change local verification
+- Targeted hardening suite
+  - Command: `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - Result: PASS (`36` tests, `95` assertions, `1` PHPUnit deprecation)
+- Targeted guard/config suite
+  - Command: `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerApiKeyTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php`
+  - Result: PASS (`16` tests, `116` assertions, `1` PHPUnit deprecation)
+- Token/retry-focused subset
+  - Command: `/usr/bin/time -f 'elapsed=%E' vendor/bin/phpunit --configuration phpunit.xml --filter 'testVertexAccessTokenCachedAcrossInstancesUsingServiceAccount|testVertexAccessTokenRefreshesAfterBufferedExpiryUsingMetadataServer|testRetryDelayIsCappedAt250Milliseconds|testDefaultRetryBudgetAllowsSingleRetryOnly' web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - Result: PASS (`4` tests, `15` assertions, `elapsed=0:00.36`)
+- Latency-sensitive retry spot check
+  - Command: `/usr/bin/time -f 'elapsed=%E' vendor/bin/phpunit --configuration phpunit.xml --filter testRetryOn429 web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php`
+  - Result: PASS (`1` test, `2` assertions, `Time: 00:00.144`, `elapsed=0:00.46`)
+  - Comparison: wall-clock dropped from the pre-fix `~0.95s` baseline to
+    `~0.46s` with the bounded single-retry path.
+
+Required validation commands
+- VC-UNIT
+  - Command: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: PASS (`1797` tests, `8855` assertions, `1` deprecation,
+    `171` PHPUnit deprecations, `1` skipped)
+- VC-PURE
+  - Command: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml`
+  - Result: PASS (`1797` tests, `8836` assertions, `1` deprecation,
+    `170` PHPUnit deprecations, `7` skipped)
+- VC-QUALITY-GATE
+  - Command: `ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh`
+  - Result: PASS
+  - Summary: unit suite passed; drupal-unit suite passed (`572` tests,
+    `1490` assertions); golden transcript tests passed (`7` tests,
+    `264` assertions); Promptfoo runtime tests passed (`11/11`).
+
+Disposition
+- Vertex auth material is now reused across requests until the buffered cache
+  window expires, with refresh confirmed for both runtime-secret and metadata
+  token paths.
+- Retryable transport failures are now bounded to one retry and a maximum
+  scheduled backoff of `250ms`, eliminating the earlier multi-step exponential
+  sleep path.
+- Repo-level remediation status: Fixed.

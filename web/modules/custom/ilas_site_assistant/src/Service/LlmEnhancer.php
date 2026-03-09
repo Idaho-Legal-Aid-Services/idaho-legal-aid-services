@@ -103,6 +103,10 @@ class LlmEnhancer {
    */
   const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
   const VERTEX_AI_ENDPOINT = 'https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:generateContent';
+  const VERTEX_ACCESS_TOKEN_CACHE_PREFIX = 'llm:vertex_access_token:';
+  const VERTEX_ACCESS_TOKEN_TTL_SECONDS = 3500;
+  const VERTEX_ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS = 100;
+  const MAX_SYNC_RETRY_DELAY_MS = 250;
 
   /**
    * System prompts for different contexts.
@@ -739,7 +743,7 @@ PROMPT,
     ];
 
     return $this->makeApiRequest($url, $payload, [
-      'Authorization' => 'Bearer ' . $accessToken,
+      'Authorization' => 'Bearer ' . $accessToken['access_token'],
     ]);
   }
 
@@ -758,7 +762,7 @@ PROMPT,
    */
   protected function makeApiRequest(string $url, array $payload, array $headers = []): string {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $maxRetries = (int) ($config->get('llm.max_retries') ?? 2);
+    $maxRetries = (int) ($config->get('llm.max_retries') ?? 1);
     $retryableCodes = [429, 500, 502, 503, 504];
 
     $defaultHeaders = [
@@ -819,9 +823,8 @@ PROMPT,
         // Retry on retryable status codes if we have retries left.
         if ($attempt < $maxRetries && in_array($statusCode, $retryableCodes, TRUE)) {
           $attempt++;
-          // Exponential backoff with jitter: 500ms * 2^attempt + random(0-250ms).
-          $delayMs = (int) (500 * pow(2, $attempt - 1) + random_int(0, 250));
-          usleep($delayMs * 1000);
+          $delayMs = $this->getRetryDelayMilliseconds($attempt);
+          $this->sleepMilliseconds($delayMs);
           $this->logger->notice('LLM API request retry @attempt/@max after HTTP @code', [
             '@attempt' => $attempt,
             '@max' => $maxRetries,
@@ -840,17 +843,23 @@ PROMPT,
    *
    * This uses the default application credentials (service account).
    *
-   * @return string
-   *   The access token.
+   * @return array
+   *   Token metadata including the access token and expiry timestamp.
    */
-  protected function getVertexAiAccessToken(): string {
+  protected function getVertexAiAccessToken(): array {
     $serviceAccountJson = $this->getVertexServiceAccountJson();
     if (!empty($serviceAccountJson)) {
-      return $this->getTokenFromServiceAccount($serviceAccountJson);
+      return $this->getCachedVertexAccessToken(
+        $this->getVertexAccessTokenCacheKey('service-account:' . hash('sha256', $serviceAccountJson)),
+        fn() => $this->getTokenFromServiceAccount($serviceAccountJson),
+      );
     }
 
     // Option 2: Use metadata server (when running on GCP).
-    return $this->getTokenFromMetadataServer();
+    return $this->getCachedVertexAccessToken(
+      $this->getVertexAccessTokenCacheKey('metadata-server'),
+      fn() => $this->getTokenFromMetadataServer(),
+    );
   }
 
   /**
@@ -862,15 +871,139 @@ PROMPT,
   }
 
   /**
+   * Returns a source-specific cache key for a Vertex access token.
+   */
+  protected function getVertexAccessTokenCacheKey(string $sourceFingerprint): string {
+    return self::VERTEX_ACCESS_TOKEN_CACHE_PREFIX . hash('sha256', $sourceFingerprint);
+  }
+
+  /**
+   * Returns cached Vertex token metadata or fetches and stores a fresh token.
+   *
+   * @param string $cacheKey
+   *   The cache key for this auth source.
+   * @param callable $tokenFetcher
+   *   Callback that returns token metadata.
+   *
+   * @return array
+   *   Token metadata including the access token and expiry timestamp.
+   */
+  protected function getCachedVertexAccessToken(string $cacheKey, callable $tokenFetcher): array {
+    if ($this->cache) {
+      $cached = $this->cache->get($cacheKey);
+      if ($cached && $this->isValidVertexAccessTokenData($cached->data ?? NULL)) {
+        return $cached->data;
+      }
+    }
+
+    $tokenData = $tokenFetcher();
+    $cacheTtl = (int) ($tokenData['cache_ttl'] ?? 0);
+    if ($this->cache && $cacheTtl > 0) {
+      $this->cache->set(
+        $cacheKey,
+        $tokenData,
+        $this->getCurrentTime() + $cacheTtl,
+        ['ilas_site_assistant:llm']
+      );
+    }
+
+    return $tokenData;
+  }
+
+  /**
+   * Determines whether cached Vertex token metadata is still usable.
+   *
+   * @param mixed $data
+   *   Cached token data.
+   *
+   * @return bool
+   *   TRUE when the cached token is valid and unexpired.
+   */
+  protected function isValidVertexAccessTokenData(mixed $data): bool {
+    return is_array($data)
+      && !empty($data['access_token'])
+      && is_string($data['access_token'])
+      && isset($data['expires_at'])
+      && (int) $data['expires_at'] > $this->getCurrentTime();
+  }
+
+  /**
+   * Returns the current Unix timestamp.
+   */
+  protected function getCurrentTime(): int {
+    return time();
+  }
+
+  /**
+   * Returns a bounded retry delay for synchronous transport retries.
+   */
+  protected function getRetryDelayMilliseconds(int $attempt): int {
+    return min(self::MAX_SYNC_RETRY_DELAY_MS, (100 * $attempt) + random_int(0, 50));
+  }
+
+  /**
+   * Sleeps for the configured number of milliseconds.
+   */
+  protected function sleepMilliseconds(int $delayMs): void {
+    if ($delayMs > 0) {
+      usleep($delayMs * 1000);
+    }
+  }
+
+  /**
+   * Normalizes token response payloads into reusable metadata.
+   *
+   * @param array $body
+   *   Decoded token response payload.
+   * @param string $missingTokenMessage
+   *   Exception message to throw when the token is missing.
+   *
+   * @return array
+   *   Token metadata including access token, expiry, and cache TTL.
+   */
+  protected function normalizeAccessTokenResponse(array $body, string $missingTokenMessage): array {
+    if (empty($body['access_token']) || !is_string($body['access_token'])) {
+      throw new \Exception($missingTokenMessage);
+    }
+
+    $now = $this->getCurrentTime();
+    $expiresIn = filter_var(
+      $body['expires_in'] ?? NULL,
+      FILTER_VALIDATE_INT,
+      ['options' => ['min_range' => 1]]
+    );
+
+    if ($expiresIn === FALSE) {
+      return [
+        'access_token' => $body['access_token'],
+        'expires_at' => $now + self::VERTEX_ACCESS_TOKEN_TTL_SECONDS,
+        'cache_ttl' => self::VERTEX_ACCESS_TOKEN_TTL_SECONDS,
+      ];
+    }
+
+    return [
+      'access_token' => $body['access_token'],
+      'expires_at' => $now + $expiresIn,
+      'cache_ttl' => max(
+        0,
+        min(
+          $expiresIn - self::VERTEX_ACCESS_TOKEN_EXPIRY_BUFFER_SECONDS,
+          self::VERTEX_ACCESS_TOKEN_TTL_SECONDS
+        )
+      ),
+    ];
+  }
+
+  /**
    * Gets access token from service account JSON.
    *
    * @param string $json
    *   The service account JSON.
    *
-   * @return string
-   *   The access token.
+   * @return array
+   *   Token metadata including the access token and expiry timestamp.
    */
-  protected function getTokenFromServiceAccount(string $json): string {
+  protected function getTokenFromServiceAccount(string $json): array {
     $credentials = json_decode($json, TRUE);
 
     if (!$credentials || empty($credentials['private_key']) || empty($credentials['client_email'])) {
@@ -883,7 +1016,7 @@ PROMPT,
       'typ' => 'JWT',
     ];
 
-    $now = time();
+    $now = $this->getCurrentTime();
     $payload = [
       'iss' => $credentials['client_email'],
       'scope' => 'https://www.googleapis.com/auth/cloud-platform',
@@ -911,21 +1044,16 @@ PROMPT,
     ]);
 
     $body = json_decode($response->getBody()->getContents(), TRUE);
-
-    if (empty($body['access_token'])) {
-      throw new \Exception('Failed to get access token');
-    }
-
-    return $body['access_token'];
+    return $this->normalizeAccessTokenResponse($body, 'Failed to get access token');
   }
 
   /**
    * Gets access token from GCP metadata server.
    *
-   * @return string
-   *   The access token.
+   * @return array
+   *   Token metadata including the access token and expiry timestamp.
    */
-  protected function getTokenFromMetadataServer(): string {
+  protected function getTokenFromMetadataServer(): array {
     try {
       $response = $this->httpClient->request('GET',
         'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
@@ -938,12 +1066,7 @@ PROMPT,
       );
 
       $body = json_decode($response->getBody()->getContents(), TRUE);
-
-      if (empty($body['access_token'])) {
-        throw new \Exception('No access token in metadata response');
-      }
-
-      return $body['access_token'];
+      return $this->normalizeAccessTokenResponse($body, 'No access token in metadata response');
     }
     catch (\Exception $e) {
       throw new \Exception('Failed to get token from metadata server. Are you running on GCP? Error: ' . $e->getMessage());

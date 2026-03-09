@@ -18,6 +18,10 @@ Planning defaults applied:
 3. Remaining closure work is deployment-bound: Pantheon environments must be
    re-verified with read-only checks after deployment before the finding is
    considered fully fixed in a live runtime.
+4. `RAUD-05` closes the repo-side LLM transport gap behind findings `C3`, `C4`,
+   and `LLM-1`: `LlmEnhancer` now caches Vertex access tokens with buffered
+   TTLs and reduces synchronous retry behavior to one bounded `<=250ms` backoff
+   window without expanding the assistant architecture surface.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

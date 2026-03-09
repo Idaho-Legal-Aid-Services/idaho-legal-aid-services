@@ -2,6 +2,7 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
@@ -43,6 +44,14 @@ class LlmEnhancerHardeningTest extends TestCase {
     $this->control->apiResponse = 'LLM test response';
     $this->control->apiException = NULL;
     $this->control->apiExceptionSequence = [];
+    $this->control->sleepDelayHistory = [];
+    $this->control->currentTime = 1700000000;
+    $this->control->authHeaders = [];
+    $this->control->vertexServiceAccountJson = '';
+    $this->control->serviceAccountTokenSequence = [];
+    $this->control->metadataTokenSequence = [];
+    $this->control->serviceAccountTokenFetchCount = 0;
+    $this->control->metadataTokenFetchCount = 0;
   }
 
   /**
@@ -364,6 +373,139 @@ class LlmEnhancerHardeningTest extends TestCase {
 
     // First attempt + 1 retry = 2 calls total, then gives up.
     $this->assertEquals(2, $this->control->apiCallCount);
+  }
+
+  /**
+   * Tests the default retry budget only allows one retry.
+   */
+  public function testDefaultRetryBudgetAllowsSingleRetryOnly(): void {
+    $this->control->apiExceptionSequence = [
+      new RequestException(
+        'Service unavailable',
+        new Request('POST', 'https://example.com'),
+        new Response(503)
+      ),
+      new RequestException(
+        'Service unavailable again',
+        new Request('POST', 'https://example.com'),
+        new Response(503)
+      ),
+    ];
+
+    $enhancer = $this->buildEnhancer(
+      useRealMakeApiRequest: TRUE,
+      captureRetryDelay: TRUE,
+    );
+
+    $ref = new \ReflectionMethod($enhancer, 'makeApiRequest');
+    $ref->setAccessible(TRUE);
+
+    $this->expectException(\Exception::class);
+    $ref->invoke($enhancer, 'https://example.com/api', [
+      'contents' => [['parts' => [['text' => 'test']]]],
+    ]);
+
+    $this->assertEquals(2, $this->control->apiCallCount);
+    $this->assertCount(1, $this->control->sleepDelayHistory);
+  }
+
+  /**
+   * Tests retry delays are capped for synchronous worker safety.
+   */
+  public function testRetryDelayIsCappedAt250Milliseconds(): void {
+    $this->control->apiExceptionSequence = [
+      new RequestException(
+        'Rate limited',
+        new Request('POST', 'https://example.com'),
+        new Response(429)
+      ),
+    ];
+    $this->control->apiResponse = 'bounded retry success';
+
+    $enhancer = $this->buildEnhancer(
+      useRealMakeApiRequest: TRUE,
+      captureRetryDelay: TRUE,
+    );
+
+    $ref = new \ReflectionMethod($enhancer, 'makeApiRequest');
+    $ref->setAccessible(TRUE);
+
+    $result = $ref->invoke($enhancer, 'https://example.com/api', [
+      'contents' => [['parts' => [['text' => 'test']]]],
+    ]);
+
+    $this->assertSame('bounded retry success', $result);
+    $this->assertCount(1, $this->control->sleepDelayHistory);
+    $this->assertLessThanOrEqual(250, $this->control->sleepDelayHistory[0]);
+  }
+
+  /**
+   * Tests Vertex tokens are reused across enhancer instances until expiry.
+   */
+  public function testVertexAccessTokenCachedAcrossInstancesUsingServiceAccount(): void {
+    $cache = $this->buildSharedCacheBackend();
+    $this->control->vertexServiceAccountJson = '{"private_key":"runtime-key","client_email":"bot@example.com"}';
+    $this->control->serviceAccountTokenSequence = [
+      [
+        'access_token' => 'shared-service-account-token',
+        'expires_at' => $this->control->currentTime + 3600,
+        'cache_ttl' => 3500,
+      ],
+    ];
+
+    $first = $this->buildVertexEnhancer(cache: $cache);
+    $second = $this->buildVertexEnhancer(cache: $cache);
+
+    $ref = new \ReflectionMethod($first, 'callVertexAi');
+    $ref->setAccessible(TRUE);
+
+    $firstResult = $ref->invoke($first, 'Prompt one', ['max_tokens' => 20]);
+    $secondResult = $ref->invoke($second, 'Prompt two', ['max_tokens' => 20]);
+
+    $this->assertSame('LLM test response', $firstResult);
+    $this->assertSame('LLM test response', $secondResult);
+    $this->assertSame(1, $this->control->serviceAccountTokenFetchCount);
+    $this->assertSame(0, $this->control->metadataTokenFetchCount);
+    $this->assertSame(
+      ['Bearer shared-service-account-token', 'Bearer shared-service-account-token'],
+      $this->control->authHeaders
+    );
+  }
+
+  /**
+   * Tests cached Vertex tokens refresh after their buffered cache window expires.
+   */
+  public function testVertexAccessTokenRefreshesAfterBufferedExpiryUsingMetadataServer(): void {
+    $cache = $this->buildSharedCacheBackend();
+    $this->control->metadataTokenSequence = [
+      [
+        'access_token' => 'metadata-token-one',
+        'expires_at' => $this->control->currentTime + 200,
+        'cache_ttl' => 100,
+      ],
+      [
+        'access_token' => 'metadata-token-two',
+        'expires_at' => $this->control->currentTime + 4000,
+        'cache_ttl' => 3500,
+      ],
+    ];
+
+    $enhancer = $this->buildVertexEnhancer(cache: $cache);
+    $ref = new \ReflectionMethod($enhancer, 'callVertexAi');
+    $ref->setAccessible(TRUE);
+
+    $firstResult = $ref->invoke($enhancer, 'Prompt one', ['max_tokens' => 20]);
+    $this->control->currentTime += 101;
+    $secondResult = $ref->invoke($enhancer, 'Prompt two', ['max_tokens' => 20]);
+
+    $this->assertSame('LLM test response', $firstResult);
+    $this->assertSame('LLM test response', $secondResult);
+    $this->assertSame(2, $this->control->metadataTokenFetchCount);
+    $this->assertSame(0, $this->control->serviceAccountTokenFetchCount);
+    $this->assertSame(
+      ['Bearer metadata-token-one', 'Bearer metadata-token-two'],
+      $this->control->authHeaders
+    );
   }
 
   /**
@@ -838,7 +980,7 @@ class LlmEnhancerHardeningTest extends TestCase {
       'llm.fallback_on_error' => TRUE,
       'llm.safety_threshold' => 'BLOCK_MEDIUM_AND_ABOVE',
       'llm.cache_ttl' => 3600,
-      'llm.max_retries' => 2,
+      'llm.max_retries' => 1,
     ];
 
     foreach ($overrides as $key => $value) {
@@ -895,6 +1037,7 @@ class LlmEnhancerHardeningTest extends TestCase {
     ?CacheBackendInterface $cache = NULL,
     array $configOverrides = [],
     bool $useRealMakeApiRequest = FALSE,
+    bool $captureRetryDelay = FALSE,
     ?LlmCircuitBreaker $circuitBreaker = NULL,
     ?LlmRateLimiter $rateLimiter = NULL,
     ?CostControlPolicy $costControlPolicy = NULL,
@@ -904,6 +1047,20 @@ class LlmEnhancerHardeningTest extends TestCase {
     $policyFilter = $this->buildPolicyFilter();
 
     if ($useRealMakeApiRequest) {
+      if ($captureRetryDelay) {
+        return new CapturingRetryTestableEnhancer(
+          $configFactory,
+          $this->buildMockHttpClient(),
+          $loggerFactory,
+          $policyFilter,
+          $cache,
+          $this->control,
+          $circuitBreaker,
+          $rateLimiter,
+          $costControlPolicy,
+        );
+      }
+
       return new RetryTestableEnhancer(
         $configFactory,
         $this->buildMockHttpClient(),
@@ -927,6 +1084,29 @@ class LlmEnhancerHardeningTest extends TestCase {
       $circuitBreaker,
       $rateLimiter,
       $costControlPolicy,
+    );
+  }
+
+  /**
+   * Builds a Vertex transport double with shared cache support.
+   */
+  private function buildVertexEnhancer(
+    ?CacheBackendInterface $cache = NULL,
+    array $configOverrides = [],
+  ): LlmEnhancer {
+    $configFactory = $this->buildConfigFactory([
+      'llm.provider' => 'vertex_ai',
+      'llm.project_id' => 'test-project',
+      ...$configOverrides,
+    ]);
+
+    return new VertexTransportTestableEnhancer(
+      $configFactory,
+      $this->createStub(ClientInterface::class),
+      $this->buildLoggerFactory(),
+      $this->buildPolicyFilter(),
+      $cache,
+      $this->control,
     );
   }
 
@@ -960,6 +1140,42 @@ class LlmEnhancerHardeningTest extends TestCase {
     return $client;
   }
 
+  /**
+   * Builds a shared in-memory cache backend driven by the test clock.
+   */
+  private function buildSharedCacheBackend(): CacheBackendInterface {
+    $entries = [];
+    $control = $this->control;
+
+    $cache = $this->createMock(CacheBackendInterface::class);
+    $cache->method('get')
+      ->willReturnCallback(function (string $cid) use (&$entries, $control) {
+        if (!isset($entries[$cid])) {
+          return FALSE;
+        }
+
+        $entry = $entries[$cid];
+        if ($entry['expire'] !== Cache::PERMANENT && $entry['expire'] <= $control->currentTime) {
+          unset($entries[$cid]);
+          return FALSE;
+        }
+
+        $cacheItem = new \stdClass();
+        $cacheItem->data = $entry['data'];
+        return $cacheItem;
+      });
+    $cache->method('set')
+      ->willReturnCallback(function (string $cid, mixed $data, int $expire = Cache::PERMANENT, array $tags = []) use (&$entries) {
+        $entries[$cid] = [
+          'data' => $data,
+          'expire' => $expire,
+          'tags' => $tags,
+        ];
+      });
+
+    return $cache;
+  }
+
 }
 
 /**
@@ -967,7 +1183,7 @@ class LlmEnhancerHardeningTest extends TestCase {
  */
 class HardeningTestableEnhancer extends LlmEnhancer {
 
-  private \stdClass $control;
+  protected \stdClass $control;
 
   public function __construct(
     $config_factory,
@@ -1002,7 +1218,7 @@ class HardeningTestableEnhancer extends LlmEnhancer {
  */
 class RetryTestableEnhancer extends LlmEnhancer {
 
-  private \stdClass $control;
+  protected \stdClass $control;
 
   public function __construct(
     $config_factory,
@@ -1020,6 +1236,64 @@ class RetryTestableEnhancer extends LlmEnhancer {
   }
 
   // Uses real makeApiRequest — the mock HTTP client handles sequencing.
+
+}
+
+/**
+ * Retry test double that captures backoff delays without sleeping.
+ */
+class CapturingRetryTestableEnhancer extends RetryTestableEnhancer {
+
+  protected function sleepMilliseconds(int $delayMs): void {
+    $this->control->sleepDelayHistory[] = $delayMs;
+  }
+
+}
+
+/**
+ * Vertex transport double with controllable token sources and clock.
+ */
+class VertexTransportTestableEnhancer extends LlmEnhancer {
+
+  protected \stdClass $control;
+
+  public function __construct(
+    $config_factory,
+    $http_client,
+    $logger_factory,
+    $policy_filter,
+    $cache,
+    \stdClass $control,
+  ) {
+    parent::__construct($config_factory, $http_client, $logger_factory, $policy_filter, $cache, NULL, NULL, NULL);
+    $this->control = $control;
+  }
+
+  protected function getVertexServiceAccountJson(): string {
+    return $this->control->vertexServiceAccountJson;
+  }
+
+  protected function getTokenFromServiceAccount(string $json): array {
+    $this->control->serviceAccountTokenFetchCount++;
+    return array_shift($this->control->serviceAccountTokenSequence);
+  }
+
+  protected function getTokenFromMetadataServer(): array {
+    $this->control->metadataTokenFetchCount++;
+    return array_shift($this->control->metadataTokenSequence);
+  }
+
+  protected function getCurrentTime(): int {
+    return $this->control->currentTime;
+  }
+
+  protected function makeApiRequest(string $url, array $payload, array $headers = []): string {
+    $this->control->apiCallCount++;
+    $this->control->authHeaders[] = $headers['Authorization'] ?? NULL;
+    $this->control->capturedPrompt = $payload['contents'][0]['parts'][0]['text'] ?? NULL;
+
+    return $this->control->apiResponse;
+  }
 
 }
 

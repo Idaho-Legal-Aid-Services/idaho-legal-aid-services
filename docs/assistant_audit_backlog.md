@@ -68,6 +68,7 @@
 | Ticket | Audit ID | Verified? | Summary | Evidence | Constraints | Target |
 |--------|----------|-----------|---------|----------|-------------|--------|
 | RAUD-03 | C2 / F-15 | **YES (implemented in repo)** | Vertex service-account JSON is no longer accepted in the assistant admin UI or exportable via Drupal config. Runtime secret injection is the only supported credential source. | `AssistantSettingsForm.php`, `LlmEnhancer.php`, `settings.php`, `key.key.vertex_sa_credentials.yml`, `VertexRuntimeCredentialGuardTest.php` | Pantheon/runtime verification still requires deploy-time read-only checks. | next deploy |
+| RAUD-05 | C3 / C4 / LLM-1 | **YES (implemented in repo)** | Vertex access tokens are now cached with buffered TTLs, and LLM transport retry/backoff is bounded to one retry with `<=250ms` synchronous delay. | `LlmEnhancer.php`, `ilas_site_assistant.settings.yml`, `LlmEnhancerHardeningTest.php`, `raud-05-llm-transport-hardening.txt` | Verified locally; live environments still keep `llm.enabled=false` pending rollout governance. | next deploy |
 
 ---
 
