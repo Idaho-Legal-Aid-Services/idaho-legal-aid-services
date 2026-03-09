@@ -1417,10 +1417,10 @@
           controller.abort();
         }, timeoutMs);
 
-        var headers = {
+        var headers = Object.assign({
           'Content-Type': 'application/json',
-        };
-        if (needsCsrf && isCsrfRoute && csrfToken) {
+        }, options.headers || {});
+        if (needsCsrf && isCsrfRoute && csrfToken && !headers['X-CSRF-Token']) {
           headers['X-CSRF-Token'] = csrfToken;
         }
 
@@ -1431,7 +1431,9 @@
           signal: controller.signal,
         };
 
-        var fetchOptions = Object.assign({}, defaultOptions, options);
+        var fetchOptions = Object.assign({}, defaultOptions, options, {
+          headers: headers,
+        });
         delete fetchOptions.timeout;
 
         return fetch(url, fetchOptions)
@@ -1473,6 +1475,47 @@
             throw error;
           });
       });
+    },
+
+    /**
+     * Send a /track request with one silent recovery retry for missing proof.
+     *
+     * Browsers should normally satisfy /track protection through same-origin
+     * Origin/Referer headers. If those headers are stripped, retry once with a
+     * fresh session-bound X-CSRF-Token from the assistant bootstrap endpoint.
+     *
+     * @param {Object} payload - Track event payload.
+     * @param {boolean} _isRetry - Internal recursion guard.
+     * @param {string} csrfToken - Optional recovery token for retry only.
+     * @return {Promise} Resolves with parsed JSON or rejects with an Error.
+     */
+    callTrackApi: function (payload, _isRetry, csrfToken) {
+      var self = this;
+      var options = {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      };
+
+      if (csrfToken) {
+        options.headers = {
+          'X-CSRF-Token': csrfToken,
+        };
+      }
+
+      return this.callApi('/track', options)
+        .catch(function (error) {
+          var needsRecovery = error
+            && error.status === 403
+            && (error.errorCode === 'track_proof_missing' || error.errorCode === 'track_proof_invalid');
+
+          if (!needsRecovery || _isRetry) {
+            throw error;
+          }
+
+          return self.fetchCsrfToken(true).then(function (freshToken) {
+            return self.callTrackApi(payload, true, freshToken);
+          });
+        });
     },
 
     /**
@@ -1699,12 +1742,9 @@
       }
 
       // Also log to server.
-      this.callApi('/track', {
-        method: 'POST',
-        body: JSON.stringify({
-          event_type: eventType,
-          event_value: eventValue,
-        }),
+      return this.callTrackApi({
+        event_type: eventType,
+        event_value: eventValue,
       }).catch(function () {
         // Silent fail for tracking.
       });

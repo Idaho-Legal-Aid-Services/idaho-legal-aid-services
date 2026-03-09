@@ -197,46 +197,42 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that the track endpoint works without CSRF token.
-   *
-   * CSRF was removed from /track to avoid session creation on telemetry.
-   * Origin/Referer validation + rate limiting protect the endpoint instead.
+   * Tests that missing-browser-proof track requests are denied.
    */
-  public function testTrackEndpointWithoutCsrf(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
+  public function testTrackEndpointWithoutBrowserProofReturnsTrackProofMissing(): void {
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], [
+      'Content-Type' => 'application/json',
     ]);
-    $this->assertEquals(200, $response->getStatusCode(),
-      '/track should accept POST without CSRF token');
+
+    $this->assertEquals(403, $response->getStatusCode(),
+      '/track should deny POST when Origin and Referer are both missing');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertSame('Forbidden', $data['error'] ?? NULL);
+    $this->assertSame('track_proof_missing', $data['error_code'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $data);
   }
 
   /**
    * Tests that track endpoint rejects cross-origin Origin headers.
    */
   public function testTrackEndpointRejectsCrossOriginOriginHeader(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'Origin' => 'https://evil.example',
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], [
+      'Content-Type' => 'application/json',
+      'Origin' => 'https://evil.example',
     ]);
 
     $this->assertEquals(403, $response->getStatusCode(), 'Cross-origin Origin must be denied');
     $data = json_decode($response->getBody(), TRUE);
     $this->assertIsArray($data);
     $this->assertSame('Forbidden', $data['error'] ?? NULL);
+    $this->assertSame('track_origin_mismatch', $data['error_code'] ?? NULL);
     $this->assertArrayHasKey('request_id', $data);
   }
 
@@ -244,17 +240,10 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Tests that track endpoint allows same-origin Origin headers.
    */
   public function testTrackEndpointAllowsSameOriginOriginHeader(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'Origin' => $this->siteOrigin(),
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
-    ]);
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], $this->validTrackHeaders());
 
     $this->assertEquals(200, $response->getStatusCode(), 'Same-origin Origin must be allowed');
     $data = json_decode($response->getBody(), TRUE);
@@ -266,16 +255,12 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Tests that track endpoint allows same-origin Referer when Origin is absent.
    */
   public function testTrackEndpointAllowsSameOriginRefererHeader(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-        'Referer' => $this->siteOrigin() . '/assistant',
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], [
+      'Content-Type' => 'application/json',
+      'Referer' => $this->siteOrigin() . '/assistant',
     ]);
 
     $this->assertEquals(200, $response->getStatusCode(), 'Same-origin Referer must be allowed');
@@ -285,15 +270,92 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Tests that track endpoint rejects cross-origin Referer when Origin is absent.
+   */
+  public function testTrackEndpointRejectsCrossOriginRefererHeader(): void {
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], [
+      'Content-Type' => 'application/json',
+      'Referer' => 'https://evil.example/assistant',
+    ]);
+
+    $this->assertEquals(403, $response->getStatusCode(), 'Cross-origin Referer must be denied');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertSame('Forbidden', $data['error'] ?? NULL);
+    $this->assertSame('track_origin_mismatch', $data['error_code'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $data);
+  }
+
+  /**
+   * Tests that missing-browser-proof requests can recover with bootstrap token.
+   */
+  public function testTrackEndpointAllowsBootstrapTokenWhenBrowserHeadersMissing(): void {
+    [$cookies, $token] = $this->getAnonymousSessionCookiesAndToken();
+
+    $response = $this->postJsonAnonymous('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], $token, $cookies);
+
+    $this->assertEquals(200, $response->getStatusCode(), 'Missing browser proof may recover with bootstrap token');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertTrue($data['ok'] ?? FALSE);
+  }
+
+  /**
+   * Tests that invalid bootstrap token fallback is denied.
+   */
+  public function testTrackEndpointRejectsInvalidBootstrapTokenWhenBrowserHeadersMissing(): void {
+    [$cookies] = $this->getAnonymousSessionCookiesAndToken();
+
+    $response = $this->postJsonAnonymous('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], 'deliberately-invalid-token', $cookies);
+
+    $this->assertEquals(403, $response->getStatusCode(), 'Invalid bootstrap token must be denied');
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertSame('Forbidden', $data['error'] ?? NULL);
+    $this->assertSame('track_proof_invalid', $data['error_code'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $data);
+  }
+
+  /**
+   * Tests end-to-end /track recovery after missing browser proof.
+   */
+  public function testTrackEndpointRecoveryWithFreshBootstrapToken(): void {
+    $response = $this->postJsonAnonymous('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ]);
+    $this->assertEquals(403, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertSame('track_proof_missing', $data['error_code'] ?? NULL);
+
+    [$cookies, $token] = $this->getAnonymousSessionCookiesAndToken();
+    $response = $this->postJsonAnonymous('/assistant/api/track', [
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], $token, $cookies);
+    $this->assertEquals(200, $response->getStatusCode(), 'Track recovery with bootstrap token should succeed');
+  }
+
+  /**
    * Tests that the track endpoint accepts valid events.
    */
   public function testTrackEndpointAcceptsValidEvent(): void {
     $this->drupalLogin($this->regularUser);
 
-    $response = $this->postJson('/assistant/api/track', [
+    $response = $this->postTrack([
       'event_type' => 'chat_open',
       'event_value' => '',
-    ], FALSE);
+    ], $this->validTrackHeaders());
 
     $this->assertEquals(200, $response->getStatusCode());
 
@@ -305,15 +367,9 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Tests that the track endpoint rejects missing event_type.
    */
   public function testTrackEndpointRejectsMissingEventType(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-      ],
-      'body' => json_encode([
-        'event_value' => 'some_value',
-      ]),
-    ]);
+    $response = $this->postTrack([
+      'event_value' => 'some_value',
+    ], $this->validTrackHeaders());
 
     $this->assertEquals(400, $response->getStatusCode());
   }
@@ -571,14 +627,11 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix A (F-04): Content-Type null → TypeError on PHP 8.1+.
    */
   public function testTrackEndpointRejectsNullContentType(): void {
-    $url = $this->buildUrl('/assistant/api/track');
-
-    $options = [
-      'http_errors' => FALSE,
-      'body' => '{"event_type":"chat_open"}',
-    ];
-
-    $response = $this->getHttpClient()->post($url, $options);
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+    ], [
+      'Origin' => $this->siteOrigin(),
+    ]);
     $this->assertEquals(400, $response->getStatusCode(), 'Missing Content-Type should return 400, not 500');
   }
 
@@ -604,16 +657,10 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix B (C-06).
    */
   public function testTrackEndpointIncludesCacheControlNoStore(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
-    ]);
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], $this->validTrackHeaders());
 
     $cache_control = $response->getHeader('Cache-Control')[0] ?? '';
     $this->assertStringContainsString('no-store', $cache_control, 'POST /track must include Cache-Control: no-store');
@@ -649,16 +696,10 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Covers Fix D (F-28/C-07).
    */
   public function testTrackResponseIncludesRequestId(): void {
-    $response = $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), [
-      'http_errors' => FALSE,
-      'headers' => [
-        'Content-Type' => 'application/json',
-      ],
-      'body' => json_encode([
-        'event_type' => 'chat_open',
-        'event_value' => '',
-      ]),
-    ]);
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ], $this->validTrackHeaders());
 
     $this->assertEquals(200, $response->getStatusCode());
 
@@ -749,20 +790,58 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Tests anonymous POST to /track succeeds without CSRF token.
-   *
-   * CSRF was removed from /track to avoid unnecessary session creation.
-   * Origin/Referer validation + rate limiting protect the endpoint instead.
+   * Tests anonymous POST to /track without browser proof is denied.
    */
-  public function testAnonymousTrackEndpointWithoutCsrf(): void {
+  public function testAnonymousTrackEndpointWithoutBrowserProofReturnsTrackProofMissing(): void {
     $response = $this->postJsonAnonymous('/assistant/api/track', [
       'event_type' => 'chat_open',
       'event_value' => '',
     ]);
 
-    $this->assertEquals(200, $response->getStatusCode(), 'Anonymous POST to /track should succeed without CSRF token');
+    $this->assertEquals(403, $response->getStatusCode(), 'Anonymous POST to /track should fail without browser proof');
     $data = json_decode($response->getBody(), TRUE);
-    $this->assertTrue($data['ok']);
+    $this->assertIsArray($data);
+    $this->assertSame('track_proof_missing', $data['error_code'] ?? NULL);
+  }
+
+  /**
+   * Tests that /track flood limit still applies on allowed requests.
+   */
+  public function testTrackEndpointFloodLimitAppliesToAllowedRequests(): void {
+    $warmup = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => 'warmup',
+    ], $this->validTrackHeaders());
+    $this->assertEquals(200, $warmup->getStatusCode(), 'Warmup track request must succeed');
+
+    $identifier = \Drupal::database()->select('flood', 'f')
+      ->fields('f', ['identifier'])
+      ->condition('event', 'ilas_assistant_track')
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+    $this->assertNotEmpty($identifier, 'Track flood identifier must be discoverable after warmup request');
+
+    \Drupal::database()->delete('flood')
+      ->condition('event', 'ilas_assistant_track')
+      ->condition('identifier', $identifier)
+      ->execute();
+
+    for ($i = 0; $i < 60; $i++) {
+      $response = $this->postTrack([
+        'event_type' => 'chat_open',
+        'event_value' => 'burst-' . $i,
+      ], $this->validTrackHeaders());
+      $this->assertEquals(200, $response->getStatusCode(), 'Initial allowed track requests must succeed');
+    }
+
+    $response = $this->postTrack([
+      'event_type' => 'chat_open',
+      'event_value' => 'burst-limit',
+    ], $this->validTrackHeaders());
+
+    $this->assertEquals(429, $response->getStatusCode(), '61st allowed track request must be rate limited');
+    $this->assertSame('60', $response->getHeader('Retry-After')[0] ?? NULL);
   }
 
   /**
@@ -903,6 +982,22 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Sends a JSON POST request to /track with explicit headers.
+   */
+  protected function postTrack(array $data, array $headers, ?CookieJarInterface $cookies = NULL) {
+    $options = [
+      'http_errors' => FALSE,
+      'headers' => $headers,
+      'body' => json_encode($data),
+    ];
+    if ($cookies !== NULL) {
+      $options['cookies'] = $cookies;
+    }
+
+    return $this->getHttpClient()->post($this->buildUrl('/assistant/api/track'), $options);
+  }
+
+  /**
    * Sends a JSON POST request to the given path.
    *
    * @param string $path
@@ -994,6 +1089,16 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $host = $parts['host'] ?? 'localhost';
     $port = isset($parts['port']) ? ':' . $parts['port'] : '';
     return "{$scheme}://{$host}{$port}";
+  }
+
+  /**
+   * Returns the standard allow-path headers for /track requests.
+   */
+  protected function validTrackHeaders(): array {
+    return [
+      'Content-Type' => 'application/json',
+      'Origin' => $this->siteOrigin(),
+    ];
   }
 
 }

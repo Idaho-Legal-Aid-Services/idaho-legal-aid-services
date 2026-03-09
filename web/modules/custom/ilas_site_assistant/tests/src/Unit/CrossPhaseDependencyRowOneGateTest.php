@@ -149,8 +149,8 @@ final class CrossPhaseDependencyRowOneGateTest extends TestCase {
     $this->assertStringContainsString("_ilas_strict_csrf_token: 'TRUE'", $routing);
     $this->assertStringContainsString('ilas_site_assistant.api.track:', $routing);
     $this->assertStringContainsString('Enforces strict CSRF header validation for assistant write endpoints', $strictCsrfCheck);
-    $this->assertStringContainsString('Origin-based protection (replaces CSRF for this low-impact endpoint)', $apiController);
-    $this->assertStringContainsString('private function isValidOrigin(Request $request): bool', $apiController);
+    $this->assertStringContainsString('Hybrid browser proof: same-origin Origin/Referer first', $apiController);
+    $this->assertStringContainsString('private function evaluateTrackWriteProof(Request $request): array', $apiController);
 
     $this->assertStringContainsString('testAuthenticatedWithInvalidTokenIsForbiddenAndLogged', $csrfMatrixTest);
     $this->assertStringContainsString('testAnonymousWithValidTokenIsAllowed', $csrfMatrixTest);
@@ -159,7 +159,7 @@ final class CrossPhaseDependencyRowOneGateTest extends TestCase {
     $this->assertStringContainsString('testTrackEndpointAllowsSameOriginRefererHeader', $functionalTest);
 
     $this->assertStringContainsString('POST /assistant/api/message + CSRF', $systemMap);
-    $this->assertStringContainsString('POST /assistant/api/track + Origin/Referer guard', $systemMap);
+    $this->assertStringContainsString('POST /assistant/api/track + Origin/Referer or bootstrap-token recovery', $systemMap);
   }
 
 }

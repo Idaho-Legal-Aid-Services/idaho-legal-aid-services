@@ -2,6 +2,8 @@
 
 namespace Drupal\ilas_site_assistant\Controller;
 
+use Drupal\Core\Access\CsrfRequestHeaderAccessCheck;
+use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -239,6 +241,13 @@ class AssistantApiController extends ControllerBase {
   protected $logger;
 
   /**
+   * The CSRF token generator for recovery-only /track fallback validation.
+   *
+   * @var \Drupal\Core\Access\CsrfTokenGenerator|null
+   */
+  protected $csrfTokenGenerator;
+
+  /**
    * Constructs an AssistantApiController object.
    */
   public function __construct(
@@ -265,7 +274,8 @@ class AssistantApiController extends ControllerBase {
     LangfuseTracer $langfuse_tracer = NULL,
     TopIntentsPack $top_intents_pack = NULL,
     SourceGovernanceService $source_governance = NULL,
-    VectorIndexHygieneService $vector_index_hygiene = NULL
+    VectorIndexHygieneService $vector_index_hygiene = NULL,
+    CsrfTokenGenerator $csrf_token_generator = NULL
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -291,6 +301,7 @@ class AssistantApiController extends ControllerBase {
     $this->topIntentsPack = $top_intents_pack;
     $this->sourceGovernance = $source_governance;
     $this->vectorIndexHygiene = $vector_index_hygiene;
+    $this->csrfTokenGenerator = $csrf_token_generator;
   }
 
   /**
@@ -321,7 +332,8 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.langfuse_tracer') ? $container->get('ilas_site_assistant.langfuse_tracer') : NULL,
       $container->has('ilas_site_assistant.top_intents_pack') ? $container->get('ilas_site_assistant.top_intents_pack') : NULL,
       $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL,
-      $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL
+      $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL,
+      $container->has('csrf_token') ? $container->get('csrf_token') : NULL
     );
   }
 
@@ -1495,19 +1507,30 @@ class AssistantApiController extends ControllerBase {
   public function track(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
 
-    // Origin-based protection (replaces CSRF for this low-impact endpoint).
-    if (!$this->isValidOrigin($request)) {
+    // Hybrid browser proof: same-origin Origin/Referer first, then recovery-
+    // only bootstrap token fallback when browser headers are missing.
+    $track_proof = $this->evaluateTrackWriteProof($request);
+    if (!$track_proof['allowed']) {
       $this->logger->notice(
-        'event={event} reason={reason} origin={origin} referer={referer} path={path}',
+        'event={event} reason={reason} proof_mode={proof_mode} origin_present={origin_present} referer_present={referer_present} token_present={token_present} origin={origin} referer={referer} path={path}',
         [
           'event' => 'track_origin_deny',
-          'reason' => 'origin_mismatch',
+          'reason' => $track_proof['code'],
+          'proof_mode' => $track_proof['mode'],
+          'origin_present' => $request->headers->has('Origin') ? 'yes' : 'no',
+          'referer_present' => $request->headers->has('Referer') ? 'yes' : 'no',
+          'token_present' => $request->headers->has('X-CSRF-Token') ? 'yes' : 'no',
           'origin' => (string) $request->headers->get('Origin', ''),
           'referer' => (string) $request->headers->get('Referer', ''),
           'path' => $request->getPathInfo(),
         ],
       );
-      return $this->jsonResponse(['error' => 'Forbidden', 'request_id' => $request_id], 403, [], $request_id);
+      return $this->jsonResponse([
+        'error' => 'Forbidden',
+        'error_code' => $track_proof['code'],
+        'message' => $track_proof['message'],
+        'request_id' => $request_id,
+      ], 403, [], $request_id);
     }
 
     // Rate limit tracking events per IP.
@@ -3909,19 +3932,6 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
-   * Validates that the request Origin or Referer matches the site host.
-   *
-   * Used for low-impact endpoints (e.g. /track) where CSRF tokens are removed
-   * to avoid unnecessary session creation. This blocks cross-origin POSTs
-   * while allowing same-origin requests without a session.
-   *
-   * @param \Symfony\Component\HttpFoundation\Request $request
-   *   The incoming request.
-   *
-   * @return bool
-   *   TRUE if the origin is same-host or indeterminate (no header).
-   */
-  /**
    * Assembles formal response contract fields for 200-response paths.
    *
    * Adds confidence, citations[], and decision_reason to the response data.
@@ -4055,26 +4065,112 @@ class AssistantApiController extends ControllerBase {
     return $path_reasons[$path_type] ?? 'Deterministic routing';
   }
 
-  private function isValidOrigin(Request $request): bool {
-    $origin = $request->headers->get('Origin');
-    $referer = $request->headers->get('Referer');
-    $host = $request->getHost();
+  /**
+   * Evaluates whether a /track request presents an approved write proof.
+   *
+   * Origin is authoritative when present. Referer is the fallback when Origin
+   * is absent. A session-bound X-CSRF-Token is recovery-only and may be used
+   * only when both browser headers are missing.
+   *
+   * @return array{allowed: bool, mode: string, code?: string, message?: string}
+   *   Proof evaluation result.
+   */
+  private function evaluateTrackWriteProof(Request $request): array {
+    if ($request->headers->has('Origin')) {
+      $origin = trim((string) $request->headers->get('Origin', ''));
+      if ($this->isSameOriginUrl($origin, $request)) {
+        return [
+          'allowed' => TRUE,
+          'mode' => 'origin',
+        ];
+      }
 
-    // If Origin header is present, validate it.
-    if ($origin !== NULL && $origin !== '' && $origin !== 'null') {
-      $parsed = parse_url($origin);
-      return isset($parsed['host']) && $parsed['host'] === $host;
+      return [
+        'allowed' => FALSE,
+        'mode' => 'origin',
+        'code' => 'track_origin_mismatch',
+        'message' => 'Origin header must match the site origin.',
+      ];
     }
 
-    // Fall back to Referer if no Origin.
-    if ($referer !== NULL && $referer !== '') {
-      $parsed = parse_url($referer);
-      return isset($parsed['host']) && $parsed['host'] === $host;
+    if ($request->headers->has('Referer')) {
+      $referer = trim((string) $request->headers->get('Referer', ''));
+      if ($this->isSameOriginUrl($referer, $request)) {
+        return [
+          'allowed' => TRUE,
+          'mode' => 'referer',
+        ];
+      }
+
+      return [
+        'allowed' => FALSE,
+        'mode' => 'referer',
+        'code' => 'track_origin_mismatch',
+        'message' => 'Referer header must match the site origin.',
+      ];
     }
 
-    // No Origin or Referer — could be same-origin navigation, privacy
-    // extension, or non-browser client. Allow but rely on rate limiting.
-    return TRUE;
+    if (!$request->headers->has('X-CSRF-Token')) {
+      return [
+        'allowed' => FALSE,
+        'mode' => 'missing_browser_proof',
+        'code' => 'track_proof_missing',
+        'message' => 'Same-origin browser proof is required for tracking requests.',
+      ];
+    }
+
+    if ($this->isValidTrackFallbackToken($request->headers->get('X-CSRF-Token'))) {
+      return [
+        'allowed' => TRUE,
+        'mode' => 'csrf_fallback',
+      ];
+    }
+
+    return [
+      'allowed' => FALSE,
+      'mode' => 'csrf_fallback',
+      'code' => 'track_proof_invalid',
+      'message' => 'The tracking recovery token is invalid or expired.',
+    ];
+  }
+
+  /**
+   * Returns TRUE when a header URL matches the current request origin.
+   */
+  private function isSameOriginUrl(string $value, Request $request): bool {
+    if ($value === '' || $value === 'null') {
+      return FALSE;
+    }
+
+    $parsed = parse_url($value);
+    if (!is_array($parsed) || empty($parsed['scheme']) || empty($parsed['host'])) {
+      return FALSE;
+    }
+
+    $request_scheme = strtolower($request->getScheme());
+    $request_host = strtolower($request->getHost());
+    $request_port = $request->getPort();
+    $request_port = $request_port ?: ($request_scheme === 'https' ? 443 : 80);
+
+    $parsed_scheme = strtolower((string) $parsed['scheme']);
+    $parsed_host = strtolower((string) $parsed['host']);
+    $parsed_port = $parsed['port'] ?? ($parsed_scheme === 'https' ? 443 : ($parsed_scheme === 'http' ? 80 : NULL));
+
+    return $parsed_scheme === $request_scheme
+      && $parsed_host === $request_host
+      && $parsed_port === $request_port;
+  }
+
+  /**
+   * Validates the recovery-only CSRF token accepted for /track fallback.
+   */
+  private function isValidTrackFallbackToken(?string $csrf_token): bool {
+    if ($csrf_token === NULL || $csrf_token === '' || $this->csrfTokenGenerator === NULL) {
+      return FALSE;
+    }
+
+    return $this->csrfTokenGenerator->validate($csrf_token, CsrfRequestHeaderAccessCheck::TOKEN_KEY)
+      || $this->csrfTokenGenerator->validate($csrf_token, 'rest');
   }
 
 }

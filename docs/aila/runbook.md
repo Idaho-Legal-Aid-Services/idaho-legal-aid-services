@@ -122,7 +122,12 @@ curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/messag
   -b "${COOKIE_JAR}" \
   -d '{"message":"SYNTHETIC EXAMPLE: matrix valid token"}'
 
-# track request (same-origin, no CSRF required) -> 200
+# track request (missing Origin/Referer, no fallback token) -> 403
+curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
+  -H "Content-Type: application/json" \
+  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track missing browser proof"}'
+
+# track request (same-origin Origin) -> 200
 curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
   -H "Content-Type: application/json" \
   -H "Origin: ${BASE_URL%/}" \
@@ -139,6 +144,13 @@ curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track"
   -H "Content-Type: application/json" \
   -H "Referer: ${BASE_URL%/}/assistant" \
   -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track same-origin referer"}'
+
+# track request (missing Origin/Referer + bootstrap token fallback) -> 200
+curl -k -sS -D '<headers>' -o '<body>' -X POST "${BASE_URL}/assistant/api/track" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${ANON_TOKEN}" \
+  -b "${COOKIE_JAR}" \
+  -d '{"event_type":"chat_open","event_value":"SYNTHETIC EXAMPLE track bootstrap fallback"}'
 
 rm -f "${COOKIE_JAR}"
 
@@ -157,7 +169,7 @@ Matrix acceptance test command (message CSRF matrix + track mitigation):
 ddev exec bash -lc "vendor/bin/phpunit \
   --configuration /var/www/html/phpunit.xml \
   /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php \
-  --filter 'test(MessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|WithCsrfToken)|AnonymousMessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AllowsValidCsrfToken)|TrackEndpoint(WithoutCsrf|AcceptsValidEvent|RejectsCrossOriginOriginHeader|AllowsSameOriginOriginHeader|AllowsSameOriginRefererHeader)|AnonymousTrackEndpointWithoutCsrf)'"
+  --filter 'test(MessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|WithCsrfToken)|AnonymousMessageEndpoint(RequiresCsrfToken|RejectsInvalidCsrfToken|AllowsValidCsrfToken)|TrackEndpoint(WithoutBrowserProofReturnsTrackProofMissing|AcceptsValidEvent|RejectsCrossOriginOriginHeader|AllowsSameOriginOriginHeader|AllowsSameOriginRefererHeader|RejectsCrossOriginRefererHeader|AllowsBootstrapTokenWhenBrowserHeadersMissing|RejectsInvalidBootstrapTokenWhenBrowserHeadersMissing|RecoveryWithFreshBootstrapToken|FloodLimitAppliesToAllowedRequests)|AnonymousTrackEndpointWithoutBrowserProofReturnsTrackProofMissing)'"
 ```
 
 CSRF deny telemetry verification:
@@ -1457,7 +1469,7 @@ rg -n "testAuthenticatedWithInvalidTokenIsForbiddenAndLogged|testAnonymousWithVa
 rg -n "testAnonymousMessageEndpointAllowsValidCsrfToken|testTrackEndpointRejectsCrossOriginOriginHeader|testTrackEndpointAllowsSameOriginRefererHeader" \
   web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
 
-rg -n "POST /assistant/api/message \\+ CSRF|POST /assistant/api/track \\+ Origin/Referer guard" \
+rg -n "POST /assistant/api/message \\+ CSRF|POST /assistant/api/track \\+ Origin/Referer or bootstrap-token recovery" \
   docs/aila/system-map.mmd
 
 # 3) Targeted gate test for row #1 dependency enforcement.
@@ -3129,7 +3141,7 @@ Run this checklist for every future audit cycle that touches assistant routing, 
      - `csrf_missing` / `csrf_invalid` => show `Try again` + `Refresh page`.
      - `csrf_expired` => show `Refresh page` only.
      - Recovery container keeps `role="alert"` and keyboard focus moves to first recovery action.
-   - Verify `/assistant/api/track` remains origin/referer protected and does not depend on CSRF/session token bootstrap.
+   - Verify `/assistant/api/track` remains same-origin `Origin`/`Referer` protected, denies missing-header writes without approved fallback proof, and succeeds through the bootstrap-token recovery path when both browser headers are absent.
 4. **Post-sanitize empty-message guard**
    - Submit payloads that sanitize to empty (e.g., whitespace/control-only strings) and assert deterministic `400 invalid_message`.
    - Verify router/retrieval code paths are not invoked for empty-effective queries.

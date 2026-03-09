@@ -33,6 +33,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || ((id) => clearTimeo
 
 window.eval(source);
 
+if (window._assistantWidgetTestDone && typeof window._assistantWidgetTestDone.then === 'function') {
+  await window._assistantWidgetTestDone;
+}
+
 const results = window._assistantWidgetTestResults;
 if (!results || typeof results.pass !== 'number' || typeof results.fail !== 'number') {
   console.error('ERROR: JS hardening suite did not publish window._assistantWidgetTestResults.');

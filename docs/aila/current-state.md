@@ -30,7 +30,7 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 | Capability | Local/config-export view | Pantheon view | Notes |
 |---|---|---|---|
 | Global widget attachment | Enabled (`enable_global_widget: true`) | Verified enabled in dev/test/live active config | Attach is conditional and path-excluded | [^CLAIM-015][^CLAIM-119] |
-| Write-endpoint protection (`/assistant/api/message`, `/assistant/api/track`) | `/assistant/api/message` requires `_csrf_request_header_token` + `_ilas_strict_csrf_token` via `StrictCsrfRequestHeaderAccessCheck`; `/assistant/api/track` uses same-origin `Origin`/`Referer` validation plus flood limits (approved mitigation, no CSRF token dependency) | Route and controller contracts match current code; message CSRF matrix and track origin-mitigation behavior are covered by functional tests | Message endpoint enforces strict CSRF. Track endpoint uses approved mitigation for low-impact telemetry writes. | [^CLAIM-012][^CLAIM-123] |
+| Write-endpoint protection (`/assistant/api/message`, `/assistant/api/track`) | `/assistant/api/message` requires `_csrf_request_header_token` + `_ilas_strict_csrf_token` via `StrictCsrfRequestHeaderAccessCheck`; `/assistant/api/track` uses same-origin `Origin`/`Referer` as primary browser proof, recovery-only bootstrap-token fallback when both headers are missing, plus flood limits | Route and controller contracts match current code; message CSRF matrix and track hybrid-mitigation behavior are covered by functional tests | Message endpoint enforces strict CSRF. Track endpoint uses approved hybrid mitigation for low-impact telemetry writes. | [^CLAIM-012][^CLAIM-123] |
 | LLM enhancement | Disabled in exported active config (`llm.enabled: false`) | Verified disabled in dev/test/live active config (`llm.enabled: false`); live runtime override hard-disables `llm.enabled` in `settings.php` | Provider wiring supports Gemini/Vertex | [^CLAIM-069][^CLAIM-094][^CLAIM-099][^CLAIM-119] |
 | Vector retrieval supplement | Present in install defaults, disabled by default | Present in active config (`enabled=false`) with schema + export parity checks enforced | Admin form persists values; schema/export parity is enforced by contract tests | [^CLAIM-093][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
 | Langfuse tracing/export | Present but disabled by default | `langfuse.settings` config not present in dev/test/live; `ilas_langfuse_export` queue exists with `0` items in sampled runtime | Queue-based export on terminate/cron when enabled/configured | [^CLAIM-079][^CLAIM-082][^CLAIM-118][^CLAIM-120] |
@@ -116,7 +116,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `ilas_site_assistant.admin.conversation_detail` | `/admin/reports/ilas-assistant/conversations/{conversation_id}` | `ANY` | `view ilas site assistant conversations`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantConversationController::detail` | Conversation log detail | [^CLAIM-011] |
 | `ilas_site_assistant.api.health` | `/assistant/api/health` | `GET` | `view ilas site assistant reports`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::health` | Health check endpoint | [^CLAIM-011] |
 | `ilas_site_assistant.api.metrics` | `/assistant/api/metrics` | `GET` | `view ilas site assistant reports`; No CSRF header requirement | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::metrics` | Metrics endpoint | [^CLAIM-011] |
-| `ilas_site_assistant.api.track` | `/assistant/api/track` | `POST` | `access content`; no CSRF header requirement (controller enforces same-origin `Origin`/`Referer` mitigation) | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::track` | Analytics tracking endpoint | [^CLAIM-012] |
+| `ilas_site_assistant.api.track` | `/assistant/api/track` | `POST` | `access content`; no route-level CSRF header requirement (controller enforces same-origin `Origin`/`Referer` proof with recovery-only bootstrap-token fallback) | `\Drupal\ilas_site_assistant\Controller\AssistantApiController::track` | Analytics tracking endpoint | [^CLAIM-012] |
 
 ### Libraries inventory
 
@@ -184,7 +184,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Classifier test artifacts | Unit tests exist for SafetyClassifier and OutOfScopeClassifier behavior suites (file-level evidence only; not executed in this audit run).[^CLAIM-105] |
 | Refusal/escalation behavior | Safety and OOS classes return templated early exits with reason codes and action links.[^CLAIM-039][^CLAIM-040] |
 | Rate limiting/abuse controls | Per-IP Flood API minute/hour checks plus repeated-message abuse short-circuit behavior.[^CLAIM-033][^CLAIM-037] |
-| CSRF protections | Message endpoint enforces strict CSRF (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) while track endpoint uses approved mitigation (same-origin `Origin`/`Referer` + flood limits).[^CLAIM-012][^CLAIM-123] |
+| CSRF protections | Message endpoint enforces strict CSRF (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) while track endpoint uses approved hybrid mitigation: same-origin `Origin`/`Referer` first, recovery-only bootstrap token when both headers are missing, and flood limits throughout.[^CLAIM-012][^CLAIM-123] |
 | Prompt-injection defenses | Safety classifier includes prompt-injection/jailbreak patterns; LLM system prompt instructs model to ignore instructions in retrieved content.[^CLAIM-055][^CLAIM-070] |
 | Failure/observability | Policy violations and safety exits are logged/analytics-tracked with reason codes; violations can feed safety alert logic.[^CLAIM-039][^CLAIM-047][^CLAIM-089][^CLAIM-090] |
 
@@ -289,7 +289,7 @@ Values below are taken from install defaults, exported active config, and settin
 ### Protections present
 
 - Message endpoint enforces strict CSRF header validation for write requests.[^CLAIM-012][^CLAIM-123]
-- Track endpoint uses approved mitigation: same-origin `Origin`/`Referer` validation plus flood limits, without CSRF/session-token dependency.[^CLAIM-012]
+- Track endpoint uses approved hybrid mitigation: same-origin `Origin`/`Referer` validation is primary, recovery-only bootstrap token is allowed when both headers are missing, and flood limits remain active.[^CLAIM-012]
 - Per-IP Flood API limits enforce minute/hour request caps, with explicit 429 handling.[^CLAIM-033]
 - Deterministic pre-LLM safety and scope classifiers enforce early exits with reason-coded templates.[^CLAIM-038][^CLAIM-039][^CLAIM-040][^CLAIM-054][^CLAIM-056]
 - PII redaction utilities are used for storage/logging paths and Sentry payloads are scrubbed with default PII send disabled.[^CLAIM-053][^CLAIM-083][^CLAIM-085]

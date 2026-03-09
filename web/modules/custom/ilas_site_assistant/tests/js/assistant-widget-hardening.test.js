@@ -17,10 +17,11 @@
  */
 
 /* global SiteAssistant */
-(function () {
+window._assistantWidgetTestDone = (async function () {
   'use strict';
 
   var results = { pass: 0, fail: 0 };
+  var pending = [];
 
   function assert(condition, label) {
     if (condition) {
@@ -34,7 +35,10 @@
 
   function suite(name, fn) {
     console.log('\n=== ' + name + ' ===');
-    fn();
+    var maybePromise = fn();
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      pending.push(maybePromise);
+    }
   }
 
   // -------------------------------------------------------------------
@@ -177,6 +181,43 @@
 
       html += '</div></div>';
       return html;
+    },
+
+    callTrackApi: function (deps, payload, isRetry, csrfToken) {
+      var options = {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      };
+
+      if (csrfToken) {
+        options.headers = {
+          'X-CSRF-Token': csrfToken,
+        };
+      }
+
+      return deps.callApi('/track', options)
+        .catch(function (error) {
+          var needsRecovery = error
+            && error.status === 403
+            && (error.errorCode === 'track_proof_missing' || error.errorCode === 'track_proof_invalid');
+
+          if (!needsRecovery || isRetry) {
+            throw error;
+          }
+
+          return deps.fetchCsrfToken(true).then(function (freshToken) {
+            return SA.callTrackApi(deps, payload, true, freshToken);
+          });
+        });
+    },
+
+    trackEventSilently: function (deps, eventType, eventValue) {
+      return deps.callTrackApi({
+        event_type: eventType,
+        event_value: eventValue || '',
+      }).catch(function () {
+        // Silent fail for tracking.
+      });
     },
   };
 
@@ -605,6 +646,133 @@
   });
 
   // ===================================================================
+  // 13. Track proof recovery
+  // ===================================================================
+  suite('Track proof recovery', async function () {
+    var missingCallCount = 0;
+    var missingFetchCount = 0;
+    var missingHeaders = [];
+    var missingResult = await SA.callTrackApi({
+      callApi: function (_endpoint, options) {
+        missingCallCount++;
+        missingHeaders.push((options && options.headers) || {});
+        if (missingCallCount === 1) {
+          return Promise.reject({ status: 403, errorCode: 'track_proof_missing' });
+        }
+        return Promise.resolve({ ok: true });
+      },
+      fetchCsrfToken: function (forceRefresh) {
+        missingFetchCount++;
+        assert(forceRefresh === true, 'track_proof_missing refreshes bootstrap token');
+        return Promise.resolve('fresh-track-token');
+      },
+    }, {
+      event_type: 'chat_open',
+      event_value: 'missing-proof',
+    });
+
+    assert(missingResult.ok === true, 'track_proof_missing recovers successfully');
+    assert(missingCallCount === 2, 'track_proof_missing retries exactly once');
+    assert(missingFetchCount === 1, 'track_proof_missing fetches one fresh token');
+    assert(!missingHeaders[0]['X-CSRF-Token'], 'track_proof_missing initial request has no fallback token');
+    assert(missingHeaders[1]['X-CSRF-Token'] === 'fresh-track-token',
+      'track_proof_missing retry sends fresh fallback token');
+
+    var invalidCallCount = 0;
+    var invalidFetchCount = 0;
+    var invalidHeaders = [];
+    var invalidResult = await SA.callTrackApi({
+      callApi: function (_endpoint, options) {
+        invalidCallCount++;
+        invalidHeaders.push((options && options.headers) || {});
+        if (invalidCallCount === 1) {
+          return Promise.reject({ status: 403, errorCode: 'track_proof_invalid' });
+        }
+        return Promise.resolve({ ok: true });
+      },
+      fetchCsrfToken: function (forceRefresh) {
+        invalidFetchCount++;
+        assert(forceRefresh === true, 'track_proof_invalid refreshes bootstrap token');
+        return Promise.resolve('replacement-track-token');
+      },
+    }, {
+      event_type: 'chat_open',
+      event_value: 'invalid-proof',
+    }, false, 'stale-token');
+
+    assert(invalidResult.ok === true, 'track_proof_invalid recovers successfully');
+    assert(invalidCallCount === 2, 'track_proof_invalid retries exactly once');
+    assert(invalidFetchCount === 1, 'track_proof_invalid fetches one fresh token');
+    assert(invalidHeaders[0]['X-CSRF-Token'] === 'stale-token',
+      'track_proof_invalid initial request uses existing fallback token');
+    assert(invalidHeaders[1]['X-CSRF-Token'] === 'replacement-track-token',
+      'track_proof_invalid retry sends refreshed fallback token');
+
+    var mismatchCallCount = 0;
+    var mismatchFetchCount = 0;
+    await SA.callTrackApi({
+      callApi: function () {
+        mismatchCallCount++;
+        return Promise.reject({ status: 403, errorCode: 'track_origin_mismatch' });
+      },
+      fetchCsrfToken: function () {
+        mismatchFetchCount++;
+        return Promise.resolve('unused');
+      },
+    }, {
+      event_type: 'chat_open',
+      event_value: 'mismatch',
+    }).catch(function () {});
+
+    assert(mismatchCallCount === 1, 'track_origin_mismatch does not retry');
+    assert(mismatchFetchCount === 0, 'track_origin_mismatch does not fetch bootstrap token');
+
+    var rateCallCount = 0;
+    var rateFetchCount = 0;
+    await SA.callTrackApi({
+      callApi: function () {
+        rateCallCount++;
+        return Promise.reject({ status: 429, retryAfter: '60' });
+      },
+      fetchCsrfToken: function () {
+        rateFetchCount++;
+        return Promise.resolve('unused');
+      },
+    }, {
+      event_type: 'chat_open',
+      event_value: 'rate-limited',
+    }).catch(function () {});
+
+    assert(rateCallCount === 1, '429 track errors do not retry');
+    assert(rateFetchCount === 0, '429 track errors do not fetch bootstrap token');
+  });
+
+  // ===================================================================
+  // 14. Track failure remains silent
+  // ===================================================================
+  suite('Track failure remains silent', async function () {
+    var addMessageCalls = 0;
+    var payloads = [];
+
+    await SA.trackEventSilently({
+      callTrackApi: function (payload) {
+        payloads.push(payload);
+        return Promise.reject({ status: 403, errorCode: 'track_origin_mismatch' });
+      },
+      addMessage: function () {
+        addMessageCalls++;
+      },
+    }, 'chat_open', '/some/path');
+
+    assert(payloads.length === 1, 'trackEvent sends one tracking payload');
+    assert(payloads[0].event_type === 'chat_open', 'trackEvent payload preserves event_type');
+    assert(payloads[0].event_value === '/some/path', 'trackEvent payload preserves event_value');
+    assert(addMessageCalls === 0, 'track failures do not surface message recovery UI');
+  });
+
+  await Promise.all(pending);
+
+  // ===================================================================
   // Summary
   // ===================================================================
   console.log('\n============================');
@@ -615,4 +783,5 @@
     window._assistantWidgetTestResults = results;
   }
 
+  return results;
 })();

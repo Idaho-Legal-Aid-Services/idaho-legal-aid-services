@@ -91,7 +91,7 @@ Explicit mapping:
 
 ### Phase 1 Entry #1 blocker disposition (2026-03-03)
 1. B-01 is resolved for `/assistant/api/message` strict CSRF enforcement via authenticated/anonymous matrix tests and strict access-check routing contract. (Refs: current-state §6, §8; evidence-index CLAIM-012, CLAIM-123; runbook §2)
-2. `/assistant/api/track` uses approved mitigation (same-origin Origin/Referer + flood limits) for low-impact telemetry writes without CSRF/session-token dependency. (Refs: current-state §6; evidence-index CLAIM-012, CLAIM-123; runbook §2)
+2. `/assistant/api/track` uses approved hybrid mitigation: same-origin `Origin`/`Referer` is the primary browser proof, session-bound bootstrap-token retry is recovery-only when both headers are missing, and flood limits remain active. No route-level CSRF requirement is added. (Refs: current-state §6; evidence-index CLAIM-012, CLAIM-123; runbook §2)
 3. B-02 is resolved via `vector_search` schema/export parity and drift contract tests (`VectorSearchConfigSchemaTest`, `ConfigCompletenessDriftTest`). (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-124; runbook §4)
 
 ### Phase 1 Entry #2 credential and destination disposition (2026-03-02)
@@ -494,7 +494,7 @@ Explicit mapping:
    boundaries; no runtime behavior expansion.
 
 ## Critical path and blocker list
-1. **Blocker B-01 (RESOLVED 2026-03-03):** `/assistant/api/message` strict CSRF path is verified; `/assistant/api/track` follows approved same-origin mitigation and no longer blocks Phase 1 entry criterion #1. (Refs: current-state §8; evidence-index CLAIM-012, CLAIM-123; system-map Diagram B; runbook §2)
+1. **Blocker B-01 (RESOLVED 2026-03-03):** `/assistant/api/message` strict CSRF path is verified; `/assistant/api/track` follows the approved hybrid same-origin mitigation with bootstrap-token recovery for missing-header browsers and no longer blocks Phase 1 entry criterion #1. (Refs: current-state §8; evidence-index CLAIM-012, CLAIM-123; system-map Diagram B; runbook §2)
 2. **Blocker B-02 (RESOLVED 2026-03-03):** `vector_search` schema/export parity is restored and enforced by drift/schema contract tests, so cross-env retrieval tuning is no longer blocked by config parity. (Refs: current-state §4H, §5; evidence-index CLAIM-095, CLAIM-124; system-map Diagram A; runbook §4)
 3. **Blocker B-03 (RESOLVED 2026-03-03):** CI workflow ownership/source of truth is first-party in-repo (`.github/workflows/quality-gate.yml`) with branch-protection required checks enforcing mandatory merge/release gate behavior. (Refs: current-state §8; evidence-index CLAIM-122, CLAIM-130; system-map Diagram A; runbook §3, §4)
 4. **Blocker B-04:** Sustained cron/queue load behavior unverified blocks final SLO tuning for async telemetry pipelines. (Refs: current-state §8; evidence-index CLAIM-118, CLAIM-121; system-map Diagram B; runbook §3)

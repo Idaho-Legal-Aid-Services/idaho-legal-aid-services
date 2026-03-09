@@ -87,7 +87,7 @@ Evidence precedence used in this audit:
   - `docs/aila/artifacts/routes-inventory.tsv:1-12`
 
 ### CLAIM-012
-- Claim: `/assistant/api/message` is a POST route with dual CSRF enforcement (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) via `StrictCsrfRequestHeaderAccessCheck`. `/assistant/api/track` is a POST route with approved origin/referer mitigation and flood limits (no CSRF token requirement).
+- Claim: `/assistant/api/message` is a POST route with dual CSRF enforcement (`_csrf_request_header_token` + `_ilas_strict_csrf_token`) via `StrictCsrfRequestHeaderAccessCheck`. `/assistant/api/track` is a POST route with approved hybrid mitigation: same-origin `Origin`/`Referer` primary proof, recovery-only bootstrap-token fallback when both headers are missing, and flood limits (no route-level CSRF requirement).
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:9-17` (message route with `_ilas_strict_csrf_token: 'TRUE'`)
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml:92-98` (track route without CSRF requirement)
@@ -1344,7 +1344,7 @@ Evidence precedence used in this audit:
 ## Post-CSRF-Hardening Verification (IMP-SEC-01)
 
 ### CLAIM-123
-- Claim: Post-fix blocker closure verified: `/assistant/api/message` enforces strict session-bound CSRF validation (missing/invalid/sessionless token paths denied), while `/assistant/api/track` uses an approved mitigation model for `/assistant/api/track` (same-origin `Origin`/`Referer` validation + flood limits, no CSRF token dependency). Browser-context widget uses session+token pair from `/assistant/api/session/bootstrap` before message POSTs. Unit coverage: `CsrfAuthMatrixTest`; functional coverage includes anonymous/authenticated message matrix plus track origin-mitigation tests.
+- Claim: Post-fix blocker closure verified: `/assistant/api/message` enforces strict session-bound CSRF validation (missing/invalid/sessionless token paths denied), while `/assistant/api/track` uses an approved hybrid mitigation model for `/assistant/api/track` (same-origin `Origin`/`Referer` primary proof, recovery-only bootstrap-token fallback when both headers are missing, and flood limits, with no route-level CSRF requirement). Browser-context widget uses session+token pair from `/assistant/api/session/bootstrap` before message POSTs and retries `/assistant/api/track` through the same bootstrap token only when browser headers are absent. Unit coverage: `CsrfAuthMatrixTest`; functional coverage includes anonymous/authenticated message matrix plus track hybrid-mitigation tests.
 - Evidence:
   - `docs/aila/runtime/local-endpoints.txt:1-132` (post-fix runtime artifact for message CSRF matrix + endpoint contract snapshots)
   - `web/modules/custom/ilas_site_assistant/src/Access/StrictCsrfRequestHeaderAccessCheck.php:1-103` (access check implementation)

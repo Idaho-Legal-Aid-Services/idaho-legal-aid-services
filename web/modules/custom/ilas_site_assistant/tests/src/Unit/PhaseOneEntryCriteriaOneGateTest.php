@@ -45,7 +45,7 @@ class PhaseOneEntryCriteriaOneGateTest extends TestCase {
     );
     $this->assertStringContainsString('### Phase 1 Entry #1 blocker disposition (2026-03-03)', $roadmap);
     $this->assertStringContainsString('B-01 is resolved for `/assistant/api/message` strict CSRF enforcement', $roadmap);
-    $this->assertStringContainsString('/assistant/api/track` uses approved mitigation (same-origin Origin/Referer + flood limits)', $roadmap);
+    $this->assertStringContainsString('/assistant/api/track` uses approved hybrid mitigation', $roadmap);
     $this->assertStringContainsString('B-02 is resolved via `vector_search` schema/export parity', $roadmap);
   }
 
@@ -56,7 +56,7 @@ class PhaseOneEntryCriteriaOneGateTest extends TestCase {
     $currentState = self::readFile('docs/aila/current-state.md');
 
     $this->assertStringContainsString('Message endpoint enforces strict CSRF', $currentState);
-    $this->assertStringContainsString('Track endpoint uses approved mitigation', $currentState);
+    $this->assertStringContainsString('Track endpoint uses approved hybrid mitigation', $currentState);
     $this->assertStringContainsString('Config schema coverage | Schema covers all install-default blocks including `vector_search`', $currentState);
     $this->assertStringNotContainsString('schema gap noted', $currentState);
     $this->assertStringNotContainsString('Known config-model gap', $currentState);
@@ -70,13 +70,13 @@ class PhaseOneEntryCriteriaOneGateTest extends TestCase {
 
     $this->assertStringContainsString('### CLAIM-012', $evidenceIndex);
     $this->assertStringContainsString('/assistant/api/message` is a POST route with dual CSRF enforcement', $evidenceIndex);
-    $this->assertStringContainsString('/assistant/api/track` is a POST route with approved origin/referer mitigation', $evidenceIndex);
+    $this->assertStringContainsString('/assistant/api/track` is a POST route with approved hybrid mitigation', $evidenceIndex);
 
     $this->assertStringContainsString('### CLAIM-095', $evidenceIndex);
     $this->assertStringContainsString('SUPERSEDED by CLAIM-124', $evidenceIndex);
 
     $this->assertStringContainsString('### CLAIM-123', $evidenceIndex);
-    $this->assertStringContainsString('approved mitigation model for `/assistant/api/track`', $evidenceIndex);
+    $this->assertStringContainsString('approved hybrid mitigation model for `/assistant/api/track`', $evidenceIndex);
 
     $this->assertStringContainsString('### CLAIM-124', $evidenceIndex);
     $this->assertStringContainsString('Config completeness drift test enforces install-vs-active-vs-schema parity', $evidenceIndex);
@@ -90,9 +90,9 @@ class PhaseOneEntryCriteriaOneGateTest extends TestCase {
 
     $this->assertStringContainsString('### Route + endpoint schema verification (synthetic)', $runbook);
     $this->assertStringContainsString('message: missing token -> 403', $runbook);
-    $this->assertStringContainsString('track request (same-origin, no CSRF required)', $runbook);
+    $this->assertStringContainsString('track request (missing Origin/Referer, no fallback token) -> 403', $runbook);
     $this->assertStringContainsString('track request (cross-origin Origin) -> 403', $runbook);
-    $this->assertStringNotContainsString('track: missing token -> 403', $runbook);
+    $this->assertStringContainsString('track request (missing Origin/Referer + bootstrap token fallback) -> 200', $runbook);
   }
 
   /**
@@ -102,7 +102,7 @@ class PhaseOneEntryCriteriaOneGateTest extends TestCase {
     $systemMap = self::readFile('docs/aila/system-map.mmd');
 
     $this->assertStringContainsString('POST /assistant/api/message + CSRF', $systemMap);
-    $this->assertStringContainsString('POST /assistant/api/track + Origin/Referer guard', $systemMap);
+    $this->assertStringContainsString('POST /assistant/api/track + Origin/Referer or bootstrap-token recovery', $systemMap);
   }
 
 }
