@@ -776,6 +776,35 @@ This dated addendum records re-audit remediation `RAUD-05` for findings `C3`,
 6. Local verification and post-change latency evidence are captured in
    `docs/aila/runtime/raud-05-llm-transport-hardening.txt`.[^CLAIM-167]
 
+### Re-Audit Remediation RAUD-08 Reverse-Proxy / Client-IP Trust (2026-03-09)
+
+This dated addendum records re-audit remediation `RAUD-08` for findings `F-05`
+and `N-05`.
+
+1. `settings.php` now defines an explicit runtime-only reverse-proxy contract:
+   `ILAS_TRUSTED_PROXY_ADDRESSES` must contain a comma-separated IP/CIDR
+   allowlist before Drupal will enable `reverse_proxy`,
+   `reverse_proxy_addresses`, and `reverse_proxy_trusted_headers`.
+2. Request identity for assistant flood control is now centralized in
+   `RequestTrustInspector`, which records the effective client IP, raw
+   forwarded-header inputs, configured trusted proxies, and a normalized trust
+   status before `/assistant/api/message` or `/assistant/api/track` derives its
+   flood key.
+3. Admin-only `/assistant/api/health` and `/assistant/api/metrics` now expose a
+   `proxy_trust` diagnostic block so operators can prove which IP source is in
+   effect without exposing the same data on public routes.
+4. Regression coverage now includes unit tests for trusted/untrusted forwarded
+   chains, controller-level flood identifier tests for `message()` and
+   `track()`, a settings contract test for the runtime proxy allowlist, and
+   functional assertions that admin health/metrics responses include
+   `proxy_trust`.
+5. Local verification is captured in
+   `docs/aila/runtime/raud-08-reverse-proxy-client-ip-trust.txt`. Pantheon
+   read-only verification on March 9, 2026 still reported unset reverse-proxy
+   settings on `dev`, `test`, and `live`, so the finding is presently only
+   `Partially Fixed` until deployment-time proxy configuration and authenticated
+   request-context proof are rechecked.[^CLAIM-168]
+
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 
 This dated addendum records P1-EXT-01 completion for Phase 1 Exit criterion #1.
@@ -1510,3 +1539,4 @@ This dated addendum records `P3-NDO-02` closure for the Phase 3 scope boundary:
 [^CLAIM-164]: [CLAIM-164](evidence-index.md#claim-164)
 [^CLAIM-165]: [CLAIM-165](evidence-index.md#claim-165)
 [^CLAIM-167]: [CLAIM-167](evidence-index.md#claim-167)
+[^CLAIM-168]: [CLAIM-168](evidence-index.md#claim-168)

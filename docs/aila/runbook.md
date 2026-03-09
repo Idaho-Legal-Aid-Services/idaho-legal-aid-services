@@ -1934,6 +1934,41 @@ Expected verification result:
 - Archive the executed command summaries and measured latency result in
   `docs/aila/runtime/raud-05-llm-transport-hardening.txt`.
 
+### RAUD-08 reverse-proxy / client-IP trust verification
+
+- Baseline before the remediation:
+  - Repo scan found no explicit `reverse_proxy`, `reverse_proxy_addresses`, or
+    `reverse_proxy_trusted_headers` declarations outside Drupal defaults.
+  - `AssistantApiController::message()` and `::track()` both keyed flood control
+    directly from `Request::getClientIp()`.
+  - Read-only Pantheon checks on March 9, 2026 reported `reverse_proxy=NULL`,
+    `reverse_proxy_addresses=null`, `reverse_proxy_trusted_headers=NULL`,
+    `trusted_proxies_runtime=[]`, and `trusted_header_set_runtime=-1` on
+    `dev`, `test`, and `live`.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-PANTHEON-READONLY`
+- Targeted local checks:
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/RequestTrustInspectorTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerProxyTrustTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/ReverseProxySettingsContractTest.php`
+  - `ddev exec bash -lc "vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php --filter 'testHealthEndpointAccessibleToAdmin|testMetricsEndpointAccessibleToAdmin'"`
+- Trust-specific Pantheon read-only checks after deployment:
+  - `for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "use Drupal\\Core\\Site\\Settings; use Symfony\\Component\\HttpFoundation\\Request; echo 'reverse_proxy=' . var_export(Settings::get('reverse_proxy', NULL), TRUE) . PHP_EOL; echo 'reverse_proxy_addresses=' . json_encode(Settings::get('reverse_proxy_addresses', NULL)) . PHP_EOL; echo 'reverse_proxy_trusted_headers=' . var_export(Settings::get('reverse_proxy_trusted_headers', NULL), TRUE) . PHP_EOL; echo 'trusted_proxies_runtime=' . json_encode(Request::getTrustedProxies()) . PHP_EOL; echo 'trusted_header_set_runtime=' . Request::getTrustedHeaderSet() . PHP_EOL;" ; done`
+  - `for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval "use Drupal\\Core\\Site\\Settings; use Symfony\\Component\\HttpFoundation\\Request; \$headers = Settings::get('reverse_proxy_trusted_headers', Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_FORWARDED); \$proxies = Settings::get('reverse_proxy_addresses', []); Request::setTrustedProxies(\$proxies, \$headers); \$request = Request::create('https://example.com/assistant/api/message', 'POST', [], [], [], ['REMOTE_ADDR' => (\$proxies[0] ?? '10.0.0.10'), 'HTTP_X_FORWARDED_FOR' => '198.51.100.7, ' . (\$proxies[0] ?? '10.0.0.10')]); echo json_encode(\\Drupal::service('ilas_site_assistant.request_trust_inspector')->inspectRequest(\$request), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;" ; done`
+- Expected contract after the remediation:
+  - `settings.php` trusts forwarded headers only when
+    `ILAS_TRUSTED_PROXY_ADDRESSES` contains an explicit IP/CIDR allowlist.
+  - `/assistant/api/message` and `/assistant/api/track` derive flood identity
+    from the centralized request-trust inspector and warn when forwarded headers
+    are present but currently untrusted.
+  - Admin-only `/assistant/api/health` and `/assistant/api/metrics` expose a
+    `proxy_trust` diagnostic block without changing the health status on proxy
+    uncertainty alone.
+  - If Pantheon read-only checks still show unset proxy trust settings or there
+    is no authenticated HTTP capture of a live `proxy_trust` block, classify
+    the finding as `Partially Fixed` rather than `Fixed`.
+- Archive the executed command summaries and final classification in
+  `docs/aila/runtime/raud-08-reverse-proxy-client-ip-trust.txt`.
+
 ### GitHub mirror onboarding (WSL2)
 
 ```bash

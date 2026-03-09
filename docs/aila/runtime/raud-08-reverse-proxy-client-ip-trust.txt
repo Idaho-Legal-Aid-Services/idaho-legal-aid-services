@@ -1,0 +1,75 @@
+# RAUD-08 Reverse-Proxy / Client-IP Trust Remediation Report
+
+- Date: 2026-03-09
+- Prompt ID: `RAUD-08`
+- Finding IDs: `F-05`, `N-05`
+- Prior status: Open / unverified. The repo had no explicit reverse-proxy trust declaration, `/assistant/api/message` and `/assistant/api/track` keyed flood control directly from `Request::getClientIp()`, and Pantheon `dev`/`test`/`live` read-only checks reported `reverse_proxy=NULL`, `reverse_proxy_addresses=null`, `reverse_proxy_trusted_headers=NULL`, and empty Symfony trusted proxies.
+- Post-change status: Partially Fixed
+- Verification level tag: `Partially Fixed`
+
+## Evidence
+
+- Pre-edit repo declaration check:
+  - Command summary: `rg -n "trusted_(host|proxy)|reverse_proxy|X-Forwarded-For|Forwarded|getClientIp"` across the cited settings/controller/docs surfaces.
+  - Result: only Drupal default reverse-proxy comments were present in `default.settings.php`; assistant flood call sites in `AssistantApiController.php` used `Request::getClientIp()` directly.
+- Post-edit repo declaration check:
+  - Command summary: `rg -n "ILAS_TRUSTED_PROXY_ADDRESSES|reverse_proxy|reverse_proxy_addresses|reverse_proxy_trusted_headers|ilas_trusted_proxy_addresses" web/sites/default/settings.php web/sites/default/settings.pantheon.php web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php web/modules/custom/ilas_site_assistant/src/Service/RequestTrustInspector.php`.
+  - Result: `settings.php` now declares the `ILAS_TRUSTED_PROXY_ADDRESSES` contract and explicit `reverse_proxy*` wiring; the module now contains `RequestTrustInspector` and controller trust diagnostics.
+- Local targeted unit verification:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant .../RequestTrustInspectorTest.php .../AssistantApiControllerProxyTrustTest.php .../ReverseProxySettingsContractTest.php`
+  - Result: `6` tests passed.
+- Local targeted functional verification:
+  - Command summary: `ddev exec bash -lc "vendor/bin/phpunit --configuration /var/www/html/phpunit.xml .../AssistantApiFunctionalTest.php --filter 'testHealthEndpointAccessibleToAdmin|testMetricsEndpointAccessibleToAdmin'"`
+  - Result: `2` tests passed; admin health/metrics responses now include `proxy_trust`.
+- VC-UNIT:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: `1821` tests passed; existing deprecation/skip noise remained, but no RAUD-08 failures were present.
+- Local runtime diagnostic proof:
+  - Command summary: `ddev drush cr` followed by `ddev drush php:eval "... \Drupal::service('ilas_site_assistant.request_trust_inspector')->inspectRequest(...)"`.
+  - Result: synthetic trusted-proxy inspection returned `status=trusted_forwarded_chain`, `effective_client_ip=198.51.100.7`, `configured_trusted_proxies=["10.0.0.10"]`, and `runtime_trusted_proxies=["10.0.0.10"]`.
+- VC-PANTHEON-READONLY:
+  - Command summary: `for ENV in dev test live; do terminus env:view ...; terminus remote:drush ... status; ... config:get llm.enabled; ... rate_limit_per_hour; ... telemetry; done`
+  - Result: all three environments responded read-only as expected; no trust-specific data is exposed by the existing alias.
+- Pantheon trust-specific read-only checks:
+  - Command summary: `terminus remote:drush ... php:eval` to print `reverse_proxy`, `reverse_proxy_addresses`, `reverse_proxy_trusted_headers`, `Request::getTrustedProxies()`, and `Request::getTrustedHeaderSet()`.
+  - Result: `dev`, `test`, and `live` all still reported `reverse_proxy=NULL`, `reverse_proxy_addresses=null`, `reverse_proxy_trusted_headers=NULL`, `trusted_proxies_runtime=[]`, and `trusted_header_set_runtime=-1`.
+- Pantheon synthetic trust-inspector check:
+  - Command summary: `terminus remote:drush ... php:eval "... \Drupal::service('ilas_site_assistant.request_trust_inspector')->inspectRequest(...)"`.
+  - Result: failed on `dev`, `test`, and `live` with `You have requested a non-existent service "ilas_site_assistant.request_trust_inspector"`, which confirms the remediation is not yet deployed on Pantheon.
+
+## Changed files
+
+- `web/sites/default/settings.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/RequestTrustInspector.php`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RequestTrustInspectorTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerProxyTrustTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/ReverseProxySettingsContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+- `docs/aila/runbook.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/system-map.mmd`
+
+## Residual risks / unknowns
+
+- Pantheon has not yet deployed the RAUD-08 code, so read-only environment checks still reflect the old runtime.
+- Even after deploy, the trust chain remains incomplete until `ILAS_TRUSTED_PROXY_ADDRESSES` is set to the actual upstream proxy IPs/CIDRs for each environment.
+- No authenticated HTTP capture of `/assistant/api/health` or `/assistant/api/metrics` was collected from Pantheon in this session, so live request-context `proxy_trust` output remains unverified.
+- If operators misconfigure the allowlist, flood identity may collapse to `REMOTE_ADDR` or a proxy mismatch warning state; the code stays fail-closed but operational validation is still required.
+
+## Rollback notes
+
+- Code rollback: revert the RAUD-08 code/doc changes listed above.
+- Runtime rollback after deploy: unset `ILAS_TRUSTED_PROXY_ADDRESSES` and rebuild caches; the code reverts to fail-closed `REMOTE_ADDR` behavior when the variable is absent.
+- No `settings.pantheon.php` or `pantheon.yml` rollback is needed because those files were intentionally left unchanged.
+
+## Still-unverified surfaces
+
+- Pantheon deployment of the RAUD-08 code.
+- Pantheon runtime population of `ILAS_TRUSTED_PROXY_ADDRESSES`.
+- Pantheon admin-only `proxy_trust` response bodies from `/assistant/api/health` and `/assistant/api/metrics`.
+- Real upstream forwarded-header propagation on Pantheon once the allowlist is configured.

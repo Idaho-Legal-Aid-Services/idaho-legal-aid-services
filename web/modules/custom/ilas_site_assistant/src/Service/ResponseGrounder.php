@@ -13,6 +13,13 @@ namespace Drupal\ilas_site_assistant\Service;
 class ResponseGrounder {
 
   /**
+   * Shared source-governance policy surface for citation URL validation.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SourceGovernanceService|null
+   */
+  protected ?SourceGovernanceService $sourceGovernance;
+
+  /**
    * Known official contact information (safe to include).
    */
   const OFFICIAL_CONTACTS = [
@@ -66,6 +73,13 @@ class ResponseGrounder {
     // Dates as deadlines.
     '/deadline\s+(is|was|will\s+be)\s+\w+\s+\d+/i',
   ];
+
+  /**
+   * Constructs a response grounder.
+   */
+  public function __construct(?SourceGovernanceService $source_governance = NULL) {
+    $this->sourceGovernance = $source_governance;
+  }
 
   /**
    * Grounds a response by adding citations and removing invented information.
@@ -133,7 +147,8 @@ class ResponseGrounder {
 
     foreach ($results as $result) {
       $title = $result['title'] ?? $result['question'] ?? 'Untitled';
-      $url = $result['url'] ?? $result['source_url'] ?? NULL;
+      $raw_url = $result['url'] ?? $result['source_url'] ?? NULL;
+      $url = $this->sourceGovernance?->sanitizeCitationUrl(is_string($raw_url) ? $raw_url : NULL);
 
       if ($url) {
         $sources[] = [
@@ -379,12 +394,17 @@ class ResponseGrounder {
    *   Grounded response.
    */
   public function groundFaqResponse(array $faq_result): array {
+    $source_url = $faq_result['url'] ?? $faq_result['source_url'] ?? NULL;
+    $sanitized_url = $this->sourceGovernance?->sanitizeCitationUrl(is_string($source_url) ? $source_url : NULL);
+
     $response = [
       'type' => 'faq',
       'message' => $faq_result['answer'] ?? '',
       'title' => $faq_result['question'] ?? $faq_result['title'] ?? '',
-      'url' => $faq_result['url'] ?? $faq_result['source_url'] ?? '',
     ];
+    if ($sanitized_url !== NULL) {
+      $response['url'] = $sanitized_url;
+    }
 
     return $this->groundResponse($response, [$faq_result]);
   }

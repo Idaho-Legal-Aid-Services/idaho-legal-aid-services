@@ -450,6 +450,8 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $data = json_decode($response->getBody(), TRUE);
     $this->assertArrayHasKey('status', $data);
     $this->assertArrayHasKey('timestamp', $data);
+    $this->assertArrayHasKey('checks', $data);
+    $this->assertArrayHasKey('proxy_trust', $data['checks']);
   }
 
   /**
@@ -484,6 +486,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $data = json_decode($response->getBody(), TRUE);
     $this->assertArrayHasKey('timestamp', $data);
     $this->assertArrayHasKey('metrics', $data);
+    $this->assertArrayHasKey('proxy_trust', $data);
     $this->assertArrayHasKey('thresholds', $data);
     $this->assertArrayHasKey('cron', $data);
     $this->assertArrayHasKey('queue', $data);

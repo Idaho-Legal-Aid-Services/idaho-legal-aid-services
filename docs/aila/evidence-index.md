@@ -2392,3 +2392,26 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerApiKeyTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
   - `docs/aila/runtime/raud-05-llm-transport-hardening.txt`
+
+### CLAIM-168
+- Claim: Re-audit remediation `RAUD-08` makes reverse-proxy and client-IP trust
+  assumptions explicit and testable: `settings.php` enables forwarded-header
+  trust only when `ILAS_TRUSTED_PROXY_ADDRESSES` provides an explicit proxy
+  allowlist, assistant flood controls resolve identity through a centralized
+  request-trust inspector, and admin health/metrics responses expose
+  `proxy_trust` diagnostics. Pantheon environments still require deployment-time
+  runtime configuration before the finding can be considered fully fixed.
+- Evidence:
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RequestTrustInspector.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RequestTrustInspectorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerProxyTrustTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ReverseProxySettingsContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/runtime/raud-08-reverse-proxy-client-ip-trust.txt`

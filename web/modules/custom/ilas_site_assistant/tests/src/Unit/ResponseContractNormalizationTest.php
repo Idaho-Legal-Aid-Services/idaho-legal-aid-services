@@ -6,7 +6,9 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Flood\FloodInterface;
+use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
@@ -15,6 +17,7 @@ use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -24,6 +27,25 @@ use Psr\Log\LoggerInterface;
  */
 #[Group('ilas_site_assistant')]
 final class ResponseContractNormalizationTest extends TestCase {
+
+  /**
+   * Builds a source-governance service with default citation policy.
+   */
+  private function buildSourceGovernanceService(): SourceGovernanceService {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(static fn(string $key) => $key === 'source_governance' ? NULL : NULL);
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($config);
+
+    $state = $this->createStub(StateInterface::class);
+    $logger = $this->createStub(LoggerInterface::class);
+
+    return new SourceGovernanceService($configFactory, $state, $logger);
+  }
 
   /**
    * Builds a controller with dependency stubs for private method testing.
@@ -40,6 +62,7 @@ final class ResponseContractNormalizationTest extends TestCase {
     $flood = $this->createStub(FloodInterface::class);
     $cache = $this->createStub(CacheBackendInterface::class);
     $logger = $this->createStub(LoggerInterface::class);
+    $sourceGovernance = $this->buildSourceGovernanceService();
 
     return new AssistantApiController(
       $configFactory,
@@ -52,7 +75,8 @@ final class ResponseContractNormalizationTest extends TestCase {
       $fallbackGate,
       $flood,
       $cache,
-      $logger
+      $logger,
+      source_governance: $sourceGovernance,
     );
   }
 
@@ -110,6 +134,7 @@ final class ResponseContractNormalizationTest extends TestCase {
     $responseWithSources = [
       'sources' => [
         ['title' => 'A', 'url' => '/a'],
+        ['title' => 'Bad', 'url' => 'javascript:alert(1)'],
       ],
       'results' => [
         ['title' => 'Result title', 'url' => '/result'],
@@ -121,13 +146,18 @@ final class ResponseContractNormalizationTest extends TestCase {
       'confidence' => 0.8,
       'reason_code' => FallbackGate::REASON_HIGH_CONF_RETRIEVAL,
     ], 'normal');
-    $this->assertSame($responseWithSources['sources'], $preferred['citations']);
+    $this->assertSame([['title' => 'A', 'url' => '/a']], $preferred['citations']);
 
     $responseDerived = [
       'results' => [
         [
           'title' => 'Housing FAQ',
           'url' => '/housing',
+          'source_class' => 'faq_lexical',
+        ],
+        [
+          'title' => 'Poisoned FAQ',
+          'url' => 'https://attacker.example.com/phish',
           'source_class' => 'faq_lexical',
         ],
       ],
@@ -170,4 +200,3 @@ final class ResponseContractNormalizationTest extends TestCase {
   }
 
 }
-

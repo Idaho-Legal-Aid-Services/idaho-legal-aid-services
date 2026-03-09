@@ -66,6 +66,73 @@ if (PHP_SAPI !== 'cli' && isset($_SERVER['REQUEST_URI'])) {
 $settings['container_yamls'][] = __DIR__ . '/services.yml';
 
 /**
+ * Helper: validates a proxy IP or CIDR entry.
+ *
+ * @param string $candidate
+ *   The IP/CIDR candidate.
+ *
+ * @return bool
+ *   TRUE when the candidate is a valid IP or CIDR string.
+ */
+function _ilas_is_valid_proxy_address(string $candidate): bool {
+  if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
+    return TRUE;
+  }
+
+  if (!str_contains($candidate, '/')) {
+    return FALSE;
+  }
+
+  [$ip, $prefix] = explode('/', $candidate, 2);
+  if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
+    return FALSE;
+  }
+  if (!ctype_digit($prefix)) {
+    return FALSE;
+  }
+
+  $prefix = (int) $prefix;
+  $max_prefix = str_contains($ip, ':') ? 128 : 32;
+  return $prefix >= 0 && $prefix <= $max_prefix;
+}
+
+/**
+ * Helper: parses the trusted-proxy environment contract.
+ *
+ * @param string|false $raw
+ *   Raw `ILAS_TRUSTED_PROXY_ADDRESSES` value.
+ *
+ * @return array{valid: string[], invalid: string[]}
+ *   Valid and invalid proxy-address entries.
+ */
+function _ilas_parse_trusted_proxy_addresses(string|false $raw): array {
+  if ($raw === FALSE || trim($raw) === '') {
+    return [
+      'valid' => [],
+      'invalid' => [],
+    ];
+  }
+
+  $valid = [];
+  $invalid = [];
+  $entries = preg_split('/[\s,]+/', trim($raw), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+  foreach ($entries as $entry) {
+    if (_ilas_is_valid_proxy_address($entry)) {
+      $valid[] = $entry;
+    }
+    else {
+      $invalid[] = $entry;
+    }
+  }
+
+  return [
+    'valid' => array_values(array_unique($valid)),
+    'invalid' => array_values(array_unique($invalid)),
+  ];
+}
+
+/**
  * Include the Pantheon-specific settings file.
  *
  * n.b. The settings.pantheon.php file makes some changes
@@ -75,6 +142,27 @@ $settings['container_yamls'][] = __DIR__ . '/services.yml';
  * the site settings remain consistent.
  */
 include __DIR__ . "/settings.pantheon.php";
+
+/**
+ * Reverse-proxy trust contract for request identity and flood controls.
+ *
+ * This stays fail-closed by default: forwarded headers are only trusted when
+ * operators explicitly provide a proxy allowlist through the
+ * `ILAS_TRUSTED_PROXY_ADDRESSES` runtime environment variable.
+ */
+$ilas_trusted_proxy_contract = _ilas_parse_trusted_proxy_addresses(getenv('ILAS_TRUSTED_PROXY_ADDRESSES'));
+$settings['ilas_trusted_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+$settings['ilas_trusted_proxy_addresses_invalid'] = $ilas_trusted_proxy_contract['invalid'];
+if ($ilas_trusted_proxy_contract['valid'] !== []) {
+  $settings['reverse_proxy'] = TRUE;
+  $settings['reverse_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+  $settings['reverse_proxy_trusted_headers'] =
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO |
+    \Symfony\Component\HttpFoundation\Request::HEADER_FORWARDED;
+}
 
 /**
  * Permissions-Policy header.

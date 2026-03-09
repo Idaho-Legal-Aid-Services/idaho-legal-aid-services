@@ -22,6 +22,14 @@ Planning defaults applied:
    and `LLM-1`: `LlmEnhancer` now caches Vertex access tokens with buffered
    TTLs and reduces synchronous retry behavior to one bounded `<=250ms` backoff
    window without expanding the assistant architecture surface.
+5. `RAUD-08` closes the repo-side request-identity trust gap behind findings
+   `F-05` and `N-05`: forwarded headers are now trusted only when
+   `ILAS_TRUSTED_PROXY_ADDRESSES` explicitly supplies a proxy allowlist, while
+   assistant flood controls and admin diagnostics surface the effective
+   client-IP source and trust status.
+6. Remaining `RAUD-08` closure work is environment-bound: Pantheon `dev`,
+   `test`, and `live` must set the runtime proxy allowlist and be rechecked
+   read-only before the finding can move from `Partially Fixed` to `Fixed`.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

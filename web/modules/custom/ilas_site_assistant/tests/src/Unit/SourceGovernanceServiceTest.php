@@ -8,6 +8,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -125,6 +126,45 @@ final class SourceGovernanceServiceTest extends TestCase {
   }
 
   /**
+   * @covers ::sanitizeCitationUrl
+   */
+  #[DataProvider('allowedCitationUrlProvider')]
+  public function testSanitizeCitationUrlAllowsApprovedUrls(string $url): void {
+    $service = $this->buildService();
+
+    $this->assertSame($url, $service->sanitizeCitationUrl($url));
+  }
+
+  /**
+   * @covers ::sanitizeCitationUrl
+   */
+  #[DataProvider('disallowedCitationUrlProvider')]
+  public function testSanitizeCitationUrlRejectsDisallowedUrls(string $url): void {
+    $service = $this->buildService();
+
+    $this->assertNull($service->sanitizeCitationUrl($url));
+  }
+
+  public static function allowedCitationUrlProvider(): array {
+    return [
+      'relative path' => ['/faq#housing'],
+      'absolute ilas host' => ['https://idaholegalaid.org/guides/eviction'],
+      'absolute www host' => ['https://www.idaholegalaid.org/forms'],
+    ];
+  }
+
+  public static function disallowedCitationUrlProvider(): array {
+    return [
+      'javascript' => ['javascript:alert(1)'],
+      'data' => ['data:text/html;base64,PHNjcmlwdA=='],
+      'off-domain' => ['https://attacker.example.com/phish'],
+      'malformed' => ['not a valid url'],
+      'protocol-relative' => ['//attacker.example.com/phish'],
+      'fragment' => ['#faq'],
+    ];
+  }
+
+  /**
    * @covers ::annotateResult
    */
   public function testAnnotateResultClassifiesFreshStaleAndUnknown(): void {
@@ -172,6 +212,24 @@ final class SourceGovernanceServiceTest extends TestCase {
 
     $this->assertFalse($result['provenance']['has_source_url']);
     $this->assertContains('missing_source_url', $result['governance_flags']);
+  }
+
+  /**
+   * @covers ::annotateResult
+   */
+  public function testAnnotateResultFlagsInvalidSourceUrl(): void {
+    $service = $this->buildService();
+
+    $result = $service->annotateResult([
+      'id' => 'faq_invalid',
+      'source_url' => 'https://attacker.example.com/phish',
+      'updated_at' => time(),
+    ], 'faq_lexical');
+
+    $this->assertTrue($result['provenance']['has_source_url']);
+    $this->assertFalse($result['provenance']['source_url_allowed']);
+    $this->assertContains('invalid_source_url', $result['governance_flags']);
+    $this->assertNotContains('missing_source_url', $result['governance_flags']);
   }
 
   /**

@@ -14,6 +14,7 @@ use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
+use Drupal\ilas_site_assistant\Service\RequestTrustInspector;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\ilas_site_assistant\Service\InputNormalizer;
@@ -241,6 +242,13 @@ class AssistantApiController extends ControllerBase {
   protected $logger;
 
   /**
+   * The request trust inspector for client-IP diagnostics.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RequestTrustInspector|null
+   */
+  protected $requestTrustInspector;
+
+  /**
    * The CSRF token generator for recovery-only /track fallback validation.
    *
    * @var \Drupal\Core\Access\CsrfTokenGenerator|null
@@ -275,6 +283,7 @@ class AssistantApiController extends ControllerBase {
     TopIntentsPack $top_intents_pack = NULL,
     SourceGovernanceService $source_governance = NULL,
     VectorIndexHygieneService $vector_index_hygiene = NULL,
+    RequestTrustInspector $request_trust_inspector = NULL,
     CsrfTokenGenerator $csrf_token_generator = NULL
   ) {
     $this->configFactory = $config_factory;
@@ -301,6 +310,7 @@ class AssistantApiController extends ControllerBase {
     $this->topIntentsPack = $top_intents_pack;
     $this->sourceGovernance = $source_governance;
     $this->vectorIndexHygiene = $vector_index_hygiene;
+    $this->requestTrustInspector = $request_trust_inspector;
     $this->csrfTokenGenerator = $csrf_token_generator;
   }
 
@@ -333,6 +343,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.top_intents_pack') ? $container->get('ilas_site_assistant.top_intents_pack') : NULL,
       $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL,
       $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL,
+      $container->has('ilas_site_assistant.request_trust_inspector') ? $container->get('ilas_site_assistant.request_trust_inspector') : NULL,
       $container->has('csrf_token') ? $container->get('csrf_token') : NULL
     );
   }
@@ -380,6 +391,89 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Returns normalized request-trust diagnostics for the supplied request.
+   */
+  private function inspectRequestTrust(Request $request): array {
+    if ($this->requestTrustInspector) {
+      return $this->requestTrustInspector->inspectRequest($request);
+    }
+
+    $forwarded_for = trim((string) $request->headers->get('X-Forwarded-For', ''));
+    $forwarded_headers = [
+      'x_forwarded_for' => $forwarded_for !== '' ? $forwarded_for : NULL,
+      'x_forwarded_host' => ($value = trim((string) $request->headers->get('X-Forwarded-Host', ''))) !== '' ? $value : NULL,
+      'x_forwarded_port' => ($value = trim((string) $request->headers->get('X-Forwarded-Port', ''))) !== '' ? $value : NULL,
+      'x_forwarded_proto' => ($value = trim((string) $request->headers->get('X-Forwarded-Proto', ''))) !== '' ? $value : NULL,
+      'forwarded' => ($value = trim((string) $request->headers->get('Forwarded', ''))) !== '' ? $value : NULL,
+    ];
+    $forwarded_header_present = FALSE;
+    foreach ($forwarded_headers as $value) {
+      if ($value !== NULL && $value !== '') {
+        $forwarded_header_present = TRUE;
+        break;
+      }
+    }
+
+    $effective_client_ip = (string) ($request->getClientIp() ?? $request->server->get('REMOTE_ADDR', ''));
+    return [
+      'status' => $forwarded_header_present ? RequestTrustInspector::STATUS_FORWARDED_HEADERS_UNTRUSTED : RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR,
+      'effective_client_ip' => $effective_client_ip,
+      'effective_client_ip_chain' => $effective_client_ip !== '' ? [$effective_client_ip] : [],
+      'forwarded_for_chain' => $forwarded_for !== '' ? array_map('trim', explode(',', $forwarded_for)) : [],
+      'remote_addr' => (string) $request->server->get('REMOTE_ADDR', ''),
+      'reverse_proxy_enabled' => FALSE,
+      'configured_trusted_proxies' => [],
+      'configured_trusted_headers' => NULL,
+      'runtime_trusted_proxies' => [],
+      'runtime_trusted_header_set' => Request::getTrustedHeaderSet(),
+      'forwarded_header_present' => $forwarded_header_present,
+      'forwarded_headers' => $forwarded_headers,
+      'remote_addr_is_configured_proxy' => FALSE,
+      'remote_addr_is_runtime_trusted_proxy' => FALSE,
+      'invalid_configured_proxy_entries' => [],
+    ];
+  }
+
+  /**
+   * Resolves request identity for flood keys and logs trust-chain warnings.
+   */
+  private function resolveFloodTrustContext(Request $request, string $request_id, string $event): array {
+    $trust_context = $this->inspectRequestTrust($request);
+    $status = $trust_context['status'] ?? RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR;
+    if (!empty($trust_context['forwarded_header_present']) && $status !== RequestTrustInspector::STATUS_TRUSTED_FORWARDED_CHAIN) {
+      $this->logger->warning(
+        'event={event} request_id={request_id} trust_status={trust_status} effective_client_ip={effective_client_ip} remote_addr={remote_addr} forwarded_for={forwarded_for} configured_trusted_proxies={configured_trusted_proxies} runtime_trusted_proxies={runtime_trusted_proxies}',
+        [
+          'event' => $event,
+          'request_id' => $request_id,
+          'trust_status' => $status,
+          'effective_client_ip' => (string) ($trust_context['effective_client_ip'] ?? ''),
+          'remote_addr' => (string) ($trust_context['remote_addr'] ?? ''),
+          'forwarded_for' => (string) (($trust_context['forwarded_headers']['x_forwarded_for'] ?? NULL) ?? ''),
+          'configured_trusted_proxies' => json_encode($trust_context['configured_trusted_proxies'] ?? []),
+          'runtime_trusted_proxies' => json_encode($trust_context['runtime_trusted_proxies'] ?? []),
+        ],
+      );
+    }
+    return $trust_context;
+  }
+
+  /**
+   * Returns the current request when one exists, otherwise a synthetic request.
+   */
+  private function currentDiagnosticsRequest(): Request {
+    $container = \Drupal::getContainer();
+    if ($container && $container->has('request_stack')) {
+      $current_request = $container->get('request_stack')->getCurrentRequest();
+      if ($current_request instanceof Request) {
+        return $current_request;
+      }
+    }
+
+    return Request::create('https://localhost/assistant/api/health', 'GET');
+  }
+
+  /**
    * Handles incoming chat messages.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
@@ -394,7 +488,8 @@ class AssistantApiController extends ControllerBase {
 
     // Rate limiting — keyed by client IP.
     $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $ip = $request->getClientIp();
+    $trust_context = $this->resolveFloodTrustContext($request, $request_id, 'assistant_message_flood_identity');
+    $ip = (string) ($trust_context['effective_client_ip'] ?? '');
     $flood_id = 'ilas_assistant:' . $ip;
     $per_min = (int) ($config->get('rate_limit_per_minute') ?? 15);
     $per_hr = (int) ($config->get('rate_limit_per_hour') ?? 120);
@@ -1533,8 +1628,9 @@ class AssistantApiController extends ControllerBase {
       ], 403, [], $request_id);
     }
 
-    // Rate limit tracking events per IP.
-    $ip = $request->getClientIp();
+    // Rate limit tracking events per resolved client IP.
+    $trust_context = $this->resolveFloodTrustContext($request, $request_id, 'assistant_track_flood_identity');
+    $ip = (string) ($trust_context['effective_client_ip'] ?? '');
     $track_flood_id = 'ilas_assistant_track:' . $ip;
     if (!$this->flood->isAllowed('ilas_assistant_track', 60, 60, $track_flood_id)) {
       return $this->jsonResponse(['error' => 'Too many requests', 'request_id' => $request_id], 429, ['Retry-After' => '60'], $request_id);
@@ -3760,6 +3856,7 @@ class AssistantApiController extends ControllerBase {
     $checks = [];
     $httpCode = 200;
     $container = \Drupal::getContainer();
+    $checks['proxy_trust'] = $this->inspectRequestTrust($this->currentDiagnosticsRequest());
     $sloDefinitions = ($container && $container->has('ilas_site_assistant.slo_definitions'))
       ? $container->get('ilas_site_assistant.slo_definitions')
       : NULL;
@@ -3867,6 +3964,7 @@ class AssistantApiController extends ControllerBase {
     $response = [
       'timestamp' => date('c'),
       'metrics' => $summary,
+      'proxy_trust' => $this->inspectRequestTrust($this->currentDiagnosticsRequest()),
       'thresholds' => [
         'availability_pct' => $sloDefinitions ? $sloDefinitions->getAvailabilityTargetPct() : 99.5,
         'p95_latency_ms' => $sloDefinitions ? $sloDefinitions->getLatencyP95TargetMs() : PerformanceMonitor::THRESHOLD_P95_MS,
@@ -3990,7 +4088,22 @@ class AssistantApiController extends ControllerBase {
    */
   private function normalizeContractCitations(array $response): array {
     if (!empty($response['sources']) && is_array($response['sources'])) {
-      return array_values(array_filter($response['sources'], static fn($item): bool => is_array($item)));
+      $citations = [];
+      foreach ($response['sources'] as $item) {
+        if (!is_array($item)) {
+          continue;
+        }
+
+        $url = $this->sanitizeCitationUrl($item['url'] ?? NULL);
+        if ($url === NULL) {
+          continue;
+        }
+
+        $item['url'] = $url;
+        $citations[] = $item;
+      }
+
+      return $citations;
     }
 
     if (empty($response['results']) || !is_array($response['results'])) {
@@ -4018,6 +4131,7 @@ class AssistantApiController extends ControllerBase {
       elseif (!empty($result['url']) && is_string($result['url'])) {
         $url = $result['url'];
       }
+      $url = $this->sanitizeCitationUrl($url);
 
       $source = NULL;
       if (!empty($result['source_class']) && is_string($result['source_class'])) {
@@ -4027,7 +4141,7 @@ class AssistantApiController extends ControllerBase {
         $source = $result['source'];
       }
 
-      if ($title === NULL && $url === NULL && $source === NULL) {
+      if ($url === NULL) {
         continue;
       }
 
@@ -4045,6 +4159,17 @@ class AssistantApiController extends ControllerBase {
     }
 
     return $citations;
+  }
+
+  /**
+   * Applies the authoritative citation URL allowlist.
+   */
+  private function sanitizeCitationUrl(mixed $url): ?string {
+    if (!$this->sourceGovernance || !is_string($url)) {
+      return NULL;
+    }
+
+    return $this->sourceGovernance->sanitizeCitationUrl($url);
   }
 
   /**

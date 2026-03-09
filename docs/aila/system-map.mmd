@@ -74,7 +74,8 @@ flowchart LR
 
 
 flowchart TD
-  A[HTTP request\n/assistant/api/message] --> B{Flood checks\nper IP minute/hour}
+  A[HTTP request\n/assistant/api/message] --> A0[Resolve request identity\nREMOTE_ADDR by default\ntrusted proxy chain only when explicitly configured]
+  A0 --> B{Flood checks\nper resolved client IP minute/hour}
   B -->|limit exceeded| B1[429 JSON\nRetry-After]
   B -->|ok| C{Validate request\ncontent-type + size + JSON + message}
   C -->|invalid| C1[4xx JSON error]

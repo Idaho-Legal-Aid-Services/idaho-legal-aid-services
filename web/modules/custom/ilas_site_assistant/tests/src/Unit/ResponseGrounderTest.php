@@ -2,9 +2,14 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for ResponseGrounder.
@@ -27,11 +32,30 @@ class ResponseGrounderTest extends TestCase {
   protected ResponseGrounder $grounder;
 
   /**
+   * Builds a source-governance service with default citation policy.
+   */
+  private function buildSourceGovernanceService(): SourceGovernanceService {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(static fn(string $key) => $key === 'source_governance' ? NULL : NULL);
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($config);
+
+    $state = $this->createStub(StateInterface::class);
+    $logger = $this->createStub(LoggerInterface::class);
+
+    return new SourceGovernanceService($configFactory, $state, $logger);
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->grounder = new ResponseGrounder();
+    $this->grounder = new ResponseGrounder($this->buildSourceGovernanceService());
   }
 
   // -----------------------------------------------------------------------
@@ -45,9 +69,9 @@ class ResponseGrounderTest extends TestCase {
    */
   public function testAddCitationsGeneratesSourcesArray(): void {
     $results = [
-      ['title' => 'Eviction Guide', 'url' => 'https://example.com/eviction', 'type' => 'guide'],
-      ['title' => 'Tenant Rights', 'url' => 'https://example.com/rights', 'type' => 'resource'],
-      ['title' => 'FAQ Entry', 'url' => 'https://example.com/faq/1', 'type' => 'faq'],
+      ['title' => 'Eviction Guide', 'url' => 'https://idaholegalaid.org/guides/eviction', 'type' => 'guide'],
+      ['title' => 'Tenant Rights', 'url' => 'https://idaholegalaid.org/guides/rights', 'type' => 'resource'],
+      ['title' => 'FAQ Entry', 'url' => '/faq/apply#entry', 'type' => 'faq'],
     ];
 
     $response = ['message' => 'Some safe info', 'type' => 'resources'];
@@ -56,7 +80,7 @@ class ResponseGrounderTest extends TestCase {
     $this->assertArrayHasKey('sources', $result);
     $this->assertCount(3, $result['sources']);
     $this->assertEquals('Eviction Guide', $result['sources'][0]['title']);
-    $this->assertEquals('https://example.com/eviction', $result['sources'][0]['url']);
+    $this->assertEquals('https://idaholegalaid.org/guides/eviction', $result['sources'][0]['url']);
   }
 
   /**
@@ -67,7 +91,7 @@ class ResponseGrounderTest extends TestCase {
   public function testAddCitationsMaxThreeSources(): void {
     $results = [];
     for ($i = 1; $i <= 5; $i++) {
-      $results[] = ['title' => "Result $i", 'url' => "https://example.com/$i"];
+      $results[] = ['title' => "Result $i", 'url' => "/resources/$i"];
     }
 
     $response = ['message' => 'Info', 'type' => 'resources'];
@@ -83,7 +107,7 @@ class ResponseGrounderTest extends TestCase {
    */
   public function testAddCitationsExcludesResultsWithoutUrls(): void {
     $results = [
-      ['title' => 'Has URL', 'url' => 'https://example.com/page'],
+      ['title' => 'Has URL', 'url' => '/faq#page'],
       ['title' => 'No URL'],
     ];
 
@@ -95,25 +119,63 @@ class ResponseGrounderTest extends TestCase {
   }
 
   /**
-   * Tests citation URL passthrough (F-12 baseline).
-   *
-   * Documents current behavior: any URL value is accepted as-is.
-   * When host validation is added, this test should be updated to
-   * assert only idaholegalaid.org URLs are accepted.
+   * Tests that unsafe or off-domain citation URLs are stripped.
    *
    * @covers ::groundResponse
    */
-  public function testCitationUrlAcceptsAnyValue(): void {
+  #[DataProvider('disallowedCitationUrlProvider')]
+  public function testCitationUrlRejectsDisallowedValues(string $url): void {
     $results = [
-      ['title' => 'External', 'url' => 'https://attacker.example.com/phish'],
+      ['title' => 'Unsafe', 'url' => $url],
     ];
 
     $response = ['message' => 'Info', 'type' => 'resources'];
     $result = $this->grounder->groundResponse($response, $results);
 
-    // Current behavior: URL is accepted as-is (no host validation).
+    $this->assertArrayNotHasKey('sources', $result);
+    $this->assertArrayNotHasKey('citation_text', $result);
+  }
+
+  /**
+   * Tests that approved ILAS citation URLs are preserved.
+   *
+   * @covers ::groundResponse
+   */
+  #[DataProvider('allowedCitationUrlProvider')]
+  public function testCitationUrlAllowsApprovedValues(string $url): void {
+    $results = [
+      ['title' => 'Approved', 'url' => $url],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
     $this->assertArrayHasKey('sources', $result);
-    $this->assertEquals('https://attacker.example.com/phish', $result['sources'][0]['url']);
+    $this->assertSame($url, $result['sources'][0]['url']);
+  }
+
+  /**
+   * Tests mixed citation batches keep only approved URLs and still cap at 3.
+   *
+   * @covers ::groundResponse
+   */
+  public function testAddCitationsFiltersMixedUrlsAndCapsAtThree(): void {
+    $results = [
+      ['title' => 'Bad JS', 'url' => 'javascript:alert(1)'],
+      ['title' => 'Allowed 1', 'url' => '/faq#housing'],
+      ['title' => 'Bad Off Domain', 'url' => 'https://attacker.example.com/phish'],
+      ['title' => 'Allowed 2', 'url' => 'https://idaholegalaid.org/guides/tenant-rights'],
+      ['title' => 'Allowed 3', 'url' => '/forms'],
+      ['title' => 'Allowed 4', 'url' => '/services'],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertArrayHasKey('sources', $result);
+    $this->assertCount(3, $result['sources']);
+    $this->assertSame(['Allowed 1', 'Allowed 2', 'Allowed 3'], array_column($result['sources'], 'title'));
+    $this->assertSame(['/faq#housing', 'https://idaholegalaid.org/guides/tenant-rights', '/forms'], array_column($result['sources'], 'url'));
   }
 
   /**
@@ -123,8 +185,8 @@ class ResponseGrounderTest extends TestCase {
    */
   public function testAddCitationsGeneratesCitationText(): void {
     $results = [
-      ['title' => 'Guide One', 'url' => 'https://example.com/1'],
-      ['title' => 'Guide Two', 'url' => 'https://example.com/2'],
+      ['title' => 'Guide One', 'url' => '/guides/1'],
+      ['title' => 'Guide Two', 'url' => '/guides/2'],
     ];
 
     $response = ['message' => 'Info', 'type' => 'resources'];
@@ -142,12 +204,29 @@ class ResponseGrounderTest extends TestCase {
    */
   public function testCitationTitleTruncation(): void {
     $long_title = str_repeat('A', 100);
-    $results = [['title' => $long_title, 'url' => 'https://example.com/long']];
+    $results = [['title' => $long_title, 'url' => '/guides/long']];
 
     $response = ['message' => 'Info', 'type' => 'resources'];
     $result = $this->grounder->groundResponse($response, $results);
 
     $this->assertLessThanOrEqual(60, mb_strlen($result['sources'][0]['title']));
+  }
+
+  public static function allowedCitationUrlProvider(): array {
+    return [
+      'relative' => ['/faq#housing'],
+      'absolute ilas' => ['https://idaholegalaid.org/faq/housing'],
+    ];
+  }
+
+  public static function disallowedCitationUrlProvider(): array {
+    return [
+      'javascript' => ['javascript:alert(1)'],
+      'data' => ['data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=='],
+      'off-domain' => ['https://attacker.example.com/phish'],
+      'malformed' => ['not a valid url'],
+      'protocol-relative' => ['//attacker.example.com/phish'],
+    ];
   }
 
   // -----------------------------------------------------------------------
@@ -438,6 +517,24 @@ class ResponseGrounderTest extends TestCase {
     $this->assertArrayHasKey('caveat', $result);
     $this->assertTrue($result['_grounded']);
     $this->assertEquals('1.0', $result['_grounding_version']);
+  }
+
+  /**
+   * Tests groundFaqResponse strips disallowed legacy source URLs.
+   *
+   * @covers ::groundFaqResponse
+   */
+  public function testGroundFaqResponseStripsDisallowedLegacyUrl(): void {
+    $faq = [
+      'question' => 'Unsafe source',
+      'answer' => 'Use the FAQ page.',
+      'url' => 'https://attacker.example.com/phish',
+    ];
+
+    $result = $this->grounder->groundFaqResponse($faq);
+
+    $this->assertArrayNotHasKey('url', $result);
+    $this->assertArrayNotHasKey('sources', $result);
   }
 
   // -----------------------------------------------------------------------

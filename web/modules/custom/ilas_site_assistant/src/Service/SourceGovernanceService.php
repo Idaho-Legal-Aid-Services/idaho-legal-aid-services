@@ -14,6 +14,14 @@ use Psr\Log\LoggerInterface;
 class SourceGovernanceService {
 
   /**
+   * Allowed absolute hosts for trusted citation URLs.
+   */
+  private const ALLOWED_CITATION_HOSTS = [
+    'idaholegalaid.org',
+    'www.idaholegalaid.org',
+  ];
+
+  /**
    * State key storing the rolling governance snapshot.
    */
   private const SNAPSHOT_STATE_KEY = 'ilas_site_assistant.source_governance.snapshot';
@@ -58,6 +66,64 @@ class SourceGovernanceService {
   }
 
   /**
+   * Sanitizes a citation URL against the ILAS citation allowlist.
+   *
+   * Allows root-relative ILAS paths and absolute HTTP(S) URLs on the approved
+   * ILAS hosts. Rejects unsafe schemes, protocol-relative URLs, bare fragments,
+   * malformed URLs, and off-domain hosts.
+   *
+   * @param string|null $url
+   *   Raw citation URL candidate.
+   *
+   * @return string|null
+   *   Sanitized citation URL, or NULL when disallowed.
+   */
+  public function sanitizeCitationUrl(?string $url): ?string {
+    if (!is_string($url)) {
+      return NULL;
+    }
+
+    $trimmed = trim($url);
+    if ($trimmed === '' || preg_match('/\s/', $trimmed)) {
+      return NULL;
+    }
+
+    if ($trimmed[0] === '#') {
+      return NULL;
+    }
+
+    if (str_starts_with($trimmed, '//')) {
+      return NULL;
+    }
+
+    if (str_starts_with($trimmed, '/')) {
+      $parts = parse_url($trimmed);
+      if ($parts === FALSE || isset($parts['scheme']) || isset($parts['host'])) {
+        return NULL;
+      }
+
+      return $trimmed;
+    }
+
+    $parts = parse_url($trimmed);
+    if ($parts === FALSE || empty($parts['scheme']) || empty($parts['host'])) {
+      return NULL;
+    }
+
+    $scheme = strtolower((string) $parts['scheme']);
+    if (!in_array($scheme, ['http', 'https'], TRUE)) {
+      return NULL;
+    }
+
+    $host = strtolower((string) $parts['host']);
+    if (!in_array($host, self::ALLOWED_CITATION_HOSTS, TRUE)) {
+      return NULL;
+    }
+
+    return $trimmed;
+  }
+
+  /**
    * Annotates a single retrieval result with provenance/freshness metadata.
    *
    * @param array $item
@@ -74,6 +140,8 @@ class SourceGovernanceService {
 
     $source_url = $item['source_url'] ?? $item['url'] ?? NULL;
     $has_source_url = is_string($source_url) && $source_url !== '';
+    $sanitized_source_url = $this->sanitizeCitationUrl($source_url);
+    $source_url_allowed = $sanitized_source_url !== NULL;
     $updated_at = $this->resolveUpdatedAt($item);
 
     $max_age_days = (int) ($class_policy['max_age_days'] ?? 180);
@@ -92,6 +160,9 @@ class SourceGovernanceService {
     if (!empty($class_policy['require_source_url']) && !$has_source_url) {
       $flags[] = 'missing_source_url';
     }
+    if ($has_source_url && !$source_url_allowed) {
+      $flags[] = 'invalid_source_url';
+    }
     if ($freshness_status === 'stale') {
       $flags[] = 'stale_source';
     }
@@ -106,6 +177,7 @@ class SourceGovernanceService {
       'owner_role' => (string) ($class_policy['owner_role'] ?? 'Content Operations Lead'),
       'policy_version' => (string) ($policy['policy_version'] ?? 'p2_obj_03_v1'),
       'has_source_url' => $has_source_url,
+      'source_url_allowed' => $source_url_allowed,
     ];
     $item['freshness'] = [
       'status' => $freshness_status,
