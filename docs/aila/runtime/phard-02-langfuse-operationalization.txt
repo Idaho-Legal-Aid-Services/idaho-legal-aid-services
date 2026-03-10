@@ -37,24 +37,27 @@ live:
 
 dev:
   command: terminus remote:drush idaho-legal-aid-services.dev -- ilas:langfuse-probe --direct
-  trace_id: <FILL after probe execution>
-  http_status: <FILL>
-  langfuse_url: <verify in Langfuse UI — search by trace ID>
-  timestamp: <FILL>
+  trace_id: a2de62d1-7c71-4eba-93a6-721d524993a2
+  http_status: 207
+  langfuse_url: https://us.cloud.langfuse.com
+  timestamp: 2026-03-10T post-deploy
+  exit_code: 0
 
 test:
   command: terminus remote:drush idaho-legal-aid-services.test -- ilas:langfuse-probe --direct
-  trace_id: <FILL after probe execution>
-  http_status: <FILL>
-  langfuse_url: <verify in Langfuse UI — search by trace ID>
-  timestamp: <FILL>
+  trace_id: fac53f6d-2216-4ad1-b656-393ca05702bf
+  http_status: 207
+  langfuse_url: https://us.cloud.langfuse.com
+  timestamp: 2026-03-10T post-deploy
+  exit_code: 0
 
 live:
   command: terminus remote:drush idaho-legal-aid-services.live -- ilas:langfuse-probe --direct
-  trace_id: <FILL after probe execution>
-  http_status: <FILL>
-  langfuse_url: <verify in Langfuse UI — search by trace ID>
-  timestamp: <FILL>
+  trace_id: 49653517-ff08-4a8c-bf55-7872e8e50ebc
+  http_status: 207
+  langfuse_url: https://us.cloud.langfuse.com
+  timestamp: 2026-03-10T post-deploy
+  exit_code: 0
 
 ────────────────────────────────────────────────────
 3. Approved Payload Shape
@@ -201,7 +204,7 @@ Criteria:
   [x] Sampling policy documented with quarterly review cadence
   [x] Alert route documented (SloAlertService -> logger -> Sentry)
   [x] Review cadence established (weekly, SRE/Platform Engineer)
-  [ ] Probe events captured on all 3 environments (post-deploy)
+  [x] Probe events captured on all 3 environments (post-deploy)
   [ ] Redaction verified in Langfuse UI
   [ ] Queue health evidence recorded
   [ ] Alert delivery tested

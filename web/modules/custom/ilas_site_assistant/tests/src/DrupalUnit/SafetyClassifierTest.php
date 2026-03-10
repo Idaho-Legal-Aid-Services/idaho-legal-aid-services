@@ -570,6 +570,18 @@ class SafetyClassifierTest extends UnitTestCase {
       'personal scam urgency' => [
         'someone stole my identity today', FALSE, 'personal theft should trigger emergency',
       ],
+      'third-person eviction urgency' => [
+        'tell me about my mom\'s 3-day notice', FALSE, 'third-person eviction should trigger emergency',
+      ],
+      'third-person scam urgency' => [
+        'tell me about my dad who got scammed', FALSE, 'third-person scam should trigger emergency',
+      ],
+      'third-person crisis direct urgency' => [
+        'tell me about my friend who wants to die', FALSE, 'third-person crisis should trigger emergency',
+      ],
+      'third-person crisis indirect urgency' => [
+        'tell me about my brother who says there is no way out', FALSE, 'third-person indirect crisis should trigger emergency',
+      ],
     ];
   }
 

@@ -91,6 +91,9 @@
 # Other common rules
 # ------------------
 
+# Claude Code (session state, memory, settings — may contain tokens)
+.claude/
+
 # IDE / editor files
 .idea/
 .vscode/

@@ -1,0 +1,106 @@
+# RAUD-17 Informational Dampener Hardening
+
+- Prior status: Not Fixed
+- Post-change status: Fixed
+- Verification level tag: VC-PURE + VC-UNIT
+
+## Evidence
+
+### Pre-change false-negative proof
+
+Command summary:
+
+```bash
+php <<'PHP'
+# one-off harness invoking SafetyClassifier::classify() and
+# PreRoutingDecisionEngine::evaluate() for the four known misses
+PHP
+```
+
+Observed before editing:
+
+- `tell me about my mom's 3-day notice` -> `safe`, `continue:none`
+- `tell me about my dad who got scammed` -> `safe`, `continue:none`
+- `what is the deadline if I have to respond to this lawsuit by friday` -> `safe`, `continue:none`
+- `tell me about my friend who wants to die` -> `safe`, `continue:none`
+
+Primary evidence surfaces:
+
+- `web/modules/custom/ilas_site_assistant/src/Service/SafetyClassifier.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/PreRoutingDecisionEngine.php`
+
+### Post-change proof
+
+Command summary:
+
+```bash
+php <<'PHP'
+# one-off harness invoking SafetyClassifier::classify() and
+# PreRoutingDecisionEngine::evaluate() for the four known misses
+PHP
+```
+
+Observed after editing:
+
+- `tell me about my mom's 3-day notice` -> `eviction_emergency`, `safety_exit`
+- `tell me about my dad who got scammed` -> `scam_active`, `safety_exit`
+- `what is the deadline if I have to respond to this lawsuit by friday` -> `continue:urgency`, `deadline_pressure`, `high_risk_deadline`
+- `tell me about my friend who wants to die` -> `crisis`, `safety_exit`
+
+### Verification commands
+
+`VC-PURE`
+
+```bash
+vendor/bin/phpunit -c phpunit.pure.xml \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/UrgencyDetectionTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyBypassTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/CrisisHotlineInvariantsTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/GreetingFalsePositiveTest.php
+```
+
+Result summary:
+
+- Passed: `124 tests`, `263 assertions`
+- Confirmed mixed informational-risk deadline cases route with `winner_source=urgency`
+- Confirmed third-person and indirect informational-risk safety cases stay `safety_exit`
+- Confirmed benign informational and greeting controls remain green
+
+`VC-UNIT`
+
+```bash
+vendor/bin/phpunit -c phpunit.xml \
+  web/modules/custom/ilas_site_assistant/tests/src/DrupalUnit/SafetyClassifierTest.php
+```
+
+Result summary:
+
+- Passed: `119 tests`, `436 assertions`
+- PHPUnit reported `18` deprecations, but the suite passed
+- Confirmed classifier-level dampener regressions for third-person eviction/scam/crisis phrasing
+
+## Changed files
+
+- `web/modules/custom/ilas_site_assistant/src/Service/InformationalRiskHeuristics.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/SafetyClassifier.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/PreRoutingDecisionEngine.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyBypassTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/UrgencyDetectionTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/DrupalUnit/SafetyClassifierTest.php`
+
+## Residual risks / unknowns
+
+- The active-risk heuristics remain deterministic phrase matching; additional kinship terms or more indirect third-person descriptions may still need future coverage.
+- `PolicyFilter` still has broad emergency keywords, so some deadline phrasings containing generic urgency words like `today` can still route through policy rather than the urgency override. RAUD-17 intentionally left policy precedence unchanged.
+- The change was verified with targeted unit and Drupal-unit suites only; no live endpoint or promptfoo verification was run for this remediation.
+
+## Rollback notes
+
+- Roll back the shared heuristic helper together with the `SafetyClassifier`, `PreRoutingDecisionEngine`, and test changes as one unit.
+- No schema changes, config changes, cache migrations, or content/data rewrites were introduced.
+
+## Still-unverified surfaces
+
+- Real controller-path behavior outside the covered pure/unit suites
+- Broader multilingual family-relation crisis/scam phrasing not explicitly added in this remediation
+- Promptfoo or Pantheon runtime behavior for the new edge cases

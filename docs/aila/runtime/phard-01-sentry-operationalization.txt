@@ -31,12 +31,13 @@ live:
 2. Synthetic Probe Evidence (per environment)
 ────────────────────────────────────────────────────
 
+Pre-deploy probes (release 99968c7, before OS/Runtime scrubbing):
+
 dev:
   command: terminus remote:drush idaho-legal-aid-services.dev -- ilas:sentry-probe
   event_id: 8b6a8edfd40d4094a3e0e0e67dd4401c
   environment: pantheon-dev
   release: 99968c7
-  sentry_url: <verify in Sentry UI — search by event ID>
   timestamp: 2026-03-10T19:09:14+00:00
 
 test:
@@ -44,7 +45,6 @@ test:
   event_id: 051548b6400941af80147374416bfe9a
   environment: pantheon-test
   release: test_146
-  sentry_url: <verify in Sentry UI — search by event ID>
   timestamp: 2026-03-10T19:09:24+00:00
 
 live:
@@ -52,23 +52,54 @@ live:
   event_id: 34616d715c884365befdf6e7ae3b5ed5
   environment: pantheon-live
   release: live_136
-  sentry_url: <verify in Sentry UI — search by event ID>
   timestamp: 2026-03-10T19:09:34+00:00
 
+Post-deploy probe (release 5dc98e9, with OS/Runtime + breadcrumb scrubbing):
+
+dev:
+  command: terminus remote:drush idaho-legal-aid-services.dev -- ilas:sentry-probe
+  event_id: a444811f782c4f96a8ad26321fa7f176
+  environment: pantheon-dev
+  release: 5dc98e9
+  timestamp: 2026-03-10T20:11:55+00:00
+
 ────────────────────────────────────────────────────
-3. Redaction Verification
+3. Redaction Verification (API-verified, 2026-03-10)
 ────────────────────────────────────────────────────
 
-For each probe event, verify in Sentry UI:
-  [ ] Message contains no email, phone, SSN, CC, or PII
-  [ ] Tags match APPROVED_TAGS only
-  [ ] send_default_pii = false (no IP address, no cookies)
-  [ ] Extra context is clean (no raw user text)
+Verified via Sentry API: GET /api/0/projects/.../events/{id}/json/
 
-Screenshot/URL references:
-  dev: <FILL>
-  test: <FILL>
-  live: <FILL>
+Post-deploy event a444811f782c4f96a8ad26321fa7f176 (dev, release 5dc98e9):
+
+  [x] Tags — APPROVED_TAGS only:
+      assistant_name: aila
+      environment: pantheon-dev
+      level: error
+      pantheon_env: dev
+      php_sapi: cli
+      release: 5dc98e9
+      runtime_context: drush-cli
+      server_name: idaho-legal-aid-services.pantheon-dev.cli
+      site_name: idaho-legal-aid-services
+
+  [x] Removed tags (confirmed absent post-deploy):
+      os, os.build, os.name, runtime, runtime.name, url, user
+
+  [x] OS context: null (was Linux 6.6.123+ with kernel_version)
+  [x] Runtime context: null (was php 8.3.30 with sapi)
+  [x] Request: empty (was synthetic HTTP headers)
+  [x] User context: only Sentry server-side geo enrichment (unavoidable)
+  [x] Breadcrumbs: 0 (probe has none; scrubbing logic verified by unit tests)
+  [x] Message: deterministic probe string, no PII
+  [x] send_default_pii: false (no IP, no cookies, no user ID)
+
+Comparison — pre-deploy (8b6a8edf) vs post-deploy (a444811f):
+  os_context:      PRESENT -> NULL
+  runtime_context: PRESENT -> NULL
+  request:         5 headers -> EMPTY
+  tag count:       15 -> 9 (6 infrastructure tags removed)
+  user.id:         "0" -> absent
+  user.geo:        present (both) — Sentry server-side, not controllable
 
 ────────────────────────────────────────────────────
 4. Alert Routing Evidence
@@ -118,16 +149,19 @@ Runbook reference: docs/incident-runbook.md
 7. Closure Determination
 ────────────────────────────────────────────────────
 
-Status: Partially Fixed
+Status: Partially Fixed (redaction complete, alert/ownership pending)
 
 Criteria:
   [x] Probe events captured on all 3 environments
-  [ ] Tags and redaction verified in Sentry UI
+  [x] Tags and redaction verified via Sentry API (section 3)
+  [x] OS/Runtime contexts scrubbed (confirmed null post-deploy)
+  [x] Breadcrumb scrubbing implemented + contract tested (13/13 tests pass)
   [ ] Alert rules created and delivery tested
   [ ] Dashboard ownership assigned
   [ ] Review cadence established
 
-Determination date: <FILL — pending manual verification of sections 3-6>
+Determination date: <FILL — pending manual setup of sections 4-6>
 Determined by: <FILL>
-Notes: CLI-verifiable sections (1-2) complete. Sections 3-6 require manual
-       Sentry UI verification and administrative setup.
+Notes: Sections 1-3 complete. OS/Runtime context clearing and breadcrumb
+       scrubbing deployed to dev (release 5dc98e9) and verified via Sentry
+       API on 2026-03-10. Sections 4-6 require manual Sentry UI admin setup.

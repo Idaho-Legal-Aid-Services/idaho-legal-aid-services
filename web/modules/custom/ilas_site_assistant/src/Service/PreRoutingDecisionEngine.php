@@ -57,16 +57,6 @@ class PreRoutingDecisionEngine {
   ];
 
   /**
-   * Informational deadline queries that should not trigger overrides.
-   */
-  private const DEADLINE_DAMPENERS = [
-    '/\b(how\s*long\s*do\s*i\s*have|what\s*is\s*the\s*deadline|when\s*is\s*the\s*deadline|typical\s*deadline|general\s*deadline|deadline\s*information)\b/i',
-    '/\b(deadline\s*for\s*(eviction|filing)|how\s*many\s*days|how\s*much\s*time\s*do\s*i\s*have)\b/i',
-    '/\b(cuanto\s*tiempo\s*tengo|cual\s*es\s*la\s*fecha\s*limite)\b/i',
-    '/\b(general\s*information\s*about\s*court\s*dates|learn\s*about\s*deadlines)\b/i',
-  ];
-
-  /**
    * The safety classifier.
    *
    * @var \Drupal\ilas_site_assistant\Service\SafetyClassifier|null
@@ -262,15 +252,9 @@ class PreRoutingDecisionEngine {
       return FALSE;
     }
 
-    foreach (self::DEADLINE_DAMPENERS as $pattern) {
-      if (preg_match($pattern, $message)) {
-        return FALSE;
-      }
-    }
-
     foreach (self::DEADLINE_PATTERNS as $pattern) {
       if (preg_match($pattern, $message)) {
-        return TRUE;
+        return !InformationalRiskHeuristics::isPurelyInformationalDeadlineQuery($message);
       }
     }
 

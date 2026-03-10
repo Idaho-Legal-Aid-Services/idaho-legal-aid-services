@@ -89,6 +89,8 @@ final class UrgencyDetectionTest extends TestCase {
       'lawsuit deadline friday' => ['deadline to respond to lawsuit is friday'],
       'file paperwork monday' => ['have to file paperwork by monday'],
       'spanglish court date' => ['tengo una corte date manana'],
+      'mixed informational-risk lawsuit deadline' => ['what is the deadline if I have to respond to this lawsuit by friday'],
+      'mixed informational-risk file deadline' => ['how much time do I have if I need to file by monday'],
     ];
   }
 

@@ -95,10 +95,12 @@ class SafetyClassifier {
         'escalation' => self::ESCALATION_CRITICAL,
         'patterns' => [
           '/\b(suicid(e|al)|kill\s*(my)?self|end\s*my\s*life|want\s*to\s*die)\b/i' => 'crisis_suicide',
+          '/\bmy\s+(friend|brother|sister|mom|mother|dad|father|son|daughter|child(ren)?|kid(s)?|partner|spouse|husband|wife)\s+(who\s+)?wants?\s+to\s+die\b/i' => 'crisis_third_party_suicidal_ideation',
           '/\b(don\'?t\s*want\s*to\s*live|no\s*reason\s*to\s*live|better\s*off\s*(dead|without\s*me))\b/i' => 'crisis_suicidal_ideation',
           '/\b(can\'?t\s*(do\s*this|take\s*it)\s*anymore|no\s*way\s*out|give\s*up\s*on\s*(everything|life))\b/i' => 'crisis_indirect_ideation',
           '/\b(planning\s*to\s*(kill|hurt|harm)\s*(my)?self)\b/i' => 'crisis_self_harm_plan',
           '/\b(harm(ing)?\s*(my)?self|cut(ting)?\s*(my)?self)\b/i' => 'crisis_self_harm',
+          '/\bmy\s+(friend|brother|sister|mom|mother|dad|father|son|daughter|child(ren)?|kid(s)?|partner|spouse|husband|wife)\s+(is\s+planning\s+to\s+(kill|hurt|harm)\s+(himself|herself|themself)|is\s+(harming|cutting)\s+(himself|herself|themself))\b/i' => 'crisis_third_party_self_harm',
         ],
       ],
 
@@ -484,19 +486,11 @@ class SafetyClassifier {
    *   - 'matched_pattern' (string|null): The pattern that matched.
    */
   public function classify(string $message): array {
-    // Check if this is an informational query that should dampen
-    // eviction/scam safety triggers. These patterns indicate the user is
-    // seeking information ABOUT a topic, not reporting an emergency.
-    $is_informational = $this->isInformationalQuery($message);
-
     // Process rules in priority order.
     foreach ($this->rules as $category => $rule) {
       foreach ($rule['patterns'] as $pattern => $reason_code) {
         if (preg_match($pattern, $message)) {
-          // For eviction_emergency and scam_active categories, skip if
-          // the query is clearly informational (seeking info, not reporting).
-          // Crisis, immediate danger, and DV are never dampened.
-          if ($is_informational && in_array($category, ['eviction_emergency', 'scam_active'])) {
+          if ($this->shouldDampenCategoryMatch($message, $category)) {
             continue;
           }
 
@@ -528,84 +522,21 @@ class SafetyClassifier {
   }
 
   /**
-   * Checks if a message is an informational query about a topic.
-   *
-   * Informational queries seek general information, forms, or processes
-   * rather than reporting an active emergency. These should not trigger
-   * safety escalation for non-critical categories (eviction info, scam info).
-   *
-   * IMPORTANT: First-person urgency markers override the dampener. If the
-   * user says "tell me about my 3-day notice", that is NOT informational
-   * — it's a personal emergency. See hasFirstPersonUrgency().
-   *
-   * @param string $message
-   *   The user's message.
-   *
-   * @return bool
-   *   TRUE if the query appears informational (and NOT first-person urgent).
+   * Returns TRUE when a matched safety category should be dampened.
    */
-  protected function isInformationalQuery(string $message): bool {
-    // First-person urgency overrides the informational dampener.
-    if ($this->hasFirstPersonUrgency($message)) {
+  protected function shouldDampenCategoryMatch(string $message, string $category): bool {
+    if (!in_array($category, ['eviction_emergency', 'scam_active'], TRUE)) {
       return FALSE;
     }
 
-    $informational_patterns = [
-      '/\b(form\s*to|how\s*to\s*(file|dismiss|respond|answer))\b/i',
-      '/\b(information\s*(on|about)|learn\s*about|tell\s*me\s*about)\b/i',
-      '/\b(what\s*(is|are)\s*the\s*(process|steps|law|rule))\b/i',
-      '/\b(where\s*can\s*i\s*find|legal\s*process\s*of)\b/i',
-      '/\b(how\s*to\s*evict\s*a\s*tenant|evict\s*a\s*tenant\s*who)\b/i',
-      '/\b(dismiss\s*an?\s*eviction|respond\s*to\s*an?\s*eviction)\b/i',
-      '/\b(what\s*form|what\s*do\s*i\s*need)\b/i',
-      '/\b(can\s*(a|my)\s*landlord|rights\s*(as|of))\b/i',
-      '/\b(how\s*do\s*i\s*report|who\s*do\s*i\s*contact)\b/i',
-    ];
-
-    foreach ($informational_patterns as $pattern) {
-      if (preg_match($pattern, $message)) {
-        return TRUE;
-      }
-    }
-
-    return FALSE;
+    return InformationalRiskHeuristics::isPurelyInformationalSafetyQuery($message);
   }
 
   /**
-   * Detects first-person urgency markers in a message.
-   *
-   * When present, the informational dampener should NOT suppress safety
-   * triggers. "Tell me about my 3-day notice" is personal and urgent,
-   * while "tell me about eviction process" is truly informational.
-   *
-   * @param string $message
-   *   The user's message.
-   *
-   * @return bool
-   *   TRUE if first-person urgency markers are present.
+   * Returns TRUE when active-risk context exists in a message.
    */
-  protected function hasFirstPersonUrgency(string $message): bool {
-    $urgency_patterns = [
-      // Possessive urgency: "my 3-day notice", "my eviction notice".
-      '/\bmy\s+\d[-\s]*day\b/i',
-      '/\bmy\s+(eviction|3[-\s]*day|five[-\s]*day|three[-\s]*day)\b/i',
-      // Receipt/delivery: "I got", "I received", "just got".
-      '/\b(i\s+(got|received|have)|just\s+got|just\s+received)\b/i',
-      // Theft/victimization: "someone stole my", "they took my".
-      '/\b(someone\s+stole\s+my|they\s+took\s+my|stole\s+my)\b/i',
-      // Temporal urgency: "today", "tonight", "right now", "this morning".
-      '/\b(today|tonight|right\s+now|this\s+(morning|afternoon|evening))\b/i',
-      // Served/given: "was served", "was given", "handed me".
-      '/\b(was\s+(served|given)|handed\s+me|gave\s+me)\b/i',
-    ];
-
-    foreach ($urgency_patterns as $pattern) {
-      if (preg_match($pattern, $message)) {
-        return TRUE;
-      }
-    }
-
-    return FALSE;
+  protected function hasActiveRiskContext(string $message): bool {
+    return InformationalRiskHeuristics::hasActiveRiskContext($message);
   }
 
   /**

@@ -186,6 +186,53 @@ class SafetyBypassTest extends TestCase {
   }
 
   /**
+   * Tests informational phrasing does NOT suppress active third-person risk.
+   */
+  #[DataProvider('thirdPersonDampenerOverrideProvider')]
+  public function testDampenerDoesNotSuppressThirdPersonUrgency(string $input, string $expected_class): void {
+    $result = $this->classifier->classify($input);
+    $this->assertEquals($expected_class, $result['class'],
+      "Third-person urgency should NOT be dampened: '$input' (got: {$result['class']})");
+    $this->assertFalse($result['is_safe']);
+  }
+
+  /**
+   * Data provider for third-person informational-risk cases.
+   */
+  public static function thirdPersonDampenerOverrideProvider(): array {
+    return [
+      'tell me about my mom\'s 3-day notice' => ['tell me about my mom\'s 3-day notice', SafetyClassifier::CLASS_EVICTION_EMERGENCY],
+      'tell me about my dad who got scammed' => ['tell me about my dad who got scammed', SafetyClassifier::CLASS_SCAM_ACTIVE],
+      'tell me about my friend who wants to die' => ['tell me about my friend who wants to die', SafetyClassifier::CLASS_CRISIS],
+      'tell me about my brother who says there is no way out' => ['tell me about my brother who says there is no way out', SafetyClassifier::CLASS_CRISIS],
+    ];
+  }
+
+  /**
+   * Informational-risk prompts must stay safety exits on the request path.
+   */
+  #[DataProvider('informationalRiskSafetyExitProvider')]
+  public function testInformationalRiskPromptsStaySafetyExits(string $input, string $expected_class): void {
+    $decision = $this->engine->evaluate(InputNormalizer::normalize($input));
+    $this->assertSame(PreRoutingDecisionEngine::DECISION_SAFETY_EXIT, $decision['decision_type']);
+    $this->assertSame('safety', $decision['winner_source']);
+    $this->assertSame($expected_class, $decision['safety']['class']);
+    $this->assertNull($decision['routing_override_intent']);
+  }
+
+  /**
+   * Data provider for request-path informational-risk safety exits.
+   */
+  public static function informationalRiskSafetyExitProvider(): array {
+    return [
+      'third-person eviction' => ['tell me about my mom\'s 3-day notice', SafetyClassifier::CLASS_EVICTION_EMERGENCY],
+      'third-person scam' => ['tell me about my dad who got scammed', SafetyClassifier::CLASS_SCAM_ACTIVE],
+      'third-person crisis direct' => ['tell me about my friend who wants to die', SafetyClassifier::CLASS_CRISIS],
+      'third-person crisis indirect' => ['tell me about my brother who says there is no way out', SafetyClassifier::CLASS_CRISIS],
+    ];
+  }
+
+  /**
    * Tests informational dampener still works for truly informational queries.
    */
   #[DataProvider('trulyInformationalProvider')]
