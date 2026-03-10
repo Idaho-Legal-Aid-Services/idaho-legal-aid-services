@@ -468,6 +468,7 @@ if ($ilas_vertex_sa) {
 $langfuse_pk = _ilas_get_secret('LANGFUSE_PUBLIC_KEY');
 $langfuse_sk = _ilas_get_secret('LANGFUSE_SECRET_KEY');
 if ($langfuse_pk && $langfuse_sk) {
+  $config['ilas_site_assistant.settings']['langfuse']['enabled'] = TRUE;
   $config['ilas_site_assistant.settings']['langfuse']['public_key'] = $langfuse_pk;
   $config['ilas_site_assistant.settings']['langfuse']['secret_key'] = $langfuse_sk;
 }

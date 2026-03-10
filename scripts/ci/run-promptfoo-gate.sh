@@ -534,10 +534,13 @@ apply_ddev_rate_limit_override() {
   # Local DDEV verification commonly reruns the full gate back-to-back; use a
   # generous local-only ceiling so residual flood counters do not force 429s.
   local override_minute=240
-  local override_hour=$((PLANNED_CASE_COUNT * 3))
-  if [[ "$override_hour" -lt 1000 ]]; then
-    override_hour=1000
+  local override_hour=$((PLANNED_CASE_COUNT * 5))
+  if [[ "$override_hour" -lt 2000 ]]; then
+    override_hour=2000
   fi
+
+  # Clear residual flood counters so previous runs don't eat into the budget.
+  ddev exec drush sql-query "\"DELETE FROM flood WHERE event LIKE '%assistant%';\"" >/dev/null 2>&1 || true
 
   if ! ddev exec drush cset ilas_site_assistant.settings rate_limit_per_minute "$override_minute" -y >/dev/null ||
     ! ddev exec drush cset ilas_site_assistant.settings rate_limit_per_hour "$override_hour" -y >/dev/null ||
