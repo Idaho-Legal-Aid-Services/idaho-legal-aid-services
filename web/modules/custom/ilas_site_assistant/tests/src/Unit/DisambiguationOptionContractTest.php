@@ -37,8 +37,6 @@ final class DisambiguationOptionContractTest extends TestCase {
       return [
         'original' => $message,
         'normalized' => mb_strtolower(trim($message)),
-        'high_risk' => NULL,
-        'out_of_scope' => FALSE,
       ];
     });
 
@@ -109,4 +107,3 @@ final class DisambiguationOptionContractTest extends TestCase {
   }
 
 }
-

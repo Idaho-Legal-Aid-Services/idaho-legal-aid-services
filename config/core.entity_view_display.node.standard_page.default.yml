@@ -6,6 +6,7 @@ dependencies:
     - field.field.node.standard_page.field_daa_items
     - field.field.node.standard_page.field_faq_section
     - field.field.node.standard_page.field_main_content
+    - field.field.node.standard_page.field_partner_sections
     - field.field.node.standard_page.field_sections
     - field.field.node.standard_page.field_topic_cards
     - node.type.standard_page
@@ -42,6 +43,15 @@ content:
     settings: {  }
     third_party_settings: {  }
     weight: 0
+    region: content
+  field_partner_sections:
+    type: entity_reference_revisions_entity_view
+    label: hidden
+    settings:
+      view_mode: default
+      link: ''
+    third_party_settings: {  }
+    weight: 5
     region: content
   field_sections:
     type: entity_reference_revisions_entity_view

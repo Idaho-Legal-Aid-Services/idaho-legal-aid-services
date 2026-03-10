@@ -17,8 +17,11 @@ use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\OfficeLocationResolver;
+use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
+use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -102,6 +105,26 @@ final class OfficeFollowupGuardContractTest extends TestCase {
       $flood,
       $cache,
       new NullLogger()
+    );
+  }
+
+  /**
+   * Builds the authoritative pre-routing decision engine.
+   */
+  private function buildPreRoutingDecisionEngine(): PreRoutingDecisionEngine {
+    $configStub = $this->createStub(ImmutableConfig::class);
+    $configStub->method('get')->willReturn([]);
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($configStub);
+
+    $policyFilter = new PolicyFilter($configFactory);
+    $policyFilter->setStringTranslation($this->createStub(TranslationInterface::class));
+
+    return new PreRoutingDecisionEngine(
+      $policyFilter,
+      new SafetyClassifier($configFactory),
+      new OutOfScopeClassifier($configFactory),
     );
   }
 
@@ -214,26 +237,19 @@ final class OfficeFollowupGuardContractTest extends TestCase {
   }
 
   /**
-   * Safety-flag inference maps hard-route safety to deterministic categories.
+   * Office follow-up urgency storage uses the authoritative decision engine.
    */
-  public function testInferHighRiskCategoryFromSafetyFlags(): void {
-    $controller = $this->buildController();
+  public function testOfficeFollowupUrgencyUsesAuthoritativeDecisionEngine(): void {
+    $engine = $this->buildPreRoutingDecisionEngine();
 
-    $this->assertSame(
-      'high_risk_deadline',
-      $controller->exposedInferHighRiskCategoryFromSafetyFlags(
-        ['deadline_pressure'],
-        'i must respond in 48 hours'
-      )
-    );
+    $deadlineDecision = $engine->evaluate('i must respond in 48 hours');
+    $this->assertSame(['deadline_pressure'], $deadlineDecision['urgency_signals']);
+    $this->assertSame('high_risk_deadline', $deadlineDecision['routing_override_intent']['risk_category'] ?? NULL);
 
-    $this->assertSame(
-      'high_risk_eviction',
-      $controller->exposedInferHighRiskCategoryFromSafetyFlags(
-        ['eviction_imminent'],
-        'i got locked out today'
-      )
-    );
+    $evictionDecision = $engine->evaluate('i got locked out today');
+    $this->assertContains('eviction_imminent', $evictionDecision['urgency_signals']);
+    $this->assertSame(PreRoutingDecisionEngine::DECISION_SAFETY_EXIT, $evictionDecision['decision_type']);
+    $this->assertSame(SafetyClassifier::CLASS_EVICTION_EMERGENCY, $evictionDecision['safety']['class']);
   }
 
 }
@@ -281,11 +297,6 @@ final class OfficeFollowupTestableController extends AssistantApiController {
   public function exposedIsExplicitServiceAreaShift(string $message, string $historyArea): bool {
     return $this->isExplicitServiceAreaShift($message, $historyArea);
   }
-
-  public function exposedInferHighRiskCategoryFromSafetyFlags(array $flags, string $message): string {
-    return $this->inferHighRiskCategoryFromSafetyFlags($flags, $message);
-  }
-
 }
 
 /**

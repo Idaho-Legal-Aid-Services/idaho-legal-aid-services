@@ -444,40 +444,12 @@ class HardRouteRegistryTest extends TestCase {
   }
 
   /**
-   * Tests safety flag detection returns correct high-risk intents.
+   * Tests override intent enforcement overrides soft-route intents.
    */
-  #[DataProvider('safetyFlagProvider')]
-  public function testDetectHighRiskIntentFromSafetyFlags(array $flags, ?string $expected): void {
-    $detected = $this->registry->detectHighRiskIntent($flags);
-    $this->assertEquals($expected, $detected);
-  }
-
-  /**
-   * Data provider for safety flag detection.
-   */
-  public static function safetyFlagProvider(): array {
-    return [
-      'dv_indicator' => [['dv_indicator'], 'high_risk_dv'],
-      'eviction_imminent' => [['eviction_imminent'], 'high_risk_eviction'],
-      'identity_theft' => [['identity_theft'], 'high_risk_scam'],
-      'deadline_pressure' => [['deadline_pressure'], 'high_risk_deadline'],
-      'crisis_emergency' => [['crisis_emergency'], 'high_risk_deadline'],
-      'empty_flags' => [[], NULL],
-      'unrelated_flag' => [['criminal_matter'], NULL],
-      'multiple_flags_first_wins' => [['dv_indicator', 'eviction_imminent'], 'high_risk_dv'],
-    ];
-  }
-
-  /**
-   * Tests safety-flag-aware enforcement overrides soft-route intents.
-   *
-   * Critical regression test: When IntentRouter returns service_area
-   * but safety flags indicate high-risk, the URL must be enforced.
-   */
-  #[DataProvider('safetyFlagOverrideProvider')]
-  public function testSafetyFlagOverridesSoftRouteIntent(
+  #[DataProvider('overrideIntentProvider')]
+  public function testOverrideIntentOverridesSoftRouteIntent(
     string $intent_type,
-    array $safety_flags,
+    ?array $override_intent,
     string $expected_url
   ): void {
     $intent = ['type' => $intent_type, 'area' => 'housing'];
@@ -486,36 +458,36 @@ class HardRouteRegistryTest extends TestCase {
       'primary_action' => ['url' => '/legal-help/housing'],
     ];
 
-    $enforced = $this->registry->enforceCanonicalUrlWithSafetyFlags(
+    $enforced = $this->registry->enforceCanonicalUrlWithOverrideIntent(
       $response,
       $intent,
-      $safety_flags
+      $override_intent
     );
 
     $this->assertStringContainsStringIgnoringCase(
       strtolower($expected_url),
       strtolower($enforced['primary_action']['url']),
-      "Safety flag override for '$intent_type' with flags should produce '$expected_url'"
+      "Override intent for '$intent_type' should produce '$expected_url'"
     );
   }
 
   /**
-   * Data provider for safety flag override tests.
+   * Data provider for override-intent tests.
    */
-  public static function safetyFlagOverrideProvider(): array {
+  public static function overrideIntentProvider(): array {
     return [
-      'service_area_with_eviction_flag' => ['service_area', ['eviction_imminent'], '/apply-for-help'],
-      'service_area_with_dv_flag' => ['service_area', ['dv_indicator'], '/apply-for-help'],
-      'service_area_with_deadline_flag' => ['service_area', ['deadline_pressure'], '/Legal-Advice-Line'],
-      'service_area_with_scam_flag' => ['service_area', ['identity_theft'], '/apply-for-help'],
-      'topic_with_eviction_flag' => ['topic', ['eviction_imminent'], '/apply-for-help'],
+      'service_area_with_eviction_override' => ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_eviction'], '/apply-for-help'],
+      'service_area_with_dv_override' => ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_dv'], '/apply-for-help'],
+      'service_area_with_deadline_override' => ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_deadline'], '/Legal-Advice-Line'],
+      'service_area_with_scam_override' => ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_scam'], '/apply-for-help'],
+      'topic_with_eviction_override' => ['topic', ['type' => 'high_risk', 'risk_category' => 'high_risk_eviction'], '/apply-for-help'],
     ];
   }
 
   /**
-   * Tests that safety flag enforcement does not override when no flags present.
+   * Tests that override enforcement does not override when no override is present.
    */
-  public function testSafetyFlagEnforcementNoFlagsKeepsOriginal(): void {
+  public function testOverrideIntentEnforcementWithoutOverrideKeepsOriginal(): void {
     $intent = ['type' => 'service_area', 'area' => 'housing'];
     $original_url = '/legal-help/housing';
     $response = [
@@ -523,31 +495,31 @@ class HardRouteRegistryTest extends TestCase {
       'primary_action' => ['url' => $original_url],
     ];
 
-    $enforced = $this->registry->enforceCanonicalUrlWithSafetyFlags(
+    $enforced = $this->registry->enforceCanonicalUrlWithOverrideIntent(
       $response,
       $intent,
-      []
+      NULL
     );
 
     $this->assertEquals($original_url, $enforced['primary_action']['url']);
-    $this->assertFalse($enforced['_hard_route_enforced_by_safety_flag'] ?? FALSE);
+    $this->assertFalse($enforced['_hard_route_enforced_by_override_intent'] ?? FALSE);
   }
 
   /**
-   * Tests that safety flag enforcement works with ResponseBuilder.
+   * Tests that override-intent enforcement works with ResponseBuilder.
    */
-  public function testResponseBuilderSafetyFlagEnforcement(): void {
+  public function testResponseBuilderOverrideIntentEnforcement(): void {
     $intent = ['type' => 'service_area', 'area' => 'housing'];
     $response = $this->builder->buildFromIntent($intent, 'test');
 
-    $enforced = $this->builder->enforceHardRouteUrlWithSafetyFlags(
+    $enforced = $this->builder->enforceHardRouteUrlWithOverrideIntent(
       $response,
       $intent,
-      ['eviction_imminent']
+      ['type' => 'high_risk', 'risk_category' => 'high_risk_eviction']
     );
 
     $this->assertEquals('/apply-for-help', $enforced['primary_action']['url']);
-    $this->assertTrue($enforced['_hard_route_enforced_by_safety_flag'] ?? FALSE);
+    $this->assertTrue($enforced['_hard_route_enforced_by_override_intent'] ?? FALSE);
   }
 
   /**

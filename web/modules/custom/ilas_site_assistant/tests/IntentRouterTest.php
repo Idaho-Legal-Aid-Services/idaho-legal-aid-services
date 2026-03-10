@@ -2,7 +2,8 @@
 
 /**
  * @file
- * Test runner for IntentRouter against golden dataset.
+ * Test runner for the pre-routing + intent-routing pipeline against the
+ * golden dataset.
  *
  * Usage: php IntentRouterTest.php [--baseline]
  *
@@ -11,7 +12,7 @@
 
 namespace Drupal\Tests\ilas_site_assistant;
 
-// Map golden dataset intent labels to router intent types.
+// Map golden dataset labels to continue-path router outcomes.
 $INTENT_MAPPING = [
   'apply_for_help' => ['apply', 'eligibility'],
   'legal_advice_line' => ['hotline'],
@@ -23,13 +24,8 @@ $INTENT_MAPPING = [
   'faq' => ['faq'],
   'senior_risk_detector' => ['risk_detector'],
   'services_overview' => ['services'],
-  'out_of_scope' => ['out_of_scope'],
-  'high_risk_dv' => ['high_risk'],
-  'high_risk_eviction' => ['high_risk'],
-  'high_risk_scam' => ['high_risk'],
-  'high_risk_deadline' => ['high_risk'],
   'multi_intent' => ['multi_intent'], // Special handling
-  'adversarial' => ['adversarial', 'out_of_scope', 'unknown'],
+  'adversarial' => ['adversarial', 'unknown'],
 ];
 
 // High-risk category mapping.
@@ -94,13 +90,14 @@ function routeBaseline(string $message): array {
 }
 
 /**
- * Simulates enhanced router with full extraction pipeline.
+ * Simulates the current pipeline with authoritative pre-routing checks first.
  */
 function routeEnhanced(string $message): array {
   $message_lower = strtolower($message);
+  $deadline_override = NULL;
 
-  // High-risk triggers (checked first).
-  $high_risk_triggers = [
+  // Pre-routing safety exits (checked first).
+  $safety_exit_triggers = [
     'high_risk_dv' => [
       'hitting me', 'hit me', 'hits me', 'beating me', 'abusive',
       'domestic violence', 'threatened to kill', 'scared for my life',
@@ -119,24 +116,43 @@ function routeEnhanced(string $message): array {
       'fake contractor', 'social security scam', 'robaron mi identidad',
       'me estafaron',
     ],
-    'high_risk_deadline' => [
-      'deadline tomorrow', 'deadline today', 'deadline friday',
-      'deadline is friday', 'deadline to respond', 'deadline monday',
-      'due tomorrow', 'court date tomorrow', 'respond by friday',
-      'file by', 'file paperwork by', 'have to file paperwork by',
-      'fecha limite', 'manana', 'mañana',
-    ],
   ];
 
-  foreach ($high_risk_triggers as $category => $triggers) {
+  foreach ($safety_exit_triggers as $category => $triggers) {
     foreach ($triggers as $trigger) {
       if (strpos($message_lower, $trigger) !== FALSE) {
-        return ['type' => 'high_risk', 'risk_category' => $category];
+        return [
+          'type' => 'pre_routing_exit',
+          'category' => $category,
+          'pre_routing_decision' => [
+            'decision_type' => 'safety_exit',
+            'winner_source' => 'safety',
+            'reason_code' => 'simulated_' . $category,
+          ],
+        ];
       }
     }
   }
 
-  // Out-of-scope triggers.
+  // Deadline urgency continues to intent routing with an override.
+  $deadline_triggers = [
+    'deadline tomorrow', 'deadline today', 'deadline friday',
+    'deadline is friday', 'deadline to respond', 'deadline monday',
+    'due tomorrow', 'court date tomorrow', 'respond by friday',
+    'file by', 'file paperwork by', 'have to file paperwork by',
+    'fecha limite', 'manana', 'mañana',
+  ];
+  foreach ($deadline_triggers as $trigger) {
+    if (strpos($message_lower, $trigger) !== FALSE) {
+      $deadline_override = [
+        'type' => 'high_risk',
+        'risk_category' => 'high_risk_deadline',
+      ];
+      break;
+    }
+  }
+
+  // Pre-routing out-of-scope triggers.
   $out_of_scope = [
     'criminal defense', 'criminal lawyer', 'dui', 'dwi', 'felony',
     'arrested', 'jail', 'prison', 'immigration', 'green card', 'visa',
@@ -146,7 +162,14 @@ function routeEnhanced(string $message): array {
 
   foreach ($out_of_scope as $trigger) {
     if (strpos($message_lower, $trigger) !== FALSE) {
-      return ['type' => 'out_of_scope'];
+      return [
+        'type' => 'pre_routing_exit',
+        'pre_routing_decision' => [
+          'decision_type' => 'oos_exit',
+          'winner_source' => 'out_of_scope',
+          'reason_code' => 'simulated_oos_exit',
+        ],
+      ];
     }
   }
 
@@ -258,7 +281,16 @@ function routeEnhanced(string $message): array {
   if (strlen($message) < 30) {
     foreach ($patterns['greeting'] as $pattern) {
       if (preg_match($pattern, $message)) {
-        return ['type' => 'greeting'];
+        $result = ['type' => 'greeting'];
+        if ($deadline_override !== NULL) {
+          $result['pre_routing_decision'] = [
+            'decision_type' => 'continue',
+            'winner_source' => 'urgency',
+            'reason_code' => 'simulated_high_risk_deadline',
+            'routing_override_intent' => $deadline_override,
+          ];
+        }
+        return $result;
       }
     }
   }
@@ -268,7 +300,16 @@ function routeEnhanced(string $message): array {
   foreach ($intent_order as $intent) {
     foreach ($patterns[$intent] as $pattern) {
       if (preg_match($pattern, $message)) {
-        return ['type' => $intent];
+        $result = ['type' => $intent];
+        if ($deadline_override !== NULL) {
+          $result['pre_routing_decision'] = [
+            'decision_type' => 'continue',
+            'winner_source' => 'urgency',
+            'reason_code' => 'simulated_high_risk_deadline',
+            'routing_override_intent' => $deadline_override,
+          ];
+        }
+        return $result;
       }
     }
   }
@@ -283,12 +324,52 @@ function routeEnhanced(string $message): array {
   foreach ($topics as $topic => $keywords) {
     foreach ($keywords as $kw) {
       if (strpos($message_lower, $kw) !== FALSE) {
-        return ['type' => 'service_area', 'intent_source' => $topic];
+        $result = ['type' => 'service_area', 'intent_source' => $topic];
+        if ($deadline_override !== NULL) {
+          $result['pre_routing_decision'] = [
+            'decision_type' => 'continue',
+            'winner_source' => 'urgency',
+            'reason_code' => 'simulated_high_risk_deadline',
+            'routing_override_intent' => $deadline_override,
+          ];
+        }
+        return $result;
       }
     }
   }
 
-  return ['type' => 'unknown'];
+  $result = ['type' => 'unknown'];
+  if ($deadline_override !== NULL) {
+    $result['pre_routing_decision'] = [
+      'decision_type' => 'continue',
+      'winner_source' => 'urgency',
+      'reason_code' => 'simulated_high_risk_deadline',
+      'routing_override_intent' => $deadline_override,
+    ];
+  }
+  return $result;
+}
+
+/**
+ * Summarizes a pipeline outcome for report output.
+ */
+function describeOutcome(array $result): string {
+  $pre_routing = $result['pre_routing_decision'] ?? [];
+  $decision_type = $pre_routing['decision_type'] ?? NULL;
+
+  if ($decision_type !== NULL && $decision_type !== 'continue') {
+    return $decision_type . (!empty($result['category']) ? ':' . $result['category'] : '');
+  }
+
+  if (($pre_routing['routing_override_intent']['risk_category'] ?? NULL) === 'high_risk_deadline') {
+    return 'continue:high_risk_deadline->' . ($result['type'] ?? 'unknown');
+  }
+
+  if (($result['type'] ?? NULL) === 'service_area') {
+    return 'service_area:' . ($result['intent_source'] ?? 'unknown');
+  }
+
+  return $result['type'] ?? 'unknown';
 }
 
 /**
@@ -297,17 +378,45 @@ function routeEnhanced(string $message): array {
 function checkMatch(array $result, string $expected_intent, array $intent_mapping, array $high_risk_mapping): array {
   $router_type = $result['type'];
   $expected_types = $intent_mapping[$expected_intent] ?? [$expected_intent];
+  $pre_routing = $result['pre_routing_decision'] ?? [];
 
-  // Special handling for high-risk.
-  if ($router_type === 'high_risk' && strpos($expected_intent, 'high_risk') === 0) {
-    $expected_category = $high_risk_mapping[$expected_intent] ?? NULL;
-    $actual_category = $result['risk_category'] ?? NULL;
-
-    if ($expected_category && $actual_category === $expected_category) {
+  if ($expected_intent === 'out_of_scope') {
+    if (in_array($pre_routing['decision_type'] ?? NULL, ['oos_exit', 'policy_exit'], TRUE)) {
       return ['match' => TRUE, 'exact' => TRUE];
     }
-    // Partial match - detected as high risk but wrong category.
-    return ['match' => TRUE, 'exact' => FALSE, 'note' => "Category mismatch: expected $expected_category, got $actual_category"];
+    return ['match' => FALSE, 'exact' => FALSE];
+  }
+
+  if ($expected_intent === 'urgent_safety') {
+    $decision_type = $pre_routing['decision_type'] ?? NULL;
+    $override_category = $pre_routing['routing_override_intent']['risk_category'] ?? NULL;
+    if ($decision_type === 'safety_exit' || $override_category === 'high_risk_deadline') {
+      return ['match' => TRUE, 'exact' => TRUE];
+    }
+    return ['match' => FALSE, 'exact' => FALSE];
+  }
+
+  // Special handling for pre-routing urgency outcomes.
+  if (strpos($expected_intent, 'high_risk') === 0) {
+    $expected_category = $high_risk_mapping[$expected_intent] ?? NULL;
+    if ($expected_category === 'high_risk_deadline') {
+      $actual_override = $pre_routing['routing_override_intent']['risk_category'] ?? NULL;
+      if (($pre_routing['decision_type'] ?? NULL) === 'continue' && $actual_override === 'high_risk_deadline') {
+        return ['match' => TRUE, 'exact' => TRUE];
+      }
+      return ['match' => FALSE, 'exact' => FALSE];
+    }
+
+    $actual_category = $result['category'] ?? $result['risk_category'] ?? NULL;
+
+    if (($pre_routing['decision_type'] ?? NULL) === 'safety_exit') {
+      if ($expected_category && $actual_category === $expected_category) {
+        return ['match' => TRUE, 'exact' => TRUE];
+      }
+      return ['match' => TRUE, 'exact' => FALSE, 'note' => "Category mismatch: expected $expected_category, got $actual_category"];
+    }
+
+    return ['match' => FALSE, 'exact' => FALSE];
   }
 
   // Multi-intent: check if primary intent is detected.
@@ -315,6 +424,14 @@ function checkMatch(array $result, string $expected_intent, array $intent_mappin
     // For multi-intent, we accept if ANY reasonable intent is detected.
     if ($router_type !== 'unknown') {
       return ['match' => TRUE, 'exact' => FALSE, 'note' => "Multi-intent: detected $router_type"];
+    }
+    return ['match' => FALSE, 'exact' => FALSE];
+  }
+
+  if ($expected_intent === 'adversarial') {
+    if (in_array($pre_routing['decision_type'] ?? NULL, ['safety_exit', 'oos_exit', 'policy_exit'], TRUE)
+      || in_array($router_type, ['unknown', 'disambiguation'], TRUE)) {
+      return ['match' => TRUE, 'exact' => TRUE];
     }
     return ['match' => FALSE, 'exact' => FALSE];
   }
@@ -353,15 +470,6 @@ function checkMatch(array $result, string $expected_intent, array $intent_mappin
 function runTests(bool $useBaseline = FALSE): array {
   global $INTENT_MAPPING, $HIGH_RISK_MAPPING;
 
-  $csv_path = dirname(__DIR__) . '/../../../chatbot-golden-dataset.csv';
-  if (!file_exists($csv_path)) {
-    $csv_path = dirname(__DIR__) . '/../../../../chatbot-golden-dataset.csv';
-  }
-
-  if (!file_exists($csv_path)) {
-    return ['error' => "Golden dataset not found at $csv_path"];
-  }
-
   $results = [
     'total' => 0,
     'matches' => 0,
@@ -372,17 +480,87 @@ function runTests(bool $useBaseline = FALSE): array {
     'improvements' => [],
   ];
 
-  $handle = fopen($csv_path, 'r');
-  $headers = fgetcsv($handle); // Skip header row.
+  $csv_path = dirname(__DIR__) . '/../../../chatbot-golden-dataset.csv';
+  if (!file_exists($csv_path)) {
+    $csv_path = dirname(__DIR__) . '/../../../../chatbot-golden-dataset.csv';
+  }
 
-  while (($row = fgetcsv($handle)) !== FALSE) {
-    if (count($row) < 2) continue;
+  $cases = [];
+  if (file_exists($csv_path)) {
+    $handle = fopen($csv_path, 'r');
+    fgetcsv($handle); // Skip header row.
 
-    $utterance = $row[0];
-    $expected_intent = $row[1];
+    while (($row = fgetcsv($handle)) !== FALSE) {
+      if (count($row) < 2) {
+        continue;
+      }
+
+      $cases[] = [
+        'utterance' => $row[0],
+        'expected_intent' => $row[1],
+      ];
+    }
+
+    fclose($handle);
+  }
+  else {
+    $fixture_path = __DIR__ . '/fixtures/intent_test_cases.json';
+    if (!file_exists($fixture_path)) {
+      return ['error' => "Golden dataset not found at $csv_path and fixture file missing at $fixture_path"];
+    }
+
+    $fixture_data = json_decode(file_get_contents($fixture_path), TRUE);
+    if (!is_array($fixture_data)) {
+      return ['error' => "Failed to parse fixture file: $fixture_path"];
+    }
+
+    $supported_fixture_intents = array_flip([
+      'apply_for_help',
+      'legal_advice_line',
+      'offices_contact',
+      'forms_finder',
+      'guides_finder',
+      'donations',
+      'feedback',
+      'faq',
+      'risk_detector',
+      'services_overview',
+      'out_of_scope',
+      'urgent_safety',
+      'eligibility',
+      'topic_housing',
+      'topic_family',
+      'topic_benefits',
+      'topic_employment',
+      'topic_seniors',
+      'topic_consumer',
+      'unknown',
+    ]);
+
+    foreach (['intent_cases', 'spanish_cases'] as $bucket) {
+      foreach ($fixture_data[$bucket] ?? [] as $case) {
+        if (!isset($case['utterance'], $case['expected_intent'])) {
+          continue;
+        }
+        if (!isset($supported_fixture_intents[$case['expected_intent']])) {
+          continue;
+        }
+        $cases[] = [
+          'utterance' => $case['utterance'],
+          'expected_intent' => $case['expected_intent'],
+        ];
+      }
+    }
+  }
+
+  foreach ($cases as $case) {
+    $utterance = $case['utterance'];
+    $expected_intent = $case['expected_intent'];
 
     // Skip adversarial for now (handled by policy filter, not router).
-    if ($expected_intent === 'adversarial') continue;
+    if ($expected_intent === 'adversarial') {
+      continue;
+    }
 
     $results['total']++;
 
@@ -417,13 +595,11 @@ function runTests(bool $useBaseline = FALSE): array {
       $results['failures'][] = [
         'utterance' => $utterance,
         'expected' => $expected_intent,
-        'got' => $result['type'],
+        'got' => describeOutcome($result),
         'full_result' => $result,
       ];
     }
   }
-
-  fclose($handle);
 
   // Calculate percentages.
   $results['accuracy'] = $results['total'] > 0 ? round(($results['matches'] / $results['total']) * 100, 2) : 0;
@@ -451,7 +627,7 @@ function compareResults(array $baseline, array $enhanced): array {
 function formatResults(array $comparison): string {
   $output = [];
   $output[] = "═══════════════════════════════════════════════════════════════";
-  $output[] = "  INTENT ROUTER TEST RESULTS - BEFORE/AFTER COMPARISON";
+  $output[] = "  PIPELINE TEST RESULTS - BEFORE/AFTER COMPARISON";
   $output[] = "═══════════════════════════════════════════════════════════════";
   $output[] = "";
 

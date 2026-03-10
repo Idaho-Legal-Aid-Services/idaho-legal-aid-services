@@ -392,7 +392,7 @@ class ResponseBuilder {
         break;
 
       case 'urgent_safety':
-        // Urgent safety triggers (DV, eviction, scam, deadline) from IntentRouter.
+        // Urgent safety exits come from the authoritative pre-routing decision.
         // Map category to high-risk handling.
         $category = $intent['category'] ?? 'urgent_dv';
         $response['response_mode'] = self::MODE_NAVIGATE;
@@ -694,28 +694,23 @@ class ResponseBuilder {
   }
 
   /**
-   * Enforces canonical URL with safety flag awareness.
-   *
-   * This is the enhanced enforcement method that considers safety flags.
-   * Even if the intent is classified as a soft-route (like 'service_area'),
-   * if safety flags indicate a high-risk situation, the canonical URL for
-   * the high-risk intent will be enforced.
+   * Enforces canonical URL with authoritative override intent awareness.
    *
    * This MUST be called AFTER all response enrichment to prevent URL drift.
    *
    * @param array $response
    *   The response array.
    * @param array $intent
-   *   The full intent array.
-   * @param array $safety_flags
-   *   Array of detected safety flags.
+   *   The full routed intent array.
+   * @param array|null $override_intent
+   *   Optional authoritative override intent from PreRoutingDecisionEngine.
    *
    * @return array
    *   The response with canonical URL enforced.
    */
-  public function enforceHardRouteUrlWithSafetyFlags(array $response, array $intent, array $safety_flags = []): array {
+  public function enforceHardRouteUrlWithOverrideIntent(array $response, array $intent, ?array $override_intent = NULL): array {
     $registry = new HardRouteRegistry($this->canonicalUrls);
-    return $registry->enforceCanonicalUrlWithSafetyFlags($response, $intent, $safety_flags);
+    return $registry->enforceCanonicalUrlWithOverrideIntent($response, $intent, $override_intent);
   }
 
   /**
@@ -735,34 +730,25 @@ class ResponseBuilder {
   }
 
   /**
-   * Validates a response with safety flag awareness.
+   * Validates a response with authoritative override intent awareness.
    *
    * @param array $response
    *   The response array.
    * @param array $intent
-   *   The full intent array.
-   * @param array $safety_flags
-   *   Array of detected safety flags.
+   *   The full routed intent array.
+   * @param array|null $override_intent
+   *   Optional authoritative override intent from PreRoutingDecisionEngine.
    *
    * @return array
    *   Validation result.
    */
-  public function validateHardRouteUrlWithSafetyFlags(array $response, array $intent, array $safety_flags = []): array {
+  public function validateHardRouteUrlWithOverrideIntent(array $response, array $intent, ?array $override_intent = NULL): array {
     $registry = new HardRouteRegistry($this->canonicalUrls);
+    $effective_intent = $override_intent ?? $intent;
+    $result = $registry->validateCanonicalUrl($response, $effective_intent);
 
-    // First validate against the original intent.
-    $result = $registry->validateCanonicalUrl($response, $intent);
-
-    // If not a hard-route but has safety flags, check if high-risk enforcement applies.
-    if (!$result['is_hard_route'] && !empty($safety_flags)) {
-      $high_risk_intent = $registry->detectHighRiskIntent($safety_flags);
-      if ($high_risk_intent !== NULL) {
-        $override_intent = ['type' => $high_risk_intent];
-        $high_risk_result = $registry->validateCanonicalUrl($response, $override_intent);
-        $high_risk_result['safety_flag_override'] = TRUE;
-        $high_risk_result['detected_high_risk'] = $high_risk_intent;
-        return $high_risk_result;
-      }
+    if ($override_intent !== NULL && ($override_intent['type'] ?? 'unknown') !== ($intent['type'] ?? 'unknown')) {
+      $result['override_intent'] = $override_intent['type'] ?? 'unknown';
     }
 
     return $result;

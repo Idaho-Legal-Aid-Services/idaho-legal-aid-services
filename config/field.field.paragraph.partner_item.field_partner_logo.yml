@@ -1,0 +1,31 @@
+uuid: e7f8a9b0-c1d2-4e3f-4a5b-6c7d8e9f0a1b
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_partner_logo
+    - media.type.image
+    - media.type.svg_image
+    - paragraphs.paragraphs_type.partner_item
+id: paragraph.partner_item.field_partner_logo
+field_name: field_partner_logo
+entity_type: paragraph
+bundle: partner_item
+label: 'Partner Logo'
+description: 'Optional logo or image for this partner'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:media'
+  handler_settings:
+    target_bundles:
+      image: image
+      svg_image: svg_image
+    sort:
+      field: _none
+      direction: ASC
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

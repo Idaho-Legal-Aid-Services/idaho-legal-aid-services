@@ -250,9 +250,9 @@ The FallbackGate service can be used directly:
 $gate = \Drupal::service('ilas_site_assistant.fallback_gate');
 
 $decision = $gate->evaluate(
-  $intent,           // From IntentRouter
+  $intent,            // From IntentRouter
   $retrieval_results, // From FAQ/resource search
-  $safety_flags,     // From KeywordExtractor
+  $routing_override_intent, // From PreRoutingDecisionEngine
   ['message' => $user_message]
 );
 

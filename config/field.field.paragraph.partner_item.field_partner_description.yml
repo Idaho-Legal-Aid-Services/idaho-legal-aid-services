@@ -1,0 +1,22 @@
+uuid: a9b0c1d2-e3f4-4a5b-6c7d-8e9f0a1b2c3d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_partner_description
+    - paragraphs.paragraphs_type.partner_item
+  module:
+    - text
+id: paragraph.partner_item.field_partner_description
+field_name: field_partner_description
+entity_type: paragraph
+bundle: partner_item
+label: Description
+description: 'Optional description or note about this partner'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

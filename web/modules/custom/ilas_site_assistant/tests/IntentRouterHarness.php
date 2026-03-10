@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Test harness for IntentRouter decision tree validation.
+ * Test harness for the pre-routing + intent-routing decision pipeline.
  *
  * Usage:
  *   php IntentRouterHarness.php [--report=path] [--verbose]
@@ -15,7 +15,7 @@
 namespace Drupal\Tests\ilas_site_assistant;
 
 /**
- * Intent mapping from test fixture labels to router types.
+ * Intent mapping from test fixture labels to continue-path router types.
  */
 $INTENT_MAPPING = [
   'apply_for_help' => ['apply_for_help', 'apply', 'eligibility'],
@@ -28,24 +28,12 @@ $INTENT_MAPPING = [
   'faq' => ['faq'],
   'risk_detector' => ['risk_detector'],
   'services_overview' => ['services_overview', 'services'],
-  'out_of_scope' => ['out_of_scope', 'unknown'],
-  'urgent_safety' => ['urgent_safety', 'high_risk'],
   'topic_housing' => ['service_area', 'topic_housing'],
   'topic_family' => ['service_area', 'topic_family'],
   'topic_benefits' => ['service_area', 'topic_benefits'],
   'topic_employment' => ['service_area', 'topic_employment'],
   'topic_seniors' => ['service_area', 'topic_seniors'],
   'topic_consumer' => ['service_area', 'topic_consumer'],
-];
-
-/**
- * Urgent safety category mapping.
- */
-$URGENT_CATEGORY_MAPPING = [
-  'urgent_dv' => 'urgent_dv',
-  'urgent_eviction' => 'urgent_eviction',
-  'urgent_scam' => 'urgent_scam',
-  'urgent_deadline' => 'urgent_deadline',
 ];
 
 /**
@@ -68,7 +56,7 @@ $VAGUE_QUERIES = [
 ];
 
 /**
- * Legal advice seeking patterns (out of scope).
+ * Legal-advice seeking patterns used to simulate policy exits.
  *
  * @var array
  */
@@ -82,19 +70,20 @@ $LEGAL_ADVICE_PATTERNS = [
 ];
 
 /**
- * Simulates the enhanced router logic for standalone testing.
+ * Simulates the authoritative pre-routing engine plus pure intent routing.
  *
  * @param string $message
  *   The user message.
  *
  * @return array
- *   Router result.
+ *   Pipeline result.
  */
 function simulateRouter(string $message): array {
   global $VAGUE_QUERIES, $LEGAL_ADVICE_PATTERNS;
   $message_lower = strtolower($message);
+  $deadline_override = NULL;
 
-  // === STEP 1: URGENT SAFETY CHECK (highest priority) ===
+  // === STEP 1: AUTHORITATIVE PRE-ROUTING SAFETY EXITS ===
   $urgent_triggers = [
     'urgent_dv' => [
       'hitting me', 'hit me', 'hits me', 'beat me', 'beating me', 'beats me',
@@ -136,7 +125,27 @@ function simulateRouter(string $message): array {
       'social security scam', 'irs scam', 'irs called',
       'robaron mi identidad', 'robo de identidad', 'me estafaron', 'me estan estafando',
     ],
-    'urgent_deadline' => [
+  ];
+
+  foreach ($urgent_triggers as $category => $triggers) {
+    foreach ($triggers as $trigger) {
+      if (strpos($message_lower, $trigger) !== FALSE) {
+        return [
+          'type' => 'pre_routing_exit',
+          'category' => $category,
+          'confidence' => 1.0,
+          'pre_routing_decision' => [
+            'decision_type' => 'safety_exit',
+            'winner_source' => 'safety',
+            'reason_code' => 'simulated_' . $category,
+          ],
+        ];
+      }
+    }
+  }
+
+  // === STEP 2: AUTHORITATIVE DEADLINE OVERRIDE CHECK ===
+  $deadline_triggers = [
       'deadline tomorrow', 'deadline today', 'deadline is today', 'deadline is tomorrow',
       'due tomorrow', 'due today', 'response due tomorrow', 'response due today',
       'file by tomorrow', 'file today', 'must file by', 'have to file by tomorrow',
@@ -146,22 +155,20 @@ function simulateRouter(string $message): array {
       'fecha limite hoy', 'fecha limite manana', 'vence hoy', 'vence manana',
       'tengo que responder hoy', 'corte manana', 'audiencia manana',
       'fecha limite is manana', 'limite is manana',
-    ],
   ];
 
-  foreach ($urgent_triggers as $category => $triggers) {
-    foreach ($triggers as $trigger) {
-      if (strpos($message_lower, $trigger) !== FALSE) {
-        return [
-          'type' => 'urgent_safety',
-          'category' => $category,
-          'confidence' => 1.0,
-        ];
-      }
+  foreach ($deadline_triggers as $trigger) {
+    if (strpos($message_lower, $trigger) !== FALSE) {
+      $deadline_override = [
+        'type' => 'high_risk',
+        'risk_category' => 'high_risk_deadline',
+        'confidence' => 1.0,
+      ];
+      break;
     }
   }
 
-  // === STEP 2: OUT-OF-SCOPE CHECK ===
+  // === STEP 3: AUTHORITATIVE OOS / POLICY EXITS ===
   $out_of_scope_triggers = [
     // Criminal.
     'criminal defense', 'criminal lawyer', 'criminal case', 'criminal charges',
@@ -188,28 +195,51 @@ function simulateRouter(string $message): array {
   foreach ($out_of_scope_triggers as $trigger) {
     if (strpos($message_lower, $trigger) !== FALSE) {
       return [
-        'type' => 'out_of_scope',
+        'type' => 'pre_routing_exit',
         'confidence' => 0.9,
+        'pre_routing_decision' => [
+          'decision_type' => 'oos_exit',
+          'winner_source' => 'out_of_scope',
+          'reason_code' => 'simulated_oos_exit',
+        ],
       ];
     }
   }
 
   // Check for PII patterns (simplified).
   if (preg_match('/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/', $message)) {
-    return ['type' => 'out_of_scope', 'confidence' => 0.9, 'reason' => 'pii'];
+    return [
+      'type' => 'pre_routing_exit',
+      'confidence' => 0.9,
+      'reason' => 'pii',
+      'pre_routing_decision' => [
+        'decision_type' => 'policy_exit',
+        'winner_source' => 'policy',
+        'reason_code' => 'simulated_policy_pii',
+      ],
+    ];
   }
   if (preg_match('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}.*\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/', $message)) {
-    return ['type' => 'out_of_scope', 'confidence' => 0.9, 'reason' => 'pii'];
+    return [
+      'type' => 'pre_routing_exit',
+      'confidence' => 0.9,
+      'reason' => 'pii',
+      'pre_routing_decision' => [
+        'decision_type' => 'policy_exit',
+        'winner_source' => 'policy',
+        'reason_code' => 'simulated_policy_pii',
+      ],
+    ];
   }
 
-  // === STEP 3: GREETING CHECK ===
+  // === STEP 4: PURE INTENT ROUTING ===
   if (strlen($message) < 30) {
     if (preg_match('/^(hi|hello|hey|hola|buenos?\s*(dias?|tardes?|noches?))[\s!.?]*$/i', $message)) {
       return ['type' => 'greeting', 'confidence' => 0.95];
     }
   }
 
-  // === STEP 3b: VAGUE QUERY CHECK ===
+  // === STEP 4b: VAGUE QUERY CHECK ===
   // Short/ambiguous queries that should trigger clarification.
   $vague_key = strtolower(trim(preg_replace('/[?.!]+$/', '', $message)));
   if (isset($VAGUE_QUERIES[$vague_key])) {
@@ -221,14 +251,22 @@ function simulateRouter(string $message): array {
     ];
   }
 
-  // === STEP 3c: LEGAL ADVICE SEEKING CHECK (out of scope) ===
+  // === STEP 4c: POLICY EXIT CHECK ===
   foreach ($LEGAL_ADVICE_PATTERNS as $pattern) {
     if (preg_match($pattern, $message)) {
-      return [
-        'type' => 'out_of_scope',
-        'confidence' => 0.85,
-        'reason' => 'legal_advice_request',
-      ];
+      if ($deadline_override === NULL) {
+        return [
+          'type' => 'pre_routing_exit',
+          'confidence' => 0.85,
+          'reason' => 'legal_advice_request',
+          'pre_routing_decision' => [
+            'decision_type' => 'policy_exit',
+            'winner_source' => 'policy',
+            'reason_code' => 'simulated_policy_legal_advice',
+          ],
+        ];
+      }
+      break;
     }
   }
 
@@ -426,10 +464,19 @@ function simulateRouter(string $message): array {
       }
     }
 
-    return [
+    $result = [
       'type' => $best_intent,
       'confidence' => $best_confidence,
     ];
+    if ($deadline_override !== NULL) {
+      $result['pre_routing_decision'] = [
+        'decision_type' => 'continue',
+        'winner_source' => 'urgency',
+        'reason_code' => 'simulated_high_risk_deadline',
+        'routing_override_intent' => $deadline_override,
+      ];
+    }
+    return $result;
   }
 
   // Check topics — but only route to service_area if the message has
@@ -450,11 +497,20 @@ function simulateRouter(string $message): array {
             'vague_query' => TRUE,
           ];
         }
-        return [
+        $result = [
           'type' => 'service_area',
           'intent_source' => $topic,
           'confidence' => 0.7,
         ];
+        if ($deadline_override !== NULL) {
+          $result['pre_routing_decision'] = [
+            'decision_type' => 'continue',
+            'winner_source' => 'urgency',
+            'reason_code' => 'simulated_high_risk_deadline',
+            'routing_override_intent' => $deadline_override,
+          ];
+        }
+        return $result;
       }
     }
   }
@@ -470,16 +526,60 @@ function simulateRouter(string $message): array {
     $topic_result = $topicRouter->route($message);
     if ($topic_result) {
       // Single-token topic queries are inherently ambiguous.
-      return [
+      $result = [
         'type' => 'disambiguation',
         'confidence' => 0.5,
         'intent_source' => 'topic_' . $topic_result['service_area'],
         'topic_route' => $topic_result,
       ];
+      if ($deadline_override !== NULL) {
+        $result['pre_routing_decision'] = [
+          'decision_type' => 'continue',
+          'winner_source' => 'urgency',
+          'reason_code' => 'simulated_high_risk_deadline',
+          'routing_override_intent' => $deadline_override,
+        ];
+      }
+      return $result;
     }
   }
 
-  return ['type' => 'unknown', 'confidence' => 0.2];
+  $result = ['type' => 'unknown', 'confidence' => 0.2];
+  if ($deadline_override !== NULL) {
+    $result['pre_routing_decision'] = [
+      'decision_type' => 'continue',
+      'winner_source' => 'urgency',
+      'reason_code' => 'simulated_high_risk_deadline',
+      'routing_override_intent' => $deadline_override,
+    ];
+  }
+  return $result;
+}
+
+/**
+ * Summarizes a simulated pipeline outcome for reports.
+ */
+function describeOutcome(array $result): string {
+  $pre_routing = $result['pre_routing_decision'] ?? [];
+  $decision_type = $pre_routing['decision_type'] ?? NULL;
+
+  if ($decision_type !== NULL && $decision_type !== 'continue') {
+    $label = $decision_type;
+    if (!empty($result['category'])) {
+      $label .= ':' . $result['category'];
+    }
+    return $label;
+  }
+
+  if (($pre_routing['routing_override_intent']['risk_category'] ?? NULL) === 'high_risk_deadline') {
+    return 'continue:high_risk_deadline->' . ($result['type'] ?? 'unknown');
+  }
+
+  if (($result['type'] ?? NULL) === 'service_area') {
+    return 'service_area:' . ($result['intent_source'] ?? 'unknown');
+  }
+
+  return $result['type'] ?? 'unknown';
 }
 
 /**
@@ -496,14 +596,22 @@ function simulateRouter(string $message): array {
  *   Match result with 'match', 'exact', 'note' keys.
  */
 function checkMatch(array $result, string $expected_intent, ?string $expected_category = NULL): array {
-  global $INTENT_MAPPING, $URGENT_CATEGORY_MAPPING;
+  global $INTENT_MAPPING;
 
   $router_type = $result['type'];
   $expected_types = $INTENT_MAPPING[$expected_intent] ?? [$expected_intent];
+  $pre_routing = $result['pre_routing_decision'] ?? [];
 
   // Handle urgent_safety category matching.
   if ($expected_intent === 'urgent_safety') {
-    if ($router_type === 'urgent_safety' || $router_type === 'high_risk') {
+    $override_category = $pre_routing['routing_override_intent']['risk_category'] ?? NULL;
+    if (($pre_routing['decision_type'] ?? NULL) === 'continue' && $override_category === 'high_risk_deadline') {
+      if ($expected_category === NULL || $expected_category === 'urgent_deadline') {
+        return ['match' => TRUE, 'exact' => TRUE];
+      }
+    }
+
+    if (($pre_routing['decision_type'] ?? NULL) === 'safety_exit') {
       $actual_category = $result['category'] ?? $result['risk_category'] ?? NULL;
       if ($expected_category && $actual_category) {
         if ($actual_category === $expected_category) {
@@ -511,7 +619,14 @@ function checkMatch(array $result, string $expected_intent, ?string $expected_ca
         }
         return ['match' => TRUE, 'exact' => FALSE, 'note' => "Category: expected $expected_category, got $actual_category"];
       }
-      return ['match' => TRUE, 'exact' => FALSE, 'note' => 'Urgent detected without category check'];
+      return ['match' => TRUE, 'exact' => FALSE, 'note' => 'Safety exit detected without category check'];
+    }
+    return ['match' => FALSE, 'exact' => FALSE];
+  }
+
+  if ($expected_intent === 'out_of_scope') {
+    if (in_array($pre_routing['decision_type'] ?? NULL, ['oos_exit', 'policy_exit'], TRUE)) {
+      return ['match' => TRUE, 'exact' => TRUE];
     }
     return ['match' => FALSE, 'exact' => FALSE];
   }
@@ -608,6 +723,9 @@ function runTests(bool $verbose = FALSE): array {
   foreach ($fixtures['intent_cases'] ?? [] as $case) {
     $results['total']++;
     $category = $case['category'] ?? 'standard';
+    if (!isset($results['by_category'][$category])) {
+      $results['by_category'][$category] = ['total' => 0, 'matches' => 0];
+    }
     $results['by_category'][$category]['total'] = ($results['by_category'][$category]['total'] ?? 0) + 1;
 
     if (!isset($results['by_intent'][$case['expected_intent']])) {
@@ -635,7 +753,7 @@ function runTests(bool $verbose = FALSE): array {
         'id' => $case['id'],
         'utterance' => $case['utterance'],
         'expected' => $case['expected_intent'],
-        'got' => $result['type'],
+        'got' => describeOutcome($result),
         'category' => $category,
       ];
     }
@@ -648,7 +766,9 @@ function runTests(bool $verbose = FALSE): array {
     // Track safety compliance for urgent cases.
     if ($case['expected_intent'] === 'urgent_safety') {
       $results['safety_total']++;
-      if ($result['type'] === 'urgent_safety' || $result['type'] === 'high_risk') {
+      $decision_type = $result['pre_routing_decision']['decision_type'] ?? NULL;
+      $override_category = $result['pre_routing_decision']['routing_override_intent']['risk_category'] ?? NULL;
+      if ($decision_type === 'safety_exit' || $override_category === 'high_risk_deadline') {
         $results['safety_compliance']++;
       }
     }
@@ -657,7 +777,7 @@ function runTests(bool $verbose = FALSE): array {
       $status = $match['match'] ? ($match['exact'] ? 'EXACT' : 'PARTIAL') : 'FAIL';
       echo sprintf("[%s] #%d: %s\n", $status, $case['id'], substr($case['utterance'], 0, 50));
       if (!$match['match']) {
-        echo sprintf("       Expected: %s, Got: %s\n", $case['expected_intent'], $result['type']);
+        echo sprintf("       Expected: %s, Got: %s\n", $case['expected_intent'], describeOutcome($result));
       }
     }
   }
@@ -688,7 +808,7 @@ function runTests(bool $verbose = FALSE): array {
         'id' => $case['id'],
         'utterance' => $case['utterance'],
         'expected' => implode('|', $case['expected_intents']),
-        'got' => $result['type'],
+        'got' => describeOutcome($result),
         'category' => 'multi_intent',
       ];
     }
@@ -703,6 +823,9 @@ function runTests(bool $verbose = FALSE): array {
   foreach ($fixtures['spanish_cases'] ?? [] as $case) {
     $results['total']++;
     $category = $case['category'] ?? 'spanish';
+    if (!isset($results['by_category'][$category])) {
+      $results['by_category'][$category] = ['total' => 0, 'matches' => 0];
+    }
     $results['by_category'][$category]['total'] = ($results['by_category'][$category]['total'] ?? 0) + 1;
 
     $result = simulateRouter($case['utterance']);
@@ -719,7 +842,7 @@ function runTests(bool $verbose = FALSE): array {
         'id' => $case['id'],
         'utterance' => $case['utterance'],
         'expected' => $case['expected_intent'],
-        'got' => $result['type'],
+        'got' => describeOutcome($result),
         'category' => $category,
       ];
     }
@@ -727,7 +850,9 @@ function runTests(bool $verbose = FALSE): array {
     // Track safety for Spanish urgent cases.
     if ($case['expected_intent'] === 'urgent_safety') {
       $results['safety_total']++;
-      if ($result['type'] === 'urgent_safety' || $result['type'] === 'high_risk') {
+      $decision_type = $result['pre_routing_decision']['decision_type'] ?? NULL;
+      $override_category = $result['pre_routing_decision']['routing_override_intent']['risk_category'] ?? NULL;
+      if ($decision_type === 'safety_exit' || $override_category === 'high_risk_deadline') {
         $results['safety_compliance']++;
       }
     }
@@ -745,7 +870,8 @@ function runTests(bool $verbose = FALSE): array {
 
     $result = simulateRouter($case['utterance']);
     // For adversarial cases, we want out_of_scope, unknown, or disambiguation (NOT routing to real intents).
-    $safe_response = in_array($result['type'], ['out_of_scope', 'unknown', 'disambiguation']);
+    $safe_response = in_array($result['type'], ['unknown', 'disambiguation', 'pre_routing_exit'], TRUE)
+      || in_array(($result['pre_routing_decision']['decision_type'] ?? NULL), ['safety_exit', 'oos_exit', 'policy_exit'], TRUE);
 
     if ($safe_response) {
       $results['matches']++;
@@ -757,7 +883,7 @@ function runTests(bool $verbose = FALSE): array {
         'id' => $case['id'],
         'utterance' => $case['utterance'],
         'expected' => 'out_of_scope/safe',
-        'got' => $result['type'],
+        'got' => describeOutcome($result),
         'category' => 'adversarial',
         'safety_flag' => $case['safety_flag'] ?? 'unknown',
       ];
@@ -793,7 +919,7 @@ function runTests(bool $verbose = FALSE): array {
 function formatReport(array $results): string {
   $output = [];
   $output[] = "═══════════════════════════════════════════════════════════════════════════";
-  $output[] = "  ILAS INTENT ROUTER TEST HARNESS - VALIDATION REPORT";
+  $output[] = "  ILAS PRE-ROUTING + INTENT ROUTER TEST HARNESS";
   $output[] = "═══════════════════════════════════════════════════════════════════════════";
   $output[] = sprintf("  Generated: %s", $results['timestamp']);
   $output[] = "";
@@ -829,9 +955,10 @@ function formatReport(array $results): string {
 
   foreach ($results['by_category'] as $category => $data) {
     if ($data['total'] > 0) {
-      $acc = round(($data['matches'] / $data['total']) * 100, 1);
+      $matches = $data['matches'] ?? 0;
+      $acc = round(($matches / $data['total']) * 100, 1);
       $output[] = sprintf("│ %-22s │ %5d │ %7d │ %7.1f%% │",
-        $category, $data['total'], $data['matches'], $acc);
+        $category, $data['total'], $matches, $acc);
     }
   }
   $output[] = "└────────────────────────┴───────┴─────────┴───────────┘";
@@ -877,7 +1004,7 @@ if (php_sapi_name() === 'cli') {
   $verbose = isset($options['verbose']);
   $report_path = $options['report'] ?? NULL;
 
-  echo "Running intent router validation tests...\n\n";
+  echo "Running pre-routing + intent-routing validation tests...\n\n";
 
   $results = runTests($verbose);
 

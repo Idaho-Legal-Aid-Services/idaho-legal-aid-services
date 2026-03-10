@@ -10,7 +10,7 @@ Related files:
 
 ## 1) Executive snapshot
 
-Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant/api/*`. The backend pipeline is deterministic first (flood controls, validation, safety, out-of-scope, policy, intent routing, retrieval), with optional LLM enhancement (Gemini or Vertex) behind config gates, and observability hooks for Drupal logs, analytics tables, Langfuse queue export, and optional Sentry capture.[^CLAIM-010][^CLAIM-011][^CLAIM-033][^CLAIM-038][^CLAIM-045][^CLAIM-069][^CLAIM-079][^CLAIM-083]
+Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant/api/*`. The backend pipeline is deterministic first (flood controls, validation, a shared pre-routing decision engine over safety/out-of-scope/policy checks, intent routing, retrieval), with optional LLM enhancement (Gemini or Vertex) behind config gates, and observability hooks for Drupal logs, analytics tables, Langfuse queue export, and optional Sentry capture.[^CLAIM-010][^CLAIM-011][^CLAIM-033][^CLAIM-038][^CLAIM-045][^CLAIM-069][^CLAIM-079][^CLAIM-083]
 
 ### Audit metadata and context
 
@@ -77,6 +77,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `ilas_site_assistant.resource_finder` | `Drupal\ilas_site_assistant\Service\ResourceFinder` | Resource/form/guide retrieval adapter | `'@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory'` | [^CLAIM-020] |
 | `ilas_site_assistant.analytics_logger` | `Drupal\ilas_site_assistant\Service\AnalyticsLogger` | Writes analytics and no-answer records | `'@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.policy_filter` | `Drupal\ilas_site_assistant\Service\PolicyFilter` | Fallback safety/policy checks | `'@config.factory'` | [^CLAIM-020] |
+| `ilas_site_assistant.pre_routing_decision_engine` | `Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine` | Authoritative pre-routing precedence contract across safety, out-of-scope, policy, and urgency overrides | `'@ilas_site_assistant.policy_filter', '@ilas_site_assistant.safety_classifier', '@ilas_site_assistant.out_of_scope_classifier'` | [^CLAIM-020] |
 | `ilas_site_assistant.llm_admission_coordinator` | `Drupal\ilas_site_assistant\Service\LlmAdmissionCoordinator` | Atomic LLM admission and guard-state coordinator | `'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@lock'` | [^CLAIM-020] |
 | `ilas_site_assistant.llm_circuit_breaker` | `Drupal\ilas_site_assistant\Service\LlmCircuitBreaker` | Circuit breaker around LLM calls | `'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_admission_coordinator'` | [^CLAIM-020] |
 | `ilas_site_assistant.llm_rate_limiter` | `Drupal\ilas_site_assistant\Service\LlmRateLimiter` | Global LLM call limiter | `'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_admission_coordinator'` | [^CLAIM-020] |
@@ -162,7 +163,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | What it is | End-to-end message pipeline in `AssistantApiController::message` with deterministic gates before optional LLM enhancement.[^CLAIM-033][^CLAIM-038][^CLAIM-045] |
 | Trigger | `POST /assistant/api/message` route, CSRF-protected, public `access content` permission.[^CLAIM-012][^CLAIM-011] |
 | Session creation/ID | Client generates UUID conversation ID; backend validates UUID4 and uses cache key `ilas_conv:<uuid>`.[^CLAIM-023][^CLAIM-036] |
-| Processing order | Flood -> validate -> SafetyClassifier -> OutOfScopeClassifier -> PolicyFilter -> intent routing -> retrieval/gate -> generation -> post-safety.[^CLAIM-033][^CLAIM-034][^CLAIM-038][^CLAIM-043][^CLAIM-045] |
+| Processing order | Flood -> validate -> PreRoutingDecisionEngine (`SafetyClassifier` / `OutOfScopeClassifier` / `PolicyFilter` + urgency override) -> intent routing -> retrieval/gate -> generation -> post-safety.[^CLAIM-033][^CLAIM-034][^CLAIM-038][^CLAIM-043][^CLAIM-045] |
 | Message-window behavior | Repeated identical-message check triggers escalation short-circuit; server history stores last 10 entries with 30-minute TTL.[^CLAIM-037][^CLAIM-046] |
 | Token/length constraints | Request body capped at 2000 chars; LLM generation config enforces `maxOutputTokens` (default path from config/options).[^CLAIM-034][^CLAIM-072] |
 | State used | Cache entries for conversation/follow-up slots, optional DB conversation log, analytics tables, state-backed monitors.[^CLAIM-046][^CLAIM-047][^CLAIM-084][^CLAIM-091] |
@@ -180,7 +181,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 |---|---|
 | Legal-advice posture | UI + config contain explicit "cannot provide legal advice" disclaimers and escalation/refusal templates.[^CLAIM-058][^CLAIM-039] |
 | PII/secret redaction | Deterministic redaction service covers common PII patterns with truncation/storage helpers; conversation view is redacted-only.[^CLAIM-053][^CLAIM-059] |
-| Deterministic classifier logic | Priority contract is explicit and enforced: Safety -> OOS -> Policy fallback -> intent routing; rules are pattern-based with first-match behavior.[^CLAIM-038][^CLAIM-054][^CLAIM-056][^CLAIM-057] |
+| Deterministic classifier logic | Priority contract is explicit and enforced by `PreRoutingDecisionEngine`: safety exit -> OOS exit -> policy fallback exit -> continue, with urgency overrides only on continue; detector rules remain pattern-based with first-match behavior.[^CLAIM-038][^CLAIM-054][^CLAIM-056][^CLAIM-057] |
 | Classifier test artifacts | Unit tests exist for SafetyClassifier and OutOfScopeClassifier behavior suites (file-level evidence only; not executed in this audit run).[^CLAIM-105] |
 | Refusal/escalation behavior | Safety and OOS classes return templated early exits with reason codes and action links.[^CLAIM-039][^CLAIM-040] |
 | Rate limiting/abuse controls | Per-IP Flood API minute/hour checks plus repeated-message abuse short-circuit behavior.[^CLAIM-033][^CLAIM-037] |

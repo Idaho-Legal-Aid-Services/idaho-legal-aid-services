@@ -4,3 +4,7 @@ services:
     arguments: ['@entity_type.manager']
     tags:
       - { name: drush.command }
+  ilas_site_assistant.sentry_probe_commands:
+    class: \Drupal\ilas_site_assistant\Commands\SentryProbeCommands
+    tags:
+      - { name: drush.command }

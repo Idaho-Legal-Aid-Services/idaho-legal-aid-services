@@ -21,6 +21,76 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class SentryOptionsSubscriber implements EventSubscriberInterface {
 
   /**
+   * Tags that are approved for Sentry event payloads.
+   *
+   * These are the only tags that should appear on outbound Sentry events.
+   * Any tag not in this list is either redacted or not attached.
+   *
+   * @var string[]
+   */
+  public const APPROVED_TAGS = [
+    'environment',
+    'pantheon_env',
+    'multidev_name',
+    'site_name',
+    'site_id',
+    'php_sapi',
+    'runtime_context',
+    'assistant_name',
+    'release',
+    'git_sha',
+    'intent',
+    'safety_class',
+    'fallback_path',
+    'request_id',
+    'env',
+  ];
+
+  /**
+   * Keys whose values are always fully redacted to '[REDACTED]'.
+   *
+   * These carry authentication/session material that must never leave the
+   * process boundary.
+   *
+   * @var string[]
+   */
+  public const SENSITIVE_KEYS = [
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'x-csrf-token',
+    'password',
+    'token',
+    'session',
+    'session_id',
+  ];
+
+  /**
+   * Keys whose string values are PII-scrubbed but not fully redacted.
+   *
+   * These may carry user-generated free text that needs redaction of PII
+   * patterns (emails, SSNs, etc.) but the structural content is preserved.
+   *
+   * @var string[]
+   */
+  public const BODY_LIKE_KEYS = [
+    'data',
+    'body',
+    'message',
+    'prompt',
+    'response',
+    'content',
+    'query_string',
+  ];
+
+  /**
+   * Invariant: send_default_pii is always forced to FALSE.
+   *
+   * @var bool
+   */
+  public const SEND_DEFAULT_PII = FALSE;
+
+  /**
    * {@inheritdoc}
    */
   public static function getSubscribedEvents(): array {
@@ -441,31 +511,14 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
    * Returns TRUE when a key always carries sensitive data.
    */
   private static function isSensitiveKey(string $key): bool {
-    return in_array(mb_strtolower($key), [
-      'authorization',
-      'cookie',
-      'set-cookie',
-      'x-csrf-token',
-      'password',
-      'token',
-      'session',
-      'session_id',
-    ], TRUE);
+    return in_array(mb_strtolower($key), self::SENSITIVE_KEYS, TRUE);
   }
 
   /**
    * Returns TRUE when a key may contain user/body-like free text.
    */
   private static function isBodyLikeKey(string $key): bool {
-    return in_array(mb_strtolower($key), [
-      'data',
-      'body',
-      'message',
-      'prompt',
-      'response',
-      'content',
-      'query_string',
-    ], TRUE);
+    return in_array(mb_strtolower($key), self::BODY_LIKE_KEYS, TRUE);
   }
 
 }

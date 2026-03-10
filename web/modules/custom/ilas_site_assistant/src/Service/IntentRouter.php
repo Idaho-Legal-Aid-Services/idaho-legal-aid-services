@@ -10,7 +10,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
  *
  * Based on ILAS Intent + Routing Map v5 / Decision Tree Spec v2.0.
  * Enhanced with phrase detection, synonym mapping, negative filtering,
- * disambiguation prompts, and urgent safety fast-path.
+ * and disambiguation prompts.
  */
 class IntentRouter {
 
@@ -80,13 +80,6 @@ class IntentRouter {
   protected $patterns;
 
   /**
-   * Urgent safety triggers.
-   *
-   * @var array
-   */
-  protected $urgentSafetyTriggers;
-
-  /**
    * Disambiguation rules.
    *
    * @var array
@@ -105,7 +98,6 @@ class IntentRouter {
     $this->disambiguator = $disambiguator;
     $this->topIntentsPack = $top_intents_pack;
     $this->initializePatterns();
-    $this->initializeUrgentSafetyTriggers();
     $this->initializeDisambiguationRules();
   }
 
@@ -625,125 +617,6 @@ class IntentRouter {
   }
 
   /**
-   * Initializes urgent safety triggers.
-   */
-  protected function initializeUrgentSafetyTriggers() {
-    $this->urgentSafetyTriggers = [
-      'urgent_dv' => [
-        'triggers' => [
-          // English
-          'hitting me', 'hit me', 'hits me', 'beat me', 'beating me', 'beats me',
-          'abusive partner', 'abusive husband', 'abusive wife', 'abusive boyfriend', 'abusive girlfriend',
-          'domestic violence', 'dv situation',
-          'threatened to kill', 'kill me', 'threatened me', 'threatens to kill',
-          'scared for my life', 'fear for my life', 'afraid for my life', 'in fear',
-          'stalking me', 'stalker', 'being followed', 'following me',
-          'hurt me', 'hurts me', 'hurting me',
-          'choke', 'choking', 'choked me', 'strangled',
-          // Spanish
-          'me pega', 'me golpea', 'pegando', 'golpeando',
-          'abusivo', 'abusiva', 'pareja abusiva',
-          'violencia domestica',
-          'tengo miedo', 'miedo por mi vida',
-          'amenazado', 'amenaza matarme', 'amenaza con matarme',
-        ],
-        'response_template' => 'urgent_dv',
-        'escalation_level' => 'immediate',
-      ],
-      'urgent_eviction' => [
-        'triggers' => [
-          // English
-          'evicted today', 'evicted tomorrow', 'eviction today', 'eviction tomorrow',
-          'sheriff coming', 'sheriff is coming', 'sheriff tomorrow', 'sheriff today',
-          'locked out today', 'locked me out', 'changed locks', 'changed the locks',
-          '3 day notice', 'three day notice', '5 day notice', 'five day notice',
-          'court date tomorrow', 'court date today', 'eviction court tomorrow',
-          'thrown out', 'kicked out today', 'nowhere to go', 'nowhere to stay', 'nowhere to sleep',
-          'homeless today', 'homeless tomorrow', 'on the street',
-          // Spanish
-          'desalojo hoy', 'desalojo manana', 'desalojo mañana',
-          'me estan echando hoy', 'me echan hoy', 'me echan manana',
-          'cambiaron las cerraduras', 'cambiaron los candados',
-          'no tengo donde ir', 'no tengo donde dormir',
-          'sheriff viene', 'viene el sheriff',
-        ],
-        'response_template' => 'urgent_eviction',
-        'escalation_level' => 'immediate',
-      ],
-      'urgent_scam' => [
-        'triggers' => [
-          // English
-          'identity theft today', 'identity stolen', 'stole my identity',
-          'got scammed', 'been scammed', 'was scammed', 'being scammed', 'scam in progress',
-          'gave them my social', 'gave them my ssn', 'gave my social security',
-          'gave them my bank', 'gave my bank info', 'gave bank account',
-          'gave my credit card', 'gave them money',
-          'fake contractor took', 'contractor took my money', 'paid contractor',
-          'social security scam', 'irs scam', 'irs called',
-          'threatening me over debt', 'debt collector threatening', 'collector threatening me',
-          // Spanish
-          'robaron mi identidad', 'robo de identidad',
-          'me estafaron', 'me estan estafando', 'estafa',
-          'di mi numero de seguro', 'di mi informacion',
-          'le di dinero', 'les di dinero',
-        ],
-        'response_template' => 'urgent_scam',
-        'escalation_level' => 'immediate',
-      ],
-      'urgent_deadline' => [
-        'triggers' => [
-          // English - immediate deadlines (today/tomorrow)
-          'deadline tomorrow', 'deadline today', 'deadline is today', 'deadline is tomorrow',
-          'due tomorrow', 'due today', 'response due tomorrow', 'response due today',
-          'file by tomorrow', 'file today', 'must file by', 'have to file by tomorrow',
-          'respond by tomorrow', 'respond by today',
-          'court date tomorrow', 'court date today', 'court hearing tomorrow',
-          'have to respond today', 'must respond today',
-          '24 hours', 'within 24 hours', '48 hours', 'within 48 hours',
-          'respond in 48 hours', 'one day to answer', 'one day to respond',
-          'same day help', 'same-day help', 'before i sign this agreement', 'before i sign',
-          'lose benefits this week', 'miss filing this week',
-          // English - day-of-week deadlines (Friday/Monday commonly urgent)
-          'deadline friday', 'deadline monday', 'deadline is friday', 'deadline is monday',
-          'deadline this friday', 'deadline this monday', 'deadline next monday',
-          'due friday', 'due monday', 'due this friday', 'due this monday',
-          'file by friday', 'file by monday', 'paperwork by friday', 'paperwork by monday',
-          'respond by friday', 'respond by monday',
-          'court date friday', 'court date monday', 'court friday', 'court monday',
-          'court date is', 'court date this',
-          'hearing friday', 'hearing monday', 'hearing tomorrow',
-          // English - lawsuit/summons response patterns
-          'respond to lawsuit', 'respond to summons', 'lawsuit response',
-          'lawsuit deadline', 'summons deadline', 'answer the lawsuit',
-          'served papers', 'served with papers', 'got served', 'been served',
-          'respond to the complaint', 'answer to complaint',
-          // English - explicit urgency with days
-          'by friday', 'by monday', 'by tomorrow', 'by end of week',
-          'have to file by', 'need to file by', 'must respond by',
-          'have to respond by', 'need to respond by',
-          // Spanish - deadlines
-          'fecha limite hoy', 'fecha limite manana', 'fecha limite mañana',
-          'fecha limite viernes', 'fecha limite lunes',
-          'vence hoy', 'vence manana', 'vence mañana', 'vence viernes', 'vence lunes',
-          'tengo que responder hoy', 'tengo que responder manana', 'tengo que responder',
-          'me llego una demanda', 'me llegó una demanda',
-          'recibí una demanda', 'recibi una demanda',
-          // Spanish - court date patterns
-          'corte manana', 'corte mañana', 'audiencia manana', 'audiencia mañana',
-          'corte hoy', 'audiencia hoy', 'corte viernes', 'corte lunes',
-          'fecha de corte manana', 'fecha de corte mañana', 'fecha de corte hoy',
-          'tengo corte manana', 'tengo corte mañana', 'tengo corte hoy',
-          'tengo una corte', 'tengo corte',
-          // Spanglish patterns (mixed English/Spanish)
-          'corte date', 'court date manana', 'court manana',
-        ],
-        'response_template' => 'urgent_deadline',
-        'escalation_level' => 'immediate',
-      ],
-    ];
-  }
-
-  /**
    * Vague / single-word queries that are too ambiguous to route confidently.
    *
    * Each entry maps a lowercased query to the disambiguation rule key.
@@ -751,14 +624,6 @@ class IntentRouter {
    * @var array
    */
   protected $vagueQueries;
-
-  /**
-   * Patterns that indicate the user is seeking specific legal advice,
-   * which is out of scope (we cannot give legal advice).
-   *
-   * @var array
-   */
-  protected $legalAdvicePatterns;
 
   /**
    * Initializes disambiguation rules.
@@ -834,16 +699,6 @@ class IntentRouter {
       'formularios' => 'forms_vs_guides',
     ];
 
-    // Patterns indicating the user is seeking specific legal advice
-    // (outcome predictions, should-I questions). These are out-of-scope.
-    $this->legalAdvicePatterns = [
-      '/\b(should\s*i|do\s*i\s*have\s*a\s*case|will\s*i\s*win|chances?\s*of\s*winning)/i',
-      '/\blegal\s*advice\s*(about|on|for|regarding)\b/i',
-      '/\bcan\s*i\s*sue\b/i',
-      '/\bshould\s*i\s*sign\b/i',
-      '/\btell\s*me\s*(if\s*i\s*should|my\s*chances)/i',
-      '/\bwhat\s*should\s*i\s*do\s*about\s*(my|the)\b/i',
-    ];
   }
 
   /**
@@ -863,28 +718,9 @@ class IntentRouter {
       $this->keywordExtractor->extract($message),
       $message
     );
+    unset($context);
 
-    // Step 2: Check for URGENT SAFETY triggers FIRST (highest priority).
-    $urgent_result = $this->checkUrgentSafety($message);
-    if ($urgent_result) {
-      return $urgent_result;
-    }
-
-    // Step 3: Check for high-risk situations from extraction (legacy support).
-    if ($extraction['high_risk']) {
-      return $this->buildHighRiskIntent($extraction['high_risk'], $message, $extraction);
-    }
-
-    // Step 4: Check for out-of-scope requests.
-    if ($extraction['out_of_scope']) {
-      return [
-        'type' => 'out_of_scope',
-        'confidence' => 0.9,
-        'extraction' => $extraction,
-      ];
-    }
-
-    // Step 5: Use normalized text for intent matching.
+    // Step 2: Use normalized text for intent matching.
     $normalized = $extraction['normalized'];
     $original = $extraction['original'];
 
@@ -929,13 +765,7 @@ class IntentRouter {
       return $ui_result;
     }
 
-    // Step 5a2: Check for legal-advice-seeking patterns (out of scope).
-    $legal_advice_result = $this->checkLegalAdviceSeeking($message, $extraction);
-    if ($legal_advice_result) {
-      return $legal_advice_result;
-    }
-
-    // Step 5a3: Mixed forms+guides phrasing should clarify, not guess.
+    // Step 5a2: Mixed forms+guides phrasing should clarify, not guess.
     $mixed_resource_disambiguation = $this->checkMixedFormsGuidesDisambiguation($message, $extraction);
     if ($mixed_resource_disambiguation) {
       return $mixed_resource_disambiguation;
@@ -1101,8 +931,6 @@ class IntentRouter {
     $base = [
       'original' => $message,
       'normalized' => mb_strtolower(trim($message)),
-      'high_risk' => NULL,
-      'out_of_scope' => FALSE,
     ];
 
     if (!is_array($extraction)) {
@@ -1112,94 +940,9 @@ class IntentRouter {
     $normalized = array_merge($base, $extraction);
     $normalized['original'] = (string) ($normalized['original'] ?? $message);
     $normalized['normalized'] = (string) ($normalized['normalized'] ?? mb_strtolower(trim($normalized['original'])));
-    $normalized['out_of_scope'] = (bool) ($normalized['out_of_scope'] ?? FALSE);
-
-    $high_risk = $normalized['high_risk'] ?? NULL;
-    $normalized['high_risk'] = is_string($high_risk) && $high_risk !== ''
-      ? $high_risk
-      : NULL;
+    unset($normalized['high_risk'], $normalized['out_of_scope']);
 
     return $normalized;
-  }
-
-  /**
-   * Checks for urgent safety triggers.
-   *
-   * @param string $message
-   *   The user's message.
-   *
-   * @return array|null
-   *   Urgent safety intent or NULL.
-   */
-  protected function checkUrgentSafety(string $message): ?array {
-    $message_lower = strtolower($message);
-
-    foreach ($this->urgentSafetyTriggers as $category => $config) {
-      foreach ($config['triggers'] as $trigger) {
-        if (strpos($message_lower, strtolower($trigger)) !== FALSE) {
-          // Check if dampeners should suppress this match.
-          if ($this->isUrgencyDampened($message_lower, $category)) {
-            continue;
-          }
-          return [
-            'type' => 'urgent_safety',
-            'category' => $category,
-            'confidence' => 1.0,
-            'escalation_level' => $config['escalation_level'],
-            'response_template' => $config['response_template'],
-            'trigger_matched' => $trigger,
-          ];
-        }
-      }
-    }
-
-    return NULL;
-  }
-
-  /**
-   * Checks if an urgency match should be dampened (suppressed).
-   *
-   * Dampeners prevent false positives on purely informational queries.
-   * For example, "how long do I have to respond" should not trigger urgency
-   * because the user is asking about deadlines, not reporting one.
-   *
-   * @param string $message_lower
-   *   The lowercase message.
-   * @param string $category
-   *   The urgency category.
-   *
-   * @return bool
-   *   TRUE if the match should be suppressed.
-   */
-  protected function isUrgencyDampened(string $message_lower, string $category): bool {
-    // Informational query patterns that should NOT trigger urgency.
-    $dampeners = [
-      'urgent_deadline' => [
-        'how long do i have',
-        'what is the deadline',
-        'when is the deadline',
-        'typical deadline',
-        'general deadline',
-        'deadline information',
-        'deadline for eviction',
-        'how many days',
-        'how much time do i have',
-        'cuanto tiempo tengo',
-        'cual es la fecha limite',
-      ],
-    ];
-
-    if (!isset($dampeners[$category])) {
-      return FALSE;
-    }
-
-    foreach ($dampeners[$category] as $dampener) {
-      if (strpos($message_lower, $dampener) !== FALSE) {
-        return TRUE;
-      }
-    }
-
-    return FALSE;
   }
 
   /**
@@ -1575,36 +1318,6 @@ class IntentRouter {
   }
 
   /**
-   * Checks if the message is seeking specific legal advice (out of scope).
-   *
-   * Patterns like "should I sue", "can I sue my landlord", "will I win",
-   * "legal advice about custody" indicate the user wants a legal opinion
-   * rather than navigational help. These are out-of-scope.
-   *
-   * @param string $message
-   *   The user message.
-   * @param array $extraction
-   *   Extraction result.
-   *
-   * @return array|null
-   *   Out-of-scope intent or NULL.
-   */
-  protected function checkLegalAdviceSeeking(string $message, array $extraction): ?array {
-    foreach ($this->legalAdvicePatterns as $pattern) {
-      if (preg_match($pattern, $message)) {
-        return [
-          'type' => 'out_of_scope',
-          'confidence' => 0.85,
-          'reason' => 'legal_advice_request',
-          'extraction' => $extraction,
-        ];
-      }
-    }
-
-    return NULL;
-  }
-
-  /**
    * Gets disambiguation for a topic service area.
    *
    * @param string $service_area
@@ -1703,56 +1416,6 @@ class IntentRouter {
     ];
 
     return $pairs[$key] ?? NULL;
-  }
-
-  /**
-   * Builds a high-risk intent response.
-   *
-   * @param string $risk_category
-   *   The high-risk category.
-   * @param string $message
-   *   The original message.
-   * @param array $extraction
-   *   The extraction result.
-   *
-   * @return array
-   *   The intent array.
-   */
-  protected function buildHighRiskIntent(string $risk_category, string $message, array $extraction): array {
-    $intent = [
-      'type' => 'high_risk',
-      'risk_category' => $risk_category,
-      'confidence' => 0.95,
-      'extraction' => $extraction,
-    ];
-
-    switch ($risk_category) {
-      case 'high_risk_dv':
-        $intent['primary_action'] = '/apply-for-help';
-        $intent['secondary_action'] = 'National DV Hotline';
-        $intent['safety_language_required'] = TRUE;
-        break;
-
-      case 'high_risk_eviction':
-        $intent['primary_action'] = '/apply-for-help';
-        $intent['secondary_action'] = '/forms';
-        $intent['safety_language_required'] = TRUE;
-        break;
-
-      case 'high_risk_scam':
-        $intent['primary_action'] = '/apply-for-help';
-        $intent['secondary_action'] = 'FTC reporting';
-        $intent['safety_language_required'] = TRUE;
-        break;
-
-      case 'high_risk_deadline':
-        $intent['primary_action'] = '/legal-advice-line';
-        $intent['secondary_action'] = '/apply-for-help';
-        $intent['safety_language_required'] = TRUE;
-        break;
-    }
-
-    return $intent;
   }
 
   /**

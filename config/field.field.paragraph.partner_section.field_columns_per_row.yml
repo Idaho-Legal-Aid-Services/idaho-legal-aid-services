@@ -1,0 +1,23 @@
+uuid: a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_columns_per_row
+    - paragraphs.paragraphs_type.partner_section
+  module:
+    - options
+id: paragraph.partner_section.field_columns_per_row
+field_name: field_columns_per_row
+entity_type: paragraph
+bundle: partner_section
+label: 'Columns Per Row'
+description: 'Number of partner items to display per row on desktop'
+required: true
+translatable: true
+default_value:
+  -
+    value: '3'
+default_value_callback: ''
+settings: {  }
+field_type: list_string

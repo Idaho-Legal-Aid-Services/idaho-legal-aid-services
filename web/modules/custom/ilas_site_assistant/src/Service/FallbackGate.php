@@ -10,7 +10,8 @@ use Drupal\Core\Config\ConfigFactoryInterface;
  * This service implements a measurable, tunable confidence model that combines:
  * - Intent confidence (rule-based pattern match strength)
  * - Retrieval confidence (FAQ/resource search result quality)
- * - Safety flags (urgent situations that override normal routing)
+ * - Authoritative pre-routing overrides (urgent situations that override
+ *   normal routing)
  *
  * The gate decides one of four outcomes:
  * 1. ANSWER - Built-in response with high confidence
@@ -93,19 +94,6 @@ class FallbackGate {
     // Message characteristics.
     'short_message_words' => 3,
     'ambiguous_message_words' => 2,
-  ];
-
-  /**
-   * Safety flags that trigger hard routing.
-   *
-   * @var array
-   */
-  protected $urgentSafetyFlags = [
-    'dv_indicator',
-    'eviction_imminent',
-    'crisis_emergency',
-    'identity_theft',
-    'deadline_pressure',
   ];
 
   /**
@@ -212,8 +200,8 @@ class FallbackGate {
    *   The detected intent from IntentRouter.
    * @param array $retrieval_results
    *   Search results from FAQ/resource search (with scores).
-   * @param array $safety_flags
-   *   Safety flags detected from the message.
+   * @param array|null $routing_override_intent
+   *   Authoritative route override from PreRoutingDecisionEngine.
    * @param array $context
    *   Additional context (message, policy check, etc.).
    *
@@ -224,7 +212,8 @@ class FallbackGate {
    *   - 'confidence': Overall confidence score (0-1)
    *   - 'details': Debug details about the decision
    */
-  public function evaluate(array $intent, array $retrieval_results, array $safety_flags, array $context = []): array {
+  public function evaluate(array $intent, array $retrieval_results, ?array $routing_override_intent, array $context = []): array {
+    $routing_override_intent = !empty($routing_override_intent) ? $routing_override_intent : NULL;
     $thresholds = $this->getThresholds();
     $message = $context['message'] ?? '';
     $policy_violation = $context['policy_violation'] ?? FALSE;
@@ -234,7 +223,7 @@ class FallbackGate {
       'intent_type' => $intent['type'] ?? 'unknown',
       'intent_confidence' => $this->calculateIntentConfidence($intent, $message),
       'retrieval_confidence' => $this->calculateRetrievalConfidence($retrieval_results, $thresholds),
-      'safety_flags' => $safety_flags,
+      'routing_override_intent' => $routing_override_intent,
       'thresholds_used' => $thresholds,
     ];
 
@@ -248,14 +237,16 @@ class FallbackGate {
       );
     }
 
-    // Check 2: Safety flags override - hard route with safety resources.
-    $urgent_flags = array_intersect($safety_flags, $this->urgentSafetyFlags);
-    if (!empty($urgent_flags)) {
+    // Check 2: Authoritative pre-routing override - hard route.
+    if ($routing_override_intent !== NULL) {
       return $this->buildDecision(
         self::DECISION_HARD_ROUTE,
         self::REASON_SAFETY_URGENT,
         1.0,
-        array_merge($details, ['triggered_flags' => $urgent_flags])
+        array_merge($details, [
+          'override_intent_type' => $routing_override_intent['type'] ?? 'unknown',
+          'override_risk_category' => $routing_override_intent['risk_category'] ?? 'unknown',
+        ])
       );
     }
 
@@ -802,7 +793,7 @@ class FallbackGate {
       self::REASON_LOW_INTENT_CONF => 'Intent detection confidence too low for reliable answer',
       self::REASON_LOW_RETRIEVAL_SCORE => 'Retrieval results not confident enough',
       self::REASON_AMBIGUOUS_MULTI_INTENT => 'Message appears to contain multiple intents',
-      self::REASON_SAFETY_URGENT => 'Safety flags detected requiring urgent routing',
+      self::REASON_SAFETY_URGENT => 'Authoritative pre-routing override detected requiring urgent routing',
       self::REASON_OUT_OF_SCOPE => 'Request is outside scope of ILAS services',
       self::REASON_POLICY_VIOLATION => 'Message triggered policy filter',
       self::REASON_NO_RESULTS => 'No retrieval results found',

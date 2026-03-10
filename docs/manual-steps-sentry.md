@@ -29,6 +29,33 @@
 3. Create a cron monitor for Drupal cron and store its monitor ID in `SENTRY_CRON_MONITOR_ID`.
 4. Add a public uptime monitor for the live site homepage.
 
+## Verification Evidence (PHARD-01)
+1. Run the synthetic probe on each environment:
+   ```
+   terminus remote:drush idaho-legal-aid-services.dev -- ilas:sentry-probe
+   terminus remote:drush idaho-legal-aid-services.test -- ilas:sentry-probe
+   terminus remote:drush idaho-legal-aid-services.live -- ilas:sentry-probe
+   ```
+2. Record each event ID in the runtime evidence artifact: `docs/aila/runtime/phard-01-sentry-operationalization.txt`.
+3. Locate each event in Sentry.io by event ID and verify:
+   - Tags match `APPROVED_TAGS` (environment, pantheon_env, php_sapi, runtime_context, etc.)
+   - No raw PII in message, extra, or breadcrumbs
+   - `send_default_pii` is false (no IP or cookies captured)
+4. Screenshot or link the Sentry event detail page as evidence.
+
+## Alert Configuration
+1. Document each Sentry alert rule after creation:
+   - **Rule name:** `<fill>`
+   - **Conditions:** `<fill>` (e.g., "New issue seen more than 5 times in 1 hour")
+   - **Actions:** `<fill>` (e.g., "Send email to project owner")
+   - **Environments:** `<fill>` (e.g., "pantheon-live, pantheon-test")
+2. Test alert delivery and record proof (email/Slack screenshot) in the evidence artifact.
+
+## Operational Owner
+- **Named owner:** `<NAME — fill after assignment>`
+- **Backup/escalation:** `<NAME — fill after assignment>`
+- **Review cadence:** Weekly, documented in `docs/observability.md` Operational Ownership section.
+
 ## Feedback / Triage
 1. Verify the browser project accepts replay and report-dialog traffic.
 2. Confirm assistant/browser incidents show `assistant_name=aila`, `route_name`, `release`, and `git_sha`.

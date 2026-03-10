@@ -199,39 +199,30 @@ class HardRouteUrlEnforcementTest extends TestCase {
   }
 
   /**
-   * Tests safety flag detection for high-risk intents.
+   * Tests override intent handling for high-risk intents.
    */
-  #[DataProvider('safetyFlagProvider')]
-  public function testSafetyFlagDetection(array $flags, ?string $expected_intent): void {
-    $detected = $this->registry->detectHighRiskIntent($flags);
-    $this->assertEquals($expected_intent, $detected);
-  }
-
-  /**
-   * Data provider for safety flags.
-   */
-  public static function safetyFlagProvider(): array {
-    return [
-      [['dv_indicator'], 'high_risk_dv'],
-      [['eviction_imminent'], 'high_risk_eviction'],
-      [['identity_theft'], 'high_risk_scam'],
-      [['deadline_pressure'], 'high_risk_deadline'],
-      [['crisis_emergency'], 'high_risk_deadline'],
-      [[], NULL],
-      [['criminal_matter'], NULL],
+  #[DataProvider('overrideIntentProvider')]
+  public function testOverrideIntentValidation(string $intentType, ?array $overrideIntent, string $expectedUrl): void {
+    $intent = ['type' => 'service_area', 'area' => 'housing'];
+    $response = [
+      'type' => 'navigation',
+      'primary_action' => ['label' => 'Housing Help', 'url' => $expectedUrl],
     ];
+
+    $result = $this->builder->validateHardRouteUrlWithOverrideIntent($response, $intent, $overrideIntent);
+    $this->assertTrue($result['valid']);
   }
 
   /**
-   * Tests that safety flags override soft-route intents.
+   * Tests that override intents override soft-route intents.
    *
    * This is the critical test for preventing URL drift when intent is
-   * misclassified as service_area but safety flags indicate high-risk.
+   * misclassified as service_area but override intent indicates high-risk.
    */
-  #[DataProvider('safetyFlagOverrideProvider')]
-  public function testSafetyFlagsOverrideSoftRouteIntents(
+  #[DataProvider('overrideIntentProvider')]
+  public function testOverrideIntentSoftRouteIntents(
     string $intent_type,
-    array $safety_flags,
+    ?array $override_intent,
     string $expected_url
   ): void {
     $intent = ['type' => $intent_type, 'area' => 'housing'];
@@ -241,36 +232,30 @@ class HardRouteUrlEnforcementTest extends TestCase {
       'primary_action' => ['label' => 'Housing Help', 'url' => $original_url],
     ];
 
-    $enforced = $this->registry->enforceCanonicalUrlWithSafetyFlags(
+    $enforced = $this->registry->enforceCanonicalUrlWithOverrideIntent(
       $response,
       $intent,
-      $safety_flags
+      $override_intent
     );
 
     $this->assertEquals($expected_url, $enforced['primary_action']['url']);
 
     if ($expected_url !== $original_url) {
-      $this->assertTrue($enforced['_hard_route_enforced_by_safety_flag'] ?? FALSE);
+      $this->assertTrue($enforced['_hard_route_enforced_by_override_intent'] ?? FALSE);
     }
   }
 
   /**
-   * Data provider for safety flag overrides.
+   * Data provider for override intents.
    */
-  public static function safetyFlagOverrideProvider(): array {
+  public static function overrideIntentProvider(): array {
     return [
-      // Soft-route with eviction flag should go to apply.
-      ['service_area', ['eviction_imminent'], '/apply-for-help'],
-      // Soft-route with DV flag should go to apply.
-      ['service_area', ['dv_indicator'], '/apply-for-help'],
-      // Soft-route with deadline flag should go to hotline.
-      ['service_area', ['deadline_pressure'], '/Legal-Advice-Line'],
-      // Soft-route with scam flag should go to apply.
-      ['service_area', ['identity_theft'], '/apply-for-help'],
-      // Soft-route with no safety flags should stay unchanged.
-      ['service_area', [], '/legal-help/housing'],
-      // Soft-route with unrelated flag should stay unchanged.
-      ['service_area', ['criminal_matter'], '/legal-help/housing'],
+      ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_eviction'], '/apply-for-help'],
+      ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_dv'], '/apply-for-help'],
+      ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_deadline'], '/Legal-Advice-Line'],
+      ['service_area', ['type' => 'high_risk', 'risk_category' => 'high_risk_scam'], '/apply-for-help'],
+      ['service_area', NULL, '/legal-help/housing'],
+      ['service_area', ['type' => 'unknown'], '/legal-help/housing'],
     ];
   }
 
@@ -290,20 +275,20 @@ class HardRouteUrlEnforcementTest extends TestCase {
   }
 
   /**
-   * Tests that ResponseBuilder's safety-flag-aware enforcement works.
+   * Tests that ResponseBuilder's override-intent-aware enforcement works.
    */
-  public function testResponseBuilderSafetyFlagEnforcement(): void {
+  public function testResponseBuilderOverrideIntentEnforcement(): void {
     $intent = ['type' => 'service_area', 'area' => 'housing'];
     $response = $this->builder->buildFromIntent($intent, 'test message');
 
     // Response has housing URL.
     $this->assertStringContainsString('housing', $response['primary_action']['url'] ?? '');
 
-    // Enforce with eviction flag.
-    $enforced = $this->builder->enforceHardRouteUrlWithSafetyFlags(
+    // Enforce with eviction override intent.
+    $enforced = $this->builder->enforceHardRouteUrlWithOverrideIntent(
       $response,
       $intent,
-      ['eviction_imminent']
+      ['type' => 'high_risk', 'risk_category' => 'high_risk_eviction']
     );
 
     // Should now have apply URL.

@@ -38,3 +38,45 @@ spl_autoload_register(static function (string $class) use ($searchApiSourcePath)
   }
 });
 
+$ravenSourcePath = __DIR__ . '/web/modules/contrib/raven/src';
+if (is_dir($ravenSourcePath)) {
+  spl_autoload_register(static function (string $class) use ($ravenSourcePath): void {
+    $prefix = 'Drupal\\raven\\';
+    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+      return;
+    }
+
+    $relativeClass = substr($class, strlen($prefix));
+    if ($relativeClass === false || $relativeClass === '') {
+      return;
+    }
+
+    $relativePath = str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+    $resolvedPath = $ravenSourcePath . DIRECTORY_SEPARATOR . $relativePath;
+    if (is_file($resolvedPath)) {
+      require_once $resolvedPath;
+    }
+  });
+}
+
+$keySourcePath = __DIR__ . '/web/modules/contrib/key/src';
+if (is_dir($keySourcePath)) {
+  spl_autoload_register(static function (string $class) use ($keySourcePath): void {
+    $prefix = 'Drupal\\key\\';
+    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+      return;
+    }
+
+    $relativeClass = substr($class, strlen($prefix));
+    if ($relativeClass === false || $relativeClass === '') {
+      return;
+    }
+
+    $relativePath = str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+    $resolvedPath = $keySourcePath . DIRECTORY_SEPARATOR . $relativePath;
+    if (is_file($resolvedPath)) {
+      require_once $resolvedPath;
+    }
+  });
+}
+

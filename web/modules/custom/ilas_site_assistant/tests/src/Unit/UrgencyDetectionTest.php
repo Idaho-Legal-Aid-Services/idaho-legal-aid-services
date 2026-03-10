@@ -1,236 +1,143 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\StringTranslation\TranslationInterface;
+use Drupal\ilas_site_assistant\Service\InputNormalizer;
+use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
+use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
+use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Tests urgency/deadline detection patterns.
- *
- * These tests verify that time-sensitive legal matters are correctly
- * detected and routed to /legal-advice-line.
+ * Locks engine-based deadline urgency detection.
  */
 #[Group('ilas_site_assistant')]
-class UrgencyDetectionTest extends TestCase {
+final class UrgencyDetectionTest extends TestCase {
 
   /**
-   * Urgency triggers from IntentRouter.urgentSafetyTriggers['urgent_deadline'].
+   * The authoritative pre-routing decision engine.
    */
-  protected const URGENCY_TRIGGERS = [
-    // English - immediate deadlines (today/tomorrow)
-    'deadline tomorrow', 'deadline today', 'deadline is today', 'deadline is tomorrow',
-    'due tomorrow', 'due today', 'response due tomorrow', 'response due today',
-    'file by tomorrow', 'file today', 'must file by', 'have to file by tomorrow',
-    'respond by tomorrow', 'respond by today',
-    'court date tomorrow', 'court date today', 'court hearing tomorrow',
-    'have to respond today', 'must respond today',
-    '24 hours', 'within 24 hours',
-    // English - day-of-week deadlines
-    'deadline friday', 'deadline monday', 'deadline is friday', 'deadline is monday',
-    'deadline this friday', 'deadline this monday', 'deadline next monday',
-    'due friday', 'due monday', 'due this friday', 'due this monday',
-    'file by friday', 'file by monday', 'paperwork by friday', 'paperwork by monday',
-    'respond by friday', 'respond by monday',
-    'court date friday', 'court date monday', 'court friday', 'court monday',
-    'court date is', 'court date this',
-    'hearing friday', 'hearing monday', 'hearing tomorrow',
-    // English - lawsuit/summons patterns
-    'respond to lawsuit', 'respond to summons', 'lawsuit response',
-    'lawsuit deadline', 'summons deadline', 'answer the lawsuit',
-    'served papers', 'served with papers', 'got served', 'been served',
-    'respond to the complaint', 'answer to complaint',
-    // English - explicit urgency with days
-    'by friday', 'by monday', 'by tomorrow', 'by end of week',
-    'have to file by', 'need to file by', 'must respond by',
-    'have to respond by', 'need to respond by',
-    // Spanish - deadlines
-    'fecha limite hoy', 'fecha limite manana',
-    'fecha limite viernes', 'fecha limite lunes',
-    'vence hoy', 'vence manana', 'vence viernes', 'vence lunes',
-    'tengo que responder hoy', 'tengo que responder manana', 'tengo que responder',
-    'me llego una demanda', 'me llegó una demanda',
-    'recibí una demanda', 'recibi una demanda',
-    // Spanish - court date patterns
-    'corte manana', 'audiencia manana',
-    'corte hoy', 'audiencia hoy', 'corte viernes', 'corte lunes',
-    'fecha de corte manana', 'fecha de corte hoy',
-    'tengo corte manana', 'tengo corte hoy',
-    'tengo corte', 'tengo una corte',
-    // Spanglish patterns
-    'corte date', 'court date manana', 'court manana',
-  ];
+  private PreRoutingDecisionEngine $engine;
 
   /**
-   * Dampeners that should suppress urgency detection.
+   * {@inheritdoc}
    */
-  protected const DAMPENERS = [
-    'how long do i have',
-    'what is the deadline',
-    'when is the deadline',
-    'typical deadline',
-    'general deadline',
-    'deadline information',
-    'deadline for eviction',
-    'how many days',
-    'how much time do i have',
-    'cuanto tiempo tengo',
-    'cual es la fecha limite',
-  ];
+  protected function setUp(): void {
+    parent::setUp();
 
-  /**
-   * Tests that eval golden dataset utterances match triggers.
-   *
-   * These are the 3 utterances from the golden dataset that must pass.
-   */
-  #[DataProvider('evalUtterancesProvider')]
-  public function testEvalUtterancesMatch(string $utterance, string $expectedTrigger) {
-    $message_lower = strtolower($utterance);
-    $matched = FALSE;
-    $matched_trigger = NULL;
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')->willReturn([]);
 
-    foreach (self::URGENCY_TRIGGERS as $trigger) {
-      if (strpos($message_lower, strtolower($trigger)) !== FALSE) {
-        $matched = TRUE;
-        $matched_trigger = $trigger;
-        break;
-      }
-    }
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($config);
 
-    $this->assertTrue(
-      $matched,
-      "Utterance '$utterance' should match urgency trigger '$expectedTrigger'. Got: " . ($matched_trigger ?? 'no match')
+    $translation = $this->createStub(TranslationInterface::class);
+    $translation->method('translateString')->willReturnCallback(
+      static fn($markup) => $markup->getUntranslatedString()
+    );
+
+    $container = new ContainerBuilder();
+    $container->set('config.factory', $configFactory);
+    $container->set('string_translation', $translation);
+    \Drupal::setContainer($container);
+
+    $policyFilter = new PolicyFilter($configFactory);
+    $policyFilter->setStringTranslation($translation);
+
+    $this->engine = new PreRoutingDecisionEngine(
+      $policyFilter,
+      new SafetyClassifier($configFactory),
+      new OutOfScopeClassifier($configFactory),
     );
   }
 
   /**
-   * Data provider for eval utterances.
+   * {@inheritdoc}
    */
-  public static function evalUtterancesProvider(): array {
+  protected function tearDown(): void {
+    \Drupal::unsetContainer();
+    parent::tearDown();
+  }
+
+  /**
+   * Golden deadline utterances must emit the deadline override contract.
+   */
+  #[DataProvider('deadlineOverrideProvider')]
+  public function testDeadlineSignalsEmitAuthoritativeOverride(string $message): void {
+    $decision = $this->engine->evaluate(InputNormalizer::normalize($message));
+
+    $this->assertSame(PreRoutingDecisionEngine::DECISION_CONTINUE, $decision['decision_type']);
+    $this->assertContains('deadline_pressure', $decision['urgency_signals']);
+    $this->assertSame('urgency', $decision['winner_source']);
+    $this->assertSame('high_risk_deadline', $decision['routing_override_intent']['risk_category'] ?? NULL);
+  }
+
+  /**
+   * Deadline goldens that previously depended on router substring triggers.
+   */
+  public static function deadlineOverrideProvider(): array {
     return [
-      'lawsuit deadline friday' => [
-        'deadline to respond to lawsuit is friday',
-        'respond to lawsuit',
-      ],
-      'file paperwork monday' => [
-        'have to file paperwork by monday',
-        'by monday',
-      ],
-      'spanglish court date' => [
-        'tengo una corte date manana',
-        'corte date',
-      ],
+      'lawsuit deadline friday' => ['deadline to respond to lawsuit is friday'],
+      'file paperwork monday' => ['have to file paperwork by monday'],
+      'spanglish court date' => ['tengo una corte date manana'],
     ];
   }
 
   /**
-   * Tests additional near-miss patterns that should match.
+   * Informational deadline queries must not emit urgency overrides.
    */
-  #[DataProvider('nearMissUtterancesProvider')]
-  public function testNearMissPatterns(string $utterance) {
-    $message_lower = strtolower($utterance);
-    $matched = FALSE;
+  #[DataProvider('deadlineDampenerProvider')]
+  public function testInformationalQueriesAreDampened(string $message): void {
+    $decision = $this->engine->evaluate(InputNormalizer::normalize($message));
 
-    foreach (self::URGENCY_TRIGGERS as $trigger) {
-      if (strpos($message_lower, strtolower($trigger)) !== FALSE) {
-        $matched = TRUE;
-        break;
-      }
-    }
-
-    $this->assertTrue($matched, "Near-miss utterance '$utterance' should match an urgency trigger");
+    $this->assertNotContains('deadline_pressure', $decision['urgency_signals']);
+    $this->assertNull($decision['routing_override_intent']);
+    $this->assertSame(PreRoutingDecisionEngine::DECISION_CONTINUE, $decision['decision_type']);
   }
 
   /**
-   * Data provider for near-miss patterns.
+   * Deadline dampeners that must remain stable.
    */
-  public static function nearMissUtterancesProvider(): array {
-    return [
-      'served with summons' => ['i was served with papers last week'],
-      'court friday' => ['court date is this friday'],
-      'spanish deadline' => ['tengo que responder a la demanda'],
-      'deadline monday' => ['my deadline is monday'],
-      'response due' => ['my response is due tomorrow'],
-      'got served' => ['i got served yesterday'],
-      'lawsuit answer' => ['i need to answer the lawsuit'],
-      'hearing tomorrow' => ['i have a hearing tomorrow'],
-      'file by friday' => ['i need to file by friday'],
-    ];
-  }
-
-  /**
-   * Tests that dampeners prevent over-triggering.
-   */
-  #[DataProvider('dampenerUtterancesProvider')]
-  public function testDampenersPreventFalsePositives(string $utterance) {
-    $message_lower = strtolower($utterance);
-    $is_dampened = FALSE;
-
-    foreach (self::DAMPENERS as $dampener) {
-      if (strpos($message_lower, $dampener) !== FALSE) {
-        $is_dampened = TRUE;
-        break;
-      }
-    }
-
-    $this->assertTrue(
-      $is_dampened,
-      "Informational query '$utterance' should be dampened (not trigger urgency)"
-    );
-  }
-
-  /**
-   * Data provider for dampener utterances.
-   */
-  public static function dampenerUtterancesProvider(): array {
+  public static function deadlineDampenerProvider(): array {
     return [
       'how long question' => ['how long do i have to respond to an eviction'],
       'what is deadline' => ['what is the deadline for filing an answer'],
       'general info' => ['what is typical deadline for responding to a lawsuit'],
       'spanish info' => ['cuanto tiempo tengo para responder'],
+      'learn about deadlines' => ['general information about court dates'],
     ];
   }
 
   /**
-   * Tests that generic time queries don't over-trigger.
-   *
-   * These queries mention time but are informational, not urgent.
+   * Eviction emergencies must remain safety exits, not deadline overrides.
    */
-  public function testNoOverTrigger() {
-    $non_urgent = [
-      'how long does a divorce take',
-      'what is the typical eviction timeline',
-      'i want to learn about deadlines',
-      'general information about court dates',
+  #[DataProvider('evictionSafetyProvider')]
+  public function testEvictionEmergenciesStaySafetyExits(string $message): void {
+    $decision = $this->engine->evaluate(InputNormalizer::normalize($message));
+
+    $this->assertSame(PreRoutingDecisionEngine::DECISION_SAFETY_EXIT, $decision['decision_type']);
+    $this->assertSame(SafetyClassifier::CLASS_EVICTION_EMERGENCY, $decision['safety']['class']);
+    $this->assertNull($decision['routing_override_intent']);
+  }
+
+  /**
+   * Eviction-adjacent deadline language that must stay hard-stop.
+   */
+  public static function evictionSafetyProvider(): array {
+    return [
+      'locked out today' => ['i got locked out today'],
+      'three day notice' => ['i got a 3-day notice'],
+      'sheriff tomorrow' => ['the sheriff is coming tomorrow'],
     ];
-
-    foreach ($non_urgent as $utterance) {
-      $message_lower = strtolower($utterance);
-      $matched = FALSE;
-
-      foreach (self::URGENCY_TRIGGERS as $trigger) {
-        if (strpos($message_lower, strtolower($trigger)) !== FALSE) {
-          // Check if dampened
-          $is_dampened = FALSE;
-          foreach (self::DAMPENERS as $dampener) {
-            if (strpos($message_lower, $dampener) !== FALSE) {
-              $is_dampened = TRUE;
-              break;
-            }
-          }
-          if (!$is_dampened) {
-            $matched = TRUE;
-            break;
-          }
-        }
-      }
-
-      $this->assertFalse(
-        $matched,
-        "Generic query '$utterance' should NOT trigger urgency"
-      );
-    }
   }
 
 }

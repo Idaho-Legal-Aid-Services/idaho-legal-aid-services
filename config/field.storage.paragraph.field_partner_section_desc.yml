@@ -1,0 +1,19 @@
+uuid: d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a
+langcode: en
+status: true
+dependencies:
+  module:
+    - paragraphs
+    - text
+id: paragraph.field_partner_section_desc
+field_name: field_partner_section_desc
+entity_type: paragraph
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

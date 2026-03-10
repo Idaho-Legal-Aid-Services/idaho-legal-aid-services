@@ -1,5 +1,7 @@
 # Intent Router Deterministic Routing Improvements
 
+Current contract note: routing accuracy still benefits from the phrase/synonym/negative-keyword work in this document, but safety, out-of-scope, policy, and urgency precedence are now owned exclusively by `PreRoutingDecisionEngine`. `IntentRouter` is intentionally pure and no longer short-circuits those outcomes.
+
 ## Overview
 
 Extracted routing improvements from the golden dataset (161 test utterances) to enhance intent detection accuracy through phrase detection, synonym mapping, and negative keyword filtering.
@@ -97,8 +99,6 @@ hotline:
     - breaking in    # Active emergency
 ```
 
-Also includes high-risk and out-of-scope trigger lists.
-
 ---
 
 ### 2. KeywordExtractor Service
@@ -110,11 +110,10 @@ New service that implements the extraction pipeline:
 ```php
 class KeywordExtractor {
   public function extract(string $message): array {
-    // 1. Detect high-risk triggers FIRST
-    // 2. Detect out-of-scope triggers
-    // 3. Detect and replace phrases with underscore-joined tokens
-    // 4. Apply synonym mapping to normalize variations
-    // 5. Extract keywords from normalized text
+    // 1. Expand acronyms / correct typos
+    // 2. Detect and replace phrases with underscore-joined tokens
+    // 3. Apply synonym mapping to normalize variations
+    // 4. Extract keywords from normalized text
 
     return [
       'original' => $message,
@@ -122,8 +121,6 @@ class KeywordExtractor {
       'phrases_found' => [...],
       'synonyms_applied' => [...],
       'keywords' => [...],
-      'high_risk' => 'high_risk_dv' | null,
-      'out_of_scope' => true | false,
     ];
   }
 }
@@ -133,8 +130,7 @@ class KeywordExtractor {
 - Caches config files for 1 hour (performance)
 - Phrase detection runs before tokenization
 - Synonym mapping normalizes typos and Spanish
-- High-risk detection triggers safety responses
-- Out-of-scope detection prevents inappropriate routing
+- Negative keywords reduce misroutes without owning pre-routing precedence
 
 ---
 
@@ -174,17 +170,7 @@ public function route(string $message, array $context = []) {
   // 1. Run extraction pipeline
   $extraction = $this->keywordExtractor->extract($message);
 
-  // 2. Check high-risk FIRST (safety priority)
-  if ($extraction['high_risk']) {
-    return $this->buildHighRiskIntent(...);
-  }
-
-  // 3. Check out-of-scope
-  if ($extraction['out_of_scope']) {
-    return ['type' => 'out_of_scope'];
-  }
-
-  // 4. Check intents with negative keyword filtering
+  // 2. Check intents with negative keyword filtering
   foreach ($primary_intents as $intent) {
     if ($this->keywordExtractor->hasNegativeKeyword($intent, $original)) {
       continue;  // Skip if negative keyword present

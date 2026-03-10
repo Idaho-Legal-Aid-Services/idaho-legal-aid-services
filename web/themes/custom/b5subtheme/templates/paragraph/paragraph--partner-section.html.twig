@@ -1,0 +1,58 @@
+{#
+/**
+ * @file
+ * Template for Partner Section paragraph type.
+ *
+ * Renders a grouped section of partner/supporter entries in a responsive grid.
+ *
+ * Available variables:
+ * - paragraph: The paragraph entity
+ * - paragraph.field_partner_section_title: Section heading text (required)
+ * - paragraph.field_partner_section_desc: Optional description below heading
+ * - paragraph.field_columns_per_row: Grid columns ("2", "3", "4", or "6")
+ * - paragraph.field_section_style: Visual style ("default" or "highlighted")
+ * - content.field_partner_items: Rendered child partner_item paragraphs
+ */
+#}
+
+{% set style = paragraph.field_section_style.value|default('default') %}
+{% set columns = paragraph.field_columns_per_row.value|default('3') %}
+{% set title = paragraph.field_partner_section_title.value %}
+
+{% set classes = [
+  'partner-section',
+  'partner-section--' ~ style,
+  'partner-section--cols-' ~ columns,
+] %}
+
+{# Map columns-per-row to Bootstrap grid classes #}
+{% set col_classes = {
+  '2': 'col-md-6',
+  '3': 'col-md-6 col-lg-4',
+  '4': 'col-md-6 col-lg-3',
+  '6': 'col-6 col-md-4 col-lg-2',
+} %}
+
+{{ attach_library('b5subtheme/partner-grid') }}
+
+<section{{ attributes.addClass(classes) }} aria-label="{{ title }}">
+  <div class="container">
+    {% if title %}
+      <h2 class="partner-section__title">{{ title }}</h2>
+    {% endif %}
+
+    {% if paragraph.field_partner_section_desc.value %}
+      <div class="partner-section__desc content-body">
+        {{ content.field_partner_section_desc }}
+      </div>
+    {% endif %}
+
+    <div class="row g-4 partner-section__grid" data-columns="{{ columns }}">
+      {% for item in paragraph.field_partner_items %}
+        <div class="{{ col_classes[columns]|default('col-md-6 col-lg-4') }}">
+          {{ item|view }}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>

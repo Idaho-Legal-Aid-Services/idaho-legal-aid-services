@@ -149,8 +149,6 @@ class SafetyClassifier {
           '/\b(sheriff\s*(is\s*)?(coming|here)|being\s*removed)\b/i' => 'emergency_eviction_enforcement',
           '/\b((3|three|5|five)[-\s]*day\s*notice)\b/i' => 'emergency_eviction_notice',
           '/\b(eviction\s*notice)\b/i' => 'emergency_eviction_notice',
-          '/\b(court\s*date\s*(is\s*)?(today|tomorrow|this\s*week))\b/i' => 'emergency_deadline_court',
-          '/\b(deadline\s*(is\s*)?(today|tomorrow))\b/i' => 'emergency_deadline_imminent',
           '/\b(turned\s*off\s*(my\s*)?(utilities|power|water|heat|gas))\b/i' => 'emergency_constructive_eviction',
           '/\b(threatening\s*to\s*call\s*(the\s*)?police)\b/i' => 'emergency_eviction_threat',
           '/\b(don\'?t\s*leave\s*right\s*now)\b/i' => 'emergency_eviction_immediate',

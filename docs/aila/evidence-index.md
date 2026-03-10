@@ -289,24 +289,27 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:437-449`
 
 ### CLAIM-038
-- Claim: Classifier precedence contract is Safety -> OutOfScope -> PolicyFilter -> Intent routing.
+- Claim: `PreRoutingDecisionEngine` is the authoritative pre-routing precedence layer and resolves SafetyClassifier / OutOfScopeClassifier / PolicyFilter outcomes before intent routing.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:470-482`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:728-985`
+  - `web/modules/custom/ilas_site_assistant/src/Service/PreRoutingDecisionEngine.php:1-270`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PreRoutingDecisionEngineContractTest.php:1-149`
 
 ### CLAIM-039
-- Claim: Safety classifier exits early with templated escalation/refusal response, reason code logging, and violation tracking.
+- Claim: Safety exits still return templated escalation/refusal responses with reason-code logging and violation tracking after the shared decision contract selects a safety winner.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:484-559`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:772-848`
 
 ### CLAIM-040
-- Claim: Out-of-scope classifier exits early with templated OOS response and logging.
+- Claim: Out-of-scope exits still return templated OOS responses and logging after the shared decision contract selects an OOS winner.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:569-636`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:850-921`
 
 ### CLAIM-041
-- Claim: PolicyFilter remains as fallback enforcement layer if prior classifiers pass.
+- Claim: PolicyFilter remains the fallback enforcement layer inside the shared pre-routing contract, and urgency overrides are only applied on continue outcomes.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:645-695`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php:923-985`
+  - `web/modules/custom/ilas_site_assistant/src/Service/PreRoutingDecisionEngine.php:99-239`
 
 ### CLAIM-042
 - Claim: Turn classification, quick-action short-circuit, and history fallback are part of intent routing.
@@ -2545,3 +2548,43 @@ Evidence precedence used in this audit:
   - `docs/aila/roadmap.md`
   - `docs/assistant_audit_backlog.md`
   - `docs/aila/runtime/raud-13-logger-di-hardening.txt`
+
+### CLAIM-174
+- Claim: PHARD-01 adds synthetic Sentry probe command (`ilas:sentry-probe`),
+  approved payload contract constants (`APPROVED_TAGS`, `SENSITIVE_KEYS`,
+  `BODY_LIKE_KEYS`, `SEND_DEFAULT_PII`), contract tests enforcing constant-to-
+  logic synchronization, operational ownership sections in docs, named-responder
+  section in incident runbook, and a runtime evidence artifact template for
+  live capture/alert/ownership verification.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php` (APPROVED_TAGS, SENSITIVE_KEYS, BODY_LIKE_KEYS, SEND_DEFAULT_PII constants)
+  - `web/modules/custom/ilas_site_assistant/drush.services.yml` (sentry_probe_commands registration)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SentryProbeCommandTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SentryPayloadContractTest.php`
+  - `docs/observability.md` (Operational Ownership + Approved Sentry Payload sections)
+  - `docs/manual-steps-sentry.md` (Verification Evidence, Alert Configuration, Operational Owner sections)
+  - `docs/incident-runbook.md` (Named Responders section)
+  - `docs/aila/runtime/phard-01-sentry-operationalization.txt`
+
+### CLAIM-175
+- Claim: Live Sentry capture proof — synthetic probe events received on
+  dev/test/live with correct tags, redaction, and no raw PII.
+- Evidence:
+  - `docs/aila/runtime/phard-01-sentry-operationalization.txt` (sections 2-3: event IDs, Sentry URLs, redaction verification)
+- Status: Pending — requires Track B operational execution.
+
+### CLAIM-176
+- Claim: Sentry alert routing configured and delivery tested for backend
+  exception spikes, browser error spikes, and assistant-specific failures.
+- Evidence:
+  - `docs/aila/runtime/phard-01-sentry-operationalization.txt` (section 4: alert rules, delivery proof)
+- Status: Pending — requires Track B operational execution.
+
+### CLAIM-177
+- Claim: Named Sentry dashboard ownership assigned with weekly triage cadence.
+- Evidence:
+  - `docs/aila/runtime/phard-01-sentry-operationalization.txt` (sections 5-6: team membership, review workflow)
+  - `docs/observability.md` (Operational Ownership section)
+  - `docs/incident-runbook.md` (Named Responders section)
+- Status: Pending — requires Track B operational execution.

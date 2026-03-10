@@ -155,20 +155,26 @@ class FallbackGateTest extends TestCase {
   }
 
   /**
-   * Tests safety flags trigger hard route.
+   * Tests authoritative override intent triggers hard route.
    */
-  public function testSafetyFlagsHardRoute(): void {
+  public function testRoutingOverrideIntentHardRoute(): void {
     $intent = [
       'type' => 'apply',
       'extraction' => ['keywords' => ['help'], 'phrases_found' => [], 'synonyms_applied' => []],
     ];
-    $safety_flags = ['dv_indicator', 'crisis_emergency'];
+    $override_intent = [
+      'type' => 'high_risk',
+      'risk_category' => 'high_risk_dv',
+      'confidence' => 1.0,
+      'source' => 'pre_routing_decision_engine',
+    ];
 
-    $decision = $this->fallbackGate->evaluate($intent, [], $safety_flags, ['message' => 'I need help']);
+    $decision = $this->fallbackGate->evaluate($intent, [], $override_intent, ['message' => 'I need help']);
 
     $this->assertEquals(FallbackGate::DECISION_HARD_ROUTE, $decision['decision']);
     $this->assertEquals(FallbackGate::REASON_SAFETY_URGENT, $decision['reason_code']);
     $this->assertEquals(1.0, $decision['confidence']);
+    $this->assertSame('high_risk_dv', $decision['details']['override_risk_category'] ?? NULL);
   }
 
   /**

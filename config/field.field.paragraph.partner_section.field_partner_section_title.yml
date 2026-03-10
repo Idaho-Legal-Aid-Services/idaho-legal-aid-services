@@ -1,0 +1,19 @@
+uuid: e1f2a3b4-c5d6-4e7f-8a9b-1c2d3e4f5a6b
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_partner_section_title
+    - paragraphs.paragraphs_type.partner_section
+id: paragraph.partner_section.field_partner_section_title
+field_name: field_partner_section_title
+entity_type: paragraph
+bundle: partner_section
+label: 'Section Title'
+description: 'Heading for this partner section (e.g., "Major Funders", "Pro Bono Volunteers")'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

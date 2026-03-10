@@ -1,5 +1,11 @@
 # Incident Runbook
 
+## Named Responders
+- **Primary Sentry responder:** `<NAME — fill after assignment>`
+- **Escalation path:** Primary responder -> Platform Engineer -> Product Owner
+- **Review cadence:** Weekly triage of open Sentry issues and alert noise ratio
+- **On-call rotation:** `<ROTATION SCHEDULE — fill after setup, or "N/A" if single responder>`
+
 ## Initial Triage
 1. Determine whether the signal started in Sentry, New Relic, Pantheon, or Drupal logs.
 2. Capture:

@@ -170,65 +170,15 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
   }
 
   /**
-   * Tests high-risk situation detection.
+   * Deprecated pre-routing fields must not be emitted by extraction.
    *
    * @covers ::extract
-   * @dataProvider highRiskProvider
    */
-  public function testHighRiskDetection(string $query, string $expectedCategory): void {
-    $result = $this->keywordExtractor->extract($query);
+  public function testExtractDoesNotExposeDeprecatedPreRoutingFields(): void {
+    $result = $this->keywordExtractor->extract('my deadline is tomorrow and i need immigration help');
 
-    $high_risk = $result['high_risk'] ?? NULL;
-    $this->assertSame($expectedCategory, $high_risk,
-      "Expected high-risk category '$expectedCategory' for: $query (got: " . var_export($high_risk, TRUE) . ')');
-  }
-
-  /**
-   * Data provider for high-risk tests.
-   */
-  public static function highRiskProvider(): array {
-    return [
-      'dv hitting' => ['my husband is hitting me', 'high_risk_dv'],
-      'dv abusive' => ['i have an abusive partner', 'high_risk_dv'],
-      'dv threatened' => ['he threatened to kill me', 'high_risk_dv'],
-      'eviction sheriff' => ['sheriff coming tomorrow', 'high_risk_eviction'],
-      'eviction locked out' => ['landlord changed the locks', 'high_risk_eviction'],
-      'eviction 3 day' => ['i got a 3 day notice', 'high_risk_eviction'],
-      'scam identity' => ['someone stole my identity', 'high_risk_scam'],
-      'scam got scammed' => ['i got scammed', 'high_risk_scam'],
-      'deadline tomorrow' => ['my deadline is tomorrow', 'high_risk_deadline'],
-      'deadline court' => ['court date tomorrow', 'high_risk_eviction'],
-    ];
-  }
-
-  /**
-   * Tests out-of-scope detection.
-   *
-   * @covers ::extract
-   * @dataProvider outOfScopeProvider
-   */
-  public function testOutOfScopeDetection(string $query): void {
-    $result = $this->keywordExtractor->extract($query);
-
-    $out_of_scope = $result['out_of_scope'] ?? FALSE;
-
-    $this->assertTrue($out_of_scope, "Expected out-of-scope detection for: $query");
-  }
-
-  /**
-   * Data provider for out-of-scope tests.
-   */
-  public static function outOfScopeProvider(): array {
-    return [
-      'criminal defense' => ['i need a criminal defense lawyer'],
-      'dui' => ['help with my dui case'],
-      'immigration' => ['immigration lawyer'],
-      'green card' => ['help getting a green card'],
-      'oregon' => ['i live in oregon'],
-      'washington state' => ['legal help in washington state'],
-      'business formation' => ['help me start a business'],
-      'patent' => ['file a patent'],
-    ];
+    $this->assertArrayNotHasKey('high_risk', $result);
+    $this->assertArrayNotHasKey('out_of_scope', $result);
   }
 
   /**

@@ -1,0 +1,66 @@
+{#
+/**
+ * @file
+ * Template for Partner Item paragraph type.
+ *
+ * Renders an individual partner/supporter card with optional logo, link,
+ * and description. Supports logo-only, text-only, and mixed content layouts.
+ *
+ * Available variables:
+ * - paragraph: The paragraph entity
+ * - paragraph.field_partner_name: Partner name (required)
+ * - paragraph.field_partner_logo: Optional media reference (image or SVG)
+ * - paragraph.field_partner_link: Optional URL to partner website
+ * - paragraph.field_partner_description: Optional description text
+ */
+#}
+
+{% set name = paragraph.field_partner_name.value %}
+{% set has_logo = paragraph.field_partner_logo.entity is not null %}
+{% set has_link = paragraph.field_partner_link.0.url is not null %}
+{% set has_description = paragraph.field_partner_description.value is not empty %}
+{% set link_url = has_link ? paragraph.field_partner_link.0.url.toString() : null %}
+
+{# Determine if link is external #}
+{% set is_external = has_link and link_url starts with 'http' %}
+
+{% set item_classes = [
+  'partner-item',
+  has_logo ? 'partner-item--has-logo' : 'partner-item--text-only',
+  has_link ? 'partner-item--linked',
+] %}
+
+{% if has_link %}
+  <a href="{{ link_url }}"
+     class="{{ item_classes|join(' ') }}"
+     {% if is_external %}
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="Visit {{ name }} (opens in new window)"
+     {% else %}
+       aria-label="Visit {{ name }}"
+     {% endif %}
+  >
+{% else %}
+  <div class="{{ item_classes|join(' ') }}">
+{% endif %}
+
+  {% if has_logo %}
+    <div class="partner-item__logo" aria-hidden="true">
+      {{ content.field_partner_logo }}
+    </div>
+  {% endif %}
+
+  <span class="partner-item__name">{{ name }}</span>
+
+  {% if has_description %}
+    <div class="partner-item__description">
+      {{ content.field_partner_description }}
+    </div>
+  {% endif %}
+
+{% if has_link %}
+  </a>
+{% else %}
+  </div>
+{% endif %}

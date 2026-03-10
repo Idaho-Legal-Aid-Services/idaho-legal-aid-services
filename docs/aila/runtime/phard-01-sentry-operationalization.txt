@@ -1,0 +1,121 @@
+PHARD-01: Sentry Live Operationalization Evidence
+==================================================
+
+Finding IDs: OBS-4, R-OBS-01, PHG-OBS-01
+Risk Register: R-OBS-01
+Created: 2026-03-10
+Last updated: <FILL>
+
+────────────────────────────────────────────────────
+1. Pre-Edit State (VC-PANTHEON-READONLY)
+────────────────────────────────────────────────────
+
+dev:
+  raven_client_key=<present|absent>
+  terminus output: <PASTE>
+
+test:
+  raven_client_key=<present|absent>
+  terminus output: <PASTE>
+
+live:
+  raven_client_key=<present|absent>
+  terminus output: <PASTE>
+
+────────────────────────────────────────────────────
+2. Synthetic Probe Evidence (per environment)
+────────────────────────────────────────────────────
+
+dev:
+  command: terminus remote:drush idaho-legal-aid-services.dev -- ilas:sentry-probe
+  event_id: <FILL>
+  sentry_url: <FILL>
+  timestamp: <FILL>
+
+test:
+  command: terminus remote:drush idaho-legal-aid-services.test -- ilas:sentry-probe
+  event_id: <FILL>
+  sentry_url: <FILL>
+  timestamp: <FILL>
+
+live:
+  command: terminus remote:drush idaho-legal-aid-services.live -- ilas:sentry-probe
+  event_id: <FILL>
+  sentry_url: <FILL>
+  timestamp: <FILL>
+
+────────────────────────────────────────────────────
+3. Redaction Verification
+────────────────────────────────────────────────────
+
+For each probe event, verify in Sentry UI:
+  [ ] Message contains no email, phone, SSN, CC, or PII
+  [ ] Tags match APPROVED_TAGS only
+  [ ] send_default_pii = false (no IP address, no cookies)
+  [ ] Extra context is clean (no raw user text)
+
+Screenshot/URL references:
+  dev: <FILL>
+  test: <FILL>
+  live: <FILL>
+
+────────────────────────────────────────────────────
+4. Alert Routing Evidence
+────────────────────────────────────────────────────
+
+Alert rules created:
+  [ ] Backend exception spike
+      Rule name: <FILL>
+      Conditions: <FILL>
+      Delivery: <FILL>
+
+  [ ] Browser error spike
+      Rule name: <FILL>
+      Conditions: <FILL>
+      Delivery: <FILL>
+
+  [ ] Assistant-specific (assistant_name:aila)
+      Rule name: <FILL>
+      Conditions: <FILL>
+      Delivery: <FILL>
+
+Alert delivery proof:
+  [ ] Email screenshot/link: <FILL>
+  [ ] Slack screenshot/link: <FILL>
+
+────────────────────────────────────────────────────
+5. Dashboard Ownership Evidence
+────────────────────────────────────────────────────
+
+Sentry team membership:
+  Team name: <FILL>
+  Named owner: <FILL>
+  Members: <FILL>
+  Screenshot/URL: <FILL>
+
+────────────────────────────────────────────────────
+6. Incident Review Workflow
+────────────────────────────────────────────────────
+
+Review cadence: Weekly
+Primary responder: <FILL>
+Escalation path: <FILL>
+Artifact location: docs/aila/runtime/phard-01-sentry-operationalization.txt
+Runbook reference: docs/incident-runbook.md
+
+────────────────────────────────────────────────────
+7. Closure Determination
+────────────────────────────────────────────────────
+
+Status: <Fixed | Partially Fixed | Unverified>
+
+Criteria:
+  [ ] Probe events captured on all 3 environments
+  [ ] Tags and redaction verified in Sentry UI
+  [ ] Alert rules created and delivery tested
+  [ ] Dashboard ownership assigned
+  [ ] Review cadence established
+
+Determination date: <FILL>
+Determined by: <FILL>
+Notes: <FILL>

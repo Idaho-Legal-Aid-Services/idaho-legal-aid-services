@@ -1,0 +1,68 @@
+uuid: b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4f
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.field.paragraph.partner_section.field_columns_per_row
+    - field.field.paragraph.partner_section.field_partner_items
+    - field.field.paragraph.partner_section.field_partner_section_desc
+    - field.field.paragraph.partner_section.field_partner_section_title
+    - field.field.paragraph.partner_section.field_section_style
+    - paragraphs.paragraphs_type.partner_section
+  module:
+    - paragraphs
+    - text
+id: paragraph.partner_section.default
+targetEntityType: paragraph
+bundle: partner_section
+mode: default
+content:
+  field_partner_section_title:
+    type: string_textfield
+    weight: 0
+    region: content
+    settings:
+      size: 60
+      placeholder: 'e.g., Major Funders'
+    third_party_settings: {  }
+  field_partner_section_desc:
+    type: text_textarea
+    weight: 1
+    region: content
+    settings:
+      rows: 3
+      placeholder: ''
+    third_party_settings: {  }
+  field_columns_per_row:
+    type: options_select
+    weight: 2
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_section_style:
+    type: options_select
+    weight: 3
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_partner_items:
+    type: paragraphs
+    weight: 4
+    region: content
+    settings:
+      title: 'Partner Item'
+      title_plural: 'Partner Items'
+      edit_mode: open
+      closed_mode: summary
+      autocollapse: all
+      closed_mode_threshold: 0
+      add_mode: dropdown
+      form_display_mode: default
+      default_paragraph_type: partner_item
+      features:
+        collapse_edit_all: collapse_edit_all
+        duplicate: duplicate
+    third_party_settings: {  }
+hidden:
+  created: true
+  status: true

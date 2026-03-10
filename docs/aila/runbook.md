@@ -3176,7 +3176,7 @@ test "${SERVICE_ROWS}" -ge 30
 test "${SERVICE_ROWS}" -le 80
 
 # 4) Diagram B deterministic pipeline anchors remain documented.
-rg -n "flowchart TD|Flood checks|SafetyClassifier|OutOfScopeClassifier|PolicyFilter fallback checks|LlmEnhancer call|Queue worker on cron" \
+rg -n "flowchart TD|Flood checks|PreRoutingDecisionEngine|SafetyClassifier|OutOfScopeClassifier|PolicyFilter fallback checks|LlmEnhancer call|Queue worker on cron" \
   docs/aila/system-map.mmd
 ```
 

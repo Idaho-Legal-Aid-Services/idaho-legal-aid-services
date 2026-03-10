@@ -6,9 +6,9 @@
 
 ## Overview
 
-This document specifies the intent routing decision tree for the ILAS Site Assistant chatbot. The system routes user messages to one of 12 primary intents with optional disambiguation and urgent safety fast-paths.
+This document specifies the ILAS Site Assistant decision flow. The system first evaluates `PreRoutingDecisionEngine` for safety, out-of-scope, policy, and urgency overrides, then routes continue-path messages to primary intents with optional disambiguation.
 
-## Supported Intents
+## Supported Routing Intents
 
 | Intent ID | Description | Primary Action |
 |-----------|-------------|----------------|
@@ -22,8 +22,8 @@ This document specifies the intent routing decision tree for the ILAS Site Assis
 | `faq` | User has general/definitional questions | Search FAQ index |
 | `risk_detector` | User interested in senior risk assessment | Route to /senior-risk-detector |
 | `services_overview` | User wants to know what ILAS does | Route to /services |
-| `out_of_scope` | Criminal, immigration, out-of-state, etc. | Polite redirect |
-| `urgent_safety` | Immediate danger/crisis situations | Safety resources + fast-path |
+
+Pre-routing outcomes such as safety exits, out-of-scope exits, policy exits, and urgency overrides are resolved before intent routing and are owned by `PreRoutingDecisionEngine`, not by `IntentRouter`.
 
 ## Decision Tree Flow
 
@@ -34,29 +34,19 @@ This document specifies the intent routing decision tree for the ILAS Site Assis
                              |
                              v
                     +--------+----------+
-                    | 1. URGENT_SAFETY  |  <-- ALWAYS CHECK FIRST
-                    |    Fast-Path?     |
+                    | 1. PRE-ROUTING    |
+                    | Decision Engine   |
                     +--------+----------+
                              |
               +--------------+--------------+
               |                             |
-         [URGENT]                      [NOT URGENT]
+        [EXIT]                      [CONTINUE]
               |                             |
               v                             v
     +---------+---------+        +----------+----------+
-    | Return safety     |        | 2. OUT_OF_SCOPE     |
-    | resources + links |        |    Check?           |
+    | Safety / OOS /    |        | 2. PRIMARY INTENT   |
+    | policy response   |        |    Detection        |
     +-------------------+        +----------+----------+
-                                            |
-                              +-------------+-------------+
-                              |                           |
-                         [OUT_OF_SCOPE]              [IN_SCOPE]
-                              |                           |
-                              v                           v
-                    +---------+---------+      +----------+----------+
-                    | Return polite     |      | 3. PRIMARY INTENT   |
-                    | redirect message  |      |    Detection        |
-                    +-------------------+      +----------+----------+
                                                           |
                                             +-------------+-------------+
                                             |                           |
@@ -75,9 +65,17 @@ This document specifies the intent routing decision tree for the ILAS Site Assis
                                                               +-------------------+
 ```
 
-## 1. Urgent Safety Fast-Path
+## 1. Pre-Routing Decision Contract
 
-**Purpose:** Immediately detect and respond to crisis situations with safety resources.
+**Purpose:** Resolve safety exits, out-of-scope exits, policy exits, and urgency overrides from a single authoritative contract before intent routing begins.
+
+### Precedence Order
+1. `safety_exit`
+2. `oos_exit`
+3. `policy_exit`
+4. `continue` with optional urgency override
+
+The trigger categories below are enforced by `PreRoutingDecisionEngine` via `SafetyClassifier`, `OutOfScopeClassifier`, `PolicyFilter`, and engine-owned urgency evaluation.
 
 ### Trigger Categories
 
@@ -264,19 +262,18 @@ For non-emergency legal help, contact our Legal Advice Line.
 ## 3. Primary Intent Detection
 
 ### Priority Order
-1. `urgent_safety` (always first)
-2. `out_of_scope` (filter before routing)
-3. `greeting` (short messages only)
-4. `apply_for_help` / `eligibility`
-5. `legal_advice_line`
-6. `offices_contact`
-7. `services_overview`
-8. `risk_detector`
-9. `donations`
-10. `feedback`
-11. `faq`
-12. `forms_finder`
-13. `guides_finder`
+Pre-routing outcomes are resolved before this stage. On `continue`, the routing priority is:
+1. `greeting` (short messages only)
+2. `apply_for_help` / `eligibility`
+3. `legal_advice_line`
+4. `offices_contact`
+5. `services_overview`
+6. `risk_detector`
+7. `donations`
+8. `feedback`
+9. `faq`
+10. `forms_finder`
+11. `guides_finder`
 
 ### Intent Patterns
 
@@ -442,6 +439,7 @@ Need help understanding the forms? Our guides can help.
 ```
 
 #### out_of_scope
+This outcome is produced by the pre-routing decision layer, not by `IntentRouter`.
 ```
 I understand you're looking for help with [topic].
 
@@ -479,7 +477,8 @@ Track for each interaction:
 - `confidence_score` - Confidence at routing
 - `disambiguation_shown` - Whether disambiguation was needed
 - `disambiguation_choice` - Which option user selected
-- `urgent_safety_triggered` - If urgent path was activated
+- `pre_routing_decision_type` - safety/oos/policy/continue
+- `pre_routing_winner_source` - safety/out_of_scope/policy/urgency/none
 - `out_of_scope_type` - Category if out-of-scope
 - `language_detected` - en/es/mixed
 

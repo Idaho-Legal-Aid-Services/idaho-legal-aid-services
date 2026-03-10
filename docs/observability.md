@@ -38,6 +38,22 @@ These labels are produced at runtime in `settings.php` and reused across Sentry 
   - `ilas:assistant:action`
 - Backend assistant failures continue to flow through `AssistantApiController`, Langfuse, Drupal logs, and Sentry with the same `request_id`.
 
+## Operational Ownership
+- **Project owner:** `<NAME — fill after assignment>`
+- **Triage cadence:** Weekly review of Sentry issue stream, alert noise ratio, and unresolved incidents.
+- **Review artifact location:** `docs/aila/runtime/phard-01-sentry-operationalization.txt`
+- **Alert routing:** Sentry alerts route to the project owner via email and/or Slack channel `<CHANNEL — fill after setup>`.
+- **Escalation:** Unresolved P1 issues escalate to Platform Engineer within 4 hours.
+
+## Approved Sentry Payload
+The `SentryOptionsSubscriber` class defines the approved payload schema via constants:
+- **`APPROVED_TAGS`** — The only tag keys that may appear on outbound Sentry events: `environment`, `pantheon_env`, `multidev_name`, `site_name`, `site_id`, `php_sapi`, `runtime_context`, `assistant_name`, `release`, `git_sha`, `intent`, `safety_class`, `fallback_path`, `request_id`, `env`.
+- **`SENSITIVE_KEYS`** — Always fully redacted to `[REDACTED]`: `authorization`, `cookie`, `set-cookie`, `x-csrf-token`, `password`, `token`, `session`, `session_id`.
+- **`BODY_LIKE_KEYS`** — PII-scrubbed but structurally preserved: `data`, `body`, `message`, `prompt`, `response`, `content`, `query_string`.
+- **`SEND_DEFAULT_PII`** — Invariant: always `false`.
+
+Contract tests in `SentryPayloadContractTest.php` enforce that these constants match the runtime enforcement logic.
+
 ## Verification Checklist
 - Local:
   - `ddev restart`

@@ -1,0 +1,33 @@
+uuid: e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b
+langcode: en
+status: true
+dependencies:
+  module:
+    - options
+    - paragraphs
+id: paragraph.field_columns_per_row
+field_name: field_columns_per_row
+entity_type: paragraph
+type: list_string
+settings:
+  allowed_values:
+    -
+      value: '2'
+      label: '2 per row'
+    -
+      value: '3'
+      label: '3 per row'
+    -
+      value: '4'
+      label: '4 per row'
+    -
+      value: '6'
+      label: '6 per row (logo wall)'
+  allowed_values_function: ''
+module: options
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

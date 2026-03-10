@@ -107,6 +107,7 @@ class ArchitectureBoundaryGuardTest extends TestCase {
       'ilas_site_assistant.resource_finder',
       'ilas_site_assistant.response_grounder',
       'ilas_site_assistant.safety_classifier',
+      'ilas_site_assistant.pre_routing_decision_engine',
       'ilas_site_assistant.llm_enhancer',
     ];
 
@@ -117,6 +118,23 @@ class ArchitectureBoundaryGuardTest extends TestCase {
         "Required seam service missing from services.yml: {$serviceId}",
       );
     }
+  }
+
+  /**
+   * Router/controller sources must not reintroduce split pre-routing logic.
+   */
+  public function testPreRoutingAuthorityDoesNotDriftBackIntoRouterOrController(): void {
+    $router = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/IntentRouter.php');
+    $controller = self::readFile('web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php');
+
+    $this->assertStringNotContainsString('skip_pre_routing_urgency', $router);
+    $this->assertStringNotContainsString('urgentSafetyTriggers', $router);
+    $this->assertStringNotContainsString('checkUrgentSafety', $router);
+    $this->assertStringNotContainsString('buildHighRiskIntent', $router);
+    $this->assertStringNotContainsString("\$extraction['high_risk']", $router);
+    $this->assertStringNotContainsString("\$extraction['out_of_scope']", $router);
+
+    $this->assertStringNotContainsString('skip_pre_routing_urgency', $controller);
   }
 
   /**
@@ -154,6 +172,7 @@ class ArchitectureBoundaryGuardTest extends TestCase {
 
     $requiredAnchors = [
       'Flood checks',
+      'PreRoutingDecisionEngine',
       'SafetyClassifier',
       'OutOfScopeClassifier',
       'PolicyFilter fallback checks',
@@ -171,4 +190,3 @@ class ArchitectureBoundaryGuardTest extends TestCase {
   }
 
 }
-

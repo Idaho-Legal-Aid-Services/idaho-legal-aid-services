@@ -124,6 +124,13 @@ services:
     class: Drupal\ilas_site_assistant\Service\OutOfScopeClassifier
     arguments: ['@config.factory']
 
+  ilas_site_assistant.pre_routing_decision_engine:
+    class: Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine
+    arguments:
+      - '@ilas_site_assistant.policy_filter'
+      - '@ilas_site_assistant.safety_classifier'
+      - '@ilas_site_assistant.out_of_scope_classifier'
+
   ilas_site_assistant.out_of_scope_response_templates:
     class: Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates
 

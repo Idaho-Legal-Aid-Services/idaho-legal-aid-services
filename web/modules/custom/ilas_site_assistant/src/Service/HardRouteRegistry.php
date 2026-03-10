@@ -173,6 +173,14 @@ class HardRouteRegistry {
     // Normalize intent type.
     $normalized = ResponseBuilder::normalizeIntentType($intent_type);
 
+    if (($intent_type === 'high_risk' || $normalized === 'high_risk') && !empty($intent['risk_category'])) {
+      $risk_category = (string) $intent['risk_category'];
+      if (isset(self::HARD_ROUTE_MAP[$risk_category])) {
+        $intent_type = $risk_category;
+        $normalized = $risk_category;
+      }
+    }
+
     // Check hard-route map.
     $url_key = self::HARD_ROUTE_MAP[$intent_type] ?? self::HARD_ROUTE_MAP[$normalized] ?? NULL;
 
@@ -404,84 +412,38 @@ class HardRouteRegistry {
   }
 
   /**
-   * Maps safety flags to high-risk intent types.
-   *
-   * When safety flags indicate a high-risk situation, this method returns
-   * the appropriate high-risk intent type that should be used for URL
-   * enforcement, overriding soft-route intents.
-   *
-   * @param array $safety_flags
-   *   Array of safety flags (e.g., ['dv_indicator', 'eviction_imminent']).
-   *
-   * @return string|null
-   *   The high-risk intent type, or NULL if no high-risk situation detected.
-   */
-  public function detectHighRiskIntent(array $safety_flags): ?string {
-    if (empty($safety_flags)) {
-      return NULL;
-    }
-
-    // Map safety flags to high-risk intent types.
-    // Priority order matters - check most severe first.
-    $flag_to_intent = [
-      'dv_indicator' => 'high_risk_dv',
-      'crisis_emergency' => 'high_risk_deadline',
-      'deadline_pressure' => 'high_risk_deadline',
-      'eviction_imminent' => 'high_risk_eviction',
-      'identity_theft' => 'high_risk_scam',
-    ];
-
-    foreach ($flag_to_intent as $flag => $intent) {
-      if (in_array($flag, $safety_flags)) {
-        return $intent;
-      }
-    }
-
-    return NULL;
-  }
-
-  /**
-   * Enforces canonical URL with safety flag awareness.
-   *
-   * This is the enhanced enforcement method that considers safety flags.
-   * Even if the intent is classified as a soft-route (like 'service_area'),
-   * if safety flags indicate a high-risk situation, the canonical URL for
-   * the high-risk intent will be enforced.
+   * Enforces canonical URL with authoritative override intent awareness.
    *
    * @param array $response
    *   The response array.
    * @param array $intent
-   *   The full intent array.
-   * @param array $safety_flags
-   *   Array of detected safety flags.
+   *   The full routed intent array.
+   * @param array|null $override_intent
+   *   Optional authoritative override intent from PreRoutingDecisionEngine.
    *
    * @return array
    *   The response with canonical URL enforced.
    */
-  public function enforceCanonicalUrlWithSafetyFlags(array $response, array $intent, array $safety_flags = []): array {
-    $intent_type = $intent['type'] ?? 'unknown';
+  public function enforceCanonicalUrlWithOverrideIntent(array $response, array $intent, ?array $override_intent = NULL): array {
+    $effective_intent = $override_intent ?? $intent;
+    $effective_type = $effective_intent['type'] ?? 'unknown';
+    $effective_route_type = ($effective_type === 'high_risk' && !empty($effective_intent['risk_category']))
+      ? (string) $effective_intent['risk_category']
+      : $effective_type;
+    $original_type = $intent['type'] ?? 'unknown';
 
-    // First, check if this is already a hard-route intent.
-    if ($this->isHardRoute($intent_type)) {
-      return $this->enforceCanonicalUrl($response, $intent);
-    }
-
-    // For soft-route intents, check if safety flags indicate high-risk.
-    $high_risk_intent = $this->detectHighRiskIntent($safety_flags);
-    if ($high_risk_intent !== NULL) {
-      // Override the intent with the high-risk intent for URL enforcement.
-      $override_intent = ['type' => $high_risk_intent];
-      $response = $this->enforceCanonicalUrl($response, $override_intent);
-
-      // Mark that this was a safety-flag-driven enforcement.
-      $response['_hard_route_enforced_by_safety_flag'] = TRUE;
-      $response['_original_intent'] = $intent_type;
-      $response['_detected_high_risk'] = $high_risk_intent;
-
+    if (!$this->isHardRoute($effective_type)) {
       return $response;
     }
 
-    // No high-risk detected, return response unchanged.
+    $response = $this->enforceCanonicalUrl($response, $effective_intent);
+
+    if ($override_intent !== NULL && $effective_route_type !== $original_type) {
+      $response['_hard_route_enforced_by_override_intent'] = TRUE;
+      $response['_original_intent'] = $original_type;
+      $response['_routing_override_intent'] = $effective_route_type;
+    }
+
     return $response;
   }
 

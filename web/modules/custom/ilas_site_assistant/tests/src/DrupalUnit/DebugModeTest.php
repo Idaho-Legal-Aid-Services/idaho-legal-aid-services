@@ -2,6 +2,13 @@
 
 namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ImmutableConfig;
+use Drupal\ilas_site_assistant\Service\InputNormalizer;
+use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
+use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
+use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\Tests\UnitTestCase;
 
 /**
@@ -54,12 +61,12 @@ class DebugModeTest extends UnitTestCase {
   }
 
   /**
-   * Tests safety flag detection.
+   * Tests urgency-signal detection from the decision engine.
    *
    * @dataProvider safetyFlagProvider
    */
   public function testSafetyFlagDetection(string $message, array $expectedFlags): void {
-    $flags = $this->detectSafetyFlags($message);
+    $flags = $this->evaluateUrgencySignals($message);
 
     if ($expectedFlags === []) {
       $this->assertSame([], $flags);
@@ -261,6 +268,7 @@ class DebugModeTest extends UnitTestCase {
       'final_action' => 'hard_route',
       'reason_code' => 'direct_navigation_apply',
       'safety_flags' => [],
+      'pre_routing_decision' => ['decision_type' => 'continue'],
       'policy_check' => ['passed' => TRUE, 'violation_type' => NULL],
       'llm_used' => FALSE,
       'processing_stages' => ['input_sanitized', 'policy_checked', 'intent_routed'],
@@ -277,6 +285,7 @@ class DebugModeTest extends UnitTestCase {
       'final_action',
       'reason_code',
       'safety_flags',
+      'pre_routing_decision',
       'policy_check',
       'llm_used',
       'processing_stages',
@@ -315,32 +324,26 @@ class DebugModeTest extends UnitTestCase {
   }
 
   /**
-   * Detects safety flags (simulating controller method).
+   * Evaluates urgency signals using the authoritative decision engine.
    */
-  protected function detectSafetyFlags(string $message): array {
-    $flags = [];
-    $messageLower = strtolower($message);
+  protected function evaluateUrgencySignals(string $message): array {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')->willReturn([]);
 
-    if (preg_match('/\b(domestic\s*violence|dv|abus|hit.*me|beat.*me|threaten)/i', $message)) {
-      $flags[] = 'dv_indicator';
-    }
-    if (preg_match('/\b(evict|sheriff|lock.*out|homeless|thrown?\s*out)/i', $message)) {
-      $flags[] = 'eviction_imminent';
-    }
-    if (preg_match('/\b(identity\s*theft|scam|fraud|stolen\s*identity)/i', $message)) {
-      $flags[] = 'identity_theft';
-    }
-    if (preg_match('/\b(emergency|urgent|suicide|crisis|danger|911)/i', $message)) {
-      $flags[] = 'crisis_emergency';
-    }
-    if (preg_match('/\b(deadline|due\s*(today|tomorrow|friday|monday)|court\s*date)/i', $message)) {
-      $flags[] = 'deadline_pressure';
-    }
-    if (preg_match('/\b(arrest|criminal|felony|misdemeanor|jail|prison|dui|dwi)/i', $message)) {
-      $flags[] = 'criminal_matter';
-    }
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($config);
 
-    return $flags;
+    $policyFilter = new PolicyFilter($configFactory);
+    $policyFilter->setStringTranslation($this->getStringTranslationStub());
+
+    $engine = new PreRoutingDecisionEngine(
+      $policyFilter,
+      new SafetyClassifier($configFactory),
+      new OutOfScopeClassifier($configFactory),
+    );
+
+    $decision = $engine->evaluate(InputNormalizer::normalize($message));
+    return $decision['urgency_signals'] ?? [];
   }
 
   /**

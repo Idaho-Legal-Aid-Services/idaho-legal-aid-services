@@ -34,6 +34,7 @@ use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
 use Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
@@ -202,6 +203,13 @@ class AssistantApiController extends ControllerBase {
   protected $abTesting;
 
   /**
+   * The authoritative pre-routing decision engine.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine
+   */
+  protected $preRoutingDecisionEngine;
+
+  /**
    * The safety violation tracker.
    *
    * @var \Drupal\ilas_site_assistant\Service\SafetyViolationTracker|null
@@ -317,6 +325,7 @@ class AssistantApiController extends ControllerBase {
     CsrfTokenGenerator $csrf_token_generator = NULL,
     EnvironmentDetector $environment_detector = NULL,
     AssistantSessionBootstrapGuard $session_bootstrap_guard = NULL,
+    PreRoutingDecisionEngine $pre_routing_decision_engine = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -346,6 +355,11 @@ class AssistantApiController extends ControllerBase {
     $this->csrfTokenGenerator = $csrf_token_generator;
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
     $this->sessionBootstrapGuard = $session_bootstrap_guard;
+    $this->preRoutingDecisionEngine = $pre_routing_decision_engine ?? new PreRoutingDecisionEngine(
+      $policy_filter,
+      $safety_classifier,
+      $out_of_scope_classifier,
+    );
   }
 
   /**
@@ -381,6 +395,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('csrf_token') ? $container->get('csrf_token') : NULL,
       $container->has('ilas_site_assistant.environment_detector') ? $container->get('ilas_site_assistant.environment_detector') : NULL,
       $container->has('ilas_site_assistant.session_bootstrap_guard') ? $container->get('ilas_site_assistant.session_bootstrap_guard') : NULL,
+      $container->has('ilas_site_assistant.pre_routing_decision_engine') ? $container->get('ilas_site_assistant.pre_routing_decision_engine') : NULL,
     );
   }
 
@@ -654,14 +669,11 @@ class AssistantApiController extends ControllerBase {
       'gate_reason_code' => NULL,
       'gate_confidence' => NULL,
       'safety_flags' => [],
+      'pre_routing_decision' => NULL,
       'policy_check' => ['passed' => TRUE, 'violation_type' => NULL],
       'llm_used' => FALSE,
       'processing_stages' => [],
     ] : NULL;
-    $safety_flags_for_gate = $this->detectSafetyFlags($user_message);
-    if ($debug_mode) {
-      $debug_meta['safety_flags'] = $safety_flags_for_gate;
-    }
 
     // Parse ephemeral conversation ID (client-generated UUID).
     $conversation_id = NULL;
@@ -715,214 +727,200 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['processing_stages'][] = 'input_sanitized';
     }
 
-    // ─── CLASSIFIER PRECEDENCE CONTRACT (v2.0) ────────────────────────
-    // 1. SafetyClassifier (crisis/danger/DV/eviction/scam/injection/
-    //    wrongdoing/legal-advice/PII)
-    //    → Match = return escalation immediately, skip all downstream
-    // 2. OutOfScopeClassifier (criminal/immigration/non-Idaho/business/federal/PI)
-    //    → Match = return OOS response, skip PolicyFilter
-    // 3. PolicyFilter (fallback: emergency/PII/criminal/legal-advice/
-    //    doc-drafting/external)
-    //    → Match = return violation response
-    // 4. Intent routing (normal processing)
-    // No classifier can override a higher-priority decision.
-    // All classifiers receive $normalized_message (evasion-stripped).
+    // ─── PRE-ROUTING DECISION CONTRACT (v3.0) ────────────────────────
+    // Safety, out-of-scope, policy fallback, and urgency override precedence
+    // are evaluated once by PreRoutingDecisionEngine.
     // ─────────────────────────────────────────────────────────────────
-
-    // Run SafetyClassifier first (if available) for enhanced classification.
-    $safety_classification = NULL;
-    if ($this->safetyClassifier) {
-      $this->langfuseTracer?->startSpan('safety.classify');
-      $safety_classification = $this->safetyClassifier->classify($normalized_message);
-
-      if ($debug_mode) {
-        $debug_meta['safety_classification'] = [
-          'class' => $safety_classification['class'],
-          'reason_code' => $safety_classification['reason_code'],
-          'escalation_level' => $safety_classification['escalation_level'],
-          'is_safe' => $safety_classification['is_safe'],
-        ];
-        $debug_meta['processing_stages'][] = 'safety_classified';
-      }
-
-      // If SafetyClassifier detected a non-safe message, use SafetyResponseTemplates.
-      if (!$safety_classification['is_safe'] && $this->safetyResponseTemplates) {
-        $safety_response = $this->safetyResponseTemplates->getResponse($safety_classification);
-
-        // Log the safety violation with reason code.
-        $this->analyticsLogger->log('safety_violation', $safety_classification['reason_code']);
-        if ($this->violationTracker) {
-          $this->violationTracker->record(time());
-        }
-
-        if ($debug_mode) {
-          $debug_meta['policy_check'] = [
-            'passed' => FALSE,
-            'violation_type' => $safety_classification['class'],
-            'reason_code' => $safety_classification['reason_code'],
-          ];
-          $debug_meta['final_action'] = $safety_classification['requires_refusal'] ? 'refusal' : 'escalation';
-          $debug_meta['reason_code'] = $safety_classification['reason_code'];
-          $debug_meta['intent_selected'] = 'safety_' . $safety_classification['class'];
-          $debug_meta['safety_flags'] = $safety_flags_for_gate;
-        }
-
-        $response_data = [
-          'type' => $safety_response['type'],
-          'escalation_type' => $safety_response['escalation_type'],
-          'escalation_level' => $safety_response['escalation_level'],
-          'message' => $safety_response['message'],
-          'links' => $safety_response['links'] ?? [],
-          'actions' => $this->getEscalationActions(),
-          'reason_code' => $safety_classification['reason_code'],
-          'request_id' => $request_id,
-        ];
-
-        if (!empty($safety_response['disclaimer'])) {
-          $response_data['disclaimer'] = $safety_response['disclaimer'];
-        }
-
-        if ($debug_mode) {
-          $response_data['_debug'] = $debug_meta;
-        }
-
-        $safety_telemetry = TelemetrySchema::normalize(
-          intent: 'safety_exit',
-          safety_class: $safety_classification['class'],
-          fallback_path: 'none',
-          request_id: $request_id,
-        );
-        $this->logger->notice('[@request_id] Safety exit: class=@class reason=@reason level=@level', TelemetrySchema::toLogContext(
-          $safety_telemetry,
-          [
-            '@class' => $safety_classification['class'],
-            '@reason' => $safety_classification['reason_code'],
-            '@level' => $safety_classification['escalation_level'],
-          ]
-        ));
-
-        $this->langfuseTracer?->endSpan([
-          'class' => $safety_classification['class'],
-          'reason_code' => $safety_classification['reason_code'],
-          'is_safe' => FALSE,
-        ]);
-        $this->langfuseTracer?->endTrace(
-          output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
-          metadata: array_merge(
-            ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
-            $safety_telemetry,
-          )
-        );
-
-        $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
-        return $this->jsonResponse($response_data, 200, [], $request_id);
-      }
-
-      // Safety passed — end the span with safe result.
-      $this->langfuseTracer?->endSpan([
-        'class' => $safety_classification['class'],
-        'reason_code' => $safety_classification['reason_code'],
-        'is_safe' => TRUE,
-      ]);
-    }
-
-    // Run OutOfScopeClassifier as second-pass check (after safety, before intent).
-    $oos_classification = NULL;
-    if ($this->outOfScopeClassifier) {
-      $this->langfuseTracer?->startSpan('oos.classify');
-      $oos_classification = $this->outOfScopeClassifier->classify($normalized_message);
-
-      if ($debug_mode) {
-        $debug_meta['oos_classification'] = [
-          'is_out_of_scope' => $oos_classification['is_out_of_scope'],
-          'category' => $oos_classification['category'],
-          'reason_code' => $oos_classification['reason_code'],
-          'response_type' => $oos_classification['response_type'],
-        ];
-        $debug_meta['processing_stages'][] = 'oos_classified';
-      }
-
-      // If out-of-scope and we have templates, return OOS response.
-      if ($oos_classification['is_out_of_scope'] && $this->outOfScopeResponseTemplates) {
-        $oos_response = $this->outOfScopeResponseTemplates->getResponse($oos_classification);
-
-        // Log the out-of-scope query.
-        $this->analyticsLogger->log('out_of_scope', $oos_classification['reason_code']);
-
-        if ($debug_mode) {
-          $debug_meta['final_action'] = 'out_of_scope';
-          $debug_meta['reason_code'] = $oos_classification['reason_code'];
-          $debug_meta['intent_selected'] = 'oos_' . $oos_classification['category'];
-        }
-
-        $response_data = [
-          'type' => $oos_response['type'],
-          'response_mode' => $oos_response['response_mode'],
-          'escalation_type' => $oos_response['escalation_type'],
-          'message' => $oos_response['message'],
-          'links' => $oos_response['links'] ?? [],
-          'suggestions' => $oos_response['suggestions'] ?? [],
-          'actions' => $this->getEscalationActions(),
-          'reason_code' => $oos_classification['reason_code'],
-          'can_still_help' => $oos_response['can_still_help'] ?? FALSE,
-          'request_id' => $request_id,
-        ];
-
-        if (!empty($oos_response['disclaimer'])) {
-          $response_data['disclaimer'] = $oos_response['disclaimer'];
-        }
-
-        if ($debug_mode) {
-          $response_data['_debug'] = $debug_meta;
-        }
-
-        $oos_telemetry = TelemetrySchema::normalize(
-          intent: 'oos_' . $oos_classification['category'],
-          safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
-          fallback_path: 'none',
-          request_id: $request_id,
-        );
-        $this->logger->notice('[@request_id] Out-of-scope exit: category=@category reason=@reason', TelemetrySchema::toLogContext(
-          $oos_telemetry,
-          [
-            '@category' => $oos_classification['category'],
-            '@reason' => $oos_classification['reason_code'],
-          ]
-        ));
-
-        $this->langfuseTracer?->endSpan([
-          'is_out_of_scope' => TRUE,
-          'category' => $oos_classification['category'],
-          'reason_code' => $oos_classification['reason_code'],
-        ]);
-        $this->langfuseTracer?->endTrace(
-          output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
-          metadata: array_merge(
-            ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
-            $oos_telemetry,
-          )
-        );
-
-        $response_data = $this->assembleContractFields($response_data, NULL, 'oos');
-        return $this->jsonResponse($response_data, 200, [], $request_id);
-      }
-
-      // OOS passed — end the span.
-      $this->langfuseTracer?->endSpan([
-        'is_out_of_scope' => FALSE,
-        'category' => $oos_classification['category'] ?? 'none',
-      ]);
-    }
-
-    // Fallback to PolicyFilter if SafetyClassifier not available or marked safe.
-    $this->langfuseTracer?->startSpan('policy.check');
-    $policy_result = $this->policyFilter->check($normalized_message);
+    $this->langfuseTracer?->startSpan('pre_routing.evaluate');
+    $pre_routing_decision = $this->preRoutingDecisionEngine->evaluate($normalized_message);
+    $safety_classification = $pre_routing_decision['safety'];
+    $oos_classification = $pre_routing_decision['oos'];
+    $policy_result = $pre_routing_decision['policy'];
+    $safety_flags_for_gate = $pre_routing_decision['urgency_signals'] ?? [];
+    $routing_override_intent = $pre_routing_decision['routing_override_intent'];
 
     if ($debug_mode) {
+      $debug_meta['safety_flags'] = $safety_flags_for_gate;
+      $debug_meta['safety_classification'] = [
+        'class' => $safety_classification['class'] ?? SafetyClassifier::CLASS_SAFE,
+        'reason_code' => $safety_classification['reason_code'] ?? 'safe',
+        'escalation_level' => $safety_classification['escalation_level'] ?? SafetyClassifier::ESCALATION_NONE,
+        'is_safe' => $safety_classification['is_safe'] ?? TRUE,
+      ];
+      $debug_meta['oos_classification'] = [
+        'is_out_of_scope' => $oos_classification['is_out_of_scope'] ?? FALSE,
+        'category' => $oos_classification['category'] ?? OutOfScopeClassifier::CATEGORY_IN_SCOPE,
+        'reason_code' => $oos_classification['reason_code'] ?? 'in_scope',
+        'response_type' => $oos_classification['response_type'] ?? OutOfScopeClassifier::RESPONSE_IN_SCOPE,
+      ];
+      $debug_meta['policy_check'] = [
+        'passed' => !($policy_result['violation'] ?? FALSE),
+        'violation_type' => $policy_result['type'] ?? NULL,
+      ];
+      $debug_meta['pre_routing_decision'] = [
+        'decision_type' => $pre_routing_decision['decision_type'],
+        'winner_source' => $pre_routing_decision['winner_source'],
+        'reason_code' => $pre_routing_decision['reason_code'],
+        'routing_override_intent' => $routing_override_intent,
+      ];
+      $debug_meta['processing_stages'][] = 'safety_classified';
+      $debug_meta['processing_stages'][] = 'oos_classified';
       $debug_meta['processing_stages'][] = 'policy_checked';
+      $debug_meta['processing_stages'][] = 'pre_routing_evaluated';
     }
 
-    if ($policy_result['violation']) {
+    if ($pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_SAFETY_EXIT) {
+      $safety_response = $this->safetyResponseTemplates
+        ? $this->safetyResponseTemplates->getResponse($safety_classification)
+        : [
+          'type' => ($safety_classification['requires_refusal'] ?? FALSE) ? 'refusal' : 'escalation',
+          'escalation_type' => $safety_classification['class'] ?? 'safety',
+          'escalation_level' => $safety_classification['escalation_level'] ?? 'standard',
+          'message' => (string) $this->t('I cannot help with that here. If you are in immediate danger, call 911.'),
+          'links' => [],
+        ];
+
+      $this->analyticsLogger->log('safety_violation', $safety_classification['reason_code']);
+      if ($this->violationTracker) {
+        $this->violationTracker->record(time());
+      }
+
+      if ($debug_mode) {
+        $debug_meta['policy_check'] = [
+          'passed' => FALSE,
+          'violation_type' => $safety_classification['class'],
+          'reason_code' => $safety_classification['reason_code'],
+        ];
+        $debug_meta['final_action'] = ($safety_classification['requires_refusal'] ?? FALSE) ? 'refusal' : 'escalation';
+        $debug_meta['reason_code'] = $safety_classification['reason_code'];
+        $debug_meta['intent_selected'] = 'safety_' . $safety_classification['class'];
+      }
+
+      $response_data = [
+        'type' => $safety_response['type'],
+        'escalation_type' => $safety_response['escalation_type'] ?? ($safety_classification['class'] ?? 'safety'),
+        'escalation_level' => $safety_response['escalation_level'] ?? ($safety_classification['escalation_level'] ?? 'standard'),
+        'message' => $safety_response['message'],
+        'links' => $safety_response['links'] ?? [],
+        'actions' => $this->getEscalationActions(),
+        'reason_code' => $safety_classification['reason_code'],
+        'request_id' => $request_id,
+      ];
+
+      if (!empty($safety_response['disclaimer'])) {
+        $response_data['disclaimer'] = $safety_response['disclaimer'];
+      }
+
+      if ($debug_mode) {
+        $response_data['_debug'] = $debug_meta;
+      }
+
+      $safety_telemetry = TelemetrySchema::normalize(
+        intent: 'safety_exit',
+        safety_class: $safety_classification['class'],
+        fallback_path: 'none',
+        request_id: $request_id,
+      );
+      $this->logger->notice('[@request_id] Safety exit: class=@class reason=@reason level=@level', TelemetrySchema::toLogContext(
+        $safety_telemetry,
+        [
+          '@class' => $safety_classification['class'],
+          '@reason' => $safety_classification['reason_code'],
+          '@level' => $safety_classification['escalation_level'],
+        ]
+      ));
+
+      $this->langfuseTracer?->endSpan([
+        'decision_type' => $pre_routing_decision['decision_type'],
+        'winner_source' => $pre_routing_decision['winner_source'],
+        'reason_code' => $pre_routing_decision['reason_code'],
+      ]);
+      $this->langfuseTracer?->endTrace(
+        output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
+        metadata: array_merge(
+          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          $safety_telemetry,
+        )
+      );
+
+      $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
+      return $this->jsonResponse($response_data, 200, [], $request_id);
+    }
+
+    if ($pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_OOS_EXIT) {
+      $oos_response = $this->outOfScopeResponseTemplates
+        ? $this->outOfScopeResponseTemplates->getResponse($oos_classification)
+        : [
+          'type' => 'out_of_scope',
+          'response_mode' => 'redirect',
+          'escalation_type' => $oos_classification['category'] ?? 'out_of_scope',
+          'message' => (string) $this->t('That request is outside what Idaho Legal Aid Services can help with here.'),
+          'links' => [],
+          'suggestions' => [],
+          'can_still_help' => FALSE,
+        ];
+
+      $this->analyticsLogger->log('out_of_scope', $oos_classification['reason_code']);
+
+      if ($debug_mode) {
+        $debug_meta['final_action'] = 'out_of_scope';
+        $debug_meta['reason_code'] = $oos_classification['reason_code'];
+        $debug_meta['intent_selected'] = 'oos_' . $oos_classification['category'];
+      }
+
+      $response_data = [
+        'type' => $oos_response['type'],
+        'response_mode' => $oos_response['response_mode'] ?? 'redirect',
+        'escalation_type' => $oos_response['escalation_type'] ?? ($oos_classification['category'] ?? 'out_of_scope'),
+        'message' => $oos_response['message'],
+        'links' => $oos_response['links'] ?? [],
+        'suggestions' => $oos_response['suggestions'] ?? [],
+        'actions' => $this->getEscalationActions(),
+        'reason_code' => $oos_classification['reason_code'],
+        'can_still_help' => $oos_response['can_still_help'] ?? FALSE,
+        'request_id' => $request_id,
+      ];
+
+      if (!empty($oos_response['disclaimer'])) {
+        $response_data['disclaimer'] = $oos_response['disclaimer'];
+      }
+
+      if ($debug_mode) {
+        $response_data['_debug'] = $debug_meta;
+      }
+
+      $oos_telemetry = TelemetrySchema::normalize(
+        intent: 'oos_' . $oos_classification['category'],
+        safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
+        fallback_path: 'none',
+        request_id: $request_id,
+      );
+      $this->logger->notice('[@request_id] Out-of-scope exit: category=@category reason=@reason', TelemetrySchema::toLogContext(
+        $oos_telemetry,
+        [
+          '@category' => $oos_classification['category'],
+          '@reason' => $oos_classification['reason_code'],
+        ]
+      ));
+
+      $this->langfuseTracer?->endSpan([
+        'decision_type' => $pre_routing_decision['decision_type'],
+        'winner_source' => $pre_routing_decision['winner_source'],
+        'reason_code' => $pre_routing_decision['reason_code'],
+      ]);
+      $this->langfuseTracer?->endTrace(
+        output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
+        metadata: array_merge(
+          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          $oos_telemetry,
+        )
+      );
+
+      $response_data = $this->assembleContractFields($response_data, NULL, 'oos');
+      return $this->jsonResponse($response_data, 200, [], $request_id);
+    }
+
+    if ($pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_POLICY_EXIT) {
       $this->analyticsLogger->log('policy_violation', $policy_result['type']);
 
       if ($debug_mode) {
@@ -963,7 +961,11 @@ class AssistantApiController extends ControllerBase {
         ]
       ));
 
-      $this->langfuseTracer?->endSpan(['violation' => TRUE, 'type' => $policy_result['type']]);
+      $this->langfuseTracer?->endSpan([
+        'decision_type' => $pre_routing_decision['decision_type'],
+        'winner_source' => $pre_routing_decision['winner_source'],
+        'reason_code' => $pre_routing_decision['reason_code'],
+      ]);
       $this->langfuseTracer?->endTrace(
         output: ['type' => 'policy_violation', 'reason_code' => 'policy_' . $policy_result['type']],
         metadata: array_merge(
@@ -976,8 +978,12 @@ class AssistantApiController extends ControllerBase {
       return $this->jsonResponse($response_data, 200, [], $request_id);
     }
 
-    // Policy passed.
-    $this->langfuseTracer?->endSpan(['violation' => FALSE]);
+    $this->langfuseTracer?->endSpan([
+      'decision_type' => $pre_routing_decision['decision_type'],
+      'winner_source' => $pre_routing_decision['winner_source'],
+      'reason_code' => $pre_routing_decision['reason_code'],
+      'override_risk_category' => $routing_override_intent['risk_category'] ?? NULL,
+    ]);
 
     // Pending follow-up slot-fill: consume only explicit office follow-up
     // turns or location-like replies. Unrelated turns continue normally.
@@ -1267,12 +1273,12 @@ class AssistantApiController extends ControllerBase {
     $this->langfuseTracer?->startSpan('gate.evaluate');
     $gate_context = [
       'message' => $user_message,
-      'policy_violation' => FALSE,
+      'policy_violation' => $pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
     ];
     $gate_decision = $this->fallbackGate->evaluate(
       $intent,
       $early_retrieval,
-      $safety_flags_for_gate,
+      $routing_override_intent,
       $gate_context
     );
     $this->langfuseTracer?->endSpan([
@@ -1296,14 +1302,15 @@ class AssistantApiController extends ControllerBase {
       // silently bypassed by normal navigation routing.
       $hard_route_source = (string) ($gate_decision['reason_code'] ?? '');
       if (($intent['type'] ?? '') !== 'high_risk' && ($intent['type'] ?? '') !== 'out_of_scope') {
-        if ($hard_route_source === FallbackGate::REASON_SAFETY_URGENT) {
-          $intent = [
-            'type' => 'high_risk',
-            'risk_category' => $this->inferHighRiskCategoryFromSafetyFlags($safety_flags_for_gate, $user_message),
-            'confidence' => max(0.92, (float) ($gate_decision['confidence'] ?? 0.92)),
-            'source' => 'gate_hard_route',
+        if ($hard_route_source === FallbackGate::REASON_SAFETY_URGENT && $routing_override_intent !== NULL) {
+          $intent = array_merge($routing_override_intent, [
+            'confidence' => max(
+              (float) ($routing_override_intent['confidence'] ?? 1.0),
+              (float) ($gate_decision['confidence'] ?? 1.0)
+            ),
+            'source' => 'pre_routing_gate_hard_route',
             'extraction' => $intent['extraction'] ?? [],
-          ];
+          ]);
         }
         else {
           $intent = [
@@ -1365,8 +1372,7 @@ class AssistantApiController extends ControllerBase {
     // CRITICAL: Enforce canonical URL for hard-route intents.
     $canonical_urls = ilas_site_assistant_get_canonical_urls();
     $builder = new ResponseBuilder($canonical_urls, $this->topIntentsPack);
-    $safety_flags = $safety_flags_for_gate;
-    $response = $builder->enforceHardRouteUrlWithSafetyFlags($response, $intent, $safety_flags);
+    $response = $builder->enforceHardRouteUrlWithOverrideIntent($response, $intent, $routing_override_intent);
 
     // Apply response grounding (add citations, validate info).
     if ($this->responseGrounder && !empty($response['results'])) {
@@ -1824,60 +1830,16 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
-   * Detects safety flags from the user message.
-   *
-   * @param string $message
-   *   The user message.
-   *
-   * @return array
-   *   Array of detected safety flags.
+   * Returns authoritative urgency signals for history storage.
    */
-  protected function detectSafetyFlags(string $message): array {
-    $flags = [];
-
-    if (preg_match('/\b(domestic\s*violence|domestic\s*issue|dv|abus|hit.*me|beat.*me|threaten(ing)?\s*me|threatening\s*me\s*over\s*debt|afraid|scared)\b/i', $message)) {
-      $flags[] = 'dv_indicator';
-    }
-    if (preg_match('/\b(evict|sheriff|lock.*out|homeless|thrown?\s*out)/i', $message)) {
-      $flags[] = 'eviction_imminent';
-    }
-    if (preg_match('/\b(identity\s*theft|scam|fraud|stolen\s*identity)/i', $message)) {
-      $flags[] = 'identity_theft';
-    }
-    if (preg_match('/\b(emergency|urgent|suicide|crisis|danger|911)/i', $message)) {
-      $flags[] = 'crisis_emergency';
-    }
-    if (preg_match('/\b(deadline|due\s*(today|tomorrow|friday|monday|this\s*week|tonight)|court\s*date|must\s*respond|respond\s*in\s*(24|48|72)\s*hours?|one\s*day\s*to\s*(answer|respond)|same[-\s]*day\s*help|before\s*i\s*sign|legal\s*letter|miss\s*filing|urgent\s*options)\b/i', $message)) {
-      $flags[] = 'deadline_pressure';
-    }
-    if (preg_match('/\b(arrest|criminal|felony|misdemeanor|jail|prison|dui|dwi)/i', $message)) {
-      $flags[] = 'criminal_matter';
+  protected function getUrgencySignalsForHistory(string $message, ?array $debug_meta = NULL): array {
+    if (is_array($debug_meta) && isset($debug_meta['safety_flags']) && is_array($debug_meta['safety_flags'])) {
+      return $debug_meta['safety_flags'];
     }
 
-    return $flags;
-  }
-
-  /**
-   * Infers a high-risk category from safety flags and message text.
-   */
-  protected function inferHighRiskCategoryFromSafetyFlags(array $safety_flags, string $message): string {
-    $flags = array_fill_keys($safety_flags, TRUE);
-    $lower = mb_strtolower($message);
-
-    if (!empty($flags['dv_indicator'])) {
-      return 'high_risk_dv';
-    }
-    if (!empty($flags['eviction_imminent'])) {
-      return 'high_risk_eviction';
-    }
-    if (!empty($flags['identity_theft'])) {
-      return 'high_risk_scam';
-    }
-    if (!empty($flags['deadline_pressure']) || preg_match('/\b(deadline|due|must\s*respond|respond\s*in\s*(24|48|72)|one\s*day|tonight|today|tomorrow)\b/u', $lower)) {
-      return 'high_risk_deadline';
-    }
-
-    return 'high_risk_deadline';
+    $normalized_message = InputNormalizer::normalize($message);
+    $decision = $this->preRoutingDecisionEngine->evaluate($normalized_message);
+    return $decision['urgency_signals'] ?? [];
   }
 
   /**
@@ -3863,7 +3825,7 @@ class AssistantApiController extends ControllerBase {
       'role' => 'user',
       'text' => PiiRedactor::redactForStorage($user_message, 200),
       'intent' => 'office_location_followup',
-      'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
+      'safety_flags' => $this->getUrgencySignalsForHistory($user_message, $debug_meta),
       'timestamp' => time(),
     ];
     $server_history = array_slice($server_history, -10);
@@ -3950,7 +3912,7 @@ class AssistantApiController extends ControllerBase {
       'role' => 'user',
       'text' => PiiRedactor::redactForStorage($user_message, 200),
       'intent' => 'office_location_followup_miss',
-      'safety_flags' => $debug_meta['safety_flags'] ?? $this->detectSafetyFlags($user_message),
+      'safety_flags' => $this->getUrgencySignalsForHistory($user_message, $debug_meta),
       'timestamp' => time(),
     ];
     $server_history = array_slice($server_history, -10);

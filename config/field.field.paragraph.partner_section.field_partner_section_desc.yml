@@ -1,0 +1,22 @@
+uuid: f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.paragraph.field_partner_section_desc
+    - paragraphs.paragraphs_type.partner_section
+  module:
+    - text
+id: paragraph.partner_section.field_partner_section_desc
+field_name: field_partner_section_desc
+entity_type: paragraph
+bundle: partner_section
+label: 'Section Description'
+description: 'Optional introductory text displayed below the section heading'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -6,6 +6,7 @@ dependencies:
     - field.field.node.standard_page.field_daa_items
     - field.field.node.standard_page.field_faq_section
     - field.field.node.standard_page.field_main_content
+    - field.field.node.standard_page.field_partner_sections
     - field.field.node.standard_page.field_sections
     - field.field.node.standard_page.field_topic_cards
     - node.type.standard_page
@@ -27,7 +28,7 @@ content:
     third_party_settings: {  }
   field_daa_items:
     type: paragraphs
-    weight: 124
+    weight: 125
     region: content
     settings:
       title: Paragraph
@@ -57,6 +58,24 @@ content:
       add_mode: dropdown
       form_display_mode: default
       default_paragraph_type: _none
+      features:
+        collapse_edit_all: collapse_edit_all
+        duplicate: duplicate
+    third_party_settings: {  }
+  field_partner_sections:
+    type: paragraphs
+    weight: 124
+    region: content
+    settings:
+      title: 'Partner Section'
+      title_plural: 'Partner Sections'
+      edit_mode: open
+      closed_mode: summary
+      autocollapse: all
+      closed_mode_threshold: 0
+      add_mode: dropdown
+      form_display_mode: default
+      default_paragraph_type: partner_section
       features:
         collapse_edit_all: collapse_edit_all
         duplicate: duplicate

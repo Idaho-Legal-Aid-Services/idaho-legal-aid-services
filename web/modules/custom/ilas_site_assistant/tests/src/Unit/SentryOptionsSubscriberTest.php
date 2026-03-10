@@ -2,8 +2,10 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Core\Site\Settings;
 use Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -91,21 +93,37 @@ class SentryOptionsSubscriberTest extends TestCase {
   public function testTagsAreSet(): void {
     $this->requireRaven();
 
-    $options = [];
-    $event = new \Drupal\raven\Event\OptionsAlter($options);
+    $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
 
-    $subscriber = new SentryOptionsSubscriber();
-    $subscriber->onOptionsAlter($event);
+    try {
+      putenv('PANTHEON_ENVIRONMENT=dev');
+      new Settings([]);
 
-    $this->assertArrayHasKey('tags', $event->options);
-    $tags = $event->options['tags'];
-    $this->assertArrayHasKey('pantheon_env', $tags);
-    $this->assertArrayHasKey('php_sapi', $tags);
-    $this->assertArrayHasKey('runtime_context', $tags);
-    $this->assertArrayHasKey('site_name', $tags);
-    $this->assertArrayHasKey('assistant_name', $tags);
-    $this->assertSame(PHP_SAPI, $tags['php_sapi']);
-    $this->assertSame('aila', $tags['assistant_name']);
+      $options = [];
+      $event = new \Drupal\raven\Event\OptionsAlter($options);
+
+      $subscriber = new SentryOptionsSubscriber();
+      $subscriber->onOptionsAlter($event);
+
+      $this->assertArrayHasKey('tags', $event->options);
+      $tags = $event->options['tags'];
+      $this->assertArrayHasKey('pantheon_env', $tags);
+      $this->assertSame('dev', $tags['pantheon_env']);
+      $this->assertArrayHasKey('php_sapi', $tags);
+      $this->assertArrayHasKey('runtime_context', $tags);
+      $this->assertArrayHasKey('site_name', $tags);
+      $this->assertArrayHasKey('assistant_name', $tags);
+      $this->assertSame(PHP_SAPI, $tags['php_sapi']);
+      $this->assertSame('aila', $tags['assistant_name']);
+    }
+    finally {
+      if ($originalPantheon !== FALSE) {
+        putenv("PANTHEON_ENVIRONMENT=$originalPantheon");
+      }
+      else {
+        putenv('PANTHEON_ENVIRONMENT');
+      }
+    }
   }
 
   /**
@@ -116,20 +134,35 @@ class SentryOptionsSubscriberTest extends TestCase {
   public function testExistingTagsArePreserved(): void {
     $this->requireRaven();
 
-    $options = [
-      'tags' => ['custom_tag' => 'custom_value'],
-    ];
-    $event = new \Drupal\raven\Event\OptionsAlter($options);
+    $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
 
-    $subscriber = new SentryOptionsSubscriber();
-    $subscriber->onOptionsAlter($event);
+    try {
+      putenv('PANTHEON_ENVIRONMENT=dev');
+      new Settings([]);
 
-    $tags = $event->options['tags'];
-    $this->assertSame('custom_value', $tags['custom_tag'], 'Pre-existing tags must be preserved');
-    $this->assertArrayHasKey('pantheon_env', $tags);
-    $this->assertArrayHasKey('php_sapi', $tags);
-    $this->assertArrayHasKey('runtime_context', $tags);
-    $this->assertArrayHasKey('assistant_name', $tags);
+      $options = [
+        'tags' => ['custom_tag' => 'custom_value'],
+      ];
+      $event = new \Drupal\raven\Event\OptionsAlter($options);
+
+      $subscriber = new SentryOptionsSubscriber();
+      $subscriber->onOptionsAlter($event);
+
+      $tags = $event->options['tags'];
+      $this->assertSame('custom_value', $tags['custom_tag'], 'Pre-existing tags must be preserved');
+      $this->assertArrayHasKey('pantheon_env', $tags);
+      $this->assertArrayHasKey('php_sapi', $tags);
+      $this->assertArrayHasKey('runtime_context', $tags);
+      $this->assertArrayHasKey('assistant_name', $tags);
+    }
+    finally {
+      if ($originalPantheon !== FALSE) {
+        putenv("PANTHEON_ENVIRONMENT=$originalPantheon");
+      }
+      else {
+        putenv('PANTHEON_ENVIRONMENT');
+      }
+    }
   }
 
   /**
@@ -419,6 +452,57 @@ class SentryOptionsSubscriberTest extends TestCase {
       }
       else {
         putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      }
+    }
+  }
+
+  // ─── Runtime context resolution tests ──────────────────────────────
+
+  /**
+   * Data provider for runtime context resolution branches.
+   *
+   * The 'web' branch (PHP_SAPI !== 'cli') cannot be tested in PHPUnit because
+   * PHP_SAPI is always 'cli'. All CLI branches are covered below.
+   *
+   * @return array<string, array{0: list<string>, 1: string}>
+   */
+  public static function runtimeContextProvider(): array {
+    return [
+      'drush cron (short)' => [['drush', 'cron'], 'drush-cron'],
+      'drush core:cron' => [['drush', 'core:cron'], 'drush-cron'],
+      'drush updb' => [['drush', 'updb'], 'drush-updb'],
+      'drush deploy' => [['drush', 'deploy'], 'drush-deploy'],
+      'drush cr (short)' => [['drush', 'cr'], 'drush-cr'],
+      'drush cache:rebuild' => [['drush', 'cache:rebuild'], 'drush-cr'],
+      'drush php:eval' => [['drush', 'php:eval'], 'drush-eval'],
+      'drush ev (short)' => [['drush', 'ev'], 'drush-eval'],
+      'drush unknown command' => [['drush', 'some-custom-cmd'], 'drush-cli'],
+      'empty argv' => [[], 'cli-other'],
+    ];
+  }
+
+  /**
+   * Tests resolveRuntimeContext via observabilityContext() with argv injection.
+   *
+   * @covers ::observabilityContext
+   */
+  #[DataProvider('runtimeContextProvider')]
+  public function testResolveRuntimeContextBranches(array $argv, string $expected): void {
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      new Settings([]);
+      $_SERVER['argv'] = $argv;
+
+      $context = SentryOptionsSubscriber::observabilityContext();
+      $this->assertSame($expected, $context['runtime_context']);
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
       }
     }
   }

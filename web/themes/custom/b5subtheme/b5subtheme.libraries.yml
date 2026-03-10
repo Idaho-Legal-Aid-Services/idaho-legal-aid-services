@@ -187,6 +187,13 @@ guides:
     - core/drupal
     - core/once
 
+partner-grid:
+  css:
+    component:
+      css/style.css: {}
+  dependencies:
+    - b5subtheme/global-styling
+
 hero-rotator:
   version: 1.0
   js:
