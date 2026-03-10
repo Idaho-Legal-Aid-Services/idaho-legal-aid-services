@@ -5,6 +5,7 @@ namespace Drupal\ilas_site_assistant\Service;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Component\Datetime\TimeInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Service for logging minimized analytics data.
@@ -33,16 +34,25 @@ class AnalyticsLogger {
   protected $time;
 
   /**
+   * The module logger.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected LoggerInterface $logger;
+
+  /**
    * Constructs an AnalyticsLogger object.
    */
   public function __construct(
     Connection $database,
     ConfigFactoryInterface $config_factory,
-    TimeInterface $time
+    TimeInterface $time,
+    LoggerInterface $logger
   ) {
     $this->database = $database;
     $this->configFactory = $config_factory;
     $this->time = $time;
+    $this->logger = $logger;
   }
 
   /**
@@ -88,7 +98,7 @@ class AnalyticsLogger {
     }
     catch (\Exception $e) {
       // Log error but don't break the user experience.
-      \Drupal::logger('ilas_site_assistant')->error('Analytics logging failed: @class @error_signature', [
+      $this->logger->error('Analytics logging failed: @class @error_signature', [
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
@@ -142,7 +152,7 @@ class AnalyticsLogger {
       }
     }
     catch (\Exception $e) {
-      \Drupal::logger('ilas_site_assistant')->error('No-answer logging failed: @class @error_signature', [
+      $this->logger->error('No-answer logging failed: @class @error_signature', [
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
@@ -214,7 +224,7 @@ class AnalyticsLogger {
       }
     }
     catch (\Exception $e) {
-      \Drupal::logger('ilas_site_assistant')->error('Analytics cleanup failed: @class @error_signature', [
+      $this->logger->error('Analytics cleanup failed: @class @error_signature', [
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);

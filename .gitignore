@@ -217,5 +217,8 @@ node_modules/
 # Local audit docs and utility scripts
 docs/assistant_audit/
 
+# AILA raw evidence dumps (reproducible, not curated docs)
+docs/aila/artifacts/
+
 # Local pull-live configuration (may contain environment-specific overrides)
 scripts/pull-live.conf

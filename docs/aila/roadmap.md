@@ -61,6 +61,28 @@ Planning defaults applied:
     telemetry (`input_hash`, `output_hash`, `query_hash`, `keyword_count`,
     `error_signature`) and adds schema/update-hook coverage so legacy rows and
     queued trace batches are rewritten or discarded on deploy.
+14. `RAUD-12` closes the repo-side anonymous bootstrap churn gap behind
+    finding `NF-04`: a dedicated `AssistantSessionBootstrapGuard` now
+    separates new anonymous session creation from same-session reuse, applies
+    config-backed new-session flood thresholds keyed by resolved client IP, and
+    records a rolling snapshot at
+    `ilas_site_assistant.session_bootstrap.snapshot`.
+15. `RAUD-12` also makes the bootstrap surface observable rather than purely
+    implicit: admin metrics now expose `metrics.session_bootstrap` plus
+    `thresholds.session_bootstrap`, and widget-side bootstrap failures preserve
+    `status` / `Retry-After` so 429 recovery UX stays consistent with the
+    existing error contract.
+16. Remaining `RAUD-12` closure work is deployment-bound: Pantheon `dev`,
+    `test`, and `live` still return `null` for
+    `ilas_site_assistant.settings:session_bootstrap` and no bootstrap snapshot
+    state in March 10, 2026 read-only checks, so the finding remains
+    `Partially Fixed` until the new config/code is deployed and rechecked.
+17. `RAUD-13` closes the remaining logger DI/testability gap behind findings
+    `L1` / `N-28`: `AnalyticsLogger` and `ConversationLogger` now inject the
+    module logger channel instead of reaching into global static logger state.
+18. `RAUD-13` preserves the existing analytics/conversation log payload
+    contract while adding dedicated unit and kernel regression coverage for
+    swallowed exception paths and conversation cleanup info logging.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

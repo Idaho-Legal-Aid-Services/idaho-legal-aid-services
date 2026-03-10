@@ -14,6 +14,7 @@
  *  6. Focus trap lifecycle — no listener accumulation
  *  7. Typing indicator ARIA — role="status" + aria-label
  *  8. AbortController timeout — callApi rejects on timeout
+ *  9. Bootstrap token fetch — preserves HTTP status + Retry-After
  */
 
 /* global SiteAssistant */
@@ -134,6 +135,38 @@ window._assistantWidgetTestDone = (async function () {
       }
       if (error.status >= 500) return Drupal.t('Our server is having trouble right now. Please try again in a few minutes, or reach us through our hotline.');
       return Drupal.t("I'm having trouble right now. You can try again, or reach us directly through our hotline.");
+    },
+
+    fetchCsrfTokenWithDeps: function (deps, forceRefresh) {
+      if (deps.csrfTokenPromise && !forceRefresh) {
+        return deps.csrfTokenPromise;
+      }
+
+      deps.csrfTokenPromise = deps.fetch(deps.bootstrapUrl, {
+        method: 'GET',
+        credentials: 'same-origin',
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            var error = new Error('Failed to fetch CSRF token: ' + response.status);
+            error.status = response.status;
+            error.retryAfter = response.headers && typeof response.headers.get === 'function'
+              ? response.headers.get('Retry-After')
+              : null;
+            throw error;
+          }
+          return response.text();
+        })
+        .then(function (token) {
+          deps.config.csrfToken = token;
+          return token;
+        })
+        .catch(function (error) {
+          deps.csrfTokenPromise = null;
+          throw error;
+        });
+
+      return deps.csrfTokenPromise;
     },
 
     /**
@@ -378,6 +411,42 @@ window._assistantWidgetTestDone = (async function () {
 
     var noCodeMsg = SA.getErrorMessage({ status: 403 });
     assert(noCodeMsg.indexOf('Access denied') !== -1, '403 + no code falls through to Access denied');
+  });
+
+  // ===================================================================
+  // 4b. Bootstrap token fetch preserves status-aware recovery context
+  // ===================================================================
+  suite('Bootstrap token fetch errors', async function () {
+    var deps = {
+      bootstrapUrl: '/assistant/api/session/bootstrap',
+      config: {},
+      csrfTokenPromise: null,
+      fetch: function () {
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          headers: {
+            get: function (name) {
+              return name === 'Retry-After' ? '45' : null;
+            },
+          },
+          text: function () {
+            return Promise.resolve('Too many bootstrap requests');
+          },
+        });
+      },
+    };
+
+    await SA.fetchCsrfTokenWithDeps(deps)
+      .then(function () {
+        assert(false, 'bootstrap 429 must reject');
+      })
+      .catch(function (error) {
+        assert(error.status === 429, 'bootstrap 429 preserves HTTP status');
+        assert(error.retryAfter === '45', 'bootstrap 429 preserves Retry-After');
+        assert(deps.csrfTokenPromise === null, 'bootstrap failure clears cached promise');
+        assert(typeof deps.config.csrfToken === 'undefined', 'bootstrap failure does not cache a token');
+      });
   });
 
   // ===================================================================

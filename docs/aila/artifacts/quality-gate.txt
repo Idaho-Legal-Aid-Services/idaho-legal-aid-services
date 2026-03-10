@@ -1,5 +1,0 @@
-$ python claim cross-link check
-claims_in_current= 98
-missing_in_evidence= []
-
-$ secret/PII scan on required deliverables

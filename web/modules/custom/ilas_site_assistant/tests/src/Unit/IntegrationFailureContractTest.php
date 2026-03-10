@@ -537,7 +537,7 @@ class IntegrationFailureContractTest extends TestCase {
     $time = $this->createStub(TimeInterface::class);
     $time->method('getRequestTime')->willReturn(time());
 
-    $logger = new AnalyticsLogger($database, $configFactory, $time);
+    $logger = new AnalyticsLogger($database, $configFactory, $time, $this->createStub(LoggerInterface::class));
 
     // Must not throw — exception is caught internally.
     $logger->log('test_event', 'test_value');
@@ -572,7 +572,7 @@ class IntegrationFailureContractTest extends TestCase {
     $time = $this->createStub(TimeInterface::class);
     $time->method('getRequestTime')->willReturn(time());
 
-    $logger = new ConversationLogger($database, $configFactory, $time);
+    $logger = new ConversationLogger($database, $configFactory, $time, $this->createStub(LoggerInterface::class));
 
     // Must not throw — exception is caught internally.
     $logger->logExchange('11111111-1111-4111-8111-111111111111', 'test', 'response', 'faq', 'faq', 'req-id');

@@ -4,6 +4,7 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use Psr\Log\LoggerInterface;
 
 /**
  * Kernel tests for AnalyticsLogger service.
@@ -329,14 +330,16 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
    * @return \Drupal\ilas_site_assistant\Service\AnalyticsLogger
    *   The configured AnalyticsLogger.
    */
-  protected function createAnalyticsLogger(array $config_overrides = [], int $timestamp = 1700000000): AnalyticsLogger {
+  protected function createAnalyticsLogger(array $config_overrides = [], int $timestamp = 1700000000, ?LoggerInterface $logger = NULL): AnalyticsLogger {
     $configFactory = $this->createMockConfigFactory($config_overrides);
     $time = $this->createMockTime($timestamp);
+    $logger ??= $this->createStub(LoggerInterface::class);
 
     return new AnalyticsLogger(
       $this->database,
       $configFactory,
-      $time
+      $time,
+      $logger
     );
   }
 

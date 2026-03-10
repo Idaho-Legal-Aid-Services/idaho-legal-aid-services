@@ -5,6 +5,7 @@ namespace Drupal\ilas_site_assistant\Service;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Component\Datetime\TimeInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Opt-in conversation logger with metadata-only persistence for QA/debugging.
@@ -37,16 +38,25 @@ class ConversationLogger {
   protected $time;
 
   /**
+   * The module logger.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected LoggerInterface $logger;
+
+  /**
    * Constructs a ConversationLogger object.
    */
   public function __construct(
     Connection $database,
     ConfigFactoryInterface $config_factory,
-    TimeInterface $time
+    TimeInterface $time,
+    LoggerInterface $logger
   ) {
     $this->database = $database;
     $this->configFactory = $config_factory;
     $this->time = $time;
+    $this->logger = $logger;
   }
 
   /**
@@ -143,7 +153,7 @@ class ConversationLogger {
         ->execute();
     }
     catch (\Exception $e) {
-      \Drupal::logger('ilas_site_assistant')
+      $this->logger
         ->error('Conversation logging failed: @class @error_signature', [
           '@class' => get_class($e),
           '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
@@ -197,14 +207,14 @@ class ConversationLogger {
       }
 
       if ($total_deleted > 0) {
-        \Drupal::logger('ilas_site_assistant')
+        $this->logger
           ->info('Cleaned up @count expired conversation log entries.', [
             '@count' => $total_deleted,
           ]);
       }
     }
     catch (\Exception $e) {
-      \Drupal::logger('ilas_site_assistant')
+      $this->logger
         ->error('Conversation cleanup failed: @class @error_signature', [
           '@class' => get_class($e),
           '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),

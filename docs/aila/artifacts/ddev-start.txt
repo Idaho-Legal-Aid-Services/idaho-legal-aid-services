@@ -1,3 +1,0 @@
-$ ddev start
-Could not connect to a Docker provider. Please start or install a Docker provider.
-For install help go to: https://ddev.readthedocs.io/en/stable/users/install/docker-installation/

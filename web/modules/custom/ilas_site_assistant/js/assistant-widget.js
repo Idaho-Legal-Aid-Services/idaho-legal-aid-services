@@ -248,7 +248,10 @@
       })
         .then(function (response) {
           if (!response.ok) {
-            throw new Error('Failed to fetch CSRF token: ' + response.status);
+            var error = new Error('Failed to fetch CSRF token: ' + response.status);
+            error.status = response.status;
+            error.retryAfter = response.headers.get('Retry-After');
+            throw error;
           }
           return response.text();
         })

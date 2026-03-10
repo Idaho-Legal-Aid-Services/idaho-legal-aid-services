@@ -2493,4 +2493,51 @@ Evidence precedence used in this audit:
   - `docs/aila/current-state.md`
   - `docs/aila/roadmap.md`
   - `docs/assistant_audit_backlog.md`
-  - `docs/aila/runtime/raud-11-log-surface-minimization.txt`
+
+### CLAIM-172
+- Claim: Re-audit remediation `RAUD-12` bounds anonymous session bootstrap by
+  distinguishing new-session creation from same-session reuse, applying
+  config-backed flood thresholds keyed by the resolved client IP, recording a
+  rolling bootstrap snapshot in state, exposing bootstrap counters/thresholds
+  in admin metrics, and preserving widget-side 429 recovery context.
+  Pantheon read-only checks on March 10, 2026 still show the new
+  `session_bootstrap` config/state as undeployed, so the finding remains
+  `Partially Fixed`.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/AssistantSessionBootstrapGuard.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantSessionBootstrapController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
+  - `config/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantSessionBootstrapGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyConfigGovernanceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/system-map.mmd`
+  - `docs/aila/runtime/raud-12-anonymous-session-bootstrap.txt`
+
+### CLAIM-173
+- Claim: Re-audit remediation `RAUD-13` removes static logger access from
+  `AnalyticsLogger` and `ConversationLogger` by injecting the module logger
+  channel, while preserving the existing analytics/conversation error and
+  cleanup logging contracts with executable unit and kernel coverage.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/runtime/raud-13-logger-di-hardening.txt`

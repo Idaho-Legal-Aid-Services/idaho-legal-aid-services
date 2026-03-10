@@ -490,6 +490,13 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->assertArrayHasKey('thresholds', $data);
     $this->assertArrayHasKey('cron', $data);
     $this->assertArrayHasKey('queue', $data);
+    $this->assertArrayHasKey('session_bootstrap', $data['metrics']);
+    $this->assertArrayHasKey('new_session_requests', $data['metrics']['session_bootstrap']);
+    $this->assertArrayHasKey('rate_limited_requests', $data['metrics']['session_bootstrap']);
+    $this->assertArrayHasKey('session_bootstrap', $data['thresholds']);
+    $this->assertArrayHasKey('rate_limit_per_minute', $data['thresholds']['session_bootstrap']);
+    $this->assertArrayHasKey('rate_limit_per_hour', $data['thresholds']['session_bootstrap']);
+    $this->assertArrayHasKey('observation_window_hours', $data['thresholds']['session_bootstrap']);
   }
 
   /**
@@ -935,10 +942,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    */
   public function testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie(): void {
     $cookies = new CookieJar();
-    $response = $this->getHttpClient()->get($this->buildUrl('/assistant/api/session/bootstrap'), [
-      'http_errors' => FALSE,
-      'cookies' => $cookies,
-    ]);
+    $response = $this->requestBootstrap($cookies);
 
     $this->assertEquals(200, $response->getStatusCode());
     $this->assertNotEmpty(trim((string) $response->getBody()), 'Bootstrap endpoint must return a CSRF token');
@@ -946,6 +950,53 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->assertStringContainsString('text/plain', $response->getHeader('Content-Type')[0] ?? '');
     $this->assertStringContainsString('no-store', $response->getHeader('Cache-Control')[0] ?? '');
     $this->assertEquals('nosniff', $response->getHeader('X-Content-Type-Options')[0] ?? '');
+  }
+
+  /**
+   * Assistant bootstrap reuses an established anonymous session without churn.
+   */
+  public function testAnonymousSessionBootstrapReuseDoesNotRotateCookie(): void {
+    $cookies = new CookieJar();
+
+    $first = $this->requestBootstrap($cookies);
+    $this->assertEquals(200, $first->getStatusCode());
+    $this->assertNotEmpty($first->getHeader('Set-Cookie'), 'Initial bootstrap must mint a session cookie');
+
+    $initial_cookie = $this->findDrupalSessionCookie($cookies);
+    $this->assertNotNull($initial_cookie, 'Initial bootstrap must populate the cookie jar with a Drupal session cookie');
+
+    $second = $this->requestBootstrap($cookies);
+    $this->assertEquals(200, $second->getStatusCode());
+    $this->assertSame([], $second->getHeader('Set-Cookie'), 'Bootstrap reuse must not rotate the anonymous session cookie');
+
+    $reused_cookie = $this->findDrupalSessionCookie($cookies);
+    $this->assertNotNull($reused_cookie, 'Reused bootstrap must preserve the existing Drupal session cookie');
+    $this->assertSame($initial_cookie['Value'], $reused_cookie['Value'], 'Bootstrap reuse must preserve the same session identifier');
+  }
+
+  /**
+   * Bootstrap rate limiting applies only to new anonymous sessions.
+   */
+  public function testAnonymousSessionBootstrapRateLimitBoundsNewSessionsButAllowsReuse(): void {
+    $this->setSessionBootstrapThresholds(1, 1);
+    $this->clearBootstrapFloodEvents();
+
+    $established_cookies = new CookieJar();
+    $warmup = $this->requestBootstrap($established_cookies);
+    $this->assertEquals(200, $warmup->getStatusCode(), 'Initial bootstrap must succeed before the limit is reached');
+    $this->assertNotNull($this->findDrupalSessionCookie($established_cookies), 'Initial bootstrap must create a Drupal session cookie');
+
+    $cold_cookies = new CookieJar();
+    $limited = $this->requestBootstrap($cold_cookies);
+    $this->assertEquals(429, $limited->getStatusCode(), 'A second cold bootstrap request must be rate limited when the new-session budget is exhausted');
+    $this->assertSame('60', $limited->getHeader('Retry-After')[0] ?? NULL);
+    $this->assertStringContainsString('text/plain', $limited->getHeader('Content-Type')[0] ?? '');
+    $this->assertStringContainsString('no-store', $limited->getHeader('Cache-Control')[0] ?? '');
+    $this->assertSame([], $cold_cookies->toArray(), 'Rate-limited bootstrap requests must not mint a new anonymous session cookie');
+
+    $reused = $this->requestBootstrap($established_cookies);
+    $this->assertEquals(200, $reused->getStatusCode(), 'Bootstrap reuse with an existing anonymous session must stay allowed after cold-session exhaustion');
+    $this->assertSame([], $reused->getHeader('Set-Cookie'), 'Reused bootstrap after exhaustion must not rotate the session cookie');
   }
 
   /**
@@ -1042,14 +1093,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    *   The session token.
    */
   protected function getSessionToken(?CookieJarInterface $cookies = NULL): string {
-    $url = $this->buildUrl('/assistant/api/session/bootstrap');
-    $options = [
-      'http_errors' => FALSE,
-    ];
-    if ($cookies !== NULL) {
-      $options['cookies'] = $cookies;
-    }
-    $response = $this->getHttpClient()->get($url, $options);
+    $response = $this->requestBootstrap($cookies);
     return (string) $response->getBody();
   }
 
@@ -1075,12 +1119,67 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * POST.
    */
   protected function primeAnonymousSession(CookieJarInterface $cookies): void {
-    $response = $this->getHttpClient()->get($this->buildUrl('/assistant/api/session/bootstrap'), [
-      'http_errors' => FALSE,
-      'cookies' => $cookies,
-    ]);
+    $response = $this->requestBootstrap($cookies);
     $this->assertEquals(200, $response->getStatusCode(),
       '/assistant/api/session/bootstrap must be accessible to establish anonymous session');
+  }
+
+  /**
+   * Issues a bootstrap request with an optional cookie jar.
+   */
+  protected function requestBootstrap(?CookieJarInterface $cookies = NULL) {
+    $options = [
+      'http_errors' => FALSE,
+    ];
+    if ($cookies !== NULL) {
+      $options['cookies'] = $cookies;
+    }
+
+    return $this->getHttpClient()->get($this->buildUrl('/assistant/api/session/bootstrap'), $options);
+  }
+
+  /**
+   * Returns the Drupal session cookie stored in a cookie jar, if present.
+   */
+  protected function findDrupalSessionCookie(CookieJarInterface $cookies): ?array {
+    foreach ($cookies->toArray() as $cookie) {
+      $name = (string) ($cookie['Name'] ?? '');
+      if (str_starts_with($name, 'SESS') || str_starts_with($name, 'SSESS')) {
+        return $cookie;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Applies bootstrap rate-limit thresholds for the active test site.
+   */
+  protected function setSessionBootstrapThresholds(int $perMinute, int $perHour, int $windowHours = 24): void {
+    \Drupal::configFactory()->getEditable('ilas_site_assistant.settings')
+      ->set('session_bootstrap', [
+        'rate_limit_per_minute' => $perMinute,
+        'rate_limit_per_hour' => $perHour,
+        'observation_window_hours' => $windowHours,
+      ])
+      ->save();
+  }
+
+  /**
+   * Clears bootstrap flood rows to keep assertions deterministic.
+   */
+  protected function clearBootstrapFloodEvents(): void {
+    $database = \Drupal::database();
+    if (!$database->schema()->tableExists('flood')) {
+      return;
+    }
+
+    $database->delete('flood')
+      ->condition('event', [
+        'ilas_assistant_session_bootstrap_min',
+        'ilas_assistant_session_bootstrap_hour',
+      ], 'IN')
+      ->execute();
   }
 
   /**

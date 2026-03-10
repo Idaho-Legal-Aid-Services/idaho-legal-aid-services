@@ -84,6 +84,10 @@ llm:
 # Rate limiting (per IP)
 rate_limit_per_minute: 15
 rate_limit_per_hour: 120
+session_bootstrap:
+  rate_limit_per_minute: 60
+  rate_limit_per_hour: 600
+  observation_window_hours: 24
 
 # Conversation logging (opt-in, default OFF)
 # When enabled, stores PII-redacted message pairs for QA/debugging.

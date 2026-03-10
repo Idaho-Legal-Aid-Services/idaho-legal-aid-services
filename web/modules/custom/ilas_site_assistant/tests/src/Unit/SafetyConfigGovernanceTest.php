@@ -111,6 +111,17 @@ class SafetyConfigGovernanceTest extends TestCase {
   }
 
   /**
+   * Anonymous bootstrap rate-limit defaults must be explicit and bounded.
+   */
+  public function testSessionBootstrapDefaults(): void {
+    $install = self::installConfig();
+    $this->assertArrayHasKey('session_bootstrap', $install);
+    $this->assertSame(60, $install['session_bootstrap']['rate_limit_per_minute'], 'Bootstrap rate limit per minute must default to 60');
+    $this->assertSame(600, $install['session_bootstrap']['rate_limit_per_hour'], 'Bootstrap rate limit per hour must default to 600');
+    $this->assertSame(24, $install['session_bootstrap']['observation_window_hours'], 'Bootstrap observation window must default to 24 hours');
+  }
+
+  /**
    * Conversation logging must redact PII by default.
    */
   public function testConversationLoggingRedactionDefault(): void {
@@ -161,6 +172,7 @@ class SafetyConfigGovernanceTest extends TestCase {
       'disclaimer_text',
       'vector_search',
       'audit_governance',
+      'session_bootstrap',
     ];
 
     foreach ($requiredBlocks as $block) {
@@ -207,6 +219,21 @@ class SafetyConfigGovernanceTest extends TestCase {
       $install['rate_limit_per_hour'],
       $active['rate_limit_per_hour'],
       'Active rate_limit_per_hour has drifted from install default',
+    );
+    $this->assertSame(
+      $install['session_bootstrap']['rate_limit_per_minute'],
+      $active['session_bootstrap']['rate_limit_per_minute'],
+      'Active session_bootstrap.rate_limit_per_minute has drifted from install default',
+    );
+    $this->assertSame(
+      $install['session_bootstrap']['rate_limit_per_hour'],
+      $active['session_bootstrap']['rate_limit_per_hour'],
+      'Active session_bootstrap.rate_limit_per_hour has drifted from install default',
+    );
+    $this->assertSame(
+      $install['session_bootstrap']['observation_window_hours'],
+      $active['session_bootstrap']['observation_window_hours'],
+      'Active session_bootstrap.observation_window_hours has drifted from install default',
     );
 
     // LLM safety keys.

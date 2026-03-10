@@ -4,6 +4,7 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use Psr\Log\LoggerInterface;
 
 /**
  * Kernel tests for ConversationLogger service.
@@ -287,6 +288,41 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests that cleanup logs the deleted-row count through the injected logger.
+   *
+   * @covers ::cleanup
+   */
+  public function testCleanupLogsDeletedRowCount(): void {
+    $now = 1700000000;
+    $retention_hours = 72;
+    $old_timestamp = $now - ($retention_hours * 3600) - 1;
+
+    $this->database->insert('ilas_site_assistant_conversations')
+      ->fields([
+        'conversation_id' => '33333333-3333-4333-8333-333333333333',
+        'direction' => 'user',
+        'message_hash' => hash('sha256', 'old message'),
+        'message_length_bucket' => ObservabilityPayloadMinimizer::LENGTH_BUCKET_SHORT,
+        'redaction_profile' => ObservabilityPayloadMinimizer::PROFILE_NONE,
+        'intent' => 'faq',
+        'created' => $old_timestamp,
+      ])
+      ->execute();
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('info')
+      ->with('Cleaned up @count expired conversation log entries.', [
+        '@count' => 1,
+      ]);
+
+    $service = $this->createConversationLogger([], $now, $logger);
+    $service->cleanup();
+
+    $this->assertEquals(0, $this->countTableRows('ilas_site_assistant_conversations'));
+  }
+
+  /**
    * Tests that batched cleanup deletes all expired rows across batches.
    *
    * @covers ::cleanup
@@ -426,14 +462,16 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
    * @return \Drupal\ilas_site_assistant\Service\ConversationLogger
    *   The configured ConversationLogger.
    */
-  protected function createConversationLogger(array $config_overrides = [], int $timestamp = 1700000000): ConversationLogger {
+  protected function createConversationLogger(array $config_overrides = [], int $timestamp = 1700000000, ?LoggerInterface $logger = NULL): ConversationLogger {
     $configFactory = $this->createMockConfigFactory($config_overrides);
     $time = $this->createMockTime($timestamp);
+    $logger ??= $this->createStub(LoggerInterface::class);
 
     return new ConversationLogger(
       $this->database,
       $configFactory,
-      $time
+      $time,
+      $logger
     );
   }
 

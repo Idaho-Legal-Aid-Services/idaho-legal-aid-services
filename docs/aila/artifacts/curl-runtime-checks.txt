@@ -1,5 +1,0 @@
-$ curl -sS -i http://127.0.0.1/assistant/api/health
-curl: (7) Failed to connect to 127.0.0.1 port 80 after 0 ms: Couldn't connect to server
-
-$ curl -sS -i -X POST http://127.0.0.1/assistant/api/message -H 'Content-Type: application/json' --data '{"message":"SYNTHETIC TEST"}'
-curl: (7) Failed to connect to 127.0.0.1 port 80 after 0 ms: Couldn't connect to server

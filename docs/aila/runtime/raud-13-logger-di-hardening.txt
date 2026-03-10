@@ -1,0 +1,106 @@
+# RAUD-13 Injected Logger Hardening Remediation Report
+
+- Date: 2026-03-10
+- Prompt ID: `RAUD-13`
+- Finding IDs: `L1`, `N-28`
+- Prior status: Open / verified gap. `AnalyticsLogger` still used static
+  `\Drupal::logger()` in three catch blocks (stats write failure, no-answer
+  persistence failure, analytics cleanup failure), and `ConversationLogger`
+  still used static `\Drupal::logger()` in three paths (exchange write
+  failure, cleanup info count, cleanup failure). The services therefore
+  depended on global logger state instead of injectable module-scoped logging.
+- Post-change status: Fixed
+- Verification level tag: `Verified by execution`
+
+## Evidence
+
+- Static logger inventory and DI remediation:
+  - `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - Both services now inject `@logger.channel.ilas_site_assistant` and no
+    longer call `\Drupal::logger()` directly.
+- Logger-focused regression coverage:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+  - Unit coverage now proves the injected logger records the existing
+    analytics/conversation error paths, and kernel coverage still proves
+    persistence plus conversation cleanup info logging.
+- Continuity docs:
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/evidence-index.md`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/runbook.md`
+  - `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+
+## Command summaries
+
+- Static logger scan:
+  - Command: `rg -n "\\Drupal::logger" web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - Result: no matches.
+- Targeted unit verification:
+  - Command: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - Result: passed (`28` tests, `97` assertions, `6` PHPUnit deprecations).
+- Targeted kernel verification:
+  - Command: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+  - Result: passed (`27` tests, `100` assertions, `422` PHPUnit deprecations).
+- VC-UNIT:
+  - Command: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: failed outside the RAUD-13 surface (`1869` tests, `9171`
+    assertions, `3` failures, `2` warnings, `1` deprecation, `193` PHPUnit
+    deprecations, `1` skipped).
+  - Failure summary:
+    - `ImpObs01AcceptanceTest::testSentryEventGetsEnvironmentTagsAndPiiScrubbed`
+      expected `web`, got `drush-cli`
+    - `SentryOptionsSubscriberTest::testTagsAreSet`
+    - `SentryOptionsSubscriberTest::testExistingTagsArePreserved`
+  - Logger-injection unit coverage remained green inside the same workspace.
+- VC-KERNEL:
+  - Command: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel`
+  - Result: passed (`52` tests, `1242` assertions, `791` PHPUnit
+    deprecations).
+
+## Changed files
+
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/raud-13-logger-di-hardening.txt`
+- `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+
+## Residual risks / unknowns
+
+- `VC-UNIT` is not fully green in this workspace because of three unrelated
+  Sentry-tagging failures; RAUD-13-specific unit coverage passed, but blanket
+  suite health beyond the logger surface remains noisy.
+- Deployed environments have not yet been rechecked, so the updated service
+  definitions are only verified locally in repo/DDEV, not on Pantheon.
+
+## Rollback notes
+
+- Code rollback: revert the service, service-definition, PHPUnit, and
+  documentation changes listed above.
+- No schema migration, config schema change, or data backfill was introduced,
+  so no database rollback is required.
+- If the injected logger wiring causes unexpected container issues after
+  deployment, rollback is isolated to the two services plus their test/doc
+  bundle.
+
+## Still-unverified surfaces
+
+- Pantheon runtime confirmation that the updated service definitions are active
+  in deployed containers.
+- Root-cause remediation for the unrelated Sentry-tag failures currently
+  leaving `VC-UNIT` red outside the RAUD-13 surface.

@@ -75,7 +75,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `ilas_site_assistant.topic_resolver` | `Drupal\ilas_site_assistant\Service\TopicResolver` | Maps topic IDs to metadata/URLs | `'@entity_type.manager', '@cache.default'` | [^CLAIM-020] |
 | `ilas_site_assistant.faq_index` | `Drupal\ilas_site_assistant\Service\FaqIndex` | FAQ retrieval adapter | `'@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.ranking_enhancer'` | [^CLAIM-020] |
 | `ilas_site_assistant.resource_finder` | `Drupal\ilas_site_assistant\Service\ResourceFinder` | Resource/form/guide retrieval adapter | `'@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory'` | [^CLAIM-020] |
-| `ilas_site_assistant.analytics_logger` | `Drupal\ilas_site_assistant\Service\AnalyticsLogger` | Writes analytics and no-answer records | `'@database', '@config.factory', '@datetime.time'` | [^CLAIM-020] |
+| `ilas_site_assistant.analytics_logger` | `Drupal\ilas_site_assistant\Service\AnalyticsLogger` | Writes analytics and no-answer records | `'@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.policy_filter` | `Drupal\ilas_site_assistant\Service\PolicyFilter` | Fallback safety/policy checks | `'@config.factory'` | [^CLAIM-020] |
 | `ilas_site_assistant.llm_admission_coordinator` | `Drupal\ilas_site_assistant\Service\LlmAdmissionCoordinator` | Atomic LLM admission and guard-state coordinator | `'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@lock'` | [^CLAIM-020] |
 | `ilas_site_assistant.llm_circuit_breaker` | `Drupal\ilas_site_assistant\Service\LlmCircuitBreaker` | Circuit breaker around LLM calls | `'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_admission_coordinator'` | [^CLAIM-020] |
@@ -94,7 +94,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `logger.channel.ilas_site_assistant` | `-` | Module log channel | `'ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.performance_monitor` | `Drupal\ilas_site_assistant\Service\PerformanceMonitor` | Latency/error monitor for health/metrics | `'@state', '@logger.channel.ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.pii_redactor` | `Drupal\ilas_site_assistant\Service\PiiRedactor` | PII redaction utilities | `-` | [^CLAIM-020] |
-| `ilas_site_assistant.conversation_logger` | `Drupal\ilas_site_assistant\Service\ConversationLogger` | Stores redacted conversation exchanges | `'@database', '@config.factory', '@datetime.time'` | [^CLAIM-020] |
+| `ilas_site_assistant.conversation_logger` | `Drupal\ilas_site_assistant\Service\ConversationLogger` | Stores redacted conversation exchanges | `'@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.safety_violation_tracker` | `Drupal\ilas_site_assistant\Service\SafetyViolationTracker` | Tracks safety-violation timestamps | `'@state'` | [^CLAIM-020] |
 | `ilas_site_assistant.safety_alert` | `Drupal\ilas_site_assistant\Service\SafetyAlertService` | Threshold-based safety email alerts | `'@config.factory', '@database', '@plugin.manager.mail', '@state', '@datetime.time', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.safety_violation_tracker'` | [^CLAIM-020] |
 | `ilas_site_assistant.ab_testing` | `Drupal\ilas_site_assistant\Service\AbTestingService` | Deterministic experiment assignments | `'@config.factory'` | [^CLAIM-020] |
@@ -889,6 +889,63 @@ This dated addendum records re-audit remediation `RAUD-11` for findings
    local test harness. The repo-side finding is therefore `Fixed`, with only
    deployment-time legacy backfill/purge work remaining.
 
+### Re-Audit Remediation RAUD-12 Anonymous Session Bootstrap Guardrails (2026-03-10)
+
+This dated addendum records re-audit remediation `RAUD-12` for finding
+`NF-04`.
+
+1. Anonymous bootstrap is now guarded by a dedicated
+   `AssistantSessionBootstrapGuard` service that distinguishes `new_session`
+   requests from `reuse` requests, keys new-session rate limits by the resolved
+   client IP, and records a rolling state snapshot at
+   `ilas_site_assistant.session_bootstrap.snapshot`.
+2. `AssistantSessionBootstrapController::bootstrap()` now preserves the
+   existing `GET` / `text/plain` request contract but only starts and marks the
+   anonymous session when continuity is newly established; same-cookie reuse no
+   longer churns session writes or rotates the anonymous session cookie.
+3. The bootstrap thresholds are now explicit config under
+   `ilas_site_assistant.settings:session_bootstrap`, and admin
+   `/assistant/api/metrics` exposes both `metrics.session_bootstrap` counters
+   and `thresholds.session_bootstrap` for operational review.
+4. Widget bootstrap failures now preserve HTTP `status` and `Retry-After`, so
+   a bootstrap-side `429` routes through the existing recovery copy instead of
+   collapsing to a generic fetch error. Regression coverage now includes a
+   dedicated guard unit suite, bootstrap functional assertions, config
+   governance updates, and widget-hardening smoke proof.
+5. Local verification is captured in
+   `docs/aila/runtime/raud-12-anonymous-session-bootstrap.txt`. Local targeted
+   unit, functional, widget, and full kernel verification passed on March 10,
+   2026, but Pantheon read-only checks on the same date still returned
+   `ilas_site_assistant.settings:session_bootstrap = null` and no
+   `ilas_site_assistant.session_bootstrap.snapshot` state on `dev`, `test`, or
+   `live`. The repo-side remediation is therefore implemented, but the deployed
+   runtime surface remains `Unverified`, so the finding is presently only
+   `Partially Fixed`.[^CLAIM-172]
+
+### Re-Audit Remediation RAUD-13 Injected Logger Hardening (2026-03-10)
+
+This dated addendum records re-audit remediation `RAUD-13` for findings `L1`
+and `N-28`.
+
+1. `AnalyticsLogger` and `ConversationLogger` no longer call
+   `\Drupal::logger()` directly; both services now receive
+   `@logger.channel.ilas_site_assistant` through constructor injection, keeping
+   logging inside the module's service boundary.
+2. The remediation preserves the pre-existing log contract: analytics
+   stats/no-answer/cleanup failures still emit the same `@class` and
+   `@error_signature` placeholders, conversation exchange/cleanup failures keep
+   the same error payloads, and successful conversation cleanup still logs the
+   deleted row count at `info`.
+3. Regression coverage now includes `LoggerInjectionContractTest` for the
+   injected error paths, updated constructor wiring in
+   `IntegrationFailureContractTest`, and kernel verification for analytics and
+   conversation persistence plus conversation cleanup info logging.
+4. Local verification is captured in
+   `docs/aila/runtime/raud-13-logger-di-hardening.txt`. Targeted unit,
+   `VC-UNIT`, targeted kernel, and `VC-KERNEL` runs passed on March 10, 2026,
+   so the repo-side finding is `Fixed` with no remaining schema or payload-
+   contract work.[^CLAIM-173]
+
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 
 This dated addendum records P1-EXT-01 completion for Phase 1 Exit criterion #1.
@@ -1624,3 +1681,6 @@ This dated addendum records `P3-NDO-02` closure for the Phase 3 scope boundary:
 [^CLAIM-165]: [CLAIM-165](evidence-index.md#claim-165)
 [^CLAIM-167]: [CLAIM-167](evidence-index.md#claim-167)
 [^CLAIM-168]: [CLAIM-168](evidence-index.md#claim-168)
+[^CLAIM-170]: [CLAIM-170](evidence-index.md#claim-170)
+[^CLAIM-172]: [CLAIM-172](evidence-index.md#claim-172)
+[^CLAIM-173]: [CLAIM-173](evidence-index.md#claim-173)

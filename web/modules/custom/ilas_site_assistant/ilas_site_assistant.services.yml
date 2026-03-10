@@ -53,7 +53,7 @@ services:
 
   ilas_site_assistant.analytics_logger:
     class: Drupal\ilas_site_assistant\Service\AnalyticsLogger
-    arguments: ['@database', '@config.factory', '@datetime.time']
+    arguments: ['@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant']
 
   ilas_site_assistant.policy_filter:
     class: Drupal\ilas_site_assistant\Service\PolicyFilter
@@ -94,6 +94,10 @@ services:
 
   ilas_site_assistant.request_trust_inspector:
     class: Drupal\ilas_site_assistant\Service\RequestTrustInspector
+
+  ilas_site_assistant.session_bootstrap_guard:
+    class: Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard
+    arguments: ['@config.factory', '@flood', '@ilas_site_assistant.request_trust_inspector', '@state', '@logger.channel.ilas_site_assistant', '@datetime.time']
 
   ilas_site_assistant.response_grounder:
     class: Drupal\ilas_site_assistant\Service\ResponseGrounder
@@ -136,7 +140,7 @@ services:
 
   ilas_site_assistant.conversation_logger:
     class: Drupal\ilas_site_assistant\Service\ConversationLogger
-    arguments: ['@database', '@config.factory', '@datetime.time']
+    arguments: ['@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant']
 
   ilas_site_assistant.safety_violation_tracker:
     class: Drupal\ilas_site_assistant\Service\SafetyViolationTracker

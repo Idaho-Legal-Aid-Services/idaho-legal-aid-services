@@ -37,6 +37,7 @@ flowchart LR
 
   U --> W
   U --> P
+  W -->|GET /assistant/api/session/bootstrap + bounded anonymous CSRF continuity| R
   W -->|POST /assistant/api/message + CSRF| R
   W -->|POST /assistant/api/track + Origin/Referer or bootstrap-token recovery| R
   W -->|GET /assistant/api/suggest, /faq| R

@@ -119,6 +119,19 @@ ilas_site_assistant.settings:
     rate_limit_per_hour:
       type: integer
       label: 'Rate limit per hour per IP'
+    session_bootstrap:
+      type: mapping
+      label: 'Anonymous session bootstrap guardrail settings'
+      mapping:
+        rate_limit_per_minute:
+          type: integer
+          label: 'Bootstrap new-session rate limit per minute per IP'
+        rate_limit_per_hour:
+          type: integer
+          label: 'Bootstrap new-session rate limit per hour per IP'
+        observation_window_hours:
+          type: integer
+          label: 'Bootstrap observability window in hours'
     conversation_logging:
       type: mapping
       label: 'Conversation logging settings'

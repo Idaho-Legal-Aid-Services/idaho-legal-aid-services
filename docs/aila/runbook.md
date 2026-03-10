@@ -2070,6 +2070,80 @@ Expected verification result:
 - Archive the executed command summaries and final classification in
   `docs/aila/runtime/raud-11-log-surface-minimization.txt`.
 
+### RAUD-12 anonymous session bootstrap guardrails verification
+
+- Baseline before the remediation:
+  - `GET /assistant/api/session/bootstrap` always started an anonymous session
+    and wrote the `ilas_site_assistant.csrf_bootstrap` marker even when the
+    browser already presented an existing anonymous session cookie.
+  - Direct DDEV `curl` / cookie-jar capture showed the first bootstrap hit
+    returned a token plus `Set-Cookie`, a second hit with the same cookie jar
+    stayed `200` without a fresh `Set-Cookie`, and replaying the bootstrap
+    token without the cookie jar against `/assistant/api/message` returned
+    `403` with `error_code=csrf_expired`.
+  - Host-level BrowserTestBase runs were not the correct harness in this
+    workspace because direct `vendor/bin/phpunit` functional execution could
+    not resolve the `db` host; use `ddev exec` for endpoint verification.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-KERNEL`
+  - `VC-WIDGET-HARDENING`
+  - `VC-PANTHEON-READONLY`
+- Targeted local checks:
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantSessionBootstrapGuardTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyConfigGovernanceTest.php`
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --filter 'testTrackEndpointRecoveryWithFreshBootstrapToken|testAnonymousMessageRecovery_FreshTokenAfter403|testMetricsEndpointAccessibleToAdmin|testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie|testAnonymousSessionBootstrapReuseDoesNotRotateCookie|testAnonymousSessionBootstrapRateLimitBoundsNewSessionsButAllowsReuse' /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+  - `node /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs`
+- Bootstrap-specific Pantheon read-only checks after deployment:
+  - `for ENV in dev test live; do terminus env:view "idaho-legal-aid-services.$ENV" --print; terminus remote:drush "idaho-legal-aid-services.$ENV" -- status --fields=uri,drupal-version,db-status; terminus remote:drush "idaho-legal-aid-services.$ENV" -- config:get ilas_site_assistant.settings session_bootstrap; terminus remote:drush "idaho-legal-aid-services.$ENV" -- state:get ilas_site_assistant.session_bootstrap.snapshot; done`
+- Expected contract after the remediation:
+  - The bootstrap endpoint remains `GET` and returns `text/plain` CSRF tokens
+    on success, with no route or request-shape change for the widget.
+  - Requests that would create a new anonymous session are rate-limited per
+    resolved client IP, while requests reusing an already-established session
+    bypass the new-session flood budget and do not rotate the session cookie.
+  - Rate-limited bootstrap requests return `429`, `Retry-After`, and
+    `Cache-Control: no-store, private` without minting a new anonymous session
+    cookie.
+  - Admin `/assistant/api/metrics` includes both
+    `metrics.session_bootstrap` and `thresholds.session_bootstrap`, and the
+    rolling snapshot records only new-session and denied events.
+  - If Pantheon read-only checks still return `null` for
+    `ilas_site_assistant.settings:session_bootstrap` or no
+    `ilas_site_assistant.session_bootstrap.snapshot` state, classify the
+    finding as `Partially Fixed` rather than `Fixed`.
+- Archive the executed command summaries and final classification in
+  `docs/aila/runtime/raud-12-anonymous-session-bootstrap.txt`.
+
+### RAUD-13 injected logger verification
+
+- Baseline before the remediation:
+  - `AnalyticsLogger` used static `\Drupal::logger()` in three catch blocks:
+    stats write failure, no-answer persistence failure, and analytics cleanup
+    failure.
+  - `ConversationLogger` used static `\Drupal::logger()` in three paths:
+    exchange write failure, cleanup success info count, and cleanup failure.
+  - Kernel suites proved persistence only; they did not assert that the logger
+    dependency was injected or directly testable.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-KERNEL`
+- Targeted local checks:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+  - `rg -n "\\Drupal::logger" /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+- Expected contract after the remediation:
+  - Both target services accept `LoggerInterface` in the constructor and are
+    wired to `@logger.channel.ilas_site_assistant`.
+  - The six identified logger call sites keep the same message templates,
+    placeholder keys, and control flow after the DI conversion.
+  - Logger-focused unit coverage proves injected logging for the analytics and
+    conversation error paths, and kernel coverage still proves persistence plus
+    conversation cleanup info logging.
+  - If either target service still contains `\Drupal::logger()` or the
+    logger/persistence suites fail, classify `RAUD-13` as `Not Fixed`.
+- Archive the executed command summaries and final classification in
+  `docs/aila/runtime/raud-13-logger-di-hardening.txt`.
+
 ### GitHub mirror onboarding (WSL2)
 
 ```bash

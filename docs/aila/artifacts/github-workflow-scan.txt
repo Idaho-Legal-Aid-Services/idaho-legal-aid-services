@@ -1,3 +1,0 @@
-$ find .github -maxdepth 3 -type f 2>/dev/null
-
-$ rg -n "promptfoo|assistant|ilas_site_assistant|ddev|drush" .github 2>/dev/null

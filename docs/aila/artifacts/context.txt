@@ -1,8 +1,0 @@
-# Audit Context Capture
-Generated_UTC=2026-02-26T02:10:06Z
-Host=FrescaUnicorn
-Kernel=Linux 5.15.167.4-microsoft-standard-WSL2 x86_64 GNU/Linux
-Branch=master
-Commit=8f23d0e2d95364f2a232352105658d4fdc5fd71f
-GitStatusShort:
-?? docs/aila/

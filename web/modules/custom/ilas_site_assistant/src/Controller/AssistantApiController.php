@@ -33,6 +33,7 @@ use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
+use Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
@@ -266,6 +267,13 @@ class AssistantApiController extends ControllerBase {
   protected EnvironmentDetector $environmentDetector;
 
   /**
+   * The session bootstrap guard/observability service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard|null
+   */
+  protected $sessionBootstrapGuard;
+
+  /**
    * Constructs an AssistantApiController object.
    */
   public function __construct(
@@ -296,6 +304,7 @@ class AssistantApiController extends ControllerBase {
     RequestTrustInspector $request_trust_inspector = NULL,
     CsrfTokenGenerator $csrf_token_generator = NULL,
     EnvironmentDetector $environment_detector = NULL,
+    AssistantSessionBootstrapGuard $session_bootstrap_guard = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -324,6 +333,7 @@ class AssistantApiController extends ControllerBase {
     $this->requestTrustInspector = $request_trust_inspector;
     $this->csrfTokenGenerator = $csrf_token_generator;
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
+    $this->sessionBootstrapGuard = $session_bootstrap_guard;
   }
 
   /**
@@ -358,6 +368,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.request_trust_inspector') ? $container->get('ilas_site_assistant.request_trust_inspector') : NULL,
       $container->has('csrf_token') ? $container->get('csrf_token') : NULL,
       $container->has('ilas_site_assistant.environment_detector') ? $container->get('ilas_site_assistant.environment_detector') : NULL,
+      $container->has('ilas_site_assistant.session_bootstrap_guard') ? $container->get('ilas_site_assistant.session_bootstrap_guard') : NULL,
     );
   }
 
@@ -4092,6 +4103,19 @@ class AssistantApiController extends ControllerBase {
         'cooldown_seconds_remaining' => $vector_index_hygiene['cooldown_seconds_remaining'] ?? 0,
       ];
       $response['thresholds']['vector_index_hygiene'] = $vector_index_hygiene['thresholds'] ?? [];
+    }
+
+    if ($this->sessionBootstrapGuard) {
+      $session_bootstrap = $this->sessionBootstrapGuard->getSnapshot();
+      $response['metrics']['session_bootstrap'] = [
+        'window_started_at' => $session_bootstrap['window_started_at'] ?? NULL,
+        'recorded_at' => $session_bootstrap['recorded_at'] ?? NULL,
+        'new_session_requests' => $session_bootstrap['new_session_requests'] ?? 0,
+        'rate_limited_requests' => $session_bootstrap['rate_limited_requests'] ?? 0,
+        'last_new_session_at' => $session_bootstrap['last_new_session_at'] ?? NULL,
+        'last_rate_limited_at' => $session_bootstrap['last_rate_limited_at'] ?? NULL,
+      ];
+      $response['thresholds']['session_bootstrap'] = $session_bootstrap['thresholds'] ?? [];
     }
 
     return $this->jsonResponse($response);

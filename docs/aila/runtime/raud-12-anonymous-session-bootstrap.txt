@@ -1,0 +1,126 @@
+# RAUD-12 Anonymous Session Bootstrap Guardrails Remediation Report
+
+- Date: 2026-03-10
+- Prompt ID: `RAUD-12`
+- Finding IDs: `NF-04`
+- Prior status: Open / verified gap. Anonymous bootstrap was required for
+  CSRF/session continuity, but the endpoint still started and marked an
+  anonymous session on every call without explicit rate/telemetry controls.
+- Post-change status: Partially Fixed
+- Verification level tag: `Verified by execution`
+
+## Evidence
+
+- Pre-edit baseline contract capture:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --filter 'testTrackEndpointRecoveryWithFreshBootstrapToken|testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie' /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+  - Result: passed (`2` tests, `26` assertions). Anonymous bootstrap already
+    established a CSRF-capable session, and `/track` recovery with a fresh
+    bootstrap token remained valid.
+- Pre-edit direct endpoint capture:
+  - Command summary: direct DDEV `curl` / cookie-jar checks against
+    `/assistant/api/session/bootstrap` and `/assistant/api/message`.
+  - Result: first bootstrap hit returned a token plus `Set-Cookie`; second hit
+    with the same cookie jar returned `200` without a fresh `Set-Cookie`; a
+    bootstrap token replayed without the cookie jar against
+    `/assistant/api/message` returned `403` with
+    `{"error_code":"csrf_expired"}`.
+- Implementation surface:
+  - `web/modules/custom/ilas_site_assistant/src/Service/AssistantSessionBootstrapGuard.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantSessionBootstrapController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+  - `config/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- Targeted unit verification:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantSessionBootstrapGuardTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyConfigGovernanceTest.php`
+  - Result: passed (`17` tests, `115` assertions, existing PHPUnit
+    deprecation noise only). Coverage proved `new_session` vs `reuse` mode
+    selection, resolved-IP flood keys, snapshot persistence, denial logging,
+    and config/schema parity for `session_bootstrap`.
+- Targeted functional verification:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --filter 'testTrackEndpointRecoveryWithFreshBootstrapToken|testAnonymousMessageRecovery_FreshTokenAfter403|testMetricsEndpointAccessibleToAdmin|testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie|testAnonymousSessionBootstrapReuseDoesNotRotateCookie|testAnonymousSessionBootstrapRateLimitBoundsNewSessionsButAllowsReuse' /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+  - Result: passed (`6` tests, `89` assertions, existing BrowserTestBase
+    deprecation noise only). Coverage proved bootstrap success contract,
+    same-cookie reuse without cookie rotation, `429` throttling for cold
+    anonymous sessions, reuse after exhaustion, message/track recovery
+    continuity, and admin metrics payload exposure.
+- VC-KERNEL:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel`
+  - Result: passed (`51` tests, `1237` assertions, `764` PHPUnit
+    deprecations).
+- VC-WIDGET-HARDENING:
+  - Command summary: `node /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs`
+  - Result: passed (`123` assertions, `0` failures). The smoke suite now
+    proves bootstrap token fetch failures preserve `status` and `Retry-After`
+    for the existing `429` recovery copy.
+- VC-UNIT:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: failed outside the RAUD-12 surface (`1864` tests executed, `9137`
+    assertions, `3` failures, `2` warnings). The blockers were
+    `ImpObs01AcceptanceTest::testSentryEventGetsEnvironmentTagsAndPiiScrubbed`
+    and two `SentryOptionsSubscriberTest` cases asserting Pantheon/Sentry tag
+    values (`environment=web`, missing `pantheon_env`). No RAUD-12 tests
+    failed in the full alias run.
+- VC-PANTHEON-READONLY:
+  - Command summary: `for ENV in dev test live; do terminus env:view "idaho-legal-aid-services.$ENV" --print; terminus remote:drush "idaho-legal-aid-services.$ENV" -- status --fields=uri,drupal-version,db-status; terminus remote:drush "idaho-legal-aid-services.$ENV" -- config:get ilas_site_assistant.settings session_bootstrap; terminus remote:drush "idaho-legal-aid-services.$ENV" -- state:get ilas_site_assistant.session_bootstrap.snapshot; done`
+  - Result: all three Pantheon environments were reachable and reported Drupal
+    `11.3.3` with connected databases, but `config:get ... session_bootstrap`
+    returned `null` on `dev`, `test`, and `live`, and `state:get
+    ilas_site_assistant.session_bootstrap.snapshot` returned no value. The new
+    bootstrap config/state surfaces are therefore not yet deployed remotely.
+
+## Changed files
+
+- `config/ilas_site_assistant.settings.yml`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/raud-12-anonymous-session-bootstrap.txt`
+- `docs/aila/system-map.mmd`
+- `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+- `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantSessionBootstrapController.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/AssistantSessionBootstrapGuard.php`
+- `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
+- `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantSessionBootstrapGuardTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyConfigGovernanceTest.php`
+
+## Residual risks / unknowns
+
+- The new-session flood budget is keyed by resolved client IP, so large shared
+  NAT/proxy populations may still consume the anonymous bootstrap budget faster
+  than a true per-browser identity model would allow.
+- The rolling snapshot is intentionally coarse and state-backed: it captures
+  aggregate new-session / denied counts and active thresholds, not per-IP or
+  per-request forensic detail.
+- Same-session bootstrap reuse remains intentionally allowed without rate
+  limiting so long-lived anonymous browser sessions can recover CSRF continuity
+  without churning new sessions.
+
+## Rollback notes
+
+- Code rollback: revert the service/controller/config/test/doc changes listed
+  above.
+- No schema migration or data backfill was introduced, so no database rollback
+  is required.
+- If the new bootstrap limits prove too tight in production-like traffic,
+  thresholds can be relaxed through the exported `session_bootstrap` config
+  block without changing the route contract.
+
+## Still-unverified surfaces
+
+- Post-deploy Pantheon runtime proof that `ilas_site_assistant.settings:session_bootstrap`
+  is present on `dev`, `test`, and `live`.
+- Post-deploy Pantheon runtime proof that
+  `ilas_site_assistant.session_bootstrap.snapshot` records bootstrap activity.
+- Post-deploy HTTP capture from a real Pantheon environment proving `429`
+  bootstrap responses stay `text/plain`, emit `Retry-After`, and do not mint a
+  new anonymous session cookie.
