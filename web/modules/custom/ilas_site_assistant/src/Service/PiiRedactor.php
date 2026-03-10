@@ -42,6 +42,8 @@ class PiiRedactor {
       return '';
     }
 
+    $name_pattern = self::fullNamePattern();
+
     // 1. Email addresses.
     $text = preg_replace(
       '/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/',
@@ -83,17 +85,17 @@ class PiiRedactor {
       $text
     );
 
-    // 6. Phone numbers (US 10-digit patterns).
+    // 6. Phone numbers, including optional country-code prefixes.
     // Use (?<!\d) / (?!\d) instead of \b to handle parenthesized format.
     $text = preg_replace(
-      '/(?<!\d)(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s*\d{3}[-.\s]?\d{4})(?!\d)/',
+      '/(?<!\d)(?:\+\d{1,3}[-.\s]?)?(?:\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s*\d{3}[-.\s]?\d{4})(?!\d)/',
       self::TOKEN_PHONE,
       $text
     );
 
-    // 7. DOB (keyword-gated): "born"/"dob"/"date of birth" + date pattern.
+    // 7. DOB (keyword-gated): English/Spanish context + date pattern.
     $text = preg_replace(
-      '/\b(born\s*(?:on)?|dob|date\s*of\s*birth)\s*[:=]?\s*\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/i',
+      '/\b(born\s*(?:on)?|dob|date\s*of\s*birth|fecha\s+de\s+nacimiento|nacido\s+(?:el|en))\s*[:=]?\s*\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/iu',
       '$1 ' . self::TOKEN_DOB,
       $text
     );
@@ -119,31 +121,45 @@ class PiiRedactor {
       $text
     );
 
-    // 11. Street addresses (number + words + suffix).
+    // 11. Idaho driver's license numbers, gated by license context.
+    $text = preg_replace_callback(
+      '/\b(?P<context>(?i:(?:idaho\s+)?driver\'?s?\s+licen[sc]e(?:\s+(?:number|no\.?|#|is))?|idaho\s+licen[sc]e(?:\s+(?:number|no\.?|#|is))?|licen[sc]e\s+(?:number|no\.?|#)|dl\s+(?:number|no\.?|#)|licencia(?:\s+de\s+conducir)?(?:\s+(?:n(?:u|\x{FA})mero|no\.?|#|es))?))\s*[:=#]?\s*(?P<identifier>[A-Z]{2}\d{6}[A-Z])\b/u',
+      static fn(array $matches): string => $matches['context'] . ' ' . self::TOKEN_CASE,
+      $text
+    );
+
+    // 12. Address (contextual): English/Spanish phrases + content through ZIP.
+    $text = preg_replace(
+      '/\b(my\s+address\s+is|i\s+live\s+at|mi\s+direcci(?:o|\x{F3})n\s+es|vivo\s+en)\s+[^.!?\n]{0,120}?\d{5}(?:-\d{4})?\b/iu',
+      self::TOKEN_ADDRESS,
+      $text
+    );
+
+    // 13. Street addresses (number + words + suffix).
     $text = preg_replace(
       '/\b\d{1,5}\s+[\w\s]{1,40}\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|court|ct|boulevard|blvd|way|place|pl)\b/i',
       self::TOKEN_ADDRESS,
       $text
     );
 
-    // 12. Address (contextual): "my address is"/"I live at" + content.
-    $text = preg_replace(
-      '/\b(my\s+address\s+is|i\s+live\s+at)\s+[\w\s,]+\d{5}/i',
-      self::TOKEN_ADDRESS,
+    // 14. Name (contextual): English/Spanish self-identification phrases.
+    $text = preg_replace_callback(
+      '/\b(?P<context>(?i:my\s+name\s+is|i\'?m\s+called|me\s+llamo|mi\s+nombre\s+es))\s+(?P<name>' . $name_pattern . ')\b/u',
+      static fn(array $matches): string => $matches['context'] . ' ' . self::TOKEN_NAME,
       $text
     );
 
-    // 13. Name (contextual): "my name is"/"I'm called"/"I am" + capitalized word (3+ chars).
-    $text = preg_replace(
-      '/\b(my\s+name\s+is|i\'?m\s+called)\s+[A-Z][a-z]{2,}(\s+[A-Z][a-z]{2,})?/i',
-      self::TOKEN_NAME,
+    // 15. Name (role-gated): English/Spanish role labels followed by a name.
+    $text = preg_replace_callback(
+      '/\b(?P<context>(?i:client|tenant|applicant|cliente|inquilino|solicitante))(?:\s+(?i:name|nombre)(?:\s+(?i:is|es))?)?\s+(?P<name>' . $name_pattern . ')\b/u',
+      static fn(array $matches): string => $matches['context'] . ' ' . self::TOKEN_NAME,
       $text
     );
 
-    // 14. Name (compact context): "name John Smith" / "name is John Smith".
-    $text = preg_replace(
-      '/\b(name(?:\s+is)?)\s+[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}\b/i',
-      '$1 ' . self::TOKEN_NAME,
+    // 16. Name (compact context): "name John Smith" / "name is John Smith".
+    $text = preg_replace_callback(
+      '/\b(?P<context>(?i:name(?:\s+is)?))\s+(?P<name>' . $name_pattern . ')\b/u',
+      static fn(array $matches): string => $matches['context'] . ' ' . self::TOKEN_NAME,
       $text
     );
 
@@ -210,6 +226,14 @@ class PiiRedactor {
     }
 
     return ($sum % 10) === 0;
+  }
+
+  /**
+   * Returns a Unicode-aware pattern for a one- or two-part personal name.
+   */
+  protected static function fullNamePattern(): string {
+    $word = '[\p{Lu}][\p{L}\p{M}\'-]{1,}';
+    return '(?:' . $word . ')(?:\s+' . $word . ')?';
   }
 
 }

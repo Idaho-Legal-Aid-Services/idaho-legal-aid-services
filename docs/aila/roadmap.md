@@ -7,7 +7,7 @@ Planning defaults applied:
 - `llm.enabled` remains disabled in `live` through Phase 2. (Refs: current-state §5; evidence-index CLAIM-069, CLAIM-119; system-map Diagram B; runbook §3)
 - Timeline = 12 weeks / 6 two-week sprints. (Refs: current-state §7; evidence-index CLAIM-108, CLAIM-115; system-map Diagram A; runbook §4)
 
-### Re-audit remediation addendum (2026-03-09)
+### Re-audit remediation addendum (2026-03-10)
 1. `RAUD-03` closes the repo-side implementation gap behind findings `C2` and
    `F-15`: Vertex service-account JSON is removed from the assistant admin UI,
    removed from install/active/schema config contracts, and resolved at runtime
@@ -39,6 +39,19 @@ Planning defaults applied:
 8. Remaining `RAUD-09` closure work is deployment-bound: Pantheon `dev`,
    `test`, and `live` must be rechecked read-only after deployment to prove the
    new service is present and `effective_debug_mode=false` on `live`.
+9. `RAUD-10` expands repo-side PII redaction coverage behind findings `H1`,
+   `PII-1`, `PII-2`, and `N-24`: `PiiRedactor` now handles Spanish contextual
+   name/DOB/address phrases, consumes full `+52`-style phone prefixes, redacts
+   context-gated role names with Unicode-aware matching, and detects Idaho
+   driver-license values when paired with license context.
+10. Regression proof for `RAUD-10` now spans unit, observability-contract, and
+    kernel logger suites so multilingual/contextual samples are exercised
+    through the shared redaction path before persistence/export.
+11. Remaining `RAUD-10` closure work is design-bound rather than
+    environment-bound: truly free-form bare names remain intentionally
+    unsupported to avoid deterministic false positives, so the finding remains
+    `Partially Fixed` until the project accepts a higher-risk heuristic or a
+    different name-detection approach.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

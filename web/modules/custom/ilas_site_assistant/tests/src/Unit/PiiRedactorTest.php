@@ -136,7 +136,20 @@ class PiiRedactorTest extends TestCase {
       'dotted' => ['Call 208.555.1234'],
       'parenthesized' => ['Call (208) 555-1234'],
       'no separator' => ['Call 2085551234'],
+      'country code' => ['Mi telefono es +52-208-555-1234'],
     ];
+  }
+
+  /**
+   * Tests that country-code prefixes are consumed with the phone number.
+   *
+   * @covers ::redact
+   */
+  public function testInternationalPhonePrefixIsFullyRedacted(): void {
+    $result = PiiRedactor::redact('Mi telefono es +52-208-555-1234');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_PHONE, $result);
+    $this->assertStringNotContainsString('+52-208-555-1234', $result);
+    $this->assertStringNotContainsString('+52-', $result);
   }
 
   /**
@@ -153,6 +166,14 @@ class PiiRedactorTest extends TestCase {
 
     $result3 = PiiRedactor::redact('date of birth 03-22-1985');
     $this->assertStringContainsString(PiiRedactor::TOKEN_DOB, $result3);
+
+    $result4 = PiiRedactor::redact('fecha de nacimiento 01/15/1990');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_DOB, $result4);
+    $this->assertStringNotContainsString('01/15/1990', $result4);
+
+    $result5 = PiiRedactor::redact('nacido el 03-22-1985');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_DOB, $result5);
+    $this->assertStringNotContainsString('03-22-1985', $result5);
   }
 
   /**
@@ -225,9 +246,23 @@ class PiiRedactorTest extends TestCase {
   public function testRedactsContextualAddress(): void {
     $result = PiiRedactor::redact('my address is 123 Elm St, Boise, ID 83702');
     $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $result);
+    $this->assertStringNotContainsString('123 Elm St', $result);
+    $this->assertStringNotContainsString('83702', $result);
 
     $result2 = PiiRedactor::redact('i live at 456 Pine Rd, Apt 2, Idaho 83701');
     $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $result2);
+    $this->assertStringNotContainsString('456 Pine Rd', $result2);
+    $this->assertStringNotContainsString('83701', $result2);
+
+    $result3 = PiiRedactor::redact('Mi direccion es 123 Main Street Boise ID 83702');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $result3);
+    $this->assertStringNotContainsString('123 Main Street', $result3);
+    $this->assertStringNotContainsString('Boise ID 83702', $result3);
+
+    $result4 = PiiRedactor::redact('Vivo en 456 Pine Rd, Apt 2, Idaho 83701');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $result4);
+    $this->assertStringNotContainsString('456 Pine Rd', $result4);
+    $this->assertStringNotContainsString('Idaho 83701', $result4);
   }
 
   /**
@@ -244,6 +279,49 @@ class PiiRedactorTest extends TestCase {
 
     $result3 = PiiRedactor::redact('name John Smith');
     $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result3);
+
+    $result4 = PiiRedactor::redact('Me llamo Juan Garcia');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result4);
+    $this->assertStringNotContainsString('Juan Garcia', $result4);
+
+    $result5 = PiiRedactor::redact('Mi nombre es Juan García');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result5);
+    $this->assertStringNotContainsString('Juan García', $result5);
+
+    $result6 = PiiRedactor::redact('Client John Smith needs help with eviction');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result6);
+    $this->assertStringNotContainsString('John Smith', $result6);
+
+    $result7 = PiiRedactor::redact('tenant Maria Lopez called yesterday');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result7);
+    $this->assertStringNotContainsString('Maria Lopez', $result7);
+
+    $result8 = PiiRedactor::redact('Cliente Juan García necesita ayuda');
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $result8);
+    $this->assertStringNotContainsString('Juan García', $result8);
+  }
+
+  /**
+   * Tests Idaho driver's license redaction when license context is present.
+   *
+   * @covers ::redact
+   */
+  #[DataProvider('idahoDriversLicenseProvider')]
+  public function testRedactsIdahoDriversLicenses(string $input): void {
+    $result = PiiRedactor::redact($input);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_CASE, $result);
+    $this->assertStringNotContainsString('AB123456C', $result);
+  }
+
+  public static function idahoDriversLicenseProvider(): array {
+    return [
+      'idaho license is' => ['My Idaho license is AB123456C'],
+      'license number' => ['license number AB123456C'],
+      'dl number' => ['DL number AB123456C'],
+      'driver license' => ["driver's license AB123456C"],
+      'spanish license' => ['Mi licencia es AB123456C'],
+      'spanish driver license' => ['licencia de conducir AB123456C'],
+    ];
   }
 
   /**
@@ -254,8 +332,12 @@ class PiiRedactorTest extends TestCase {
   #[DataProvider('falsePositiveProvider')]
   public function testFalsePositiveAvoidance(string $input, string $description): void {
     $result = PiiRedactor::redact($input);
-    // Should NOT contain SSN, CC, or PHONE tokens for these inputs.
+    // These fixtures should remain unchanged and token-free.
+    $this->assertSame($input, $result, "False positive: $description");
     $this->assertStringNotContainsString(PiiRedactor::TOKEN_SSN, $result, "False positive: $description");
+    $this->assertStringNotContainsString(PiiRedactor::TOKEN_PHONE, $result, "False positive: $description");
+    $this->assertStringNotContainsString(PiiRedactor::TOKEN_NAME, $result, "False positive: $description");
+    $this->assertStringNotContainsString(PiiRedactor::TOKEN_CASE, $result, "False positive: $description");
   }
 
   public static function falsePositiveProvider(): array {
@@ -267,6 +349,18 @@ class PiiRedactorTest extends TestCase {
       'bare 9 digits without keyword' => [
         'The population is 123456789',
         'Bare 9 digits without SSN keyword should not match',
+      ],
+      'tenant rights guide' => [
+        'tenant rights guide',
+        'Topic phrases must not be treated as tenant names',
+      ],
+      'non-name spanish role phrase' => [
+        'cliente necesita ayuda urgente',
+        'Spanish role labels must not redact lowercase non-name phrases',
+      ],
+      'bare idaho dl shape without context' => [
+        'Reference AB123456C for the form',
+        'Idaho DL shape without license context should not match',
       ],
     ];
   }

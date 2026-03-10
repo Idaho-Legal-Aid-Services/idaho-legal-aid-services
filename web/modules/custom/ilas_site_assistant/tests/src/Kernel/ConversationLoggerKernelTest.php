@@ -116,6 +116,38 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests Spanish/contextual PII redaction in stored conversation rows.
+   *
+   * @covers ::logExchange
+   */
+  public function testLogExchangeRedactsSpanishContextualPii(): void {
+    $logger = $this->createConversationLogger();
+    $conv_id = '12345678-1234-4123-8123-123456789abc';
+
+    $logger->logExchange(
+      $conv_id,
+      'Mi nombre es Juan García y vivo en 123 Main Street Boise ID 83702. Mi licencia es AB123456C.',
+      'Puedo ayudarle a encontrar recursos.',
+      'faq',
+      'faq'
+    );
+
+    $user_row = $this->database->select('ilas_site_assistant_conversations', 'c')
+      ->fields('c', ['redacted_message'])
+      ->condition('conversation_id', $conv_id)
+      ->condition('direction', 'user')
+      ->execute()
+      ->fetchField();
+
+    $this->assertStringNotContainsString('Juan García', $user_row);
+    $this->assertStringNotContainsString('123 Main Street Boise ID 83702', $user_row);
+    $this->assertStringNotContainsString('AB123456C', $user_row);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $user_row);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $user_row);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_CASE, $user_row);
+  }
+
+  /**
    * Tests that a valid request_id is stored in both rows.
    *
    * @covers ::logExchange

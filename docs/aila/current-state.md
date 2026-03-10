@@ -837,6 +837,30 @@ and `N-25`.
    until deployment-time rechecks confirm `effective_debug_mode=false` on
    `live`.[^CLAIM-169]
 
+### Re-Audit Remediation RAUD-10 PII Redaction Coverage Expansion (2026-03-10)
+
+This dated addendum records re-audit remediation `RAUD-10` for findings `H1`,
+`PII-1`, `PII-2`, and `N-24`.
+
+1. `PiiRedactor` now redacts Spanish self-identification, DOB, and address
+   phrases (`me llamo`, `mi nombre es`, `fecha de nacimiento`, `nacido el`,
+   `mi direccion`, `vivo en`) and consumes full international phone prefixes
+   such as `+52-...` instead of leaving the country code behind.
+2. Name coverage is now Unicode-aware and context-gated for role labels
+   (`client`, `tenant`, `applicant`, `cliente`, `inquilino`, `solicitante`),
+   while Idaho driver-license values shaped like `[A-Z]{2}\d{6}[A-Z]` are
+   redacted only when paired with license context.
+3. Regression coverage now includes expanded `PiiRedactor` unit fixtures,
+   multilingual observability contract assertions, and kernel verification for
+   analytics and conversation-log storage paths.
+4. Local verification is captured in
+   `docs/aila/runtime/raud-10-pii-redaction-remediation.txt`. The repo-side
+   remediation improves multilingual and Idaho-specific coverage, but
+   intentionally does not redact truly free-form bare names such as
+   `John Smith needs help with eviction` because the deterministic false-
+   positive risk remains too high; the finding therefore remains
+   `Partially Fixed`.[^CLAIM-170]
+
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 
 This dated addendum records P1-EXT-01 completion for Phase 1 Exit criterion #1.

@@ -129,6 +129,29 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests multilingual/contextual redaction in analytics event values.
+   *
+   * @covers ::log
+   */
+  public function testLogRedactsMultilingualContextualEventValue(): void {
+    $logger = $this->createAnalyticsLogger();
+    $logger->log('search_query', 'Me llamo Juan García, mi telefono es +52-208-555-1234, Idaho license is AB123456C');
+
+    $row = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'search_query')
+      ->execute()
+      ->fetch();
+
+    $this->assertStringNotContainsString('Juan García', $row->event_value);
+    $this->assertStringNotContainsString('+52-208-555-1234', $row->event_value);
+    $this->assertStringNotContainsString('AB123456C', $row->event_value);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $row->event_value);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_PHONE, $row->event_value);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_CASE, $row->event_value);
+  }
+
+  /**
    * Tests that log() does nothing when logging is disabled.
    *
    * @covers ::log
@@ -182,6 +205,26 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
     $count = $this->countTableRows('ilas_site_assistant_no_answer');
     $this->assertEquals(2, $count);
+  }
+
+  /**
+   * Tests multilingual/contextual redaction for no-answer query storage.
+   *
+   * @covers ::logNoAnswer
+   */
+  public function testLogNoAnswerRedactsSpanishContextualPii(): void {
+    $logger = $this->createAnalyticsLogger();
+    $logger->logNoAnswer('Mi nombre es Juan García y vivo en 123 Main Street Boise ID 83702');
+
+    $row = $this->database->select('ilas_site_assistant_no_answer', 'n')
+      ->fields('n', ['sanitized_query'])
+      ->execute()
+      ->fetch();
+
+    $this->assertStringNotContainsString('Juan García', $row->sanitized_query);
+    $this->assertStringNotContainsString('123 Main Street Boise ID 83702', $row->sanitized_query);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $row->sanitized_query);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $row->sanitized_query);
   }
 
   /**

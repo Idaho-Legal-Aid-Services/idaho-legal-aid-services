@@ -2443,3 +2443,23 @@ Evidence precedence used in this audit:
   - `docs/aila/roadmap.md`
   - `docs/assistant_audit_backlog.md`
   - `docs/aila/runtime/raud-09-live-debug-guard.txt`
+
+### CLAIM-170
+- Claim: Re-audit remediation `RAUD-10` expands deterministic PII redaction to
+  cover Spanish contextual phrases, context-gated multilingual role/name
+  patterns, full international phone prefixes, and Idaho driver-license values
+  with executable coverage through redactor, observability, and logger test
+  paths. Truly free-form bare names remain an intentional residual risk to
+  avoid false positives.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/PiiRedactor.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/runtime/raud-10-pii-redaction-remediation.txt`

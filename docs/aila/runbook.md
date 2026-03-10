@@ -2003,6 +2003,40 @@ Expected verification result:
 - Archive the executed command summaries and final classification in
   `docs/aila/runtime/raud-09-live-debug-guard.txt`.
 
+### RAUD-10 PII redaction coverage expansion verification
+
+- Baseline before the remediation:
+  - The existing redaction unit/contract suites passed, but direct sample checks
+    still left Spanish self-identification phrases (`Me llamo Juan Garcia`,
+    `Mi nombre es Juan García`), context-gated role names (`Client John Smith`,
+    `tenant Maria Lopez`), and Idaho driver-license values
+    (`My Idaho license is AB123456C`, `DL number AB123456C`) unredacted.
+  - Spanish address/date inputs were only partially covered by generic street
+    and standalone-date rules, leaving contextual raw fragments behind.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-KERNEL`
+  - `VC-QUALITY-GATE`
+- Targeted local checks:
+  - Direct sample check:
+    `php <<'PHP' ... PiiRedactor::redact('Me llamo Juan Garcia y necesito ayuda') ... PiiRedactor::redact('Client John Smith needs help with eviction') ... PiiRedactor::redact('My Idaho license is AB123456C') ... PHP`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorContractTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php`
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+- Expected contract after the remediation:
+  - Spanish self-identification, DOB, and address phrases redact through the
+    contextual rules rather than only through generic fallbacks.
+  - International phone prefixes such as `+52-...` are consumed as part of the
+    redacted phone number.
+  - Context-gated role labels (`client`, `tenant`, `applicant`, `cliente`,
+    `inquilino`, `solicitante`) redact following Unicode-aware names.
+  - Idaho DL values in the shape `[A-Z]{2}\d{6}[A-Z]` redact only when paired
+    with license context.
+  - If truly free-form bare names remain unsupported to avoid false positives,
+    classify the finding as `Partially Fixed` even when the targeted
+    multilingual and Idaho-specific suites pass.
+- Archive the executed command summaries and final classification in
+  `docs/aila/runtime/raud-10-pii-redaction-remediation.txt`.
+
 ### GitHub mirror onboarding (WSL2)
 
 ```bash

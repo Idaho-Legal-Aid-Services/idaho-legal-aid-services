@@ -82,6 +82,20 @@ class ObservabilityRedactionContractTest extends TestCase {
   }
 
   /**
+   * Returns a multilingual/contextual PII string.
+   */
+  private function multilingualContextualPiiString(): string {
+    return implode(' | ', [
+      'Me llamo Juan García',
+      'fecha de nacimiento 01/15/1990',
+      'Mi direccion es 123 Main Street Boise ID 83702',
+      'Mi telefono es +52-208-555-1234',
+      'Idaho license is AB123456C',
+      'client Maria Lopez',
+    ]);
+  }
+
+  /**
    * Tests explicit coverage for ISO dates and compact name context.
    */
   public function testIsoDateAndCompactNameAreExplicitlyRedacted(): void {
@@ -91,6 +105,38 @@ class ObservabilityRedactionContractTest extends TestCase {
     $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $redacted);
     $this->assertStringNotContainsString('2025-03-15', $redacted);
     $this->assertStringNotContainsString('John Smith', $redacted);
+  }
+
+  /**
+   * Tests multilingual/contextual PII coverage through the Sentry callback.
+   */
+  public function testSentryBeforeSendRedactsMultilingualContextualPii(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $sentryEvent = \Sentry\Event::createEvent();
+    $sentryEvent->setMessage($this->multilingualContextualPiiString());
+
+    $result = $callback($sentryEvent, NULL);
+    $this->assertNotNull($result);
+
+    $message = $result->getMessage();
+    foreach ([
+      'Juan García',
+      '01/15/1990',
+      '123 Main Street Boise ID 83702',
+      '+52-208-555-1234',
+      'AB123456C',
+      'Maria Lopez',
+    ] as $raw) {
+      $this->assertStringNotContainsString($raw, $message, "Raw PII '{$raw}' must not appear in multilingual redacted message");
+    }
+
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $message);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_DOB, $message);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_ADDRESS, $message);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_PHONE, $message);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_CASE, $message);
   }
 
   /**

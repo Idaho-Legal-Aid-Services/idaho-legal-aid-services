@@ -1,0 +1,94 @@
+# RAUD-10 PII Redaction Coverage Expansion Remediation Report
+
+- Date: 2026-03-10
+- Prompt ID: `RAUD-10`
+- Finding IDs: `H1`, `PII-1`, `PII-2`, `N-24`
+- Prior status: Open / verified gap. The existing redaction unit and contract
+  suites passed, but direct pre-edit samples still left Spanish
+  self-identification phrases, context-gated role names, and Idaho
+  driver-license values unredacted; Spanish address/date handling relied on
+  partial generic fallbacks.
+- Post-change status: Partially Fixed
+- Verification level tag: `Verified by execution`
+
+## Evidence
+
+- Pre-edit baseline suite:
+  - Command summary: `vendor/bin/phpunit --configuration phpunit.xml PiiRedactorTest.php PiiRedactorContractTest.php ObservabilityRedactionContractTest.php`
+  - Result: `50` tests passed, `159` assertions, `26` PHPUnit deprecations. The
+    baseline suite was green but did not encode the multilingual or Idaho DL
+    misses.
+- Pre-edit direct sample check:
+  - Command summary: `php <<'PHP' ... PiiRedactor::redact('Me llamo Juan Garcia y necesito ayuda') ... PiiRedactor::redact('Client John Smith needs help with eviction') ... PiiRedactor::redact('My Idaho license is AB123456C') ... PHP`
+  - Result: Spanish names, `client` / `tenant` role names, and Idaho DL values
+    remained raw before the patch.
+- Post-edit direct sample check:
+  - Command summary: same direct `php <<'PHP' ...` sample harness after the
+    patch.
+  - Result: `Me llamo [REDACTED-NAME]`, `Client [REDACTED-NAME] needs help with eviction`,
+    `My Idaho license is [REDACTED-CASE]`, `Mi telefono es [REDACTED-PHONE]`,
+    and contextual Spanish address/DOB phrases now redact as intended; bare
+    `AB123456C` without license context still passes through.
+- Targeted DDEV unit/contract verification:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant .../PiiRedactorTest.php .../PiiRedactorContractTest.php .../ObservabilityRedactionContractTest.php`
+  - Result: `62` tests passed, `234` assertions, `27` PHPUnit deprecations.
+- Targeted DDEV kernel verification:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant .../AnalyticsLoggerKernelTest.php .../ConversationLoggerKernelTest.php`
+  - Result: `26` tests passed, `101` assertions, `393` PHPUnit deprecations.
+- VC-UNIT:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: `1840` tests passed, `9000` assertions, with existing suite-wide
+    warning/deprecation noise unchanged (`Warnings: 2`, `Deprecations: 1`,
+    `PHPUnit Deprecations: 174`, `Skipped: 1`).
+- VC-KERNEL:
+  - Command summary: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel`
+  - Result: `51` tests passed, `1243` assertions, `762` PHPUnit deprecations.
+- VC-QUALITY-GATE:
+  - Command summary: `ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh`
+  - Result: gate passed. Phase 1 unit suite matched the `VC-UNIT` pass, the
+    Drupal-unit suite passed (`572` tests, `1490` assertions), Golden
+    Transcript passed (`7` tests, `264` assertions), and promptfoo runtime
+    tests passed (`11`/`11`).
+
+## Changed files
+
+- `web/modules/custom/ilas_site_assistant/src/Service/PiiRedactor.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityRedactionContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Kernel/AnalyticsLoggerKernelTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Kernel/ConversationLoggerKernelTest.php`
+- `docs/aila/runbook.md`
+- `docs/aila/current-state.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/evidence-index.md`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/runtime/raud-10-pii-redaction-remediation.txt`
+
+## Residual risks / unknowns
+
+- Truly free-form bare names such as `John Smith needs help with eviction`
+  remain intentionally unsupported because deterministic matching would create
+  high false-positive risk on ordinary legal text.
+- Name detection still assumes name-like capitalization; lowercase, heavily
+  obfuscated, or otherwise noisy free-form names may evade redaction.
+- Multilingual coverage is expanded for Spanish contextual phrases only; other
+  languages were not added in this remediation.
+- Idaho DL detection is intentionally gated to explicit license context and the
+  audited Idaho shape `[A-Z]{2}\d{6}[A-Z]`; generic alphanumeric identifiers
+  without license context continue to pass through.
+
+## Rollback notes
+
+- Code rollback: revert the `PiiRedactor` and PHPUnit/kernel/doc changes listed
+  above.
+- No schema migration, config export, or data backfill was introduced, so no
+  database rollback is required.
+- If the new contextual patterns prove too aggressive in production-like text,
+  rollback is isolated to the redactor/test/doc bundle for `RAUD-10`.
+
+## Still-unverified surfaces
+
+- Additional multilingual phrasing outside the new English/Spanish fixtures.
+- Non-capitalized or adversarially obfuscated free-form personal names.
+- Non-Idaho or differently formatted license/ID numbers that were not part of
+  the audited scope.
