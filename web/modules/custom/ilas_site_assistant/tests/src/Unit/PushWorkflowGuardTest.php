@@ -34,22 +34,18 @@ final class PushWorkflowGuardTest extends TestCase {
   }
 
   /**
-   * Runbook must preserve canonical dual-remote push commands.
+   * Runbook must preserve the protected-master publish workflow.
    */
-  public function testRunbookContainsCanonicalDualRemotePushCommands(): void {
+  public function testRunbookContainsProtectedMasterPublishCommands(): void {
     $runbook = self::readFile('docs/aila/runbook.md');
 
     $this->assertStringContainsString('bash scripts/ci/install-pre-push-strict-hook.sh', $runbook);
-    $this->assertStringContainsString(
-      'ddev exec bash /var/www/html/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh',
-      $runbook
-    );
-    $this->assertStringContainsString(
-      'CI_BRANCH=master scripts/ci/run-promptfoo-gate.sh --env dev --mode auto',
-      $runbook
-    );
-    $this->assertStringContainsString('git push github master', $runbook);
-    $this->assertStringContainsString('git push origin master', $runbook);
+    $this->assertStringContainsString('npm run git:publish', $runbook);
+    $this->assertStringContainsString('npm run git:sync-master', $runbook);
+    $this->assertStringContainsString('npm run git:publish -- --origin-only', $runbook);
+    $this->assertStringContainsString('PR-branch publishes from local `master` are advisory locally', $runbook);
+    $this->assertStringContainsString('skips local promptfoo and trusts the already-passed', $runbook);
+    $this->assertStringContainsString('GitHub `Promptfoo Gate` for that commit.', $runbook);
   }
 
   /**
@@ -58,20 +54,43 @@ final class PushWorkflowGuardTest extends TestCase {
   public function testStrictPrePushScriptsExistAndContainRequiredCommands(): void {
     $strictHook = self::readFile('scripts/ci/pre-push-strict.sh');
     $installer = self::readFile('scripts/ci/install-pre-push-strict-hook.sh');
+    $publishHelper = self::readFile('scripts/git/publish.sh');
 
     $this->assertStringContainsString('scripts/git/common.sh', $strictHook);
     $this->assertStringContainsString('scripts/git/sync-check.sh', $strictHook);
+    $this->assertStringContainsString('Direct pushes to protected github/master are not supported', $strictHook);
+    $this->assertStringContainsString('Refusing to push origin/master before github/master matches local master', $strictHook);
+    $this->assertStringContainsString('Use: npm run git:publish', $strictHook);
     $this->assertStringContainsString('run-quality-gate.sh', $strictHook);
+    $this->assertStringContainsString('resolve_promptfoo_branch', $strictHook);
+    $this->assertStringContainsString('is_effective_target_branch', $strictHook);
+    $this->assertStringContainsString('Promptfoo policy target branch', $strictHook);
+    $this->assertStringContainsString('CI_BRANCH="$PROMPTFOO_BRANCH" bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto', $strictHook);
     $this->assertStringContainsString(
-      'CI_BRANCH="$CURRENT_BRANCH" bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto',
+      'Skipping local promptfoo gate for origin/master: trusting GitHub Promptfoo Gate for this synced commit.',
       $strictHook
     );
+    $this->assertStringNotContainsString('CI_BRANCH="$CURRENT_BRANCH" bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto', $strictHook);
     $this->assertStringContainsString('REMOTE_NAME', $strictHook);
     $this->assertStringContainsString('REMOTE_URL', $strictHook);
 
     $this->assertStringContainsString('.git/hooks/pre-push', $installer);
     $this->assertStringContainsString('pre-push-strict.sh', $installer);
+    $this->assertStringContainsString('npm run git:publish', $installer);
+    $this->assertStringContainsString('npm run git:sync-master', $installer);
+    $this->assertStringContainsString('using the pushed target branch for blocking/advisory policy', $installer);
+    $this->assertStringContainsString('trusts GitHub Promptfoo Gate for synced origin/master deploy pushes', $installer);
     $this->assertStringContainsString('git push --no-verify', $installer);
+
+    $this->assertStringContainsString('publish/master-', $publishHelper);
+    $this->assertStringContainsString('gh pr create', $publishHelper);
+    $this->assertStringContainsString('npm run git:sync-master', $publishHelper);
+    $this->assertStringContainsString('npm run git:publish -- --origin-only', $publishHelper);
+
+    $syncHelper = self::readFile('scripts/git/sync-master.sh');
+    $this->assertStringContainsString('Syncing local master from github/master', $syncHelper);
+    $this->assertStringContainsString('github/master does not yet include local master', $syncHelper);
+    $this->assertStringContainsString('Pantheon is behind. Deploy with: npm run git:publish -- --origin-only', $syncHelper);
   }
 
 }

@@ -1,0 +1,36 @@
+timestamp_utc=2026-02-27T20:15:50Z
+branch=master
+commit=4cc709269a3cc8ad1073c3c4e6411d2004dc9860
+commit_short=4cc709269
+status_porcelain:
+M .gitignore
+M composer.json
+M composer.lock
+M phpunit.xml
+M web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml
+M web/modules/custom/ilas_site_assistant/ilas_site_assistant.module
+M web/modules/custom/ilas_site_assistant/ilas_site_assistant.permissions.yml
+M web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml
+M web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml
+M web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+M web/modules/custom/ilas_site_assistant/src/Controller/AssistantPageController.php
+M web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php
+M web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php
+M web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+M web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
+M web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyViolationTrackerTest.php
+M web/modules/custom/ilas_site_assistant/tests/src/Unit/SentryOptionsSubscriberTest.php
+?? .github/
+?? docs/aila/
+?? scripts/
+?? web/modules/custom/ilas_site_assistant/config/install/search_api.server.database.yml
+?? web/modules/custom/ilas_site_assistant/src/Access/
+?? web/modules/custom/ilas_site_assistant/tests/modules/
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/AuditBaselineAcceptanceTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/CrisisHotlineInvariantsTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfAuthMatrixTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/NoLegalAdviceGovernanceTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/OwnerRoleAssignmentDocsTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorContractTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/SafeToArrayTest.php
+?? web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyClassifierPriorityContractTest.php

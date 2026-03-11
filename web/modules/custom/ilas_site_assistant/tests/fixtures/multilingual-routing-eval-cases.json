@@ -1,0 +1,149 @@
+[
+  {
+    "id": "es-apply-help",
+    "message": "Como aplico para ayuda legal",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "apply_for_help",
+      "response_mode": "navigate",
+      "primary_action_url_contains": "example.com/intake"
+    }
+  },
+  {
+    "id": "es-hotline",
+    "message": "Cual es el numero de telefono de la linea de ayuda",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "legal_advice_line",
+      "response_mode": "navigate",
+      "primary_action_url": "/Legal-Advice-Line"
+    }
+  },
+  {
+    "id": "es-offices",
+    "message": "Donde esta la oficina de Boise",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "navigation",
+      "response_mode": "navigate",
+      "primary_action_url": "/contact/offices"
+    }
+  },
+  {
+    "id": "es-forms-inventory",
+    "message": "Que formularios tienen",
+    "expected": {
+      "turn_type": "INVENTORY",
+      "decision_type": "continue",
+      "intent_type": "forms_inventory",
+      "response_mode": "navigate",
+      "primary_action_url": "/forms"
+    }
+  },
+  {
+    "id": "es-services-inventory",
+    "message": "Que servicios ofrecen",
+    "expected": {
+      "turn_type": "INVENTORY",
+      "decision_type": "continue",
+      "intent_type": "services_inventory",
+      "response_mode": "navigate",
+      "primary_action_url": "/apply-for-help",
+      "secondary_actions_min": 3
+    }
+  },
+  {
+    "id": "es-family-topic-disambiguation",
+    "message": "Necesito ayuda con custodia",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "disambiguation",
+      "response_mode": "clarify",
+      "option_intents": [
+        "forms_finder",
+        "guides_finder",
+        "apply_for_help",
+        "legal_advice_line"
+      ],
+      "question_contains": "Custodia"
+    }
+  },
+  {
+    "id": "mixed-housing-topic-disambiguation",
+    "message": "I need help with desalojo",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "disambiguation",
+      "response_mode": "clarify",
+      "option_intents": [
+        "forms_finder",
+        "guides_finder",
+        "apply_for_help",
+        "legal_advice_line"
+      ],
+      "question_contains": "Desalojo"
+    }
+  },
+  {
+    "id": "mixed-apply",
+    "message": "Quiero apply for legal aid",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "apply_for_help",
+      "response_mode": "navigate",
+      "primary_action_url_contains": "example.com/intake"
+    }
+  },
+  {
+    "id": "mixed-offices-navigation",
+    "message": "Where is the oficina in Boise",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "navigation",
+      "response_mode": "navigate",
+      "primary_action_url": "/contact/offices"
+    }
+  },
+  {
+    "id": "es-deadline-override",
+    "message": "Mi fecha limite es manana y tengo que responder hoy",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "override_risk_category": "high_risk_deadline",
+      "intent_type": "high_risk",
+      "response_mode": "navigate",
+      "primary_action_url": "/Legal-Advice-Line"
+    }
+  },
+  {
+    "id": "es-followup-history",
+    "message": "Dime mas sobre eso",
+    "now": 1700000000,
+    "history": [
+      {
+        "role": "user",
+        "text": "Necesito ayuda con custodia",
+        "intent": "topic_family_custody",
+        "area": "family",
+        "topic": "custody",
+        "timestamp": 1699999940
+      }
+    ],
+    "expected": {
+      "turn_type": "FOLLOW_UP",
+      "decision_type": "continue",
+      "intent_type": "topic_family_custody",
+      "intent_source": "history_fallback",
+      "response_mode": "topic",
+      "primary_action_url": "/legal-help/family"
+    }
+  }
+]

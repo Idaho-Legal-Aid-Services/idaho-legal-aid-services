@@ -171,6 +171,8 @@ button-audit/
 reports/
 fixtures/
 chatbot-golden-dataset.csv
+!web/modules/custom/ilas_site_assistant/tests/fixtures/
+!web/modules/custom/ilas_site_assistant/tests/fixtures/*.json
 !promptfoo-evals/tests/fixtures/
 !promptfoo-evals/tests/fixtures/*.json
 
@@ -221,7 +223,9 @@ node_modules/
 docs/assistant_audit/
 
 # AILA raw evidence dumps (reproducible, not curated docs)
-docs/aila/artifacts/
+docs/aila/artifacts/*
+!docs/aila/artifacts/context-latest.txt
+!docs/aila/artifacts/services-inventory.tsv
 
 # Local pull-live configuration (may contain environment-specific overrides)
 scripts/pull-live.conf

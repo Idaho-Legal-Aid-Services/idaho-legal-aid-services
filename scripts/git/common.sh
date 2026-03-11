@@ -20,6 +20,15 @@ err() {
   printf '[error] %s\n' "$*" >&2
 }
 
+require_command() {
+  local cmd="$1"
+
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    err "Required command not found: $cmd"
+    exit 1
+  fi
+}
+
 print_cmd() {
   local rendered=()
   local arg

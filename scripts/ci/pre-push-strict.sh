@@ -9,6 +9,73 @@ source "$REPO_ROOT/scripts/git/common.sh"
 REMOTE_NAME="${1:-unknown-remote}"
 REMOTE_URL="${2:-unknown-url}"
 CURRENT_BRANCH="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+PUSH_LINES=()
+PROMPTFOO_BRANCH="$CURRENT_BRANCH"
+SKIP_PROMPTFOO="false"
+
+while IFS=' ' read -r local_ref local_oid remote_ref remote_oid; do
+  [[ -z "${local_ref:-}" ]] && continue
+  PUSH_LINES+=("${local_ref}|${local_oid}|${remote_ref}|${remote_oid}")
+done
+
+is_protected_branch() {
+  local branch="$1"
+  [[ "$branch" == "master" || "$branch" == "main" || "$branch" =~ ^release/ ]]
+}
+
+is_pushing_remote_branch() {
+  local branch="$1"
+  local entry=""
+  local remote_ref=""
+
+  for entry in "${PUSH_LINES[@]}"; do
+    IFS='|' read -r _ _ remote_ref _ <<< "$entry"
+    if [[ "$remote_ref" == "refs/heads/$branch" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+resolve_promptfoo_branch() {
+  local entry=""
+  local remote_ref=""
+  local branch=""
+  local first_head_branch=""
+
+  for entry in "${PUSH_LINES[@]}"; do
+    IFS='|' read -r _ _ remote_ref _ <<< "$entry"
+    [[ "$remote_ref" == refs/heads/* ]] || continue
+
+    branch="${remote_ref#refs/heads/}"
+    if is_protected_branch "$branch"; then
+      printf '%s\n' "$branch"
+      return 0
+    fi
+
+    if [[ -z "$first_head_branch" ]]; then
+      first_head_branch="$branch"
+    fi
+  done
+
+  if [[ -n "$first_head_branch" ]]; then
+    printf '%s\n' "$first_head_branch"
+    return 0
+  fi
+
+  printf '%s\n' "$CURRENT_BRANCH"
+}
+
+is_effective_target_branch() {
+  local branch="$1"
+
+  if is_pushing_remote_branch "$branch"; then
+    return 0
+  fi
+
+  [[ "$PROMPTFOO_BRANCH" == "$branch" && "$CURRENT_BRANCH" == "$branch" ]]
+}
 
 echo "Strict pre-push gate: remote=${REMOTE_NAME} branch=${CURRENT_BRANCH}"
 echo "Remote URL: ${REMOTE_URL}"
@@ -25,8 +92,30 @@ if [[ "$REMOTE_NAME" == "origin" || "$REMOTE_NAME" == "github" ]]; then
     OTHER_REMOTE="origin"
   fi
 
+  PROMPTFOO_BRANCH="$(resolve_promptfoo_branch)"
+
   echo "Checking dual-remote drift before push..."
   bash "$REPO_ROOT/scripts/git/sync-check.sh" --branch "$CURRENT_BRANCH"
+  echo "Promptfoo policy target branch: ${PROMPTFOO_BRANCH}"
+
+  if [[ "$CURRENT_BRANCH" == "master" && "$REMOTE_NAME" == "github" ]] && is_effective_target_branch "master"; then
+    echo "ERROR: Direct pushes to protected github/master are not supported." >&2
+    echo "Use: npm run git:publish" >&2
+    echo "Emergency bypass only: git push --no-verify github master" >&2
+    exit 1
+  fi
+
+  if [[ "$CURRENT_BRANCH" == "master" && "$REMOTE_NAME" == "origin" ]] && is_effective_target_branch "master"; then
+    IFS=$'\t' read -r GITHUB_STATUS _ _ < <(describe_remote_status "github" "$CURRENT_BRANCH")
+    if [[ "$GITHUB_STATUS" != "in-sync" ]]; then
+      echo "ERROR: Refusing to push origin/master before github/master matches local master." >&2
+      echo "Use: npm run git:publish" >&2
+      echo "After merge and local fast-forward, deploy Pantheon with: npm run git:publish -- --origin-only" >&2
+      echo "Emergency bypass only: git push --no-verify origin master" >&2
+      exit 1
+    fi
+    SKIP_PROMPTFOO="true"
+  fi
 
   if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/remotes/$OTHER_REMOTE/$CURRENT_BRANCH"; then
     read -r OTHER_REMOTE_ONLY OTHER_LOCAL_ONLY < <(
@@ -54,7 +143,11 @@ cd "$REPO_ROOT"
 echo "Running module quality gate..."
 bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 
-echo "Running branch-aware promptfoo gate..."
-CI_BRANCH="$CURRENT_BRANCH" bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
+if [[ "$SKIP_PROMPTFOO" == "true" ]]; then
+  echo "Skipping local promptfoo gate for origin/master: trusting GitHub Promptfoo Gate for this synced commit."
+else
+  echo "Running branch-aware promptfoo gate for target branch ${PROMPTFOO_BRANCH}..."
+  CI_BRANCH="$PROMPTFOO_BRANCH" bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
+fi
 
 echo "Strict pre-push gate PASSED."

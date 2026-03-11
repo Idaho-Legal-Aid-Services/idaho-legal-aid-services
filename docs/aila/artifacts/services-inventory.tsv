@@ -1,0 +1,39 @@
+service_id	line	class	factory	parent	arguments	tags
+cache.ilas_site_assistant	2	Drupal\Core\Cache\CacheBackendInterface	cache_factory:get		ilas_site_assistant	cache.bin
+ilas_site_assistant.ranking_enhancer	9	Drupal\ilas_site_assistant\Service\RankingEnhancer			'@cache.default'	
+ilas_site_assistant.acronym_expander	13	Drupal\ilas_site_assistant\Service\AcronymExpander			'@cache.default'	
+ilas_site_assistant.typo_corrector	17	Drupal\ilas_site_assistant\Service\TypoCorrector			'@cache.default', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.acronym_expander'	
+ilas_site_assistant.keyword_extractor	21	Drupal\ilas_site_assistant\Service\KeywordExtractor			'@cache.default', '@ilas_site_assistant.acronym_expander', '@ilas_site_assistant.typo_corrector'	
+ilas_site_assistant.topic_router	25	Drupal\ilas_site_assistant\Service\TopicRouter			'@cache.default'	
+ilas_site_assistant.navigation_intent	29	Drupal\ilas_site_assistant\Service\NavigationIntent				
+ilas_site_assistant.intent_router	32	Drupal\ilas_site_assistant\Service\IntentRouter			'@config.factory', '@ilas_site_assistant.topic_resolver', '@ilas_site_assistant.keyword_extractor', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.navigation_intent', '@ilas_site_assistant.disambiguator', '@ilas_site_assistant.top_intents_pack'	
+ilas_site_assistant.topic_resolver	36	Drupal\ilas_site_assistant\Service\TopicResolver			'@entity_type.manager', '@cache.default'	
+ilas_site_assistant.faq_index	40	Drupal\ilas_site_assistant\Service\FaqIndex			'@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.ranking_enhancer'	
+ilas_site_assistant.resource_finder	44	Drupal\ilas_site_assistant\Service\ResourceFinder			'@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory'	
+ilas_site_assistant.analytics_logger	48	Drupal\ilas_site_assistant\Service\AnalyticsLogger			'@database', '@config.factory', '@datetime.time'	
+ilas_site_assistant.policy_filter	52	Drupal\ilas_site_assistant\Service\PolicyFilter			'@config.factory'	
+ilas_site_assistant.llm_admission_coordinator	62	Drupal\ilas_site_assistant\Service\LlmAdmissionCoordinator			'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@lock'
+ilas_site_assistant.llm_circuit_breaker	66	Drupal\ilas_site_assistant\Service\LlmCircuitBreaker			'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_admission_coordinator'
+ilas_site_assistant.llm_rate_limiter	70	Drupal\ilas_site_assistant\Service\LlmRateLimiter			'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_admission_coordinator'
+ilas_site_assistant.cost_control_policy	74	Drupal\ilas_site_assistant\Service\CostControlPolicy			'@state', '@config.factory', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.llm_circuit_breaker', '@ilas_site_assistant.llm_rate_limiter', '@ilas_site_assistant.llm_admission_coordinator'
+ilas_site_assistant.llm_enhancer	84	Drupal\ilas_site_assistant\Service\LlmEnhancer			'@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter', '@cache.ilas_site_assistant', '@ilas_site_assistant.llm_circuit_breaker', '@ilas_site_assistant.llm_rate_limiter', '@ilas_site_assistant.cost_control_policy'
+ilas_site_assistant.fallback_gate	88	Drupal\ilas_site_assistant\Service\FallbackGate			'@config.factory'
+ilas_site_assistant.response_grounder	92	Drupal\ilas_site_assistant\Service\ResponseGrounder
+ilas_site_assistant.safety_classifier	95	Drupal\ilas_site_assistant\Service\SafetyClassifier			'@config.factory'
+ilas_site_assistant.safety_response_templates	99	Drupal\ilas_site_assistant\Service\SafetyResponseTemplates
+ilas_site_assistant.top_intents_pack	102	Drupal\ilas_site_assistant\Service\TopIntentsPack			'@cache.default'
+ilas_site_assistant.turn_classifier	106	Drupal\ilas_site_assistant\Service\TurnClassifier
+ilas_site_assistant.disambiguator	109	Drupal\ilas_site_assistant\Service\Disambiguator
+ilas_site_assistant.out_of_scope_classifier	112	Drupal\ilas_site_assistant\Service\OutOfScopeClassifier			'@config.factory'
+ilas_site_assistant.pre_routing_decision_engine	127	Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine			'@ilas_site_assistant.policy_filter', '@ilas_site_assistant.safety_classifier', '@ilas_site_assistant.out_of_scope_classifier'
+ilas_site_assistant.out_of_scope_response_templates	96	Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates				
+logger.channel.ilas_site_assistant	99			logger.channel_base	'ilas_site_assistant'	
+ilas_site_assistant.performance_monitor	103	Drupal\ilas_site_assistant\Service\PerformanceMonitor			'@state', '@logger.channel.ilas_site_assistant'	
+ilas_site_assistant.pii_redactor	107	Drupal\ilas_site_assistant\Service\PiiRedactor				
+ilas_site_assistant.conversation_logger	110	Drupal\ilas_site_assistant\Service\ConversationLogger			'@database', '@config.factory', '@datetime.time'	
+ilas_site_assistant.safety_violation_tracker	114	Drupal\ilas_site_assistant\Service\SafetyViolationTracker			'@state'	
+ilas_site_assistant.safety_alert	118	Drupal\ilas_site_assistant\Service\SafetyAlertService			'@config.factory', '@database', '@plugin.manager.mail', '@state', '@datetime.time', '@logger.channel.ilas_site_assistant', '@ilas_site_assistant.safety_violation_tracker'	
+ilas_site_assistant.ab_testing	122	Drupal\ilas_site_assistant\Service\AbTestingService			'@config.factory'	
+ilas_site_assistant.langfuse_tracer	126	Drupal\ilas_site_assistant\Service\LangfuseTracer			'@config.factory', '@logger.channel.ilas_site_assistant'	
+ilas_site_assistant.langfuse_terminate_subscriber	130	Drupal\ilas_site_assistant\EventSubscriber\LangfuseTerminateSubscriber			'@ilas_site_assistant.langfuse_tracer', '@queue', '@config.factory', '@logger.channel.ilas_site_assistant'	event_subscriber
+ilas_site_assistant.sentry_options_subscriber	136	Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber				event_subscriber
