@@ -7,6 +7,7 @@ use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\search_api\Entity\Index;
 
 /**
@@ -76,6 +77,13 @@ class FaqIndex {
   protected $languageManager;
 
   /**
+   * Retrieval configuration resolver.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalConfigurationService
+   */
+  protected RetrievalConfigurationService $retrievalConfiguration;
+
+  /**
    * The ranking enhancer service.
    *
    * @var \Drupal\ilas_site_assistant\Service\RankingEnhancer
@@ -102,11 +110,6 @@ class FaqIndex {
   const PARENT_URL_CACHE_ID = 'ilas_site_assistant.parent_urls';
 
   /**
-   * The Search API index ID.
-   */
-  const INDEX_ID = 'faq_accordion';
-
-  /**
    * Constructs a FaqIndex object.
    */
   public function __construct(
@@ -114,6 +117,7 @@ class FaqIndex {
     CacheBackendInterface $cache,
     ConfigFactoryInterface $config_factory,
     LanguageManagerInterface $language_manager,
+    RetrievalConfigurationService $retrieval_configuration,
     RankingEnhancer $ranking_enhancer = NULL,
     SourceGovernanceService $source_governance = NULL
   ) {
@@ -121,6 +125,7 @@ class FaqIndex {
     $this->cache = $cache;
     $this->configFactory = $config_factory;
     $this->languageManager = $language_manager;
+    $this->retrievalConfiguration = $retrieval_configuration;
     $this->rankingEnhancer = $ranking_enhancer;
     $this->sourceGovernance = $source_governance;
   }
@@ -143,7 +148,8 @@ class FaqIndex {
    */
   protected function getIndex() {
     if ($this->index === NULL) {
-      $this->index = Index::load(self::INDEX_ID);
+      $index_id = $this->retrievalConfiguration->getFaqIndexId();
+      $this->index = $index_id ? Index::load($index_id) : NULL;
     }
     return $this->index;
   }
@@ -704,14 +710,23 @@ class FaqIndex {
       $merged[$pid] = $item;
     }
 
-    // Merge vector items, keeping higher-scored version for duplicates.
+    // Merge vector items, applying lexical priority boost for comparison.
     foreach ($vector_items as $item) {
       $pid = $item['paragraph_id'] ?? $item['id'];
       if (!isset($merged[$pid])) {
         $merged[$pid] = $item;
       }
-      elseif (($item['score'] ?? 0) > ($merged[$pid]['score'] ?? 0)) {
-        $merged[$pid] = $item;
+      else {
+        // Apply lexical priority boost for comparison purposes only.
+        $existing_score = $merged[$pid]['score'] ?? 0;
+        $new_score = $item['score'] ?? 0;
+        $existing_is_lexical = ($merged[$pid]['source'] ?? 'lexical') !== 'vector';
+        $effective_existing = $existing_is_lexical ? $existing_score + RetrievalContract::LEXICAL_PRIORITY_BOOST : $existing_score;
+        $new_is_lexical = ($item['source'] ?? 'lexical') !== 'vector';
+        $effective_new = $new_is_lexical ? $new_score + RetrievalContract::LEXICAL_PRIORITY_BOOST : $new_score;
+        if ($effective_new > $effective_existing) {
+          $merged[$pid] = $item;
+        }
       }
     }
 
@@ -721,7 +736,98 @@ class FaqIndex {
       return ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
     });
 
-    return array_slice($results, 0, $limit);
+    $results = array_slice($results, 0, $limit);
+
+    // Ensure at least MIN_LEXICAL_PRESERVED lexical results if any existed.
+    $results = $this->enforceMinLexicalPreserved($results, $lexical_items, $limit);
+
+    // Log vector supplementation for observability.
+    try {
+      \Drupal::logger('ilas_site_assistant')->info('FAQ retrieval contract: vector supplemented lexical. lexical_count=@lc vector_count=@vc merged_count=@mc policy=@p', [
+        '@lc' => count($lexical_items),
+        '@vc' => count($vector_items),
+        '@mc' => count($results),
+        '@p' => RetrievalContract::POLICY_VERSION,
+      ]);
+    }
+    catch (\Throwable $e) {
+      // Logger unavailable outside Drupal bootstrap (unit tests).
+    }
+
+    return $results;
+  }
+
+  /**
+   * Ensures minimum lexical results are preserved in merged output.
+   *
+   * When vector results dominate the merge output and push all lexical results
+   * below the limit cut, this method replaces the lowest-scoring vector result
+   * with the highest-scoring lexical result from the original input.
+   *
+   * @param array $results
+   *   Current merge output (sorted by score, sliced to limit).
+   * @param array $lexical_items
+   *   Original lexical input items.
+   * @param int $limit
+   *   Maximum results allowed.
+   *
+   * @return array
+   *   Adjusted results with minimum lexical preservation enforced.
+   */
+  protected function enforceMinLexicalPreserved(array $results, array $lexical_items, int $limit): array {
+    if (empty($lexical_items)) {
+      return $results;
+    }
+
+    // Count lexical results currently in output.
+    $lexical_count = 0;
+    foreach ($results as $item) {
+      if (($item['source'] ?? 'lexical') !== 'vector') {
+        $lexical_count++;
+      }
+    }
+
+    if ($lexical_count >= RetrievalContract::MIN_LEXICAL_PRESERVED) {
+      return $results;
+    }
+
+    // Build set of IDs already in output.
+    $output_ids = [];
+    foreach ($results as $item) {
+      $output_ids[$item['paragraph_id'] ?? $item['id']] = TRUE;
+    }
+
+    // Find highest-scoring lexical item not already in output.
+    $best_lexical = NULL;
+    foreach ($lexical_items as $item) {
+      $pid = $item['paragraph_id'] ?? $item['id'];
+      if (isset($output_ids[$pid])) {
+        continue;
+      }
+      if ($best_lexical === NULL || ($item['score'] ?? 0) > ($best_lexical['score'] ?? 0)) {
+        $best_lexical = $item;
+      }
+    }
+
+    if ($best_lexical === NULL) {
+      return $results;
+    }
+
+    // Replace the lowest-scoring vector item in output.
+    $worst_vector_idx = NULL;
+    $worst_vector_score = PHP_INT_MAX;
+    foreach ($results as $idx => $item) {
+      if (($item['source'] ?? 'lexical') === 'vector' && ($item['score'] ?? 0) < $worst_vector_score) {
+        $worst_vector_score = $item['score'] ?? 0;
+        $worst_vector_idx = $idx;
+      }
+    }
+
+    if ($worst_vector_idx !== NULL) {
+      $results[$worst_vector_idx] = $best_lexical;
+    }
+
+    return $results;
   }
 
   /**
@@ -744,9 +850,13 @@ class FaqIndex {
     }
 
     $vector_config = $this->getVectorSearchConfig();
-    $index_id = $vector_config['faq_index_id'] ?? 'faq_accordion_vector';
+    $index_id = $this->retrievalConfiguration->getFaqVectorIndexId();
     $min_score = $vector_config['min_vector_score'] ?? 0.70;
     $normalization = $vector_config['score_normalization_factor'] ?? 100;
+
+    if ($index_id === NULL) {
+      return [];
+    }
 
     try {
       $vector_index = Index::load($index_id);

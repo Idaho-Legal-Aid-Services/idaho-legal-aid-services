@@ -72,9 +72,10 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | `ilas_site_assistant.topic_router` | `Drupal\ilas_site_assistant\Service\TopicRouter` | Rule-based topic matcher | `'@cache.default'` | [^CLAIM-020] |
 | `ilas_site_assistant.navigation_intent` | `Drupal\ilas_site_assistant\Service\NavigationIntent` | Navigation intent shortcuts | `-` | [^CLAIM-020] |
 | `ilas_site_assistant.intent_router` | `Drupal\ilas_site_assistant\Service\IntentRouter` | Primary deterministic intent router | `'@config.factory', '@ilas_site_assistant.topic_resolver', '@ilas_site_assistant.keyword_extractor', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.navigation_intent', '@ilas_site_assistant.disambiguator', '@ilas_site_assistant.top_intents_pack'` | [^CLAIM-020] |
-| `ilas_site_assistant.topic_resolver` | `Drupal\ilas_site_assistant\Service\TopicResolver` | Maps topic IDs to metadata/URLs | `'@entity_type.manager', '@cache.default'` | [^CLAIM-020] |
-| `ilas_site_assistant.faq_index` | `Drupal\ilas_site_assistant\Service\FaqIndex` | FAQ retrieval adapter | `'@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.ranking_enhancer'` | [^CLAIM-020] |
-| `ilas_site_assistant.resource_finder` | `Drupal\ilas_site_assistant\Service\ResourceFinder` | Resource/form/guide retrieval adapter | `'@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory'` | [^CLAIM-020] |
+| `ilas_site_assistant.retrieval_configuration` | `Drupal\ilas_site_assistant\Service\RetrievalConfigurationService` | Runtime resolver for governed retrieval IDs, canonical URLs, and retrieval-config health snapshots | `'@config.factory', '@entity_type.manager'` | [^CLAIM-020] |
+| `ilas_site_assistant.topic_resolver` | `Drupal\ilas_site_assistant\Service\TopicResolver` | Maps topic IDs to metadata/URLs | `'@entity_type.manager', '@cache.default', '@ilas_site_assistant.retrieval_configuration'` | [^CLAIM-020] |
+| `ilas_site_assistant.faq_index` | `Drupal\ilas_site_assistant\Service\FaqIndex` | FAQ retrieval adapter | `'@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.retrieval_configuration', '@ilas_site_assistant.ranking_enhancer'` | [^CLAIM-020] |
+| `ilas_site_assistant.resource_finder` | `Drupal\ilas_site_assistant\Service\ResourceFinder` | Resource/form/guide retrieval adapter | `'@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory', '@ilas_site_assistant.retrieval_configuration'` | [^CLAIM-020] |
 | `ilas_site_assistant.analytics_logger` | `Drupal\ilas_site_assistant\Service\AnalyticsLogger` | Writes analytics and no-answer records | `'@database', '@config.factory', '@datetime.time', '@logger.channel.ilas_site_assistant'` | [^CLAIM-020] |
 | `ilas_site_assistant.policy_filter` | `Drupal\ilas_site_assistant\Service\PolicyFilter` | Fallback safety/policy checks | `'@config.factory'` | [^CLAIM-020] |
 | `ilas_site_assistant.pre_routing_decision_engine` | `Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine` | Authoritative pre-routing precedence contract across safety, out-of-scope, policy, and urgency overrides | `'@ilas_site_assistant.policy_filter', '@ilas_site_assistant.safety_classifier', '@ilas_site_assistant.out_of_scope_classifier'` | [^CLAIM-020] |
@@ -137,7 +138,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Event subscriber | `LangfuseTerminateSubscriber` | Queues Langfuse payload on `kernel.terminate` with depth guard | [^CLAIM-081] |
 | Queue worker | `ilas_langfuse_export` | Cron queue worker exports Langfuse batches; retries transient failures via queue suspension | [^CLAIM-082] |
 | Drush commands | `KbImportCommands` | Provides `ilas:kb-import` and `ilas:kb-list` CLI commands | [^CLAIM-018][^CLAIM-019] |
-| Admin form endpoint | `AssistantSettingsForm` | Persists settings, including vector-search keys | [^CLAIM-011][^CLAIM-096] |
+| Admin form endpoint | `AssistantSettingsForm` | Persists canonical URL + retrieval settings, while LegalServer intake URL remains runtime-only and non-exportable | [^CLAIM-011][^CLAIM-096] |
 
 ## 4) Feature specs
 
@@ -1014,6 +1015,34 @@ This dated addendum records re-audit remediation `RAUD-19` for findings
    remediation remains intentionally scoped to Spanish plus mixed
    English/Spanish, so unsupported non-Spanish languages remain a residual
    risk instead of implicit product expansion.
+
+### Re-Audit Remediation RAUD-21 Retrieval Config Governance + Drift Guard (2026-03-11)
+
+This dated addendum records re-audit remediation `RAUD-21` for findings
+`F-18`, `M4`, and `N-16`.
+
+1. Governed retrieval identifiers are no longer embedded in runtime services:
+   `FaqIndex`, `ResourceFinder`, `TopicResolver`, and
+   `VectorIndexHygieneService` now resolve their Search API IDs through
+   `RetrievalConfigurationService`, with the source of truth moved to the
+   `retrieval.*` config block.
+2. The LegalServer intake URL is no longer part of exported Drupal config.
+   `settings.php` now reads `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` into the
+   runtime-only site setting
+   `$settings['ilas_site_assistant_legalserver_online_application_url']`, and
+   canonical URL resolution injects that value at runtime only.
+3. `/assistant/api/health` now exposes `checks.retrieval_configuration`,
+   covering lexical/vector index existence + enablement, required service-area
+   URL completeness, and LegalServer URL validation (`https`, absolute URL,
+   required `pid` + `h` query keys). Pure-PHP response helpers no longer carry
+   embedded canonical URL defaults; callers pass canonical URLs explicitly.
+4. Local verification is captured in
+   `docs/aila/runtime/raud-21-retrieval-config-governance.txt`. The repo-side
+   remediation is classified `Partially Fixed` because Pantheon `dev` still
+   reports pre-change drift (`retrieval: null`,
+   `canonical_urls.online_application` exported, missing retrieval health
+   service, runtime LegalServer setting absent) and no live LegalServer probe
+   was executed post-deploy.
 
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 

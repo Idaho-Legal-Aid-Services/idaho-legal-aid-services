@@ -2,8 +2,11 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+require_once __DIR__ . '/../Support/CanonicalUrlFixtures.php';
+
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
+use Drupal\Tests\ilas_site_assistant\Support\CanonicalUrlFixtures;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,18 +25,26 @@ class FallbackTreeEvaluatorTest extends TestCase {
   protected $pack;
 
   /**
+   * Canonical URL fixture map.
+   *
+   * @var array
+   */
+  protected $canonicalUrls;
+
+  /**
    * {@inheritdoc}
    */
   protected function setUp(): void {
     parent::setUp();
     $this->pack = new TopIntentsPack(NULL);
+    $this->canonicalUrls = CanonicalUrlFixtures::defaults();
   }
 
   /**
    * Level 1: first failure with known intent.
    */
   public function testLevel1FirstAttempt(): void {
-    $result = FallbackTreeEvaluator::evaluateLevel('topic_family_custody', [], [], $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('topic_family_custody', [], [], $this->pack, $this->canonicalUrls);
 
     $this->assertEquals(1, $result['level']);
     $this->assertNotEmpty($result['message']);
@@ -46,7 +57,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
    * Level 1: area-specific link included for topic intents.
    */
   public function testLevel1IncludesAreaLink(): void {
-    $result = FallbackTreeEvaluator::evaluateLevel('topic_housing_eviction', [], [], $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('topic_housing_eviction', [], [], $this->pack, $this->canonicalUrls);
 
     $link_urls = array_column($result['links'], 'url');
     $this->assertContains('/legal-help/housing', $link_urls);
@@ -66,7 +77,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
       ],
     ];
 
-    $result = FallbackTreeEvaluator::evaluateLevel('topic_housing_eviction', [], $history, $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('topic_housing_eviction', [], $history, $this->pack, $this->canonicalUrls);
 
     $this->assertEquals(2, $result['level']);
     $this->assertGreaterThanOrEqual(2, count($result['links']));
@@ -94,7 +105,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
       ],
     ];
 
-    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack, $this->canonicalUrls);
 
     $this->assertEquals(3, $result['level']);
     $this->assertGreaterThanOrEqual(2, count($result['links']));
@@ -116,7 +127,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
       ['intent' => 'unknown', 'response_type' => 'fallback', 'timestamp' => $now - 60],
     ];
 
-    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack, $this->canonicalUrls);
 
     $this->assertEquals(4, $result['level']);
     $this->assertStringContainsString('connect you', strtolower($result['message']));
@@ -128,7 +139,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
    */
   #[DataProvider('levelScenariosProvider')]
   public function testInvariantMinTwoLinks(string $intent, array $history): void {
-    $result = FallbackTreeEvaluator::evaluateLevel($intent, [], $history, $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel($intent, [], $history, $this->pack, $this->canonicalUrls);
 
     $this->assertGreaterThanOrEqual(2, count($result['links']),
       "Level {$result['level']} must have >= 2 links");
@@ -184,7 +195,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
    */
   public function testLevel1WithPackIncludesSuggestions(): void {
     // topic_family has a clarifier, so we should get suggestions.
-    $result = FallbackTreeEvaluator::evaluateLevel('topic_family', [], [], $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('topic_family', [], [], $this->pack, $this->canonicalUrls);
 
     $this->assertEquals(1, $result['level']);
     $this->assertNotEmpty($result['suggestions']);
@@ -201,7 +212,7 @@ class FallbackTreeEvaluatorTest extends TestCase {
       ['intent' => 'unknown', 'response_type' => 'fallback', 'timestamp' => $now - 60],
     ];
 
-    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack);
+    $result = FallbackTreeEvaluator::evaluateLevel('unknown', [], $history, $this->pack, $this->canonicalUrls);
 
     // Only 1 consecutive fallback (the last one), so Level 1.
     $this->assertEquals(1, $result['level']);

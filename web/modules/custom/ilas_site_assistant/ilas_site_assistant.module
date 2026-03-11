@@ -150,35 +150,20 @@ if (!function_exists('ilas_site_assistant_get_canonical_urls')) {
    *   Array of canonical URLs keyed by identifier.
    */
   function ilas_site_assistant_get_canonical_urls() {
+    if (\Drupal::hasService('ilas_site_assistant.retrieval_configuration')) {
+      return \Drupal::service('ilas_site_assistant.retrieval_configuration')->getCanonicalUrls();
+    }
+
     $config = \Drupal::config('ilas_site_assistant.settings');
+    $urls = $config->get('canonical_urls');
+    $urls = is_array($urls) ? $urls : [];
 
-    $defaults = [
-      'apply' => '/apply-for-help',
-      'online_application' => 'https://idoi.legalserver.org/modules/matter/extern_intake.php?pid=60&h=bf45bd&',
-      'hotline' => '/Legal-Advice-Line',
-      'offices' => '/contact/offices',
-      'donate' => '/donate',
-      'feedback' => '/get-involved/feedback',
-      'resources' => '/what-we-do/resources',
-      'forms' => '/forms',
-      'guides' => '/guides',
-      'senior_risk_detector' => '/resources/legal-risk-detector',
-      'faq' => '/faq',
-      'services' => '/services',
-      'service_areas' => [
-        'housing' => '/legal-help/housing',
-        'family' => '/legal-help/family',
-        'seniors' => '/legal-help/seniors',
-        'health' => '/legal-help/health',
-        'consumer' => '/legal-help/consumer',
-        'civil_rights' => '/legal-help/civil-rights',
-      ],
-    ];
+    $online_application = \Drupal\Core\Site\Settings::get('ilas_site_assistant_legalserver_online_application_url', '');
+    if (is_string($online_application) && trim($online_application) !== '') {
+      $urls['online_application'] = trim($online_application);
+    }
 
-    $urls = $config->get('canonical_urls') ?? [];
-
-    // Merge so that missing keys (e.g. online_application) always have a value.
-    return array_merge($defaults, $urls);
+    return $urls;
   }
 
 }

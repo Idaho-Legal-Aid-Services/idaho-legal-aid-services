@@ -8,8 +8,10 @@ use PHPUnit\Framework\Attributes\Group;
 // Load the services directly (no Drupal bootstrap needed).
 require_once __DIR__ . '/../../../src/Service/ResponseBuilder.php';
 require_once __DIR__ . '/../../../src/Service/HardRouteRegistry.php';
+require_once __DIR__ . '/../Support/CanonicalUrlFixtures.php';
 
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
+use Drupal\Tests\ilas_site_assistant\Support\CanonicalUrlFixtures;
 
 /**
  * Regression tests for the Apply CTA deterministic response.
@@ -35,7 +37,7 @@ class ApplyCtaResponseTest extends TestCase {
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->builder = new ResponseBuilder();
+    $this->builder = new ResponseBuilder(CanonicalUrlFixtures::defaults());
   }
 
   /**
@@ -64,8 +66,8 @@ class ApplyCtaResponseTest extends TestCase {
     $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
 
     $this->assertNotNull($response['primary_action'], 'Must have primary_action');
-    $this->assertStringContainsString('legalserver.org', $response['primary_action']['url'],
-      'Primary action URL must point to LegalServer online intake');
+    $this->assertSame(CanonicalUrlFixtures::defaults()['online_application'], $response['primary_action']['url'],
+      'Primary action URL must point to the configured online intake URL');
     $this->assertEquals('Start online application', $response['primary_action']['label']);
   }
 
@@ -117,12 +119,12 @@ class ApplyCtaResponseTest extends TestCase {
   /**
    * Tests that the online_application URL is in default canonical URLs.
    */
-  public function testDefaultCanonicalUrlsIncludeOnlineApplication(): void {
-    $urls = ResponseBuilder::getDefaultCanonicalUrls();
+  public function testCanonicalUrlFixtureIncludesOnlineApplication(): void {
+    $urls = CanonicalUrlFixtures::defaults();
 
     $this->assertArrayHasKey('online_application', $urls,
       'Canonical URLs must include online_application key');
-    $this->assertStringContainsString('legalserver.org', $urls['online_application']);
+    $this->assertStringContainsString('intake', $urls['online_application']);
   }
 
   /**
@@ -148,9 +150,9 @@ class ApplyCtaResponseTest extends TestCase {
   public function testApplyResponseIncludesAllThreeLinks(): void {
     $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
 
-    // Primary action must be the online application (LegalServer).
-    $this->assertStringContainsString('legalserver.org', $response['primary_action']['url'],
-      'Primary action must link to LegalServer online intake');
+    // Primary action must be the configured online application URL.
+    $this->assertSame(CanonicalUrlFixtures::defaults()['online_application'], $response['primary_action']['url'],
+      'Primary action must link to the configured online intake URL');
 
     // Secondary actions must include phone and office.
     $secondary_urls = array_column($response['secondary_actions'], 'url');

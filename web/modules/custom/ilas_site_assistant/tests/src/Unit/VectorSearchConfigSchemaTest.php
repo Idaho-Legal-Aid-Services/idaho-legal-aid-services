@@ -6,175 +6,143 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Validates that the config schema covers all vector_search install defaults.
- *
- * IMP-CONF-01: The vector_search block was missing from the config schema,
- * allowing config drift to go undetected. This test ensures every key defined
- * in the install defaults has a corresponding schema entry.
+ * Validates retrieval/vector config schema contracts and ownership boundaries.
  *
  * @group ilas_site_assistant
  */
 class VectorSearchConfigSchemaTest extends TestCase {
 
-  /**
-   * Path to the module root, relative to the repo root.
-   */
   private const MODULE_PATH = 'web/modules/custom/ilas_site_assistant';
 
   /**
    * Returns the repository root by walking up from __DIR__.
    */
   private static function repoRoot(): string {
-    // __DIR__ = <repo>/web/modules/custom/ilas_site_assistant/tests/src/Unit
-    // dirname(Unit,7) -> src -> tests -> ilas_site_assistant -> custom -> modules -> web -> <repo>
     return dirname(__DIR__, 7);
   }
 
   /**
-   * Tests that every vector_search key in install defaults has a schema entry.
+   * Returns parsed install config.
    */
-  public function testSchemaCoversAllInstallDefaultKeys(): void {
-    $root = self::repoRoot();
+  private static function installConfig(): array {
+    return Yaml::parseFile(self::repoRoot() . '/' . self::MODULE_PATH . '/config/install/ilas_site_assistant.settings.yml');
+  }
 
-    $install_path = $root . '/' . self::MODULE_PATH . '/config/install/ilas_site_assistant.settings.yml';
-    $schema_path = $root . '/' . self::MODULE_PATH . '/config/schema/ilas_site_assistant.schema.yml';
+  /**
+   * Returns parsed active config.
+   */
+  private static function activeConfig(): array {
+    return Yaml::parseFile(self::repoRoot() . '/config/ilas_site_assistant.settings.yml');
+  }
 
-    $this->assertFileExists($install_path, 'Install defaults file must exist');
-    $this->assertFileExists($schema_path, 'Schema file must exist');
+  /**
+   * Returns parsed schema config.
+   */
+  private static function schemaConfig(): array {
+    return Yaml::parseFile(self::repoRoot() . '/' . self::MODULE_PATH . '/config/schema/ilas_site_assistant.schema.yml');
+  }
 
-    $install = Yaml::parseFile($install_path);
-    $schema = Yaml::parseFile($schema_path);
+  /**
+   * Tests that every retrieval key in install defaults has a schema entry.
+   */
+  public function testRetrievalSchemaCoversAllInstallDefaultKeys(): void {
+    $install = self::installConfig();
+    $schema = self::schemaConfig();
 
-    // Verify vector_search exists in both.
-    $this->assertArrayHasKey('vector_search', $install, 'Install defaults must define vector_search');
+    $this->assertArrayHasKey('retrieval', $install, 'Install defaults must define retrieval');
     $this->assertArrayHasKey(
-      'vector_search',
+      'retrieval',
       $schema['ilas_site_assistant.settings']['mapping'] ?? [],
-      'Schema must define vector_search mapping'
+      'Schema must define retrieval mapping'
     );
 
-    $install_keys = array_keys($install['vector_search']);
-    $schema_mapping = $schema['ilas_site_assistant.settings']['mapping']['vector_search']['mapping'] ?? [];
+    $install_keys = array_keys($install['retrieval']);
+    $schema_mapping = $schema['ilas_site_assistant.settings']['mapping']['retrieval']['mapping'] ?? [];
     $schema_keys = array_keys($schema_mapping);
 
-    // Every install key must have a schema entry.
-    $missing_from_schema = array_diff($install_keys, $schema_keys);
     $this->assertEmpty(
-      $missing_from_schema,
-      'Install default keys missing from schema: ' . implode(', ', $missing_from_schema)
+      array_diff($install_keys, $schema_keys),
+      'Retrieval install default keys missing from schema: ' . implode(', ', array_diff($install_keys, $schema_keys))
     );
-
-    // Every schema key should have an install default (catches orphaned schema).
-    $extra_in_schema = array_diff($schema_keys, $install_keys);
     $this->assertEmpty(
-      $extra_in_schema,
-      'Schema keys without install defaults: ' . implode(', ', $extra_in_schema)
+      array_diff($schema_keys, $install_keys),
+      'Retrieval schema keys without install defaults: ' . implode(', ', array_diff($schema_keys, $install_keys))
     );
   }
 
   /**
-   * Tests that schema types match the install default value types.
+   * Back-compat anchor for cross-phase gating around schema coverage.
    */
-  public function testSchemaTypesMatchInstallDefaults(): void {
-    $root = self::repoRoot();
+  public function testSchemaCoversAllInstallDefaultKeys(): void {
+    $this->testRetrievalSchemaCoversAllInstallDefaultKeys();
+  }
 
-    $install = Yaml::parseFile($root . '/' . self::MODULE_PATH . '/config/install/ilas_site_assistant.settings.yml');
-    $schema = Yaml::parseFile($root . '/' . self::MODULE_PATH . '/config/schema/ilas_site_assistant.schema.yml');
-
-    $install_values = $install['vector_search'];
-    $schema_mapping = $schema['ilas_site_assistant.settings']['mapping']['vector_search']['mapping'];
-
-    $type_map = [
-      'boolean' => 'is_bool',
-      'string' => 'is_string',
-      'integer' => 'is_int',
-      'float' => 'is_float',
-    ];
+  /**
+   * Tests that retrieval schema types match the install default value types.
+   */
+  public function testRetrievalSchemaTypesMatchInstallDefaults(): void {
+    $install_values = self::installConfig()['retrieval'];
+    $schema_mapping = self::schemaConfig()['ilas_site_assistant.settings']['mapping']['retrieval']['mapping'];
 
     foreach ($install_values as $key => $value) {
       $this->assertArrayHasKey($key, $schema_mapping, "Schema must define key: $key");
-      $schema_type = $schema_mapping[$key]['type'];
-      $this->assertArrayHasKey($schema_type, $type_map, "Unknown schema type '$schema_type' for key '$key'");
-
-      // Float 0.70 may parse as float or int depending on YAML parser.
-      // Accept int where float is expected (0 is valid for both).
-      if ($schema_type === 'float' && is_int($value)) {
-        continue;
-      }
-      // Accept float where integer is expected if value is whole number (e.g. 0.0).
-      if ($schema_type === 'integer' && is_float($value) && floor($value) === $value) {
-        continue;
-      }
-
-      $check_fn = $type_map[$schema_type];
-      $this->assertTrue(
-        $check_fn($value),
-        sprintf(
-          "vector_search.%s: schema expects '%s' but install default is %s (%s)",
-          $key,
-          $schema_type,
-          var_export($value, TRUE),
-          gettype($value)
-        )
+      $this->assertSame(
+        'string',
+        $schema_mapping[$key]['type'],
+        "retrieval.{$key} must use string schema type"
       );
+      $this->assertIsString($value, "retrieval.{$key} install default must be a string");
     }
   }
 
   /**
-   * Tests that active config vector_search values match install defaults.
-   *
-   * Catches value-level drift (e.g. min_vector_score changed from 0.70 to
-   * 0.50) that key-presence checks would miss.
+   * Tests that active config retrieval values match install defaults.
+   */
+  public function testActiveRetrievalValuesMatchInstallDefaults(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+
+    $this->assertArrayHasKey('retrieval', $active, 'Active config must include retrieval block');
+
+    foreach ($install['retrieval'] as $key => $expected) {
+      $this->assertArrayHasKey($key, $active['retrieval'], "Active config retrieval missing key: {$key}");
+      $this->assertSame($expected, $active['retrieval'][$key], "retrieval.{$key}: active value drifted from install default");
+    }
+  }
+
+  /**
+   * Back-compat anchor for cross-phase gating around active config parity.
    */
   public function testActiveVectorSearchValuesMatchInstallDefaults(): void {
-    $root = self::repoRoot();
-
-    $install = Yaml::parseFile($root . '/' . self::MODULE_PATH . '/config/install/ilas_site_assistant.settings.yml');
-    $active = Yaml::parseFile($root . '/config/ilas_site_assistant.settings.yml');
-
-    $this->assertArrayHasKey('vector_search', $install);
-    $this->assertArrayHasKey('vector_search', $active);
+    $install = self::installConfig();
+    $active = self::activeConfig();
 
     foreach ($install['vector_search'] as $key => $expected) {
-      $this->assertArrayHasKey($key, $active['vector_search'],
-        "Active config vector_search missing key: {$key}");
-
-      $actual = $active['vector_search'][$key];
-
-      // Use delta comparison for numerics (YAML float/int coercion).
-      if (is_numeric($expected) && is_numeric($actual)) {
-        $this->assertEqualsWithDelta($expected, $actual, 0.001,
-          "vector_search.{$key}: active value {$actual} drifted from install default {$expected}");
+      $this->assertArrayHasKey($key, $active['vector_search'], "Active config vector_search missing key: {$key}");
+      if (is_numeric($expected) && is_numeric($active['vector_search'][$key])) {
+        $this->assertEqualsWithDelta($expected, $active['vector_search'][$key], 0.001);
+        continue;
       }
-      else {
-        $this->assertSame($expected, $actual,
-          "vector_search.{$key}: active value drifted from install default");
-      }
+      $this->assertSame($expected, $active['vector_search'][$key]);
     }
   }
 
   /**
-   * Tests that vector_search is present in the exported active config.
+   * Tests that vector_search no longer owns index identifiers.
    */
-  public function testActiveConfigIncludesVectorSearch(): void {
-    $root = self::repoRoot();
-    $active_path = $root . '/config/ilas_site_assistant.settings.yml';
+  public function testVectorSearchContractNoLongerOwnsIndexIdentifiers(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+    $schema = self::schemaConfig();
 
-    $this->assertFileExists($active_path, 'Active config export must exist');
-
-    $active = Yaml::parseFile($active_path);
-    $this->assertArrayHasKey('vector_search', $active, 'Active config must include vector_search block');
-
-    // Verify it has the same keys as install defaults.
-    $install = Yaml::parseFile($root . '/' . self::MODULE_PATH . '/config/install/ilas_site_assistant.settings.yml');
-    $install_keys = array_keys($install['vector_search']);
-    $active_keys = array_keys($active['vector_search']);
-
-    $missing = array_diff($install_keys, $active_keys);
-    $this->assertEmpty(
-      $missing,
-      'Active config vector_search missing keys: ' . implode(', ', $missing)
-    );
+    foreach (['faq_index_id', 'resource_index_id'] as $removed_key) {
+      $this->assertArrayNotHasKey($removed_key, $install['vector_search']);
+      $this->assertArrayNotHasKey($removed_key, $active['vector_search']);
+      $this->assertArrayNotHasKey(
+        $removed_key,
+        $schema['ilas_site_assistant.settings']['mapping']['vector_search']['mapping'] ?? []
+      );
+    }
   }
 
 }

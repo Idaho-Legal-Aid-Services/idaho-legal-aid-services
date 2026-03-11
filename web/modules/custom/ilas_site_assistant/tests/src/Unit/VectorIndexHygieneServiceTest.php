@@ -9,6 +9,7 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Entity\EntityStorageInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\State\StateInterface;
+use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\search_api\IndexInterface;
 use Drupal\search_api\ServerInterface;
@@ -60,7 +61,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
   /**
    * Builds a config factory for vector-index hygiene policy.
    */
-  private function buildConfigFactory(array $policyOverrides = []): ConfigFactoryInterface {
+  private function buildConfigFactory(array $policyOverrides = [], array $retrievalOverrides = []): ConfigFactoryInterface {
     $defaultPolicy = [
       'enabled' => TRUE,
       'policy_version' => 'p2_del_03_v1',
@@ -71,14 +72,12 @@ final class VectorIndexHygieneServiceTest extends TestCase {
       'alert_cooldown_minutes' => 60,
       'managed_indexes' => [
         'faq_vector' => [
-          'index_id' => 'faq_accordion_vector',
           'owner_role' => 'Content Operations Lead',
           'expected_server_id' => 'pinecone_vector',
           'expected_metric' => 'cosine_similarity',
           'expected_dimensions' => 3072,
         ],
         'resource_vector' => [
-          'index_id' => 'assistant_resources_vector',
           'owner_role' => 'Content Operations Lead',
           'expected_server_id' => 'pinecone_vector',
           'expected_metric' => 'cosine_similarity',
@@ -86,13 +85,22 @@ final class VectorIndexHygieneServiceTest extends TestCase {
         ],
       ],
     ];
+    $defaultRetrieval = [
+      'faq_vector_index_id' => 'faq_accordion_vector',
+      'resource_vector_index_id' => 'assistant_resources_vector',
+    ];
 
     $policy = array_replace_recursive($defaultPolicy, $policyOverrides);
+    $retrieval = array_replace($defaultRetrieval, $retrievalOverrides);
 
     $config = $this->createStub(ImmutableConfig::class);
     $config->method('get')
-      ->willReturnCallback(static function (string $key) use ($policy) {
-        return $key === 'vector_index_hygiene' ? $policy : NULL;
+      ->willReturnCallback(static function (string $key) use ($policy, $retrieval) {
+        return match ($key) {
+          'vector_index_hygiene' => $policy,
+          'retrieval' => $retrieval,
+          default => NULL,
+        };
       });
 
     $configFactory = $this->createStub(ConfigFactoryInterface::class);
@@ -134,14 +142,20 @@ final class VectorIndexHygieneServiceTest extends TestCase {
    * @param \Psr\Log\LoggerInterface|null $logger
    *   Optional logger mock.
    */
-  private function buildService(array $indexes = [], array $policyOverrides = [], ?LoggerInterface $logger = NULL): VectorIndexHygieneService {
+  private function buildService(
+    array $indexes = [],
+    array $policyOverrides = [],
+    ?LoggerInterface $logger = NULL,
+    array $retrievalOverrides = [],
+  ): VectorIndexHygieneService {
     $this->stateStore = [];
-    $configFactory = $this->buildConfigFactory($policyOverrides);
+    $configFactory = $this->buildConfigFactory($policyOverrides, $retrievalOverrides);
     $state = $this->buildState();
     $entityTypeManager = $this->buildEntityTypeManager($indexes);
+    $retrievalConfiguration = new RetrievalConfigurationService($configFactory, $entityTypeManager);
     $logger = $logger ?? $this->createStub(LoggerInterface::class);
 
-    return new VectorIndexHygieneService($configFactory, $state, $entityTypeManager, $logger);
+    return new VectorIndexHygieneService($configFactory, $state, $entityTypeManager, $retrievalConfiguration, $logger);
   }
 
   /**

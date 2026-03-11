@@ -679,6 +679,64 @@ function ilas_site_assistant_update_10007() {
 }
 
 /**
+ * Externalizes retrieval identifiers and LegalServer URL governance.
+ */
+function ilas_site_assistant_update_10008() {
+  $config = \Drupal::configFactory()->getEditable('ilas_site_assistant.settings');
+
+  $retrieval = $config->get('retrieval');
+  $retrieval = is_array($retrieval) ? $retrieval : [];
+
+  $vector_search = $config->get('vector_search');
+  $vector_search = is_array($vector_search) ? $vector_search : [];
+
+  $vector_index_hygiene = $config->get('vector_index_hygiene');
+  $vector_index_hygiene = is_array($vector_index_hygiene) ? $vector_index_hygiene : [];
+  $managed_indexes = $vector_index_hygiene['managed_indexes'] ?? [];
+  $managed_indexes = is_array($managed_indexes) ? $managed_indexes : [];
+
+  $canonical_urls = $config->get('canonical_urls');
+  $canonical_urls = is_array($canonical_urls) ? $canonical_urls : [];
+
+  $resolved_retrieval = [
+    'faq_index_id' => (string) ($retrieval['faq_index_id'] ?? 'faq_accordion'),
+    'resource_index_id' => (string) ($retrieval['resource_index_id'] ?? 'assistant_resources'),
+    'resource_fallback_index_id' => (string) ($retrieval['resource_fallback_index_id'] ?? 'content'),
+    'faq_vector_index_id' => (string) ($retrieval['faq_vector_index_id']
+      ?? $vector_search['faq_index_id']
+      ?? $managed_indexes['faq_vector']['index_id']
+      ?? 'faq_accordion_vector'),
+    'resource_vector_index_id' => (string) ($retrieval['resource_vector_index_id']
+      ?? $vector_search['resource_index_id']
+      ?? $managed_indexes['resource_vector']['index_id']
+      ?? 'assistant_resources_vector'),
+  ];
+
+  unset($vector_search['faq_index_id'], $vector_search['resource_index_id']);
+
+  if (isset($managed_indexes['faq_vector']) && is_array($managed_indexes['faq_vector'])) {
+    unset($managed_indexes['faq_vector']['index_id']);
+  }
+  if (isset($managed_indexes['resource_vector']) && is_array($managed_indexes['resource_vector'])) {
+    unset($managed_indexes['resource_vector']['index_id']);
+  }
+  if ($managed_indexes !== []) {
+    $vector_index_hygiene['managed_indexes'] = $managed_indexes;
+  }
+
+  unset($canonical_urls['online_application']);
+
+  $config
+    ->set('retrieval', $resolved_retrieval)
+    ->set('vector_search', $vector_search)
+    ->set('vector_index_hygiene', $vector_index_hygiene)
+    ->set('canonical_urls', $canonical_urls)
+    ->save(TRUE);
+
+  return t('Migrated retrieval identifiers into ilas_site_assistant.settings:retrieval, removed exported canonical_urls.online_application, and cleared duplicate vector index ownership.');
+}
+
+/**
  * Adds a field only when it is missing.
  */
 function ilas_site_assistant_raud11_add_field_if_missing($schema, string $table, string $field, array $spec): void {

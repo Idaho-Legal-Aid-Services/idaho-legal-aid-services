@@ -6,6 +6,7 @@ namespace Drupal\ilas_site_assistant\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\State\StateInterface;
+use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -135,6 +136,8 @@ class SourceGovernanceService {
    *   Annotated item.
    */
   public function annotateResult(array $item, string $source_class): array {
+    RetrievalContract::assertApprovedSourceClass($source_class);
+
     $policy = $this->getPolicy();
     $class_policy = $this->getSourceClassPolicy($source_class, $policy);
 
@@ -178,6 +181,8 @@ class SourceGovernanceService {
       'policy_version' => (string) ($policy['policy_version'] ?? 'p2_obj_03_v1'),
       'has_source_url' => $has_source_url,
       'source_url_allowed' => $source_url_allowed,
+      'enforcement_mode' => 'advisory',
+      'retrieval_contract_version' => RetrievalContract::POLICY_VERSION,
     ];
     $item['freshness'] = [
       'status' => $freshness_status,

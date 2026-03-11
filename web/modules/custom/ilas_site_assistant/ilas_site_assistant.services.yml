@@ -39,17 +39,21 @@ services:
     class: Drupal\ilas_site_assistant\Service\IntentRouter
     arguments: ['@config.factory', '@ilas_site_assistant.topic_resolver', '@ilas_site_assistant.keyword_extractor', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.navigation_intent', '@ilas_site_assistant.disambiguator', '@ilas_site_assistant.top_intents_pack']
 
+  ilas_site_assistant.retrieval_configuration:
+    class: Drupal\ilas_site_assistant\Service\RetrievalConfigurationService
+    arguments: ['@config.factory', '@entity_type.manager']
+
   ilas_site_assistant.topic_resolver:
     class: Drupal\ilas_site_assistant\Service\TopicResolver
-    arguments: ['@entity_type.manager', '@cache.default']
+    arguments: ['@entity_type.manager', '@cache.default', '@ilas_site_assistant.retrieval_configuration']
 
   ilas_site_assistant.faq_index:
     class: Drupal\ilas_site_assistant\Service\FaqIndex
-    arguments: ['@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@ilas_site_assistant.source_governance']
+    arguments: ['@entity_type.manager', '@cache.default', '@config.factory', '@language_manager', '@ilas_site_assistant.retrieval_configuration', '@ilas_site_assistant.ranking_enhancer', '@ilas_site_assistant.source_governance']
 
   ilas_site_assistant.resource_finder:
     class: Drupal\ilas_site_assistant\Service\ResourceFinder
-    arguments: ['@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory', '@ilas_site_assistant.source_governance']
+    arguments: ['@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory', '@ilas_site_assistant.retrieval_configuration', '@ilas_site_assistant.source_governance']
 
   ilas_site_assistant.analytics_logger:
     class: Drupal\ilas_site_assistant\Service\AnalyticsLogger
@@ -185,7 +189,7 @@ services:
 
   ilas_site_assistant.vector_index_hygiene:
     class: Drupal\ilas_site_assistant\Service\VectorIndexHygieneService
-    arguments: ['@config.factory', '@state', '@entity_type.manager', '@logger.channel.ilas_site_assistant']
+    arguments: ['@config.factory', '@state', '@entity_type.manager', '@ilas_site_assistant.retrieval_configuration', '@logger.channel.ilas_site_assistant']
 
   ilas_site_assistant.cron_health_tracker:
     class: Drupal\ilas_site_assistant\Service\CronHealthTracker

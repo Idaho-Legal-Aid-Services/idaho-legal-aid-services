@@ -3,6 +3,7 @@
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\Service\FaqIndex;
+use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -276,6 +277,184 @@ class VectorSearchMergeTest extends TestCase {
     $result = $finder->testSupplementWithVectorResults($lexical, 'test', NULL, 10);
     $this->assertCount(1, $result);
     $this->assertEquals(90, $result[0]['score']);
+  }
+
+  // =========================================================================
+  // Retrieval contract merge tests (PHARD-06)
+  // =========================================================================
+
+  /**
+   * Lexical priority boost wins for close scores (same paragraph_id).
+   *
+   * Lexical 85 + boost 5 = 90 effective > vector 87. Lexical wins.
+   */
+  public function testLexicalPriorityBoostWinsForCloseScores(): void {
+    $vector_items = [
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 87, 'source' => 'vector'],
+    ];
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 85, 'source' => 'lexical'],
+    ];
+
+    $result = $faq->testSupplementWithVectorResults($lexical, 'test', 10);
+    $this->assertCount(1, $result);
+    $this->assertEquals(85, $result[0]['score']);
+    $this->assertEquals('lexical', $result[0]['source']);
+  }
+
+  /**
+   * Vector still wins for large score gap despite lexical boost.
+   *
+   * Lexical 50 + boost 5 = 55 effective < vector 90. Vector wins.
+   */
+  public function testVectorStillWinsForLargeScoreGap(): void {
+    $vector_items = [
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 90, 'source' => 'vector'],
+    ];
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50, 'source' => 'lexical'],
+    ];
+
+    $result = $faq->testSupplementWithVectorResults($lexical, 'test', 10);
+    $this->assertCount(1, $result);
+    $this->assertEquals(90, $result[0]['score']);
+    $this->assertEquals('vector', $result[0]['source']);
+  }
+
+  /**
+   * Minimum lexical preserved when vector dominates output.
+   *
+   * 1 lexical (score 10) + 5 vector (90,80,70,60,50), limit=3.
+   * Without guarantee: [90,80,70] all vector.
+   * With guarantee: at least 1 lexical survives.
+   */
+  public function testMinLexicalPreservedWhenVectorDominates(): void {
+    $vector_items = [
+      ['paragraph_id' => 20, 'id' => 20, 'score' => 90, 'source' => 'vector'],
+      ['paragraph_id' => 30, 'id' => 30, 'score' => 80, 'source' => 'vector'],
+      ['paragraph_id' => 40, 'id' => 40, 'score' => 70, 'source' => 'vector'],
+      ['paragraph_id' => 50, 'id' => 50, 'score' => 60, 'source' => 'vector'],
+      ['paragraph_id' => 60, 'id' => 60, 'score' => 50, 'source' => 'vector'],
+    ];
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['paragraph_id' => 10, 'id' => 10, 'score' => 10, 'source' => 'lexical'],
+    ];
+
+    $result = $faq->testSupplementWithVectorResults($lexical, 'test', 3);
+    $this->assertCount(3, $result);
+
+    // At least 1 lexical must survive.
+    $lexical_in_output = array_filter($result, fn($item) => ($item['source'] ?? 'lexical') !== 'vector');
+    $this->assertGreaterThanOrEqual(
+      RetrievalContract::MIN_LEXICAL_PRESERVED,
+      count($lexical_in_output),
+      'At least MIN_LEXICAL_PRESERVED lexical results must survive in merge output.',
+    );
+  }
+
+  /**
+   * No adjustment needed when lexical already present in output.
+   *
+   * 1 lexical (score 85) + 2 vector (90, 70), limit=3.
+   * Output: [90, 85, 70]. Lexical already present.
+   */
+  public function testMinLexicalPreservedNotNeededWhenLexicalAlreadyPresent(): void {
+    $vector_items = [
+      ['paragraph_id' => 20, 'id' => 20, 'score' => 90, 'source' => 'vector'],
+      ['paragraph_id' => 30, 'id' => 30, 'score' => 70, 'source' => 'vector'],
+    ];
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['paragraph_id' => 10, 'id' => 10, 'score' => 85, 'source' => 'lexical'],
+    ];
+
+    $result = $faq->testSupplementWithVectorResults($lexical, 'test', 3);
+    $this->assertCount(3, $result);
+    $scores = array_column($result, 'score');
+    $this->assertEquals([90, 85, 70], $scores);
+
+    // Lexical present, no adjustment made.
+    $lexical_in_output = array_filter($result, fn($item) => ($item['source'] ?? 'lexical') !== 'vector');
+    $this->assertCount(1, $lexical_in_output);
+  }
+
+  /**
+   * ResourceFinder: lexical priority boost wins for close scores.
+   */
+  public function testResourceLexicalPriorityBoostWinsForCloseScores(): void {
+    $vector_items = [
+      ['id' => 1, 'score' => 87, 'source' => 'vector'],
+    ];
+    $finder = new TestResourceFinder([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['id' => 1, 'score' => 85, 'source' => 'lexical'],
+    ];
+
+    $result = $finder->testSupplementWithVectorResults($lexical, 'test', NULL, 10);
+    $this->assertCount(1, $result);
+    $this->assertEquals(85, $result[0]['score']);
+    $this->assertEquals('lexical', $result[0]['source']);
+  }
+
+  /**
+   * ResourceFinder: minimum lexical preserved when vector dominates.
+   */
+  public function testResourceMinLexicalPreservedWhenVectorDominates(): void {
+    $vector_items = [
+      ['id' => 20, 'score' => 90, 'source' => 'vector'],
+      ['id' => 30, 'score' => 80, 'source' => 'vector'],
+      ['id' => 40, 'score' => 70, 'source' => 'vector'],
+      ['id' => 50, 'score' => 60, 'source' => 'vector'],
+      ['id' => 60, 'score' => 50, 'source' => 'vector'],
+    ];
+    $finder = new TestResourceFinder([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], $vector_items);
+
+    $lexical = [
+      ['id' => 10, 'score' => 10, 'source' => 'lexical'],
+    ];
+
+    $result = $finder->testSupplementWithVectorResults($lexical, 'test', NULL, 3);
+    $this->assertCount(3, $result);
+
+    // At least 1 lexical must survive.
+    $lexical_in_output = array_filter($result, fn($item) => ($item['source'] ?? 'lexical') !== 'vector');
+    $this->assertGreaterThanOrEqual(
+      RetrievalContract::MIN_LEXICAL_PRESERVED,
+      count($lexical_in_output),
+      'At least MIN_LEXICAL_PRESERVED lexical results must survive in ResourceFinder merge output.',
+    );
   }
 
   /**

@@ -9,9 +9,11 @@ use PHPUnit\Framework\Attributes\Group;
 // Load the required classes directly (no Drupal bootstrap needed).
 require_once __DIR__ . '/../../../src/Service/ResponseBuilder.php';
 require_once __DIR__ . '/../../../src/Service/HardRouteRegistry.php';
+require_once __DIR__ . '/../Support/CanonicalUrlFixtures.php';
 
 use Drupal\ilas_site_assistant\Service\HardRouteRegistry;
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
+use Drupal\Tests\ilas_site_assistant\Support\CanonicalUrlFixtures;
 
 /**
  * Regression tests for the HardRouteRegistry.
@@ -41,8 +43,8 @@ class HardRouteRegistryTest extends TestCase {
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->registry = new HardRouteRegistry();
-    $this->builder = new ResponseBuilder();
+    $this->registry = new HardRouteRegistry(CanonicalUrlFixtures::defaults());
+    $this->builder = new ResponseBuilder(CanonicalUrlFixtures::defaults());
   }
 
   /**

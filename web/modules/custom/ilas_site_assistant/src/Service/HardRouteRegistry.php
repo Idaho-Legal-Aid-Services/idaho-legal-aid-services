@@ -110,10 +110,10 @@ class HardRouteRegistry {
    * Constructs a HardRouteRegistry.
    *
    * @param array $canonical_urls
-   *   The canonical URL map (from config or ResponseBuilder::getDefaultCanonicalUrls()).
+   *   The canonical URL map resolved at runtime.
    */
-  public function __construct(array $canonical_urls = []) {
-    $this->canonicalUrls = $canonical_urls ?: ResponseBuilder::getDefaultCanonicalUrls();
+  public function __construct(array $canonical_urls) {
+    $this->canonicalUrls = $canonical_urls;
   }
 
   /**

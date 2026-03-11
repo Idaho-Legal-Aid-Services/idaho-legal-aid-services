@@ -21,30 +21,6 @@ namespace Drupal\ilas_site_assistant\Service;
 class FallbackTreeEvaluator {
 
   /**
-   * Default canonical URLs used when none are provided.
-   */
-  const DEFAULT_URLS = [
-    'apply' => '/apply-for-help',
-    'hotline' => '/Legal-Advice-Line',
-    'offices' => '/contact/offices',
-    'services' => '/services',
-    'forms' => '/forms',
-    'faq' => '/faq',
-  ];
-
-  /**
-   * Service area URL map.
-   */
-  const SERVICE_AREA_URLS = [
-    'housing' => '/legal-help/housing',
-    'family' => '/legal-help/family',
-    'seniors' => '/legal-help/seniors',
-    'health' => '/legal-help/health',
-    'consumer' => '/legal-help/consumer',
-    'civil_rights' => '/legal-help/civil-rights',
-  ];
-
-  /**
    * Maps intent prefixes to service areas.
    */
   const INTENT_AREA_MAP = [
@@ -106,6 +82,8 @@ class FallbackTreeEvaluator {
    *   Conversation history.
    * @param \Drupal\ilas_site_assistant\Service\TopIntentsPack|null $pack
    *   Optional Top Intents Pack.
+   * @param array $canonical_urls
+   *   Runtime canonical URL map.
    *
    * @return array
    *   Response data with keys:
@@ -115,10 +93,11 @@ class FallbackTreeEvaluator {
    *   - 'links' (array): Additional actionable links (>= 2 total)
    *   - 'suggestions' (array): Chip suggestions (optional)
    */
-  public static function evaluateLevel(string $intent, array $retrieval_results, array $server_history, ?TopIntentsPack $pack = NULL): array {
+  public static function evaluateLevel(string $intent, array $retrieval_results, array $server_history, ?TopIntentsPack $pack = NULL, array $canonical_urls = []): array {
     $level = self::determineLevel($intent, $retrieval_results, $server_history);
     $area = self::resolveArea($intent);
-    $urls = self::DEFAULT_URLS;
+    $urls = $canonical_urls;
+    $urls['service_areas'] = isset($urls['service_areas']) && is_array($urls['service_areas']) ? $urls['service_areas'] : [];
 
     switch ($level) {
       case 1:
@@ -166,10 +145,10 @@ class FallbackTreeEvaluator {
     ];
 
     // Add area-specific link if available.
-    if ($area && isset(self::SERVICE_AREA_URLS[$area])) {
+    if ($area && isset($urls['service_areas'][$area])) {
       array_unshift($links, [
         'label' => ucfirst(str_replace('_', ' ', $area)) . ' Legal Help',
-        'url' => self::SERVICE_AREA_URLS[$area],
+        'url' => $urls['service_areas'][$area],
         'type' => 'services',
       ]);
     }
@@ -187,7 +166,7 @@ class FallbackTreeEvaluator {
    * Level 2: parent service area page + nearby sub-topic chips.
    */
   protected static function buildLevel2(string $intent, ?string $area, ?TopIntentsPack $pack, array $urls): array {
-    $area_url = self::SERVICE_AREA_URLS[$area] ?? $urls['services'];
+    $area_url = $urls['service_areas'][$area] ?? ($urls['services'] ?? '');
     $area_label = $area ? ucfirst(str_replace('_', ' ', $area)) : 'Legal';
 
     $message = "I'm having trouble finding exactly what you need. Here are some options for $area_label legal help.";

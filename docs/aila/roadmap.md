@@ -107,6 +107,25 @@ Planning defaults applied:
     focused multilingual routing slice for paced endpoint verification, while
     unsupported non-Spanish languages remain outside scope and stay tracked as
     residual risk rather than implicit product expansion.
+24. `RAUD-21` closes the repo-side retrieval/config governance gap behind
+    `F-18`, `M4`, and `N-16`: retrieval index IDs now live in a dedicated
+    `retrieval.*` block, LegalServer intake URL is runtime-only through
+    `settings.php`, and `RetrievalConfigurationService` is the single runtime
+    resolver for effective retrieval IDs plus canonical URLs.
+25. `RAUD-21` also adds executable drift proof instead of policy-only
+    assumptions: `/assistant/api/health` now exposes
+    `checks.retrieval_configuration`, admin settings validate required
+    machine-name retrieval IDs, and pure-PHP response/routing helpers no
+    longer carry embedded canonical URL defaults.
+26. Remaining `RAUD-21` closure work is deployment-bound: Pantheon `dev`
+    still reports pre-remediation drift (`retrieval: null`,
+    `canonical_urls.online_application` exported, retrieval health service
+    absent, runtime LegalServer setting absent) because this branch has not
+    been deployed there yet.
+27. `RAUD-21` therefore remains `Partially Fixed` until a post-deploy
+    read-only verification reruns the retrieval/canonical URL checks against a
+    live environment and, if desired, a live LegalServer reachability probe is
+    executed under approved operational conditions.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

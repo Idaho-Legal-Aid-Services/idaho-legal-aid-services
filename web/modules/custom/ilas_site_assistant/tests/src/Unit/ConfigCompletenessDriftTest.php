@@ -180,6 +180,57 @@ class ConfigCompletenessDriftTest extends TestCase {
   }
 
   /**
+   * LegalServer intake URL must remain runtime-only, not exported config.
+   */
+  public function testCanonicalUrlContractOmitsExportedLegalServerUrl(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+    $schema = self::schemaConfig();
+
+    $this->assertArrayHasKey('canonical_urls', $install);
+    $this->assertArrayHasKey('canonical_urls', $active);
+
+    $this->assertArrayNotHasKey('online_application', $install['canonical_urls']);
+    $this->assertArrayNotHasKey('online_application', $active['canonical_urls']);
+    $this->assertArrayNotHasKey(
+      'online_application',
+      $schema['ilas_site_assistant.settings']['mapping']['canonical_urls']['mapping'] ?? []
+    );
+  }
+
+  /**
+   * Retrieval IDs must live in retrieval.* and not in duplicate policy blocks.
+   */
+  public function testRetrievalConfigOwnershipAndHygieneContract(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+    $schema = self::schemaConfig();
+
+    $required_retrieval_keys = [
+      'faq_index_id',
+      'resource_index_id',
+      'resource_fallback_index_id',
+      'faq_vector_index_id',
+      'resource_vector_index_id',
+    ];
+
+    foreach ($required_retrieval_keys as $key) {
+      $this->assertArrayHasKey($key, $install['retrieval'], "Install retrieval missing {$key}");
+      $this->assertArrayHasKey($key, $active['retrieval'], "Active retrieval missing {$key}");
+      $this->assertArrayHasKey(
+        $key,
+        $schema['ilas_site_assistant.settings']['mapping']['retrieval']['mapping'] ?? [],
+        "Schema retrieval missing {$key}"
+      );
+    }
+
+    foreach (['faq_vector', 'resource_vector'] as $managed_index) {
+      $this->assertArrayNotHasKey('index_id', $install['vector_index_hygiene']['managed_indexes'][$managed_index] ?? []);
+      $this->assertArrayNotHasKey('index_id', $active['vector_index_hygiene']['managed_indexes'][$managed_index] ?? []);
+    }
+  }
+
+  /**
    * Cost-control block must exist in install + active config with key fields.
    */
   public function testCostControlBlockPresentAndComplete(): void {

@@ -39,6 +39,7 @@ use Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard;
 use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Flood\FloodInterface;
@@ -245,6 +246,13 @@ class AssistantApiController extends ControllerBase {
   protected $vectorIndexHygiene;
 
   /**
+   * The retrieval/configuration governance service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalConfigurationService|null
+   */
+  protected $retrievalConfiguration;
+
+  /**
    * The Top Intents Pack service.
    *
    * @var \Drupal\ilas_site_assistant\Service\TopIntentsPack|null
@@ -335,6 +343,7 @@ class AssistantApiController extends ControllerBase {
     TopIntentsPack $top_intents_pack = NULL,
     SourceGovernanceService $source_governance = NULL,
     VectorIndexHygieneService $vector_index_hygiene = NULL,
+    RetrievalConfigurationService $retrieval_configuration = NULL,
     RequestTrustInspector $request_trust_inspector = NULL,
     CsrfTokenGenerator $csrf_token_generator = NULL,
     EnvironmentDetector $environment_detector = NULL,
@@ -366,6 +375,7 @@ class AssistantApiController extends ControllerBase {
     $this->topIntentsPack = $top_intents_pack;
     $this->sourceGovernance = $source_governance;
     $this->vectorIndexHygiene = $vector_index_hygiene;
+    $this->retrievalConfiguration = $retrieval_configuration;
     $this->requestTrustInspector = $request_trust_inspector;
     $this->csrfTokenGenerator = $csrf_token_generator;
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
@@ -407,6 +417,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.top_intents_pack') ? $container->get('ilas_site_assistant.top_intents_pack') : NULL,
       $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL,
       $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL,
+      $container->has('ilas_site_assistant.retrieval_configuration') ? $container->get('ilas_site_assistant.retrieval_configuration') : NULL,
       $container->has('ilas_site_assistant.request_trust_inspector') ? $container->get('ilas_site_assistant.request_trust_inspector') : NULL,
       $container->has('csrf_token') ? $container->get('csrf_token') : NULL,
       $container->has('ilas_site_assistant.environment_detector') ? $container->get('ilas_site_assistant.environment_detector') : NULL,
@@ -3171,7 +3182,8 @@ class AssistantApiController extends ControllerBase {
           $intent['type'] ?? 'unknown',
           [],
           $server_history,
-          $this->topIntentsPack
+          $this->topIntentsPack,
+          $canonical_urls
         );
         $response['message'] = $this->t($fallback['message']);
         $response['primary_action'] = $fallback['primary_action'];
@@ -4143,6 +4155,15 @@ class AssistantApiController extends ControllerBase {
       $vector_index_hygiene = $this->vectorIndexHygiene->getSnapshot();
       $checks['vector_index_hygiene'] = $vector_index_hygiene;
       if (($vector_index_hygiene['status'] ?? 'unknown') === 'degraded') {
+        $status = 'degraded';
+        $httpCode = 503;
+      }
+    }
+
+    if ($this->retrievalConfiguration) {
+      $retrieval_configuration = $this->retrievalConfiguration->getHealthSnapshot();
+      $checks['retrieval_configuration'] = $retrieval_configuration;
+      if (($retrieval_configuration['status'] ?? 'unknown') === 'degraded') {
         $status = 'degraded';
         $httpCode = 503;
       }

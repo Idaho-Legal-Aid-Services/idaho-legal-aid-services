@@ -7,6 +7,7 @@ use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\search_api\Entity\Index;
 
 /**
@@ -99,19 +100,16 @@ class ResourceFinder {
   protected $sourceGovernance;
 
   /**
+   * Retrieval configuration resolver.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalConfigurationService|null
+   */
+  protected ?RetrievalConfigurationService $retrievalConfiguration = NULL;
+
+  /**
    * Cache ID for resource data.
    */
   const CACHE_ID = 'ilas_site_assistant.resources';
-
-  /**
-   * The dedicated Search API index ID for assistant resources.
-   */
-  const INDEX_ID = 'assistant_resources';
-
-  /**
-   * Fallback Search API index ID (generic content index).
-   */
-  const FALLBACK_INDEX_ID = 'content';
 
   /**
    * Constructs a ResourceFinder object.
@@ -123,6 +121,7 @@ class ResourceFinder {
     LanguageManagerInterface $language_manager,
     RankingEnhancer $ranking_enhancer = NULL,
     ConfigFactoryInterface $config_factory = NULL,
+    RetrievalConfigurationService $retrieval_configuration = NULL,
     SourceGovernanceService $source_governance = NULL
   ) {
     $this->entityTypeManager = $entity_type_manager;
@@ -131,6 +130,7 @@ class ResourceFinder {
     $this->languageManager = $language_manager;
     $this->rankingEnhancer = $ranking_enhancer;
     $this->configFactory = $config_factory;
+    $this->retrievalConfiguration = $retrieval_configuration;
     $this->sourceGovernance = $source_governance;
   }
 
@@ -156,10 +156,12 @@ class ResourceFinder {
   protected function getIndex() {
     if ($this->index === NULL) {
       // Try dedicated assistant resources index first.
-      $this->index = Index::load(self::INDEX_ID);
+      $index_id = $this->retrievalConfiguration?->getResourceIndexId();
+      $this->index = $index_id ? Index::load($index_id) : NULL;
       if (!$this->index || !$this->index->status()) {
         // Fall back to generic content index.
-        $this->index = Index::load(self::FALLBACK_INDEX_ID);
+        $fallback_index_id = $this->retrievalConfiguration?->getResourceFallbackIndexId();
+        $this->index = $fallback_index_id ? Index::load($fallback_index_id) : NULL;
       }
     }
     return $this->index;
@@ -173,7 +175,8 @@ class ResourceFinder {
    */
   public function isUsingDedicatedIndex(): bool {
     $index = $this->getIndex();
-    return $index && $index->id() === self::INDEX_ID;
+    $configured_index_id = $this->retrievalConfiguration?->getResourceIndexId();
+    return $index && $configured_index_id !== NULL && $index->id() === $configured_index_id;
   }
 
   /**
@@ -464,7 +467,7 @@ class ResourceFinder {
    */
   protected function findByTypeSearchApi(string $query, ?string $type, int $limit) {
     $index = $this->getIndex();
-    $using_dedicated = ($index->id() === self::INDEX_ID);
+    $using_dedicated = $this->isUsingDedicatedIndex();
 
     try {
       $search_query = $index->query();
@@ -774,13 +777,22 @@ class ResourceFinder {
       $merged[$item['id']] = $item;
     }
 
-    // Merge vector items, keeping higher-scored version for duplicates.
+    // Merge vector items, applying lexical priority boost for comparison.
     foreach ($vector_items as $item) {
       if (!isset($merged[$item['id']])) {
         $merged[$item['id']] = $item;
       }
-      elseif (($item['score'] ?? 0) > ($merged[$item['id']]['score'] ?? 0)) {
-        $merged[$item['id']] = $item;
+      else {
+        // Apply lexical priority boost for comparison purposes only.
+        $existing_score = $merged[$item['id']]['score'] ?? 0;
+        $new_score = $item['score'] ?? 0;
+        $existing_is_lexical = ($merged[$item['id']]['source'] ?? 'lexical') !== 'vector';
+        $effective_existing = $existing_is_lexical ? $existing_score + RetrievalContract::LEXICAL_PRIORITY_BOOST : $existing_score;
+        $new_is_lexical = ($item['source'] ?? 'lexical') !== 'vector';
+        $effective_new = $new_is_lexical ? $new_score + RetrievalContract::LEXICAL_PRIORITY_BOOST : $new_score;
+        if ($effective_new > $effective_existing) {
+          $merged[$item['id']] = $item;
+        }
       }
     }
 
@@ -790,7 +802,97 @@ class ResourceFinder {
       return ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
     });
 
-    return array_slice($results, 0, $limit);
+    $results = array_slice($results, 0, $limit);
+
+    // Ensure at least MIN_LEXICAL_PRESERVED lexical results if any existed.
+    $results = $this->enforceMinLexicalPreserved($results, $lexical_items, $limit);
+
+    // Log vector supplementation for observability.
+    try {
+      \Drupal::logger('ilas_site_assistant')->info('Resource retrieval contract: vector supplemented lexical. lexical_count=@lc vector_count=@vc merged_count=@mc policy=@p', [
+        '@lc' => count($lexical_items),
+        '@vc' => count($vector_items),
+        '@mc' => count($results),
+        '@p' => RetrievalContract::POLICY_VERSION,
+      ]);
+    }
+    catch (\Throwable $e) {
+      // Logger unavailable outside Drupal bootstrap (unit tests).
+    }
+
+    return $results;
+  }
+
+  /**
+   * Ensures minimum lexical results are preserved in merged output.
+   *
+   * When vector results dominate the merge output and push all lexical results
+   * below the limit cut, this method replaces the lowest-scoring vector result
+   * with the highest-scoring lexical result from the original input.
+   *
+   * @param array $results
+   *   Current merge output (sorted by score, sliced to limit).
+   * @param array $lexical_items
+   *   Original lexical input items.
+   * @param int $limit
+   *   Maximum results allowed.
+   *
+   * @return array
+   *   Adjusted results with minimum lexical preservation enforced.
+   */
+  protected function enforceMinLexicalPreserved(array $results, array $lexical_items, int $limit): array {
+    if (empty($lexical_items)) {
+      return $results;
+    }
+
+    // Count lexical results currently in output.
+    $lexical_count = 0;
+    foreach ($results as $item) {
+      if (($item['source'] ?? 'lexical') !== 'vector') {
+        $lexical_count++;
+      }
+    }
+
+    if ($lexical_count >= RetrievalContract::MIN_LEXICAL_PRESERVED) {
+      return $results;
+    }
+
+    // Build set of IDs already in output.
+    $output_ids = [];
+    foreach ($results as $item) {
+      $output_ids[$item['id']] = TRUE;
+    }
+
+    // Find highest-scoring lexical item not already in output.
+    $best_lexical = NULL;
+    foreach ($lexical_items as $item) {
+      if (isset($output_ids[$item['id']])) {
+        continue;
+      }
+      if ($best_lexical === NULL || ($item['score'] ?? 0) > ($best_lexical['score'] ?? 0)) {
+        $best_lexical = $item;
+      }
+    }
+
+    if ($best_lexical === NULL) {
+      return $results;
+    }
+
+    // Replace the lowest-scoring vector item in output.
+    $worst_vector_idx = NULL;
+    $worst_vector_score = PHP_INT_MAX;
+    foreach ($results as $idx => $item) {
+      if (($item['source'] ?? 'lexical') === 'vector' && ($item['score'] ?? 0) < $worst_vector_score) {
+        $worst_vector_score = $item['score'] ?? 0;
+        $worst_vector_idx = $idx;
+      }
+    }
+
+    if ($worst_vector_idx !== NULL) {
+      $results[$worst_vector_idx] = $best_lexical;
+    }
+
+    return $results;
   }
 
   /**
@@ -812,9 +914,13 @@ class ResourceFinder {
     }
 
     $vector_config = $this->getVectorSearchConfig();
-    $index_id = $vector_config['resource_index_id'] ?? 'assistant_resources_vector';
+    $index_id = $this->retrievalConfiguration?->getResourceVectorIndexId();
     $min_score = $vector_config['min_vector_score'] ?? 0.70;
     $normalization = $vector_config['score_normalization_factor'] ?? 100;
+
+    if ($index_id === NULL) {
+      return [];
+    }
 
     try {
       $vector_index = Index::load($index_id);

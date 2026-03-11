@@ -460,6 +460,19 @@ if ($ilas_vertex_sa) {
 }
 
 /**
+ * ILAS Site Assistant LegalServer intake URL override.
+ *
+ * On Pantheon: type "runtime", scope "web", key
+ * "ILAS_LEGALSERVER_ONLINE_APPLICATION_URL".
+ * Locally (DDEV): add ILAS_LEGALSERVER_ONLINE_APPLICATION_URL=<value> to
+ * .ddev/.env, then ddev restart.
+ */
+$ilas_legalserver_online_application_url = _ilas_get_secret('ILAS_LEGALSERVER_ONLINE_APPLICATION_URL');
+if ($ilas_legalserver_online_application_url) {
+  $settings['ilas_site_assistant_legalserver_online_application_url'] = $ilas_legalserver_online_application_url;
+}
+
+/**
  * Langfuse observability API keys.
  *
  * On Pantheon: type "runtime", scope "web", keys "LANGFUSE_PUBLIC_KEY" and "LANGFUSE_SECRET_KEY".

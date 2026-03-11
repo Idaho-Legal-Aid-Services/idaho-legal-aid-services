@@ -49,6 +49,13 @@ final class VectorIndexHygieneService {
   protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
+   * Retrieval configuration resolver.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalConfigurationService
+   */
+  protected RetrievalConfigurationService $retrievalConfiguration;
+
+  /**
    * Module logger.
    *
    * @var \Psr\Log\LoggerInterface
@@ -62,11 +69,13 @@ final class VectorIndexHygieneService {
     ConfigFactoryInterface $config_factory,
     StateInterface $state,
     EntityTypeManagerInterface $entity_type_manager,
+    RetrievalConfigurationService $retrieval_configuration,
     LoggerInterface $logger,
   ) {
     $this->configFactory = $config_factory;
     $this->state = $state;
     $this->entityTypeManager = $entity_type_manager;
+    $this->retrievalConfiguration = $retrieval_configuration;
     $this->logger = $logger;
   }
 
@@ -150,7 +159,7 @@ final class VectorIndexHygieneService {
     array $policy,
     int $now,
   ): array {
-    $index_id = (string) ($index_policy['index_id'] ?? '');
+    $index_id = $this->resolveManagedIndexId($index_key);
     $index_snapshot = array_replace(
       $this->newIndexSnapshot($index_key, $index_policy),
       $existing
@@ -360,14 +369,12 @@ final class VectorIndexHygieneService {
       'alert_cooldown_minutes' => 60,
       'managed_indexes' => [
         'faq_vector' => [
-          'index_id' => 'faq_accordion_vector',
           'owner_role' => 'Content Operations Lead',
           'expected_server_id' => 'pinecone_vector',
           'expected_metric' => 'cosine_similarity',
           'expected_dimensions' => 3072,
         ],
         'resource_vector' => [
-          'index_id' => 'assistant_resources_vector',
           'owner_role' => 'Content Operations Lead',
           'expected_server_id' => 'pinecone_vector',
           'expected_metric' => 'cosine_similarity',
@@ -455,7 +462,7 @@ final class VectorIndexHygieneService {
   protected function newIndexSnapshot(string $index_key, array $index_policy): array {
     return [
       'index_key' => $index_key,
-      'index_id' => (string) ($index_policy['index_id'] ?? ''),
+      'index_id' => $this->resolveManagedIndexId($index_key) ?? '',
       'owner_role' => (string) ($index_policy['owner_role'] ?? 'Content Operations Lead'),
       'status' => 'unknown',
       'exists' => FALSE,
@@ -488,6 +495,17 @@ final class VectorIndexHygieneService {
       'items_processed_last_run' => 0,
       'last_error' => NULL,
     ];
+  }
+
+  /**
+   * Resolves the configured Search API index ID for a managed vector key.
+   */
+  protected function resolveManagedIndexId(string $index_key): ?string {
+    return match ($index_key) {
+      'faq_vector' => $this->retrievalConfiguration->getFaqVectorIndexId(),
+      'resource_vector' => $this->retrievalConfiguration->getResourceVectorIndexId(),
+      default => NULL,
+    };
   }
 
   /**

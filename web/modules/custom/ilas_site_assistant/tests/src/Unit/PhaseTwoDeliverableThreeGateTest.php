@@ -156,8 +156,8 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
 
       $managed = $policy['managed_indexes'];
       $this->assertSame(['faq_vector', 'resource_vector'], array_keys($managed));
-      $this->assertSame('faq_accordion_vector', $managed['faq_vector']['index_id']);
-      $this->assertSame('assistant_resources_vector', $managed['resource_vector']['index_id']);
+      $this->assertArrayNotHasKey('index_id', $managed['faq_vector']);
+      $this->assertArrayNotHasKey('index_id', $managed['resource_vector']);
 
       foreach ($managed as $indexPolicy) {
         $this->assertSame('Content Operations Lead', $indexPolicy['owner_role']);
@@ -165,6 +165,9 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
         $this->assertSame('cosine_similarity', $indexPolicy['expected_metric']);
         $this->assertSame(3072, $indexPolicy['expected_dimensions']);
       }
+
+      $this->assertSame('faq_accordion_vector', $config['retrieval']['faq_vector_index_id']);
+      $this->assertSame('assistant_resources_vector', $config['retrieval']['resource_vector_index_id']);
     }
 
     $schemaMapping = $schema['ilas_site_assistant.settings']['mapping']['vector_index_hygiene']['mapping'] ?? [];

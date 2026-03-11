@@ -12,7 +12,6 @@ excluded_paths:
   - /user/password
 canonical_urls:
   apply: /apply-for-help
-  online_application: 'https://idoi.legalserver.org/modules/matter/extern_intake.php?pid=60&h=bf45bd&'
   hotline: /Legal-Advice-Line
   offices: /contact/offices
   donate: /donate
@@ -112,14 +111,34 @@ fallback_gate:
     combined_fallback_threshold: 0.50
     short_message_words: 3
     ambiguous_message_words: 2
+retrieval:
+  faq_index_id: faq_accordion
+  resource_index_id: assistant_resources
+  resource_fallback_index_id: content
+  faq_vector_index_id: faq_accordion_vector
+  resource_vector_index_id: assistant_resources_vector
 vector_search:
   enabled: false
-  faq_index_id: faq_accordion_vector
-  resource_index_id: assistant_resources_vector
   fallback_threshold: 2
   min_vector_score: 0.7
   score_normalization_factor: 100
   min_lexical_score: 0
+retrieval_contract:
+  policy_version: 'phard_06_v1'
+  enforcement_mode: 'advisory'
+  lexical_priority_boost: 5
+  min_lexical_preserved: 1
+  approved_source_classes:
+    - 'faq_lexical'
+    - 'faq_vector'
+    - 'resource_lexical'
+    - 'resource_vector'
+  primary_source_classes:
+    - 'faq_lexical'
+    - 'resource_lexical'
+  supplement_source_classes:
+    - 'faq_vector'
+    - 'resource_vector'
 safety_alerting:
   enabled: false
   threshold: 20
@@ -204,13 +223,11 @@ vector_index_hygiene:
   alert_cooldown_minutes: 60
   managed_indexes:
     faq_vector:
-      index_id: 'faq_accordion_vector'
       owner_role: 'Content Operations Lead'
       expected_server_id: 'pinecone_vector'
       expected_metric: 'cosine_similarity'
       expected_dimensions: 3072
     resource_vector:
-      index_id: 'assistant_resources_vector'
       owner_role: 'Content Operations Lead'
       expected_server_id: 'pinecone_vector'
       expected_metric: 'cosine_similarity'

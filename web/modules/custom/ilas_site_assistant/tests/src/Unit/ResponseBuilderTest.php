@@ -7,8 +7,10 @@ use PHPUnit\Framework\Attributes\Group;
 
 // Load the ResponseBuilder directly (no Drupal bootstrap needed).
 require_once __DIR__ . '/../../../src/Service/ResponseBuilder.php';
+require_once __DIR__ . '/../Support/CanonicalUrlFixtures.php';
 
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
+use Drupal\Tests\ilas_site_assistant\Support\CanonicalUrlFixtures;
 
 /**
  * Regression tests for the shared ResponseBuilder.
@@ -32,7 +34,7 @@ class ResponseBuilderTest extends TestCase {
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->builder = new ResponseBuilder();
+    $this->builder = new ResponseBuilder(CanonicalUrlFixtures::defaults());
   }
 
   /**
@@ -40,10 +42,11 @@ class ResponseBuilderTest extends TestCase {
    */
   public function testApplyForHelpReturnsApplyUrl(): void {
     $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
+    $expected = CanonicalUrlFixtures::defaults()['online_application'];
 
     $this->assertNotNull($response['primary_action'], 'apply_for_help must have primary_action');
-    $this->assertStringContainsString('legalserver.org', $response['primary_action']['url'],
-      'apply_for_help primary action must point to LegalServer online intake');
+    $this->assertSame($expected, $response['primary_action']['url'],
+      'apply_for_help primary action must point to the configured online intake URL');
     $this->assertEquals('navigate', $response['response_mode']);
     $this->assertEquals('apply_cta', $response['type']);
   }
@@ -53,8 +56,7 @@ class ResponseBuilderTest extends TestCase {
    */
   public function testApplyLegacyReturnsApplyUrl(): void {
     $response = $this->builder->buildFromIntent(['type' => 'apply']);
-
-    $this->assertStringContainsString('legalserver.org', $response['primary_action']['url']);
+    $this->assertSame(CanonicalUrlFixtures::defaults()['online_application'], $response['primary_action']['url']);
   }
 
   /**
@@ -332,7 +334,7 @@ class ResponseBuilderTest extends TestCase {
    */
   public function testExtractPrimaryActionUrl(): void {
     $response = $this->builder->buildFromIntent(['type' => 'apply_for_help']);
-    $this->assertStringContainsString('legalserver.org', ResponseBuilder::extractPrimaryActionUrl($response));
+    $this->assertSame(CanonicalUrlFixtures::defaults()['online_application'], ResponseBuilder::extractPrimaryActionUrl($response));
 
     $response = $this->builder->buildFromIntent(['type' => 'offices_contact']);
     $this->assertEquals('/contact/offices', ResponseBuilder::extractPrimaryActionUrl($response));

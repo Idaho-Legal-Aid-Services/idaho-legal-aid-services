@@ -48,46 +48,16 @@ class ResponseBuilder {
    * Constructs a ResponseBuilder.
    *
    * @param array $canonical_urls
-   *   Canonical URL map (from ilas_site_assistant_get_canonical_urls() or config).
+   *   Canonical URL map resolved at runtime.
    * @param \Drupal\ilas_site_assistant\Service\TopIntentsPack|null $top_intents_pack
    *   Optional Top Intents Pack for sub-topic fallback responses.
    */
-  public function __construct(array $canonical_urls = [], ?TopIntentsPack $top_intents_pack = NULL) {
-    $this->canonicalUrls = $canonical_urls ?: self::getDefaultCanonicalUrls();
+  public function __construct(array $canonical_urls, ?TopIntentsPack $top_intents_pack = NULL) {
+    $this->canonicalUrls = $canonical_urls;
+    if (!isset($this->canonicalUrls['service_areas']) || !is_array($this->canonicalUrls['service_areas'])) {
+      $this->canonicalUrls['service_areas'] = [];
+    }
     $this->topIntentsPack = $top_intents_pack;
-  }
-
-  /**
-   * Returns the default canonical URL map.
-   *
-   * This must stay in sync with ilas_site_assistant_get_canonical_urls().
-   *
-   * @return array
-   *   Default canonical URLs.
-   */
-  public static function getDefaultCanonicalUrls(): array {
-    return [
-      'apply' => '/apply-for-help',
-      'online_application' => 'https://idoi.legalserver.org/modules/matter/extern_intake.php?pid=60&h=bf45bd&',
-      'hotline' => '/Legal-Advice-Line',
-      'offices' => '/contact/offices',
-      'donate' => '/donate',
-      'feedback' => '/get-involved/feedback',
-      'resources' => '/what-we-do/resources',
-      'forms' => '/forms',
-      'guides' => '/guides',
-      'senior_risk_detector' => '/resources/legal-risk-detector',
-      'faq' => '/faq',
-      'services' => '/services',
-      'service_areas' => [
-        'housing' => '/legal-help/housing',
-        'family' => '/legal-help/family',
-        'seniors' => '/legal-help/seniors',
-        'health' => '/legal-help/health',
-        'consumer' => '/legal-help/consumer',
-        'civil_rights' => '/legal-help/civil-rights',
-      ],
-    ];
   }
 
   /**

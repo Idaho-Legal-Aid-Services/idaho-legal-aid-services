@@ -1398,12 +1398,14 @@ Evidence precedence used in this audit:
 ## Config Parity Resolution (IMP-CONF-01)
 
 ### CLAIM-124
-- Claim: Active config export now includes all install-default blocks (`fallback_gate`, `safety_alerting`, `history_fallback`, `ab_testing`, `langfuse`, full LLM sub-keys `cache_ttl`/`max_retries`/`circuit_breaker`/`global_rate_limit`, and `canonical_urls.online_application`). Config completeness drift test enforces install-vs-active-vs-schema parity with 5 test methods. All values match install defaults; `conversation_logging.enabled` remains `true` in active config (intentional operational deviation from install `false`).
+- Claim: Active config export now includes all install-default blocks required by the current contract, while governed retrieval identifiers live in the dedicated `retrieval.*` block and `canonical_urls.online_application` is intentionally absent because the LegalServer intake URL is runtime-only. Config completeness drift test enforces install-vs-active-vs-schema parity, and the expanded guard tests now also enforce retrieval ownership boundaries plus runtime-only LegalServer posture. `conversation_logging.enabled` remains `true` in active config (intentional operational deviation from install `false`).
 - Evidence:
   - `config/ilas_site_assistant.settings.yml` (synced active config)
   - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml` (install defaults source of truth)
   - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml` (schema coverage)
-  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php` (5 tests: top-level key parity, schema coverage, orphan detection, LLM sub-key completeness, disabled-by-default enforcement)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php` (top-level key parity, schema coverage, orphan detection, runtime-only LegalServer contract, retrieval ownership enforcement)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php` (retrieval schema coverage + vector-search ownership boundaries)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php` (runtime-only LegalServer env/site-setting guard)
 - Addendum (2026-03-06): Cross-phase dependency row #2 (`XDP-02`) closes
   config parity dependency guardrails with deterministic unresolved-dependency
   reporting and docs/runtime continuity enforcement anchored by dedicated guard

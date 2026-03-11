@@ -30,23 +30,21 @@ class TopicResolver {
   const CACHE_ID = 'ilas_site_assistant.topics';
 
   /**
-   * Service area machine names mapped to URLs.
+   * Retrieval configuration resolver.
    */
-  const SERVICE_AREA_URLS = [
-    'housing' => '/legal-help/housing',
-    'family' => '/legal-help/family',
-    'seniors' => '/legal-help/seniors',
-    'health' => '/legal-help/health',
-    'consumer' => '/legal-help/consumer',
-    'civil_rights' => '/legal-help/civil-rights',
-  ];
+  protected RetrievalConfigurationService $retrievalConfiguration;
 
   /**
    * Constructs a TopicResolver object.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, CacheBackendInterface $cache) {
+  public function __construct(
+    EntityTypeManagerInterface $entity_type_manager,
+    CacheBackendInterface $cache,
+    RetrievalConfigurationService $retrieval_configuration,
+  ) {
     $this->entityTypeManager = $entity_type_manager;
     $this->cache = $cache;
+    $this->retrievalConfiguration = $retrieval_configuration;
   }
 
   /**
@@ -87,8 +85,9 @@ class TopicResolver {
             'name' => $area_name,
             'key' => $area_key,
           ];
-          if (isset(self::SERVICE_AREA_URLS[$area_key])) {
-            $topic_data['service_area_urls'][] = self::SERVICE_AREA_URLS[$area_key];
+          $service_area_url = $this->getConfiguredServiceAreaUrls()[$area_key] ?? NULL;
+          if (is_string($service_area_url) && $service_area_url !== '') {
+            $topic_data['service_area_urls'][] = $service_area_url;
           }
         }
       }
@@ -241,7 +240,7 @@ class TopicResolver {
         'id' => $term->id(),
         'name' => $term->getName(),
         'key' => $key,
-        'url' => self::SERVICE_AREA_URLS[$key] ?? '/services',
+        'url' => $this->getConfiguredServiceAreaUrls()[$key] ?? $this->getServicesUrl(),
       ];
     }
 
@@ -259,7 +258,7 @@ class TopicResolver {
    */
   public function getServiceAreaUrl(string $area_name) {
     $key = $this->getServiceAreaKey($area_name);
-    return self::SERVICE_AREA_URLS[$key] ?? '/services';
+    return $this->getConfiguredServiceAreaUrls()[$key] ?? $this->getServicesUrl();
   }
 
   /**
@@ -321,6 +320,22 @@ class TopicResolver {
    */
   public function clearCache() {
     $this->cache->delete(self::CACHE_ID);
+  }
+
+  /**
+   * Returns configured service-area URLs.
+   */
+  protected function getConfiguredServiceAreaUrls(): array {
+    $service_areas = $this->retrievalConfiguration->getCanonicalUrls()['service_areas'] ?? [];
+    return is_array($service_areas) ? $service_areas : [];
+  }
+
+  /**
+   * Returns the configured services landing-page URL.
+   */
+  protected function getServicesUrl(): string {
+    $services_url = $this->retrievalConfiguration->getCanonicalUrls()['services'] ?? '';
+    return is_string($services_url) ? $services_url : '';
   }
 
 }

@@ -1,0 +1,129 @@
+RAUD-21 Retrieval Config Governance and Drift Guard
+Date: 2026-03-11
+Prompt ID: RAUD-21
+Finding IDs: F-18, M4, N-16
+
+Prior status
+- Runtime retrieval identifiers and canonical URLs were split across hard-coded literals and duplicated config ownership.
+- Hard-coded runtime values existed in:
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/TopicResolver.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResponseBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/HardRouteRegistry.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FallbackTreeEvaluator.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module`
+- Pantheon read-only drift proof before deployment:
+  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings retrieval --format=yaml`
+    result: `retrieval: null`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings canonical_urls --format=yaml`
+    result still exported `online_application: https://idoi.legalserver.org/...`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- php:eval ...`
+    result: `retrieval_configuration_service=missing`, `legalserver_setting_present=false`
+
+Post-change status
+- Added `RetrievalConfigurationService` as the single runtime resolver for:
+  - effective retrieval IDs
+  - canonical URLs
+  - runtime-only LegalServer intake URL injection
+  - retrieval/canonical URL health snapshot
+- Added governed `retrieval.*` config keys:
+  - `faq_index_id`
+  - `resource_index_id`
+  - `resource_fallback_index_id`
+  - `faq_vector_index_id`
+  - `resource_vector_index_id`
+- Removed duplicate retrieval-ID ownership from:
+  - `vector_search`
+  - `vector_index_hygiene.managed_indexes.*`
+- Moved LegalServer intake URL to runtime-only settings:
+  - env/secret key: `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL`
+  - site setting: `ilas_site_assistant_legalserver_online_application_url`
+- Rewired runtime consumers to the new resolver:
+  - `FaqIndex`
+  - `ResourceFinder`
+  - `TopicResolver`
+  - `VectorIndexHygieneService`
+  - `AssistantSettingsForm`
+  - `ilas_site_assistant_get_canonical_urls()`
+  - `/assistant/api/health`
+- Removed embedded canonical URL defaults from pure-PHP helpers:
+  - `ResponseBuilder`
+  - `HardRouteRegistry`
+  - `FallbackTreeEvaluator`
+- Added update hook `ilas_site_assistant_update_10008()` to migrate active config.
+
+Verification level tag
+- Partially Fixed
+
+Verification evidence
+- Syntax check:
+  - `git diff --name-only -- web/modules/custom/ilas_site_assistant web/sites/default/settings.php config/ilas_site_assistant.settings.yml docs | rg '\.php$' | xargs -r -n 1 php -l`
+  - Summary: all modified PHP files parsed successfully.
+- Targeted contract tests:
+  - `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/ResponseBuilderTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/ApplyCtaResponseTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/HardRouteRegistryTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/FallbackTreeEvaluatorTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
+  - Summary: `208` tests passed.
+- VC-UNIT:
+  - `vendor/bin/phpunit --configuration phpunit.xml --group ilas_site_assistant web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Summary: `2067` tests passed; PHPUnit reported existing warnings/deprecations plus one skipped test.
+- VC-PANTHEON-READONLY:
+  - `terminus whoami`
+    result: authenticated as `evancurry@idaholegalaid.org`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings retrieval --format=yaml`
+    result: `retrieval: null`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings canonical_urls --format=yaml`
+    result: exported `online_application` still present in dev
+  - `terminus remote:drush idaho-legal-aid-services.dev -- php:eval ...`
+    result: `retrieval_configuration_service=missing`; `legalserver_setting_present=false`
+
+Changed files
+- Runtime/config:
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/TopicResolver.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResponseBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/HardRouteRegistry.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FallbackTreeEvaluator.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.install`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+  - `config/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
+- Tests/support:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Support/CanonicalUrlFixtures.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Support/MultilingualRoutingEvalRunner.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php`
+  - updated response/routing/config/hygiene/runtime guard tests
+- Continuity/docs:
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/evidence-index.md`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/runbook.md`
+  - `docs/aila/risk-register.md`
+
+Residual risks / unknowns
+- Pantheon environments are still pre-deploy for this remediation; dev proves drift, not closure.
+- No live LegalServer reachability probe was executed, so URL validation is structural only.
+- `ilas_site_assistant_update_10008()` still needs to run in deployed environments during config/database rollout.
+
+Rollback notes
+- If rollback is required before deployment, revert the module code/config changes together so runtime services, exported config, and test contracts stay aligned.
+- If rollback is required after deployment, revert code/config, deploy the prior artifact, run Drupal cache rebuild, and assess whether a follow-up update hook or manual active-config cleanup is needed to remove `retrieval.*`.
+- Highest-risk rollback surfaces are:
+  - `settings.php` runtime LegalServer secret path
+  - `ilas_site_assistant_update_10008()`
+  - pure-PHP helper constructor/signature changes used by response/routing paths
+
+Still-unverified surfaces
+- Pantheon `test` and `live` after deployment
+- Pantheon `dev` after deployment + cache rebuild
+- Live `/assistant/api/health` output from deployed code showing `checks.retrieval_configuration`
+- Optional live LegalServer probe / reachability assertion under approved operational conditions

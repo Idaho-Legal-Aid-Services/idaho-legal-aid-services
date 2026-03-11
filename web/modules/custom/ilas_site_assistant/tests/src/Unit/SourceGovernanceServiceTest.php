@@ -7,6 +7,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\State\StateInterface;
+use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -452,6 +453,75 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertFalse($snapshot['min_observations_met']);
     $this->assertSame(50.0, $snapshot['stale_ratio_pct']);
     $this->assertSame('degraded', $snapshot['status']);
+  }
+
+  // =========================================================================
+  // Retrieval contract tests (PHARD-06)
+  // =========================================================================
+
+  /**
+   * @covers ::annotateResult
+   */
+  public function testAnnotateResultRejectsUnapprovedSourceClass(): void {
+    $service = $this->buildService();
+
+    $this->expectException(\InvalidArgumentException::class);
+    $this->expectExceptionMessageMatches('/external_scraper/');
+
+    $service->annotateResult([
+      'id' => 'faq_1',
+      'source_url' => '/faq#test',
+      'updated_at' => time(),
+    ], 'external_scraper');
+  }
+
+  /**
+   * @covers ::annotateResult
+   */
+  public function testAnnotateResultAcceptsAllApprovedSourceClasses(): void {
+    $service = $this->buildService();
+
+    foreach (RetrievalContract::APPROVED_SOURCE_CLASSES as $source_class) {
+      $result = $service->annotateResult([
+        'id' => 'test_1',
+        'source_url' => '/test',
+        'updated_at' => time(),
+      ], $source_class);
+
+      $this->assertSame($source_class, $result['source_class'], "Source class {$source_class} should be accepted.");
+    }
+  }
+
+  /**
+   * @covers ::annotateResult
+   */
+  public function testAnnotateResultIncludesContractVersion(): void {
+    $service = $this->buildService();
+
+    $result = $service->annotateResult([
+      'id' => 'faq_1',
+      'source_url' => '/faq#test',
+      'updated_at' => time(),
+    ], 'faq_lexical');
+
+    $this->assertArrayHasKey('retrieval_contract_version', $result['provenance']);
+    $this->assertSame(RetrievalContract::POLICY_VERSION, $result['provenance']['retrieval_contract_version']);
+  }
+
+  /**
+   * @covers ::annotateResult
+   */
+  public function testAnnotateResultIncludesEnforcementMode(): void {
+    $service = $this->buildService();
+
+    $result = $service->annotateResult([
+      'id' => 'faq_1',
+      'source_url' => '/faq#test',
+      'updated_at' => time(),
+    ], 'faq_lexical');
+
+    $this->assertArrayHasKey('enforcement_mode', $result['provenance']);
+    $this->assertSame('advisory', $result['provenance']['enforcement_mode']);
   }
 
 }

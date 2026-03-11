@@ -8,6 +8,7 @@ use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_site_assistant\Service\EnvironmentDetector;
+use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -23,15 +24,24 @@ class AssistantSettingsForm extends ConfigFormBase {
   protected EnvironmentDetector $environmentDetector;
 
   /**
+   * Runtime retrieval/canonical URL resolver.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalConfigurationService|null
+   */
+  protected ?RetrievalConfigurationService $retrievalConfiguration;
+
+  /**
    * Constructs the assistant settings form.
    */
   public function __construct(
     ConfigFactoryInterface $config_factory,
     TypedConfigManagerInterface $typed_config_manager,
     ?EnvironmentDetector $environment_detector = NULL,
+    ?RetrievalConfigurationService $retrieval_configuration = NULL,
   ) {
     parent::__construct($config_factory, $typed_config_manager);
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
+    $this->retrievalConfiguration = $retrieval_configuration;
   }
 
   /**
@@ -42,6 +52,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       $container->get('config.factory'),
       $container->get('config.typed'),
       $container->get('ilas_site_assistant.environment_detector'),
+      $container->has('ilas_site_assistant.retrieval_configuration') ? $container->get('ilas_site_assistant.retrieval_configuration') : NULL,
     );
   }
 
@@ -80,6 +91,15 @@ class AssistantSettingsForm extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('ilas_site_assistant.settings');
     $is_live_environment = $this->isLiveEnvironment();
+    $canonical_urls = $this->retrievalConfiguration
+      ? $this->retrievalConfiguration->getCanonicalUrls()
+      : (is_array($config->get('canonical_urls')) ? $config->get('canonical_urls') : []);
+    $retrieval_config = $this->retrievalConfiguration
+      ? $this->retrievalConfiguration->getRetrievalConfig()
+      : (is_array($config->get('retrieval')) ? $config->get('retrieval') : []);
+    $legalserver_runtime_url = $this->retrievalConfiguration
+      ? $this->retrievalConfiguration->getLegalServerOnlineApplicationUrl()
+      : NULL;
 
     $form['general'] = [
       '#type' => 'details',
@@ -225,72 +245,78 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#open' => FALSE,
     ];
 
-    $canonical_urls = $config->get('canonical_urls') ?? [];
-
     $form['urls']['url_apply'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Apply for Help'),
-      '#default_value' => $canonical_urls['apply'] ?? '/apply-for-help',
+      '#default_value' => $canonical_urls['apply'] ?? '',
     ];
 
     $form['urls']['url_hotline'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Legal Advice Line'),
-      '#default_value' => $canonical_urls['hotline'] ?? '/Legal-Advice-Line',
+      '#default_value' => $canonical_urls['hotline'] ?? '',
     ];
 
     $form['urls']['url_offices'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Offices'),
-      '#default_value' => $canonical_urls['offices'] ?? '/contact/offices',
+      '#default_value' => $canonical_urls['offices'] ?? '',
     ];
 
     $form['urls']['url_donate'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Donate'),
-      '#default_value' => $canonical_urls['donate'] ?? '/donate',
+      '#default_value' => $canonical_urls['donate'] ?? '',
     ];
 
     $form['urls']['url_feedback'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Feedback'),
-      '#default_value' => $canonical_urls['feedback'] ?? '/get-involved/feedback',
+      '#default_value' => $canonical_urls['feedback'] ?? '',
     ];
 
     $form['urls']['url_resources'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Resources'),
-      '#default_value' => $canonical_urls['resources'] ?? '/what-we-do/resources',
+      '#default_value' => $canonical_urls['resources'] ?? '',
     ];
 
     $form['urls']['url_forms'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Forms'),
-      '#default_value' => $canonical_urls['forms'] ?? '/forms',
+      '#default_value' => $canonical_urls['forms'] ?? '',
     ];
 
     $form['urls']['url_guides'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Guides'),
-      '#default_value' => $canonical_urls['guides'] ?? '/guides',
+      '#default_value' => $canonical_urls['guides'] ?? '',
     ];
 
     $form['urls']['url_faq'] = [
       '#type' => 'textfield',
       '#title' => $this->t('FAQ'),
-      '#default_value' => $canonical_urls['faq'] ?? '/faq',
+      '#default_value' => $canonical_urls['faq'] ?? '',
     ];
 
     $form['urls']['url_services'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Services'),
-      '#default_value' => $canonical_urls['services'] ?? '/services',
+      '#default_value' => $canonical_urls['services'] ?? '',
     ];
 
     $form['urls']['url_senior_risk'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Senior Risk Detector'),
-      '#default_value' => $canonical_urls['senior_risk_detector'] ?? '/resources/legal-risk-detector',
+      '#default_value' => $canonical_urls['senior_risk_detector'] ?? '',
+    ];
+
+    $form['urls']['legalserver_online_application_runtime_notice'] = [
+      '#type' => 'item',
+      '#title' => $this->t('LegalServer Online Application URL'),
+      '#markup' => $legalserver_runtime_url
+        ? $this->t('Configured via runtime-only setting <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code>. Drupal will not store or export the LegalServer intake URL.')
+        : $this->t('Runtime-only. Set <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code> in Pantheon runtime secrets or local DDEV environment settings. Drupal will not accept or export the LegalServer intake URL.'),
     ];
 
     $form['content'] = [
@@ -304,6 +330,53 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#title' => $this->t('FAQ Page Path'),
       '#description' => $this->t('Path to the FAQ page for extracting FAQ content.'),
       '#default_value' => $config->get('faq_node_path') ?? '/faq',
+    ];
+
+    $form['retrieval'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Retrieval Index Identifiers'),
+      '#description' => $this->t('Govern the Search API index IDs used for lexical retrieval, lexical fallback, and vector supplementation.'),
+      '#open' => FALSE,
+    ];
+
+    $form['retrieval']['retrieval_faq_index_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('FAQ Lexical Index ID'),
+      '#description' => $this->t('Search API index ID for FAQ accordion lexical retrieval.'),
+      '#default_value' => $retrieval_config['faq_index_id'] ?? '',
+      '#required' => TRUE,
+    ];
+
+    $form['retrieval']['retrieval_resource_index_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Resource Lexical Index ID'),
+      '#description' => $this->t('Search API index ID for primary resource lexical retrieval.'),
+      '#default_value' => $retrieval_config['resource_index_id'] ?? '',
+      '#required' => TRUE,
+    ];
+
+    $form['retrieval']['retrieval_resource_fallback_index_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Resource Fallback Lexical Index ID'),
+      '#description' => $this->t('Search API index ID used when the dedicated resource index is unavailable.'),
+      '#default_value' => $retrieval_config['resource_fallback_index_id'] ?? '',
+      '#required' => TRUE,
+    ];
+
+    $form['retrieval']['retrieval_faq_vector_index_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('FAQ Vector Index ID'),
+      '#description' => $this->t('Search API index ID for FAQ semantic/vector supplementation.'),
+      '#default_value' => $retrieval_config['faq_vector_index_id'] ?? '',
+      '#required' => TRUE,
+    ];
+
+    $form['retrieval']['retrieval_resource_vector_index_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Resource Vector Index ID'),
+      '#description' => $this->t('Search API index ID for resource semantic/vector supplementation.'),
+      '#default_value' => $retrieval_config['resource_vector_index_id'] ?? '',
+      '#required' => TRUE,
     ];
 
     // Vector Search Enhancement Settings.
@@ -321,30 +394,6 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#title' => $this->t('Enable Vector Search Fallback'),
       '#description' => $this->t('When enabled, sparse lexical results will be supplemented with semantic vector search results from Pinecone.'),
       '#default_value' => $vector_config['enabled'] ?? FALSE,
-    ];
-
-    $form['vector_search']['vector_search_faq_index_id'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('FAQ Vector Index ID'),
-      '#description' => $this->t('The Search API index ID for FAQ/accordion vector search.'),
-      '#default_value' => $vector_config['faq_index_id'] ?? 'faq_accordion_vector',
-      '#states' => [
-        'visible' => [
-          ':input[name="vector_search_enabled"]' => ['checked' => TRUE],
-        ],
-      ],
-    ];
-
-    $form['vector_search']['vector_search_resource_index_id'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Resource Vector Index ID'),
-      '#description' => $this->t('The Search API index ID for resource vector search.'),
-      '#default_value' => $vector_config['resource_index_id'] ?? 'assistant_resources_vector',
-      '#states' => [
-        'visible' => [
-          ':input[name="vector_search_enabled"]' => ['checked' => TRUE],
-        ],
-      ],
     ];
 
     $form['vector_search']['vector_search_fallback_threshold'] = [
@@ -597,6 +646,28 @@ class AssistantSettingsForm extends ConfigFormBase {
       );
     }
 
+    $machine_name_fields = [
+      'retrieval_faq_index_id' => $this->t('FAQ Lexical Index ID'),
+      'retrieval_resource_index_id' => $this->t('Resource Lexical Index ID'),
+      'retrieval_resource_fallback_index_id' => $this->t('Resource Fallback Lexical Index ID'),
+      'retrieval_faq_vector_index_id' => $this->t('FAQ Vector Index ID'),
+      'retrieval_resource_vector_index_id' => $this->t('Resource Vector Index ID'),
+    ];
+
+    foreach ($machine_name_fields as $field_name => $label) {
+      $value = trim((string) $form_state->getValue($field_name));
+      if ($value === '') {
+        $form_state->setErrorByName($field_name, $this->t('@label is required.', ['@label' => $label]));
+        continue;
+      }
+      if (!preg_match('/^[a-z0-9_]+$/', $value)) {
+        $form_state->setErrorByName(
+          $field_name,
+          $this->t('@label must contain only lowercase letters, numbers, and underscores.', ['@label' => $label]),
+        );
+      }
+    }
+
     parent::validateForm($form, $form_state);
   }
 
@@ -624,25 +695,24 @@ class AssistantSettingsForm extends ConfigFormBase {
       'faq' => $form_state->getValue('url_faq'),
       'services' => $form_state->getValue('url_services'),
       'senior_risk_detector' => $form_state->getValue('url_senior_risk'),
-      'service_areas' => $config->get('canonical_urls.service_areas') ?? [
-        'housing' => '/legal-help/housing',
-        'family' => '/legal-help/family',
-        'seniors' => '/legal-help/seniors',
-        'health' => '/legal-help/health',
-        'consumer' => '/legal-help/consumer',
-        'civil_rights' => '/legal-help/civil-rights',
-      ],
+      'service_areas' => is_array($config->get('canonical_urls.service_areas')) ? $config->get('canonical_urls.service_areas') : [],
     ];
 
     // Build vector search config array.
     $vector_search_config = [
       'enabled' => (bool) $form_state->getValue('vector_search_enabled'),
-      'faq_index_id' => $form_state->getValue('vector_search_faq_index_id'),
-      'resource_index_id' => $form_state->getValue('vector_search_resource_index_id'),
       'fallback_threshold' => (int) $form_state->getValue('vector_search_fallback_threshold'),
       'min_vector_score' => (float) $form_state->getValue('vector_search_min_score'),
       'score_normalization_factor' => (int) $form_state->getValue('vector_search_normalization_factor'),
       'min_lexical_score' => (int) $form_state->getValue('vector_search_min_lexical_score'),
+    ];
+
+    $retrieval_config = [
+      'faq_index_id' => trim((string) $form_state->getValue('retrieval_faq_index_id')),
+      'resource_index_id' => trim((string) $form_state->getValue('retrieval_resource_index_id')),
+      'resource_fallback_index_id' => trim((string) $form_state->getValue('retrieval_resource_fallback_index_id')),
+      'faq_vector_index_id' => trim((string) $form_state->getValue('retrieval_faq_vector_index_id')),
+      'resource_vector_index_id' => trim((string) $form_state->getValue('retrieval_resource_vector_index_id')),
     ];
 
     $llm_enabled = (bool) $form_state->getValue('llm_enabled');
@@ -686,6 +756,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       ->set('log_retention_days', $form_state->getValue('log_retention_days'))
       ->set('canonical_urls', $canonical_urls)
       ->set('faq_node_path', $form_state->getValue('faq_node_path'))
+      ->set('retrieval', $retrieval_config)
       ->set('vector_search', $vector_search_config)
       ->set('llm', $llm_config)
       ->set('conversation_logging', $conversation_logging_config)

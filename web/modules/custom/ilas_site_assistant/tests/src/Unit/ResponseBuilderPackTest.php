@@ -2,8 +2,11 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+require_once __DIR__ . '/../Support/CanonicalUrlFixtures.php';
+
 use Drupal\ilas_site_assistant\Service\ResponseBuilder;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
+use Drupal\Tests\ilas_site_assistant\Support\CanonicalUrlFixtures;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -35,7 +38,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Sub-topic intent uses pack answer_text and primary_action.
    */
   public function testSubTopicUsesPackData(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'topic_family_custody'];
     $response = $builder->buildFromIntent($intent);
 
@@ -50,7 +53,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Eviction sub-topic uses pack data.
    */
   public function testEvictionSubTopicUsesPackData(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'topic_housing_eviction'];
     $response = $builder->buildFromIntent($intent);
 
@@ -63,7 +66,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Debt collection sub-topic uses pack data.
    */
   public function testDebtCollectionSubTopicUsesPackData(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'topic_consumer_debt_collection'];
     $response = $builder->buildFromIntent($intent);
 
@@ -76,7 +79,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Hardcoded intents retain priority over pack data.
    */
   public function testHardcodedIntentsTakePriority(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
 
     // apply_for_help is both in the pack and hardcoded — hardcoded wins.
     $intent = ['type' => 'apply_for_help'];
@@ -92,7 +95,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Hotline hardcoded intent is not overridden by pack.
    */
   public function testHotlineHardcodedNotOverridden(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'legal_advice_line'];
     $response = $builder->buildFromIntent($intent);
 
@@ -104,7 +107,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Unknown intents still hit the default fallback.
    */
   public function testUnknownIntentHitsDefault(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'completely_unknown_xyz'];
     $response = $builder->buildFromIntent($intent);
 
@@ -117,7 +120,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Without TopIntentsPack, sub-topic intents hit fallback.
    */
   public function testWithoutPackSubTopicHitsFallback(): void {
-    $builder = new ResponseBuilder([]);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults());
     $intent = ['type' => 'topic_family_custody'];
     $response = $builder->buildFromIntent($intent);
 
@@ -129,7 +132,7 @@ class ResponseBuilderPackTest extends TestCase {
    * Meta intents use pack data (meta_help, meta_contact, etc.).
    */
   public function testMetaIntentUsesPackData(): void {
-    $builder = new ResponseBuilder([], $this->pack);
+    $builder = new ResponseBuilder(CanonicalUrlFixtures::defaults(), $this->pack);
     $intent = ['type' => 'meta_help'];
     $response = $builder->buildFromIntent($intent);
 

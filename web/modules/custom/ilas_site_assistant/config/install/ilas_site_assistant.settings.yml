@@ -10,7 +10,6 @@ excluded_paths:
   - /user/password
 canonical_urls:
   apply: '/apply-for-help'
-  online_application: 'https://idoi.legalserver.org/modules/matter/extern_intake.php?pid=60&h=bf45bd&'
   hotline: '/Legal-Advice-Line'
   offices: '/contact/offices'
   donate: '/donate'
@@ -148,16 +147,42 @@ fallback_gate:
 #   for operator tuning and debugging.
 # - The Pinecone HTTP client uses Guzzle defaults (~30s timeout).
 #   Vector search failures are caught and return empty results gracefully.
+retrieval:
+  faq_index_id: 'faq_accordion'
+  resource_index_id: 'assistant_resources'
+  resource_fallback_index_id: 'content'
+  faq_vector_index_id: 'faq_accordion_vector'
+  resource_vector_index_id: 'assistant_resources_vector'
+
 vector_search:
   enabled: false
-  faq_index_id: 'faq_accordion_vector'
-  resource_index_id: 'assistant_resources_vector'
   fallback_threshold: 2        # Min lexical results before vector fires
   min_vector_score: 0.70       # Min cosine similarity to include (0-1)
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
   min_lexical_score: 0         # Min lexical score for quality check (0 = disabled)
                                # If set > 0 and all lexical results score below this,
                                # vector search fires even when count >= fallback_threshold
+
+# Retrieval contract (PHARD-06)
+# Formalizes the Drupal-primary retrieval contract: lexical sources have
+# structural priority over vector supplements. Advisory enforcement only —
+# governance flags inform operators but never suppress results.
+retrieval_contract:
+  policy_version: 'phard_06_v1'
+  enforcement_mode: 'advisory'
+  lexical_priority_boost: 5
+  min_lexical_preserved: 1
+  approved_source_classes:
+    - 'faq_lexical'
+    - 'faq_vector'
+    - 'resource_lexical'
+    - 'resource_vector'
+  primary_source_classes:
+    - 'faq_lexical'
+    - 'resource_lexical'
+  supplement_source_classes:
+    - 'faq_vector'
+    - 'resource_vector'
 
 # Safety spike alerting (cron-driven, default OFF)
 # Sends email when safety violations exceed threshold within window.
@@ -261,13 +286,11 @@ vector_index_hygiene:
   alert_cooldown_minutes: 60
   managed_indexes:
     faq_vector:
-      index_id: 'faq_accordion_vector'
       owner_role: 'Content Operations Lead'
       expected_server_id: 'pinecone_vector'
       expected_metric: 'cosine_similarity'
       expected_dimensions: 3072
     resource_vector:
-      index_id: 'assistant_resources_vector'
       owner_role: 'Content Operations Lead'
       expected_server_id: 'pinecone_vector'
       expected_metric: 'cosine_similarity'
