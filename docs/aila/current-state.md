@@ -16,11 +16,11 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 
 | Field | Current value | Evidence |
 |---|---|---|
-| Audit timestamp (UTC) | `2026-03-11T04:06:17Z` | [^CLAIM-001] |
+| Audit timestamp (UTC) | `2026-03-11T18:08:57Z` | [^CLAIM-001] |
 | Runtime addendum capture window (UTC) | `2026-02-26T19:19:30Z` to `2026-02-27T20:15:50Z` | [^CLAIM-108][^CLAIM-122][^CLAIM-123] |
 | Git branch | `master` | [^CLAIM-001] |
-| Git commit | `cf4b11edf1f9f3d70dfef048b3dcb66f55e5e01e` | [^CLAIM-001] |
-| Worktree note | `docs/aila/` was uncommitted at capture | [^CLAIM-002] |
+| Git commit | `002acff8c2a5908bf99db199eb2358f2bc85cb90` | [^CLAIM-001] |
+| Worktree note | `Clean worktree at capture` | [^CLAIM-002] |
 | Local runtime status | Verified in DDEV: stack started, Drupal bootstrap succeeded, drush/runtime endpoint checks captured | [^CLAIM-108][^CLAIM-109][^CLAIM-111][^CLAIM-112] |
 | Environment context used | Local = code/config + runtime verification; Pantheon = direct Terminus `remote:drush` verification on dev/test/live + code/config | [^CLAIM-109][^CLAIM-115][^CLAIM-116][^CLAIM-117] |
 | Audit generation method | `rg`/file inspection + sanitized runtime artifacts under `docs/aila/runtime/` and `docs/aila/artifacts/`; no secret values captured | [^CLAIM-001][^CLAIM-108][^CLAIM-115][^CLAIM-122] |

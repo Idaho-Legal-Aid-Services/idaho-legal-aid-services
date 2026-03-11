@@ -1,36 +1,5 @@
-timestamp_utc=2026-03-11T04:06:17Z
+timestamp_utc=2026-03-11T18:08:57Z
 branch=master
-commit=cf4b11edf1f9f3d70dfef048b3dcb66f55e5e01e
-commit_short=cf4b11edf
+commit=002acff8c2a5908bf99db199eb2358f2bc85cb90
+commit_short=002acff8c
 status_porcelain:
-M .gitignore
-M composer.json
-M composer.lock
-M phpunit.xml
-M web/modules/custom/ilas_site_assistant/ilas_site_assistant.info.yml
-M web/modules/custom/ilas_site_assistant/ilas_site_assistant.module
-M web/modules/custom/ilas_site_assistant/ilas_site_assistant.permissions.yml
-M web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml
-M web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml
-M web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
-M web/modules/custom/ilas_site_assistant/src/Controller/AssistantPageController.php
-M web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php
-M web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php
-M web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
-M web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
-M web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyViolationTrackerTest.php
-M web/modules/custom/ilas_site_assistant/tests/src/Unit/SentryOptionsSubscriberTest.php
-?? .github/
-?? docs/aila/
-?? scripts/
-?? web/modules/custom/ilas_site_assistant/config/install/search_api.server.database.yml
-?? web/modules/custom/ilas_site_assistant/src/Access/
-?? web/modules/custom/ilas_site_assistant/tests/modules/
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/AuditBaselineAcceptanceTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/CrisisHotlineInvariantsTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfAuthMatrixTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/NoLegalAdviceGovernanceTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/OwnerRoleAssignmentDocsTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/PiiRedactorContractTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/SafeToArrayTest.php
-?? web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyClassifierPriorityContractTest.php

@@ -17,9 +17,9 @@ Evidence precedence used in this audit:
   - `docs/aila/artifacts/context-latest.txt:1-4`
 
 ### CLAIM-002
-- Claim: Repository state at capture time includes uncommitted `docs/aila/` worktree changes.
+- Claim: Repository state at capture time had a clean worktree.
 - Evidence:
-  - `docs/aila/artifacts/context-latest.txt:5-6`
+  - `docs/aila/artifacts/context-latest.txt:5`
 
 ### CLAIM-003
 - Claim: Local DDEV runtime could not be started because Docker provider was unavailable.
