@@ -156,9 +156,74 @@ final class AssistantApiControllerProxyTrustTest extends TestCase {
   }
 
   /**
+   * Redundant self-forwarded public chains should not emit trust warnings.
+   */
+  public function testRedundantSelfForwardedChainDoesNotLogWarning(): void {
+    new Settings([]);
+    Request::setTrustedProxies([], self::TRUSTED_HEADERS);
+
+    $calls = [];
+    $logger = new RecordingLogger();
+
+    $controller = $this->buildController($this->captureFloodCalls($calls), $logger);
+    $request = Request::create('https://www.example.com/assistant/api/message', 'POST', [], [], [], [
+      'CONTENT_TYPE' => 'application/json',
+      'REMOTE_ADDR' => '93.184.216.34',
+      'HTTP_X_FORWARDED_FOR' => '93.184.216.34, 93.184.216.34',
+    ], json_encode(['message' => 'Housing help']));
+
+    $controller->message($request);
+    $identifiers = array_column($calls, 'identifier');
+    $this->assertSame([
+      'ilas_assistant:93.184.216.34',
+      'ilas_assistant:93.184.216.34',
+      'ilas_assistant:93.184.216.34',
+      'ilas_assistant:93.184.216.34',
+    ], $identifiers);
+    $this->assertCount(0, $logger->warnings);
+  }
+
+  /**
+   * Divergent untrusted forwarded chains should still log trust warnings.
+   */
+  public function testDivergentForwardedChainStillLogsWarning(): void {
+    new Settings([]);
+    Request::setTrustedProxies([], self::TRUSTED_HEADERS);
+
+    $calls = [];
+    $logger = new RecordingLogger();
+
+    $controller = $this->buildController($this->captureFloodCalls($calls), $logger);
+    $request = Request::create('https://www.example.com/assistant/api/track', 'POST', [], [], [], [
+      'CONTENT_TYPE' => 'application/json',
+      'REMOTE_ADDR' => '93.184.216.34',
+      'HTTP_X_FORWARDED_FOR' => '1.1.1.1, 93.184.216.34',
+      'HTTP_ORIGIN' => 'https://www.example.com',
+    ], json_encode([
+      'event_type' => 'chat_open',
+      'event_value' => '',
+    ]));
+
+    $response = $controller->track($request);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $identifiers = array_column($calls, 'identifier');
+    $this->assertSame([
+      'ilas_assistant_track:93.184.216.34',
+      'ilas_assistant_track:93.184.216.34',
+    ], $identifiers);
+    $this->assertCount(1, $logger->warnings);
+    $this->assertStringContainsString('event={event}', $logger->warnings[0]['message']);
+    $this->assertSame('assistant_track_flood_identity', $logger->warnings[0]['context']['event'] ?? NULL);
+    $this->assertSame(RequestTrustInspector::STATUS_FORWARDED_HEADERS_UNTRUSTED, $logger->warnings[0]['context']['trust_status'] ?? NULL);
+    $this->assertSame('93.184.216.34', $logger->warnings[0]['context']['effective_client_ip'] ?? NULL);
+    $this->assertSame('93.184.216.34', $logger->warnings[0]['context']['remote_addr'] ?? NULL);
+  }
+
+  /**
    * Builds a contract-testable controller with trust inspection enabled.
    */
-  private function buildController(FloodInterface $flood): ProxyTrustTestableController {
+  private function buildController(FloodInterface $flood, ?LoggerInterface $logger = NULL): ProxyTrustTestableController {
     $configStub = $this->createStub(ImmutableConfig::class);
     $configStub->method('get')->willReturnCallback(function (string $key) {
       $values = [
@@ -202,7 +267,7 @@ final class AssistantApiControllerProxyTrustTest extends TestCase {
 
     $cache = $this->createStub(CacheBackendInterface::class);
     $cache->method('get')->willReturn(FALSE);
-    $logger = $this->createStub(LoggerInterface::class);
+    $logger = $logger ?? $this->createStub(LoggerInterface::class);
 
     return new ProxyTrustTestableController(
       $configFactory,
@@ -273,6 +338,30 @@ final class ProxyTrustTestableController extends AssistantApiController {
     return [
       ['label' => 'Call Hotline', 'url' => 'tel:+12083451011', 'type' => 'hotline'],
       ['label' => 'Apply for Help', 'url' => '/apply', 'type' => 'apply'],
+    ];
+  }
+
+}
+
+/**
+ * Minimal logger that records warning payloads without interrupting the flow.
+ */
+final class RecordingLogger extends NullLogger {
+
+  /**
+   * Captured warning records.
+   *
+   * @var array<int, array{message: string|\Stringable, context: array}>
+   */
+  public array $warnings = [];
+
+  /**
+   * {@inheritdoc}
+   */
+  public function warning($message, array $context = []): void {
+    $this->warnings[] = [
+      'message' => $message,
+      'context' => $context,
     ];
   }
 

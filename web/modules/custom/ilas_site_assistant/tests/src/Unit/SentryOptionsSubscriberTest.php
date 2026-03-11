@@ -425,20 +425,22 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
-   * Tests isDrushEvalNoise returns FALSE when PANTHEON_ENVIRONMENT is set.
+   * Tests isDrushEvalNoise returns TRUE on Pantheon when running drush eval.
    *
    * @covers ::isDrushEvalNoise
    */
-  public function testIsDrushEvalNoiseReturnsFalseOnPantheon(): void {
+  public function testIsDrushEvalNoiseReturnsTrueOnPantheon(): void {
     $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
     $originalCapture = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
+    $originalArgv = $_SERVER['argv'] ?? NULL;
 
     try {
       putenv('PANTHEON_ENVIRONMENT=live');
       putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'php:eval', 'echo 1;'];
 
       $result = SentryOptionsSubscriber::isDrushEvalNoise();
-      $this->assertFalse($result, 'isDrushEvalNoise should be FALSE on Pantheon environments');
+      $this->assertTrue($result, 'isDrushEvalNoise should filter drush eval on Pantheon too');
     }
     finally {
       if ($originalPantheon !== FALSE) {
@@ -452,6 +454,52 @@ class SentryOptionsSubscriberTest extends TestCase {
       }
       else {
         putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      }
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests isDrushEvalNoise respects opt-in capture override on Pantheon.
+   *
+   * @covers ::isDrushEvalNoise
+   */
+  public function testIsDrushEvalNoisePantheonCaptureOverride(): void {
+    $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
+    $originalCapture = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      putenv('PANTHEON_ENVIRONMENT=live');
+      putenv('SENTRY_CAPTURE_DRUSH_EVAL=1');
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'php:eval', 'echo 1;'];
+
+      $result = SentryOptionsSubscriber::isDrushEvalNoise();
+      $this->assertFalse($result, 'SENTRY_CAPTURE_DRUSH_EVAL=1 should override filtering on Pantheon');
+    }
+    finally {
+      if ($originalPantheon !== FALSE) {
+        putenv("PANTHEON_ENVIRONMENT=$originalPantheon");
+      }
+      else {
+        putenv('PANTHEON_ENVIRONMENT');
+      }
+      if ($originalCapture !== FALSE) {
+        putenv("SENTRY_CAPTURE_DRUSH_EVAL=$originalCapture");
+      }
+      else {
+        putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      }
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
       }
     }
   }

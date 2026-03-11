@@ -364,6 +364,36 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * Tests that the track endpoint accepts ui_troubleshooting events.
+   */
+  public function testTrackEndpointAcceptsUiTroubleshootingEvent(): void {
+    $response = $this->postTrack([
+      'event_type' => 'ui_troubleshooting',
+      'event_value' => 'displayed',
+    ], $this->validTrackHeaders());
+
+    $this->assertEquals(200, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertTrue($data['ok'] ?? FALSE);
+  }
+
+  /**
+   * Tests that the track endpoint accepts ui_fallback_used events.
+   */
+  public function testTrackEndpointAcceptsUiFallbackUsedEvent(): void {
+    $response = $this->postTrack([
+      'event_type' => 'ui_fallback_used',
+      'event_value' => 'forms_inventory',
+    ], $this->validTrackHeaders());
+
+    $this->assertEquals(200, $response->getStatusCode());
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertIsArray($data);
+    $this->assertTrue($data['ok'] ?? FALSE);
+  }
+
+  /**
    * Tests that the track endpoint rejects missing event_type.
    */
   public function testTrackEndpointRejectsMissingEventType(): void {

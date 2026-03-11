@@ -72,6 +72,43 @@
     return compact;
   }
 
+  var EXTENSION_NOISE_PATTERNS = [
+    /runtime\.sendMessage/i,
+    /runtime\.connect/i,
+    /invalid origin/i,
+    /ResizeObserver loop/i,
+    /^Script error\.?$/i
+  ];
+
+  function isExtensionNoise(event) {
+    var message = '';
+    if (event.exception && event.exception.values && event.exception.values.length) {
+      var exc = event.exception.values[0];
+      message = (exc.value || '') + ' ' + (exc.type || '');
+      var frames = exc.stacktrace && exc.stacktrace.frames ? exc.stacktrace.frames : [];
+      for (var i = 0; i < frames.length; i++) {
+        var filename = frames[i].filename || '';
+        if (filename.indexOf('idaholegalaid.org') !== -1 || filename.indexOf('/modules/') !== -1 || filename.indexOf('/themes/') !== -1) {
+          return false;
+        }
+      }
+    }
+    else if (event.message) {
+      message = event.message;
+    }
+
+    if (!message) {
+      return false;
+    }
+
+    for (var j = 0; j < EXTENSION_NOISE_PATTERNS.length; j++) {
+      if (EXTENSION_NOISE_PATTERNS[j].test(message)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function configureSentry() {
     if (sentryConfigured || !window.Sentry || !settings.sentry || !settings.sentry.browserEnabled) {
       return;
@@ -85,6 +122,9 @@
 
     if (typeof window.Sentry.addEventProcessor === 'function') {
       window.Sentry.addEventProcessor(function (event) {
+        if (isExtensionNoise(event)) {
+          return null;
+        }
         var scrubbed = scrubValue(event || {});
         scrubbed.tags = Object.assign({}, scrubbed.tags || {}, withCompactTags(sharedTags()));
         return scrubbed;

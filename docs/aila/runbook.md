@@ -2256,7 +2256,17 @@ bash scripts/ci/install-pre-push-strict-hook.sh
 Canonical protected-master sequence:
 
 ```bash
+# Confirm you are starting from synced local master.
+git status --short --branch
+
 npm run git:publish
+```
+
+Shortest repeatable flow after you commit your changes:
+
+```bash
+npm run git:publish
+npm run git:finish
 ```
 
 After the PR is merged on GitHub:
@@ -2265,8 +2275,12 @@ After the PR is merged on GitHub:
 # Sync local master from GitHub.
 npm run git:sync-master
 
-# Deploy Pantheon from the merged master commit.
+# Deploy Pantheon dev from the merged master commit when Pantheon is behind.
 npm run git:publish -- --origin-only
+
+# Optional verification after the Pantheon push.
+git rev-parse master github/master origin/master
+terminus env:code-log idaho-legal-aid-services.dev --format=table
 ```
 
 Notes:
@@ -2274,9 +2288,16 @@ Notes:
   `remote-ahead`/`diverged` pushes, then runs `run-quality-gate.sh` plus
   branch-aware Promptfoo gate checks keyed to the pushed target branch.
 - Post-merge local sync is reduced to one command: `npm run git:sync-master`.
+- Optional shortcut: `npm run git:finish` waits for the current
+  `publish/master-<shortsha>` PR, merges it with a merge commit, runs
+  `npm run git:sync-master`, and deploys Pantheon `dev` when `origin/master`
+  is behind.
 - Direct `git push github master` is intentionally blocked on protected
   `master`; use `npm run git:publish` so local `master` is pushed to
   `github/publish/master-<shortsha>` and opened as a PR into `master`.
+- Each `npm run git:publish` invocation creates or updates the helper PR for
+  the current `publish/master-<shortsha>` branch; do not wait on stale PR
+  numbers from earlier publishes.
 - PR-branch publishes from local `master` are advisory locally because the
   hook classifies `github/publish/master-<shortsha>` as a non-protected target;
   the blocking `Promptfoo Gate` still runs on GitHub for the PR/merge path.
@@ -2285,6 +2306,9 @@ Notes:
 - Once local `master` is fast-forwarded to the merged `github/master` commit,
   `npm run git:publish -- --origin-only` still runs sync-check plus the local
   module quality gate, but skips local promptfoo and trusts the already-passed GitHub `Promptfoo Gate` for that commit.
+- `npm run git:publish -- --origin-only` is the normal sync path for Pantheon
+  `dev`; promotion to Pantheon `test` and `live` is a separate deployment
+  workflow.
 - If `ILAS_ASSISTANT_URL` is unset, `scripts/ci/run-promptfoo-gate.sh` will
   attempt Pantheon URL derivation (`derive-assistant-url.sh`) for `--env dev`.
 - Bypass once (not recommended): `git push --no-verify`. This bypasses both the
@@ -3516,7 +3540,8 @@ ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml \
 vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
   /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php \
   /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php \
-  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Kernel/RetrievalIndexUpdateHookKernelTest.php
 
 # VC-PANTHEON-READONLY
 terminus remote:drush idaho-legal-aid-services.dev -- \
@@ -3524,23 +3549,27 @@ terminus remote:drush idaho-legal-aid-services.dev -- \
 terminus remote:drush idaho-legal-aid-services.dev -- \
   config:get ilas_site_assistant.settings canonical_urls --format=yaml
 terminus remote:drush idaho-legal-aid-services.dev -- \
+  php:eval '$storage = \Drupal::entityTypeManager()->getStorage("search_api_index"); foreach (["faq_accordion", "assistant_resources"] as $id) { $index = $storage->load($id); echo $id . "=" . ($index && $index->status() ? "enabled" : ($index ? "disabled" : "missing")) . PHP_EOL; }'
+terminus remote:drush idaho-legal-aid-services.dev -- \
   php:eval '$service = \Drupal::hasService("ilas_site_assistant.retrieval_configuration") ? \Drupal::service("ilas_site_assistant.retrieval_configuration") : NULL; if (!$service) { echo "retrieval_configuration_service=missing" . PHP_EOL; } else { echo json_encode($service->getHealthSnapshot(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL; } echo "legalserver_setting_present=" . ((string) \Drupal\Core\Site\Settings::get("ilas_site_assistant_legalserver_online_application_url", "") !== "" ? "true" : "false") . PHP_EOL;'
 ```
 
 Expected `RAUD-21` verification result:
 - Local/unit proof shows `retrieval.*` present in install/active/schema,
-  `vector_search` no longer owns index IDs, and runtime-only LegalServer guard
-  tests pass.
+  `vector_search` no longer owns index IDs, lexical Search API indexes are
+  tracked in active sync, `update_10009` recreates missing lexical indexes,
+  and runtime-only LegalServer guard tests pass.
 - `/assistant/api/health` exposes `checks.retrieval_configuration` with
   lexical/vector index status, service-area completeness, and LegalServer URL
   diagnostics.
-- Pantheon pre-deploy environments may still show `retrieval: null`,
-  exported `canonical_urls.online_application`, missing
-  `ilas_site_assistant.retrieval_configuration`, or absent runtime LegalServer
-  setting; treat that as deployment drift evidence, not repo-side failure.
-- Final classification remains `Partially Fixed` until post-deploy read-only
-  checks show the new service/config contract in a live environment. A live
-  LegalServer reachability probe is optional and environment-bound.
+- Pantheon closure requires all of the following on `dev`, `test`, and `live`:
+  `faq_accordion=enabled`, `assistant_resources=enabled`,
+  `legalserver_setting_present=true`, and
+  `checks.retrieval_configuration.status=healthy`.
+- If hosted checks still show missing lexical indexes or an absent LegalServer
+  runtime setting, treat that as real operational drift, run
+  `updb`/`cim`/`cr`, reindex the lexical Search API indexes, and verify the
+  Pantheon runtime secret before calling the finding `Fixed`.
 
 ## 7) Retrospective regression checklist (mandatory)
 

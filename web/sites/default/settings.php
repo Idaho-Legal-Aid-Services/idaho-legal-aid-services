@@ -562,7 +562,7 @@ if ($sentry_dsn) {
     'alert' => TRUE,
     'critical' => TRUE,
     'error' => TRUE,
-    'warning' => TRUE,
+    'warning' => ($observability_environment !== 'local'),
     'notice' => FALSE,
     'info' => FALSE,
     'debug' => FALSE,

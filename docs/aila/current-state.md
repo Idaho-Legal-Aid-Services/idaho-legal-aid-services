@@ -1036,13 +1036,20 @@ This dated addendum records re-audit remediation `RAUD-21` for findings
    URL completeness, and LegalServer URL validation (`https`, absolute URL,
    required `pid` + `h` query keys). Pure-PHP response helpers no longer carry
    embedded canonical URL defaults; callers pass canonical URLs explicitly.
-4. Local verification is captured in
-   `docs/aila/runtime/raud-21-retrieval-config-governance.txt`. The repo-side
-   remediation is classified `Partially Fixed` because Pantheon `dev` still
-   reports pre-change drift (`retrieval: null`,
-   `canonical_urls.online_application` exported, missing retrieval health
-   service, runtime LegalServer setting absent) and no live LegalServer probe
-   was executed post-deploy.
+4. Repo-side closure now also tracks the lexical Search API indexes in active
+   sync (`config/search_api.index.faq_accordion.yml`,
+   `config/search_api.index.assistant_resources.yml`) and adds
+   `ilas_site_assistant_update_10009()` to recreate those indexes on existing
+   environments before config import.
+5. Local verification is captured in
+   `docs/aila/runtime/raud-21-retrieval-config-governance.txt`. The
+   remediation remains `Partially Fixed` until Pantheon `dev`/`test`/`live`
+   deploy the lexical-index repair, run `updb`/`cim`/`cr`, reindex
+   `faq_accordion` + `assistant_resources`, and provision
+   `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` as a runtime secret. Live
+   read-only checks on 2026-03-11 already showed the deployed drift guard is
+   catching the missing lexical indexes and absent LegalServer runtime
+   setting.
 
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 

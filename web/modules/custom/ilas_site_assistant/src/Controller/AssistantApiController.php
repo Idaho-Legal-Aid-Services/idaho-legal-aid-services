@@ -530,12 +530,28 @@ class AssistantApiController extends ControllerBase {
     }
 
     $effective_client_ip = (string) ($request->getClientIp() ?? $request->server->get('REMOTE_ADDR', ''));
+    $remote_addr = (string) $request->server->get('REMOTE_ADDR', '');
+    $forwarded_for_chain = $forwarded_for !== '' ? array_map('trim', explode(',', $forwarded_for)) : [];
+    $effective_client_ip_chain = $effective_client_ip !== '' ? [$effective_client_ip] : [];
+    $redundant_self_forwarded_chain = $this->isRedundantSelfForwardedChain(
+      $remote_addr,
+      $effective_client_ip,
+      $effective_client_ip_chain,
+      $forwarded_for_chain,
+    );
+    $status = RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR;
+    if ($forwarded_header_present) {
+      $status = $redundant_self_forwarded_chain
+        ? RequestTrustInspector::STATUS_REDUNDANT_SELF_FORWARDED_CHAIN
+        : RequestTrustInspector::STATUS_FORWARDED_HEADERS_UNTRUSTED;
+    }
+
     return [
-      'status' => $forwarded_header_present ? RequestTrustInspector::STATUS_FORWARDED_HEADERS_UNTRUSTED : RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR,
+      'status' => $status,
       'effective_client_ip' => $effective_client_ip,
-      'effective_client_ip_chain' => $effective_client_ip !== '' ? [$effective_client_ip] : [],
-      'forwarded_for_chain' => $forwarded_for !== '' ? array_map('trim', explode(',', $forwarded_for)) : [],
-      'remote_addr' => (string) $request->server->get('REMOTE_ADDR', ''),
+      'effective_client_ip_chain' => $effective_client_ip_chain,
+      'forwarded_for_chain' => $forwarded_for_chain,
+      'remote_addr' => $remote_addr,
       'reverse_proxy_enabled' => FALSE,
       'configured_trusted_proxies' => [],
       'configured_trusted_headers' => NULL,
@@ -545,6 +561,7 @@ class AssistantApiController extends ControllerBase {
       'forwarded_headers' => $forwarded_headers,
       'remote_addr_is_configured_proxy' => FALSE,
       'remote_addr_is_runtime_trusted_proxy' => FALSE,
+      'redundant_self_forwarded_chain' => $redundant_self_forwarded_chain,
       'invalid_configured_proxy_entries' => [],
     ];
   }
@@ -554,14 +571,13 @@ class AssistantApiController extends ControllerBase {
    */
   private function resolveFloodTrustContext(Request $request, string $request_id, string $event): array {
     $trust_context = $this->inspectRequestTrust($request);
-    $status = $trust_context['status'] ?? RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR;
-    if (!empty($trust_context['forwarded_header_present']) && $status !== RequestTrustInspector::STATUS_TRUSTED_FORWARDED_CHAIN) {
-      $this->logger->notice(
+    if ($this->shouldLogFloodTrustWarning($trust_context)) {
+      $this->logger->warning(
         'event={event} request_id={request_id} trust_status={trust_status} effective_client_ip={effective_client_ip} remote_addr={remote_addr} forwarded_for={forwarded_for} configured_trusted_proxies={configured_trusted_proxies} runtime_trusted_proxies={runtime_trusted_proxies}',
         [
           'event' => $event,
           'request_id' => $request_id,
-          'trust_status' => $status,
+          'trust_status' => (string) ($trust_context['status'] ?? RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR),
           'effective_client_ip' => (string) ($trust_context['effective_client_ip'] ?? ''),
           'remote_addr' => (string) ($trust_context['remote_addr'] ?? ''),
           'forwarded_for' => (string) (($trust_context['forwarded_headers']['x_forwarded_for'] ?? NULL) ?? ''),
@@ -571,6 +587,72 @@ class AssistantApiController extends ControllerBase {
       );
     }
     return $trust_context;
+  }
+
+  /**
+   * Returns TRUE when forwarded IPs only repeat REMOTE_ADDR.
+   */
+  private function isRedundantSelfForwardedChain(string $remote_addr, string $effective_client_ip, array $effective_client_ips, array $forwarded_for_chain): bool {
+    if ($remote_addr === '' || $forwarded_for_chain === [] || $effective_client_ip !== $remote_addr) {
+      return FALSE;
+    }
+
+    foreach ($forwarded_for_chain as $forwarded_ip) {
+      if (!is_string($forwarded_ip) || $forwarded_ip === '' || $forwarded_ip !== $remote_addr) {
+        return FALSE;
+      }
+    }
+
+    foreach ($effective_client_ips as $effective_ip) {
+      if (!is_string($effective_ip) || $effective_ip === '' || $effective_ip !== $remote_addr) {
+        return FALSE;
+      }
+    }
+
+    return TRUE;
+  }
+
+  /**
+   * Returns TRUE when the trust context represents a material flood-key risk.
+   */
+  private function shouldLogFloodTrustWarning(array $trust_context): bool {
+    if (empty($trust_context['forwarded_header_present'])) {
+      return FALSE;
+    }
+
+    if (!empty($trust_context['invalid_configured_proxy_entries'])) {
+      return TRUE;
+    }
+
+    $status = (string) ($trust_context['status'] ?? RequestTrustInspector::STATUS_DIRECT_REMOTE_ADDR);
+    if ($status === RequestTrustInspector::STATUS_TRUSTED_FORWARDED_CHAIN) {
+      return FALSE;
+    }
+    if ($status === RequestTrustInspector::STATUS_TRUSTED_PROXY_MISMATCH) {
+      return TRUE;
+    }
+
+    $remote_addr = (string) ($trust_context['remote_addr'] ?? '');
+    $effective_client_ip = (string) ($trust_context['effective_client_ip'] ?? '');
+    if ($effective_client_ip !== '' && $remote_addr !== '' && $effective_client_ip !== $remote_addr) {
+      return TRUE;
+    }
+
+    foreach (($trust_context['forwarded_for_chain'] ?? []) as $forwarded_ip) {
+      if (is_string($forwarded_ip) && $forwarded_ip !== '' && $forwarded_ip !== $remote_addr) {
+        return TRUE;
+      }
+    }
+
+    if (!empty($trust_context['remote_addr_is_configured_proxy']) || !empty($trust_context['remote_addr_is_runtime_trusted_proxy'])) {
+      return TRUE;
+    }
+
+    if ($remote_addr === '') {
+      return FALSE;
+    }
+
+    return filter_var($remote_addr, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === FALSE;
   }
 
   /**
@@ -1781,6 +1863,7 @@ class AssistantApiController extends ControllerBase {
       'hotline_click', 'apply_click', 'apply_cta_click',
       'apply_secondary_click', 'service_area_click', 'topic_selected',
       'feedback_helpful', 'feedback_not_helpful',
+      'ui_troubleshooting', 'ui_fallback_used',
     ];
 
     if (in_array($event_type, $allowed_types)) {
@@ -2554,6 +2637,9 @@ class AssistantApiController extends ControllerBase {
           'label' => $this->t('Apply for Help'),
           'url' => $canonical_urls['apply'],
         ];
+        $response['text_fallback'] = $this->t('Choose a service area: Housing, Family, Consumer, Seniors, Health & Benefits, or Civil Rights. You can also apply for help at @url.', [
+          '@url' => $canonical_urls['apply'],
+        ]);
         $this->logger->info('[@request_id] Services inventory request served', [
           '@request_id' => $request_id,
         ]);
@@ -2583,6 +2669,9 @@ class AssistantApiController extends ControllerBase {
             'label' => $this->t('Browse All Forms'),
             'url' => $canonical_urls['forms'],
           ];
+          $response['text_fallback'] = $this->t('Type a form topic like eviction, divorce, debt, guardianship, safety, or benefits. You can also browse all forms at @url.', [
+            '@url' => $canonical_urls['forms'],
+          ]);
           $response['form_finder_mode'] = TRUE;
           $this->logger->info(
             '[@request_id] Form Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
@@ -2632,6 +2721,9 @@ class AssistantApiController extends ControllerBase {
             'label' => $this->t('Browse All Forms'),
             'url' => $canonical_urls['forms'],
           ];
+          $response['text_fallback'] = $this->t('Try a different form keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all forms at @url.', [
+            '@url' => $canonical_urls['forms'],
+          ]);
           $response['caveat'] = $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
         }
         $this->logger->info(
@@ -2665,6 +2757,9 @@ class AssistantApiController extends ControllerBase {
             'label' => $this->t('Browse All Guides'),
             'url' => $canonical_urls['guides'],
           ];
+          $response['text_fallback'] = $this->t('Type a guide topic like eviction, divorce, debt, employment, benefits, or safety. You can also browse all guides at @url.', [
+            '@url' => $canonical_urls['guides'],
+          ]);
           $response['guide_finder_mode'] = TRUE;
           $this->logger->info(
             '[@request_id] Guide Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
@@ -2714,6 +2809,9 @@ class AssistantApiController extends ControllerBase {
             'label' => $this->t('Browse All Guides'),
             'url' => $canonical_urls['guides'],
           ];
+          $response['text_fallback'] = $this->t('Try a different guide keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all guides at @url.', [
+            '@url' => $canonical_urls['guides'],
+          ]);
           $response['caveat'] = $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
         }
         $this->logger->info(
@@ -3054,10 +3152,6 @@ class AssistantApiController extends ControllerBase {
         }
         $response['type'] = 'ui_troubleshooting';
         $response['followup'] = $this->t('Tip: Try refreshing the page if elements are not displaying correctly.');
-        $this->logger->notice('[@request_id] ui_troubleshooting triggered, previous flow: @prev', [
-          '@request_id' => $request_id,
-          '@prev' => $prev_type ?: 'none',
-        ]);
         break;
 
       case 'clarify':

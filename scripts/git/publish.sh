@@ -134,10 +134,8 @@ Automated by \`npm run git:publish\`.
 - head commit: \`$short_sha\`
 
 Next steps:
-1. Wait for \`PHPUnit Quality Gate\` and \`Promptfoo Gate\`.
-2. Merge this PR into \`master\` after the required GitHub checks pass.
-3. Run \`npm run git:sync-master\` to sync local \`master\` from GitHub.
-4. Run \`npm run git:publish -- --origin-only\` to deploy Pantheon.
+1. Run \`npm run git:finish\` from local \`master\` to wait for checks, merge this PR, sync local \`master\`, and deploy Pantheon \`dev\` if needed.
+2. Manual fallback: merge this PR into \`master\`, run \`npm run git:sync-master\`, then run \`npm run git:publish -- --origin-only\`.
 EOF
 }
 

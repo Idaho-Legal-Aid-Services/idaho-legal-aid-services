@@ -27,6 +27,12 @@ Post-change status
   - canonical URLs
   - runtime-only LegalServer intake URL injection
   - retrieval/canonical URL health snapshot
+- Added canonical active-sync ownership for the lexical Search API indexes:
+  - `config/search_api.index.faq_accordion.yml`
+  - `config/search_api.index.assistant_resources.yml`
+- Added `ilas_site_assistant_update_10009()` to recreate missing lexical
+  Search API indexes from canonical config before `cim` on existing
+  environments.
 - Added governed `retrieval.*` config keys:
   - `faq_index_id`
   - `resource_index_id`
@@ -61,20 +67,20 @@ Verification evidence
   - `git diff --name-only -- web/modules/custom/ilas_site_assistant web/sites/default/settings.php config/ilas_site_assistant.settings.yml docs | rg '\.php$' | xargs -r -n 1 php -l`
   - Summary: all modified PHP files parsed successfully.
 - Targeted contract tests:
-  - `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/ResponseBuilderTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/ApplyCtaResponseTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/HardRouteRegistryTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/FallbackTreeEvaluatorTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
-  - Summary: `208` tests passed.
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchConfigSchemaTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Kernel/RetrievalIndexUpdateHookKernelTest.php`
+  - Summary: `19` tests passed; PHPUnit reported existing deprecations.
 - VC-UNIT:
   - `vendor/bin/phpunit --configuration phpunit.xml --group ilas_site_assistant web/modules/custom/ilas_site_assistant/tests/src/Unit`
   - Summary: `2067` tests passed; PHPUnit reported existing warnings/deprecations plus one skipped test.
 - VC-PANTHEON-READONLY:
   - `terminus whoami`
     result: authenticated as `evancurry@idaholegalaid.org`
-  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings retrieval --format=yaml`
-    result: `retrieval: null`
-  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings canonical_urls --format=yaml`
-    result: exported `online_application` still present in dev
-  - `terminus remote:drush idaho-legal-aid-services.dev -- php:eval ...`
-    result: `retrieval_configuration_service=missing`; `legalserver_setting_present=false`
+  - `terminus remote:drush idaho-legal-aid-services.live -- config:get ilas_site_assistant.settings retrieval --format=yaml`
+    result: all five `retrieval.*` keys present on live
+  - `terminus remote:drush idaho-legal-aid-services.live -- config:get ilas_site_assistant.settings canonical_urls --format=yaml`
+    result: `online_application` absent from exported canonical URLs
+  - `terminus remote:drush idaho-legal-aid-services.live -- php:eval ...`
+    result: retrieval health service present, but `faq_accordion` and `assistant_resources` were still missing and `legalserver_setting_present=false`
 
 Changed files
 - Runtime/config:
@@ -94,11 +100,16 @@ Changed files
   - `web/sites/default/settings.php`
   - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
   - `config/ilas_site_assistant.settings.yml`
+  - `config/search_api.index.faq_accordion.yml`
+  - `config/search_api.index.assistant_resources.yml`
+  - `web/modules/custom/ilas_site_assistant/config/install/search_api.index.faq_accordion.yml`
+  - `web/modules/custom/ilas_site_assistant/config/install/search_api.index.assistant_resources.yml`
   - `web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml`
 - Tests/support:
   - `web/modules/custom/ilas_site_assistant/tests/src/Support/CanonicalUrlFixtures.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Support/MultilingualRoutingEvalRunner.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Kernel/RetrievalIndexUpdateHookKernelTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LegalServerRuntimeUrlGuardTest.php`
   - updated response/routing/config/hygiene/runtime guard tests
 - Continuity/docs:
@@ -110,9 +121,12 @@ Changed files
   - `docs/aila/risk-register.md`
 
 Residual risks / unknowns
-- Pantheon environments are still pre-deploy for this remediation; dev proves drift, not closure.
-- No live LegalServer reachability probe was executed, so URL validation is structural only.
-- `ilas_site_assistant_update_10008()` still needs to run in deployed environments during config/database rollout.
+- Pantheon environments still need this lexical-index repair patch deployed and
+  `ilas_site_assistant_update_10009()` executed via `updb`.
+- `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` still has to be provisioned
+  manually as a Pantheon runtime secret on `dev`, `test`, and `live`.
+- No live LegalServer reachability probe was executed, so URL validation is
+  still structural rather than end-to-end.
 
 Rollback notes
 - If rollback is required before deployment, revert the module code/config changes together so runtime services, exported config, and test contracts stay aligned.
@@ -123,7 +137,11 @@ Rollback notes
   - pure-PHP helper constructor/signature changes used by response/routing paths
 
 Still-unverified surfaces
-- Pantheon `test` and `live` after deployment
-- Pantheon `dev` after deployment + cache rebuild
-- Live `/assistant/api/health` output from deployed code showing `checks.retrieval_configuration`
-- Optional live LegalServer probe / reachability assertion under approved operational conditions
+- Pantheon `dev`, `test`, and `live` after deploying the lexical-index repair
+  patch and running `updb`/`cim`/`cr`
+- Hosted lexical Search API reindex results for `faq_accordion` and
+  `assistant_resources`
+- Hosted `/assistant/api/health` output after the LegalServer runtime secret is
+  provisioned
+- Optional live LegalServer probe / reachability assertion under approved
+  operational conditions

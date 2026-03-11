@@ -117,15 +117,16 @@ Planning defaults applied:
     `checks.retrieval_configuration`, admin settings validate required
     machine-name retrieval IDs, and pure-PHP response/routing helpers no
     longer carry embedded canonical URL defaults.
-26. Remaining `RAUD-21` closure work is deployment-bound: Pantheon `dev`
-    still reports pre-remediation drift (`retrieval: null`,
-    `canonical_urls.online_application` exported, retrieval health service
-    absent, runtime LegalServer setting absent) because this branch has not
-    been deployed there yet.
-27. `RAUD-21` therefore remains `Partially Fixed` until a post-deploy
-    read-only verification reruns the retrieval/canonical URL checks against a
-    live environment and, if desired, a live LegalServer reachability probe is
-    executed under approved operational conditions.
+26. Repo-side closure now also includes canonical active-sync ownership for the
+    lexical Search API indexes (`faq_accordion`, `assistant_resources`) plus
+    `ilas_site_assistant_update_10009()` to recreate them automatically on
+    existing environments before config import.
+27. `RAUD-21` remains `Partially Fixed` until Pantheon `dev`/`test`/`live`
+    deploy that patch, run `updb`/`cim`/`cr`, reindex the recreated lexical
+    indexes, and provision `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` as a
+    runtime secret. Live read-only verification on 2026-03-11 already proved
+    the drift guard is active and currently reporting those exact missing
+    hosted prerequisites.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

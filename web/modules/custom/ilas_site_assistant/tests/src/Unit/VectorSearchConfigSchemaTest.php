@@ -43,6 +43,13 @@ class VectorSearchConfigSchemaTest extends TestCase {
   }
 
   /**
+   * Returns parsed Search API index config.
+   */
+  private static function indexConfig(string $path): array {
+    return Yaml::parseFile(self::repoRoot() . '/' . ltrim($path, '/'));
+  }
+
+  /**
    * Tests that every retrieval key in install defaults has a schema entry.
    */
   public function testRetrievalSchemaCoversAllInstallDefaultKeys(): void {
@@ -142,6 +149,42 @@ class VectorSearchConfigSchemaTest extends TestCase {
         $removed_key,
         $schema['ilas_site_assistant.settings']['mapping']['vector_search']['mapping'] ?? []
       );
+    }
+  }
+
+  /**
+   * Tests that lexical index configs are tracked in active sync.
+   */
+  public function testLexicalIndexConfigsAreTrackedInActiveSync(): void {
+    foreach ([
+      'faq_accordion' => 'config/search_api.index.faq_accordion.yml',
+      'assistant_resources' => 'config/search_api.index.assistant_resources.yml',
+    ] as $index_id => $relative_path) {
+      $config = self::indexConfig($relative_path);
+      $this->assertSame($index_id, $config['id'] ?? NULL, sprintf('Active sync must track lexical index "%s".', $index_id));
+      $this->assertSame('database', $config['server'] ?? NULL, sprintf('Lexical index "%s" must remain on the database Search API server.', $index_id));
+    }
+  }
+
+  /**
+   * Tests that active-sync lexical index definitions match install config.
+   */
+  public function testLexicalIndexActiveSyncMatchesInstallDefinitions(): void {
+    $pairs = [
+      'faq_accordion' => [
+        'active' => 'config/search_api.index.faq_accordion.yml',
+        'install' => self::MODULE_PATH . '/config/install/search_api.index.faq_accordion.yml',
+      ],
+      'assistant_resources' => [
+        'active' => 'config/search_api.index.assistant_resources.yml',
+        'install' => self::MODULE_PATH . '/config/install/search_api.index.assistant_resources.yml',
+      ],
+    ];
+
+    foreach ($pairs as $index_id => $paths) {
+      $active = self::indexConfig($paths['active']);
+      $install = self::indexConfig($paths['install']);
+      $this->assertSame($install, $active, sprintf('Active-sync lexical index "%s" must match module install config exactly.', $index_id));
     }
   }
 

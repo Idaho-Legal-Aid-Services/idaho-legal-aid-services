@@ -737,6 +737,88 @@ function ilas_site_assistant_update_10008() {
 }
 
 /**
+ * Ensures the lexical Search API indexes exist on existing environments.
+ */
+function ilas_site_assistant_update_10009() {
+  $created = [];
+  foreach (['faq_accordion', 'assistant_resources'] as $index_id) {
+    if (ilas_site_assistant_raud21_ensure_index_exists($index_id)) {
+      $created[] = $index_id;
+    }
+  }
+
+  if ($created === []) {
+    return t('Verified lexical Search API indexes already exist.');
+  }
+
+  return t('Created missing lexical Search API indexes from canonical config: @indexes.', [
+    '@indexes' => implode(', ', $created),
+  ]);
+}
+
+/**
+ * Creates a lexical Search API index from canonical config when missing.
+ *
+ * @param string $index_id
+ *   The Search API index machine name.
+ *
+ * @return bool
+ *   TRUE when the index was created, FALSE when it already existed.
+ */
+function ilas_site_assistant_raud21_ensure_index_exists(string $index_id): bool {
+  $index_storage = \Drupal::entityTypeManager()->getStorage('search_api_index');
+  if ($index_storage->load($index_id)) {
+    return FALSE;
+  }
+
+  $definition = ilas_site_assistant_raud21_load_canonical_index_definition($index_id);
+  $server_id = (string) ($definition['server'] ?? '');
+  if ($server_id === '') {
+    throw new \Drupal\Core\Utility\UpdateException(sprintf('Canonical Search API index definition for "%s" is missing the server ID.', $index_id));
+  }
+
+  $server = \Drupal::entityTypeManager()
+    ->getStorage('search_api_server')
+    ->load($server_id);
+  if (!$server) {
+    throw new \Drupal\Core\Utility\UpdateException(sprintf('Cannot create Search API index "%s" because server "%s" is missing.', $index_id, $server_id));
+  }
+
+  $index_storage->create($definition)->save();
+  return TRUE;
+}
+
+/**
+ * Loads the canonical config definition for one lexical Search API index.
+ *
+ * @param string $index_id
+ *   The Search API index machine name.
+ *
+ * @return array<string, mixed>
+ *   The canonical config entity definition.
+ */
+function ilas_site_assistant_raud21_load_canonical_index_definition(string $index_id): array {
+  $config_name = 'search_api.index.' . $index_id;
+  $definition = \Drupal::service('config.storage.sync')->read($config_name);
+  if (is_array($definition) && ($definition['id'] ?? NULL) === $index_id) {
+    return $definition;
+  }
+
+  $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
+  $path = DRUPAL_ROOT . '/' . $module_path . '/config/install/' . $config_name . '.yml';
+  if (!is_file($path)) {
+    throw new \Drupal\Core\Utility\UpdateException(sprintf('Canonical Search API index definition "%s" is missing from config sync and module install config.', $config_name));
+  }
+
+  $definition = \Drupal\Component\Serialization\Yaml::decode(file_get_contents($path));
+  if (!is_array($definition) || ($definition['id'] ?? NULL) !== $index_id) {
+    throw new \Drupal\Core\Utility\UpdateException(sprintf('Canonical Search API index definition "%s" could not be parsed.', $config_name));
+  }
+
+  return $definition;
+}
+
+/**
  * Adds a field only when it is missing.
  */
 function ilas_site_assistant_raud11_add_field_if_missing($schema, string $table, string $field, array $spec): void {

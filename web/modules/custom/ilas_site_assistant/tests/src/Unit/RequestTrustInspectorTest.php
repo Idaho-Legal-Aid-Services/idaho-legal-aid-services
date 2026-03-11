@@ -56,6 +56,27 @@ final class RequestTrustInspectorTest extends TestCase {
   }
 
   /**
+   * Redundant self-forwarded public chains should not look like proxy drift.
+   */
+  public function testRedundantSelfForwardedChainGetsBenignStatus(): void {
+    new Settings([]);
+    Request::setTrustedProxies([], self::TRUSTED_HEADERS);
+
+    $request = Request::create('https://www.example.com/assistant/api/message', 'POST', [], [], [], [
+      'REMOTE_ADDR' => '93.184.216.34',
+      'HTTP_X_FORWARDED_FOR' => '93.184.216.34, 93.184.216.34',
+    ]);
+
+    $result = (new RequestTrustInspector())->inspectRequest($request);
+
+    $this->assertSame(RequestTrustInspector::STATUS_REDUNDANT_SELF_FORWARDED_CHAIN, $result['status']);
+    $this->assertSame('93.184.216.34', $result['effective_client_ip']);
+    $this->assertSame(['93.184.216.34'], $result['effective_client_ip_chain']);
+    $this->assertSame(['93.184.216.34'], $result['forwarded_for_chain']);
+    $this->assertTrue($result['redundant_self_forwarded_chain']);
+  }
+
+  /**
    * Trusted proxies resolve the effective client IP from the forwarded chain.
    */
   public function testTrustedProxyConfigResolvesForwardedClientIp(): void {

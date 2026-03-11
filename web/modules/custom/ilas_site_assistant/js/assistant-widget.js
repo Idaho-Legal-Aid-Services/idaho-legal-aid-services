@@ -871,10 +871,25 @@
               }
             } catch (e) {
               console.warn('ILAS Assistant: chip render failed, using text fallback', e);
-              if (response.text_fallback) {
+              var fallbackMode = this.resolveTopicSuggestionFallbackMode(response);
+              if (fallbackMode === 'none') {
+                fallbackMode = 'generic_text';
+                html += '<p class="chip-fallback-text">' + this.escapeHtml(Drupal.t('The topic buttons did not load. You can use the link below or refresh the page and try again.')) + '</p>';
+              } else if (response.text_fallback) {
                 html += '<p class="chip-fallback-text">' + this.escapeHtml(response.text_fallback) + '</p>';
               }
-              this.trackEvent('ui_fallback_used', response.type || '');
+              this.emitAssistantError(e, 'chip_render', false, {
+                responseType: response.type || '',
+                fallbackMode: fallbackMode,
+                renderedFallback: fallbackMode !== 'none',
+                path: this.currentPagePath(),
+              });
+              this.trackEvent('ui_fallback_used', response.type || '', {
+                responseType: response.type || '',
+                fallbackMode: fallbackMode,
+                renderedFallback: fallbackMode !== 'none',
+                path: this.currentPagePath(),
+              });
             }
           }
           // Show "Browse All ..." fallback link.
@@ -1840,11 +1855,65 @@
     },
 
     /**
+     * Returns a minimized page path for observability payloads.
+     */
+    currentPagePath: function () {
+      if (typeof window === 'undefined' || !window.location) {
+        return '';
+      }
+      return this.normalizeTrackPath(window.location.pathname || '');
+    },
+
+    /**
+     * Normalizes optional observability metadata.
+     */
+    normalizeObservabilityMetadata: function (metadata) {
+      var normalized = {};
+      if (!metadata || typeof metadata !== 'object') {
+        return normalized;
+      }
+
+      if (metadata.responseType) {
+        normalized.responseType = this.normalizeTrackToken(metadata.responseType);
+      }
+      if (metadata.fallbackMode) {
+        normalized.fallbackMode = this.normalizeTrackToken(metadata.fallbackMode);
+      }
+      if (metadata.path) {
+        normalized.path = this.normalizeTrackPath(metadata.path);
+      }
+      if (typeof metadata.renderedFallback === 'boolean') {
+        normalized.renderedFallback = metadata.renderedFallback;
+      }
+
+      return normalized;
+    },
+
+    /**
+     * Classifies the available topic-suggestion fallback surfaces.
+     */
+    resolveTopicSuggestionFallbackMode: function (response) {
+      var hasText = !!(response && response.text_fallback && String(response.text_fallback).trim());
+      var hasLink = !!(response && response.primary_action && response.primary_action.url && response.primary_action.label);
+
+      if (hasText && hasLink) {
+        return 'text_and_link';
+      }
+      if (hasText) {
+        return 'text';
+      }
+      if (hasLink) {
+        return 'link';
+      }
+      return 'none';
+    },
+
+    /**
      * Track an event.
      */
-    trackEvent: function (eventType, eventValue) {
+    trackEvent: function (eventType, eventValue, metadata) {
       eventValue = this.normalizeTrackValue(eventType, eventValue);
-      this.emitAssistantAction(eventType, eventValue);
+      this.emitAssistantAction(eventType, eventValue, metadata);
       // Push to dataLayer if available.
       if (window.dataLayer) {
         window.dataLayer.push({
@@ -1880,8 +1949,8 @@
     /**
      * Emit a minimized assistant error payload for browser observability.
      */
-    emitAssistantError: function (error, feature, promptForFeedback) {
-      this.emitObservabilityEvent('ilas:assistant:error', {
+    emitAssistantError: function (error, feature, promptForFeedback, metadata) {
+      this.emitObservabilityEvent('ilas:assistant:error', Object.assign({
         feature: feature || 'unknown',
         surface: this.isPageMode ? 'assistant-page' : 'assistant-widget',
         pageMode: this.isPageMode,
@@ -1890,19 +1959,19 @@
         errorCode: error && error.errorCode ? String(error.errorCode) : '',
         retryAfter: error && error.retryAfter ? String(error.retryAfter) : '',
         promptForFeedback: !!promptForFeedback,
-      });
+      }, this.normalizeObservabilityMetadata(metadata)));
     },
 
     /**
      * Emit a minimized assistant action payload for browser observability.
      */
-    emitAssistantAction: function (actionType, actionValue) {
-      this.emitObservabilityEvent('ilas:assistant:action', {
+    emitAssistantAction: function (actionType, actionValue, metadata) {
+      this.emitObservabilityEvent('ilas:assistant:action', Object.assign({
         actionType: this.normalizeTrackToken(actionType),
         actionValue: this.normalizeTrackValue(actionType, actionValue),
         surface: this.isPageMode ? 'assistant-page' : 'assistant-widget',
         pageMode: this.isPageMode,
-      });
+      }, this.normalizeObservabilityMetadata(metadata)));
     },
 
     /**

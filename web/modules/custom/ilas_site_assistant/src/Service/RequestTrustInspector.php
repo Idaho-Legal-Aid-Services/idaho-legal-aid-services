@@ -27,6 +27,11 @@ final class RequestTrustInspector {
   public const STATUS_FORWARDED_HEADERS_UNTRUSTED = 'forwarded_headers_untrusted';
 
   /**
+   * Forwarded headers repeat REMOTE_ADDR and do not alter client identity.
+   */
+  public const STATUS_REDUNDANT_SELF_FORWARDED_CHAIN = 'redundant_self_forwarded_chain';
+
+  /**
    * Forwarded headers are present but the sender is not on the proxy allowlist.
    */
   public const STATUS_TRUSTED_PROXY_MISMATCH = 'trusted_proxy_mismatch';
@@ -65,10 +70,19 @@ final class RequestTrustInspector {
     $configured_header_set = Settings::get('reverse_proxy_trusted_headers', NULL);
     $remote_addr_is_configured_proxy = $this->ipMatchesAny($remote_addr, $configured_trusted_proxies);
     $remote_addr_is_runtime_trusted_proxy = $this->ipMatchesAny($remote_addr, $runtime_trusted_proxies);
+    $redundant_self_forwarded_chain = $this->isRedundantSelfForwardedChain(
+      $remote_addr,
+      $effective_client_ip,
+      $effective_client_ips,
+      $forwarded_for_chain,
+    );
 
     $status = self::STATUS_DIRECT_REMOTE_ADDR;
     if ($forwarded_header_present) {
-      if (!$reverse_proxy_enabled || $configured_trusted_proxies === []) {
+      if ($redundant_self_forwarded_chain) {
+        $status = self::STATUS_REDUNDANT_SELF_FORWARDED_CHAIN;
+      }
+      elseif (!$reverse_proxy_enabled || $configured_trusted_proxies === []) {
         $status = self::STATUS_FORWARDED_HEADERS_UNTRUSTED;
       }
       elseif (!$remote_addr_is_configured_proxy) {
@@ -94,6 +108,7 @@ final class RequestTrustInspector {
       'forwarded_headers' => $forwarded_headers,
       'remote_addr_is_configured_proxy' => $remote_addr_is_configured_proxy,
       'remote_addr_is_runtime_trusted_proxy' => $remote_addr_is_runtime_trusted_proxy,
+      'redundant_self_forwarded_chain' => $redundant_self_forwarded_chain,
       'invalid_configured_proxy_entries' => $this->normalizeProxyList(Settings::get('ilas_trusted_proxy_addresses_invalid', [])),
     ];
   }
@@ -156,6 +171,29 @@ final class RequestTrustInspector {
       }
     }
     return array_values(array_unique($normalized));
+  }
+
+  /**
+   * Returns TRUE when forwarded IPs only repeat REMOTE_ADDR.
+   */
+  private function isRedundantSelfForwardedChain(string $remote_addr, string $effective_client_ip, array $effective_client_ips, array $forwarded_for_chain): bool {
+    if ($remote_addr === '' || $forwarded_for_chain === [] || $effective_client_ip !== $remote_addr) {
+      return FALSE;
+    }
+
+    foreach ($forwarded_for_chain as $forwarded_ip) {
+      if (!is_string($forwarded_ip) || $forwarded_ip === '' || $forwarded_ip !== $remote_addr) {
+        return FALSE;
+      }
+    }
+
+    foreach ($effective_client_ips as $effective_ip) {
+      if (!is_string($effective_ip) || $effective_ip === '' || $effective_ip !== $remote_addr) {
+        return FALSE;
+      }
+    }
+
+    return TRUE;
   }
 
   /**

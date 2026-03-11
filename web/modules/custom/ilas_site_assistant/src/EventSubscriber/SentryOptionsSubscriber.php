@@ -239,10 +239,8 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
       return FALSE;
     }
 
-    // Only filter in local environment (no PANTHEON_ENVIRONMENT set).
-    if (getenv('PANTHEON_ENVIRONMENT')) {
-      return FALSE;
-    }
+    // Filter drush eval noise on all environments.
+    // Use SENTRY_CAPTURE_DRUSH_EVAL=1 to force capture when needed.
 
     $argv = $_SERVER['argv'] ?? [];
     foreach ($argv as $arg) {

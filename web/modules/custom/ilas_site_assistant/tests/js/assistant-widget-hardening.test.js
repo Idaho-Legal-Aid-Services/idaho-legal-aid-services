@@ -295,6 +295,96 @@ window._assistantWidgetTestDone = (async function () {
         // Silent fail for tracking.
       });
     },
+
+    currentPagePath: function () {
+      return SA.normalizeTrackPath(window.location.pathname || '');
+    },
+
+    normalizeObservabilityMetadata: function (metadata) {
+      var normalized = {};
+      if (!metadata || typeof metadata !== 'object') {
+        return normalized;
+      }
+
+      if (metadata.responseType) {
+        normalized.responseType = SA.normalizeTrackToken(metadata.responseType);
+      }
+      if (metadata.fallbackMode) {
+        normalized.fallbackMode = SA.normalizeTrackToken(metadata.fallbackMode);
+      }
+      if (metadata.path) {
+        normalized.path = SA.normalizeTrackPath(metadata.path);
+      }
+      if (typeof metadata.renderedFallback === 'boolean') {
+        normalized.renderedFallback = metadata.renderedFallback;
+      }
+
+      return normalized;
+    },
+
+    resolveTopicSuggestionFallbackMode: function (response) {
+      var hasText = !!(response && response.text_fallback && String(response.text_fallback).trim());
+      var hasLink = !!(response && response.primary_action && response.primary_action.url && response.primary_action.label);
+
+      if (hasText && hasLink) return 'text_and_link';
+      if (hasText) return 'text';
+      if (hasLink) return 'link';
+      return 'none';
+    },
+
+    emitAssistantError: function (deps, error, feature, promptForFeedback, metadata) {
+      deps.emitObservabilityEvent('ilas:assistant:error', Object.assign({
+        feature: feature || 'unknown',
+        surface: deps.isPageMode ? 'assistant-page' : 'assistant-widget',
+        pageMode: !!deps.isPageMode,
+        status: error && error.status ? error.status : 0,
+        type: error && error.type ? String(error.type) : '',
+        errorCode: error && error.errorCode ? String(error.errorCode) : '',
+        retryAfter: error && error.retryAfter ? String(error.retryAfter) : '',
+        promptForFeedback: !!promptForFeedback,
+      }, SA.normalizeObservabilityMetadata(metadata)));
+    },
+
+    emitAssistantAction: function (deps, actionType, actionValue, metadata) {
+      deps.emitObservabilityEvent('ilas:assistant:action', Object.assign({
+        actionType: SA.normalizeTrackToken(actionType),
+        actionValue: SA.normalizeTrackValue(actionType, actionValue),
+        surface: deps.isPageMode ? 'assistant-page' : 'assistant-widget',
+        pageMode: !!deps.isPageMode,
+      }, SA.normalizeObservabilityMetadata(metadata)));
+    },
+
+    renderPrimaryActionLink: function (response) {
+      if (!response || !response.primary_action || !response.primary_action.url) {
+        return '';
+      }
+      return '<p class="form-finder-fallback"><a href="' + SA.escapeAttr(SA.sanitizeUrl(response.primary_action.url)) + '" class="result-link" data-assistant-track="resource_click">' + SA.escapeHtml(response.primary_action.label) + '</a></p>';
+    },
+
+    handleTopicSuggestionRenderFailure: function (deps, response, error) {
+      var html = '';
+      var fallbackMode = SA.resolveTopicSuggestionFallbackMode(response);
+      if (fallbackMode === 'none') {
+        fallbackMode = 'generic_text';
+        html += '<p class="chip-fallback-text">' + SA.escapeHtml(Drupal.t('The topic buttons did not load. You can use the link below or refresh the page and try again.')) + '</p>';
+      } else if (response && response.text_fallback) {
+        html += '<p class="chip-fallback-text">' + SA.escapeHtml(response.text_fallback) + '</p>';
+      }
+
+      var metadata = {
+        responseType: response && response.type ? response.type : '',
+        fallbackMode: fallbackMode,
+        renderedFallback: fallbackMode !== 'none',
+        path: SA.currentPagePath(),
+      };
+      SA.emitAssistantError(deps, error, 'chip_render', false, metadata);
+      SA.emitAssistantAction(deps, 'ui_fallback_used', response && response.type ? response.type : '', metadata);
+
+      return {
+        html: html + SA.renderPrimaryActionLink(response),
+        fallbackMode: fallbackMode,
+      };
+    },
   };
 
   // ===================================================================
@@ -891,6 +981,67 @@ window._assistantWidgetTestDone = (async function () {
     assert(payloads[0].event_type === 'chat_open', 'trackEvent payload preserves event_type');
     assert(payloads[0].event_value === '', 'trackEvent payload preserves the approved chat_open contract');
     assert(addMessageCalls === 0, 'track failures do not surface message recovery UI');
+  });
+
+  // ===================================================================
+  // 15. Chip render fallback telemetry
+  // ===================================================================
+  suite('Chip render fallback emits minimized observability and stays non-empty', function () {
+    var events = [];
+    var deps = {
+      isPageMode: false,
+      emitObservabilityEvent: function (name, detail) {
+        events.push({ name: name, detail: detail });
+      },
+    };
+
+    var result = SA.handleTopicSuggestionRenderFailure(deps, {
+      type: 'forms_inventory',
+      text_fallback: 'Choose a category.',
+      primary_action: {
+        label: 'Browse All Forms',
+        url: '/forms',
+      },
+    }, {
+      type: 'render_error',
+      errorCode: 'chip_render_failed',
+    });
+
+    assert(result.fallbackMode === 'text_and_link', 'fallback mode captures text and link availability');
+    assert(result.html.indexOf('Choose a category.') !== -1, 'fallback text is rendered');
+    assert(result.html.indexOf('/forms') !== -1, 'fallback link is rendered');
+    assert(events.length === 2, 'fallback emits one error and one action event');
+    assert(events[0].name === 'ilas:assistant:error', 'first event is assistant error');
+    assert(events[0].detail.feature === 'chip_render', 'error event preserves chip_render feature');
+    assert(events[0].detail.responseType === 'forms_inventory', 'error event includes response type');
+    assert(events[0].detail.fallbackMode === 'text_and_link', 'error event includes fallback mode');
+    assert(events[0].detail.path === '/assistant', 'error event includes minimized path');
+    assert(events[0].detail.renderedFallback === true, 'error event marks rendered fallback');
+    assert(events[1].name === 'ilas:assistant:action', 'second event is assistant action');
+    assert(events[1].detail.actionType === 'ui_fallback_used', 'action event uses ui_fallback_used token');
+    assert(events[1].detail.actionValue === 'forms_inventory', 'action event uses response type token');
+  });
+
+  suite('Chip render fallback adds generic text when no fallback surfaces exist', function () {
+    var events = [];
+    var deps = {
+      isPageMode: true,
+      emitObservabilityEvent: function (name, detail) {
+        events.push({ name: name, detail: detail });
+      },
+    };
+
+    var result = SA.handleTopicSuggestionRenderFailure(deps, {
+      type: 'services_inventory',
+    }, {
+      type: 'render_error',
+    });
+
+    assert(result.fallbackMode === 'generic_text', 'generic fallback mode is used when text/link are missing');
+    assert(result.html.indexOf('did not load') !== -1, 'generic fallback text is rendered');
+    assert(result.html.trim() !== '', 'generic fallback never leaves empty UI');
+    assert(events[1].detail.fallbackMode === 'generic_text', 'action event records generic fallback mode');
+    assert(events[1].detail.path === '/assistant', 'action event keeps pathname only');
   });
 
   // -------------------------------------------------------------------

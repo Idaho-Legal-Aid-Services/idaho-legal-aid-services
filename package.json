@@ -4,6 +4,7 @@
   "description": "Tooling scripts for the Idaho Legal Aid Services Drupal site",
   "scripts": {
     "git:publish": "bash scripts/git/publish.sh",
+    "git:finish": "bash scripts/git/finish.sh",
     "git:sync-master": "bash scripts/git/sync-master.sh",
     "git:sync-check": "bash scripts/git/sync-check.sh",
     "eval:promptfoo": "bash promptfoo-evals/scripts/run-promptfoo.sh eval",

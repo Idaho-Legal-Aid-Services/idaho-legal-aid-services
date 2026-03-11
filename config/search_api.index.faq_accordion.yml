@@ -12,7 +12,6 @@ name: 'FAQ & Accordion Content'
 description: 'Indexes FAQ and accordion paragraph items for the Site Assistant chatbot.'
 read_only: false
 field_settings:
-  # FAQ fields
   faq_question:
     label: 'FAQ Question'
     datasource_id: 'entity:paragraph'
@@ -24,7 +23,6 @@ field_settings:
     datasource_id: 'entity:paragraph'
     property_path: field_faq_answer
     type: text
-  # Accordion fields
   accordion_title:
     label: 'Accordion Title'
     datasource_id: 'entity:paragraph'
@@ -36,19 +34,16 @@ field_settings:
     datasource_id: 'entity:paragraph'
     property_path: field_accordion_body
     type: text
-  # Anchor ID (shared field on both types)
   anchor_id:
     label: 'Anchor ID'
     datasource_id: 'entity:paragraph'
     property_path: field_anchor_id
     type: string
-  # Paragraph type for filtering
   paragraph_type:
     label: 'Paragraph Type'
     datasource_id: 'entity:paragraph'
     property_path: type
     type: string
-  # Parent entity info
   parent_id:
     label: 'Parent Entity ID'
     datasource_id: 'entity:paragraph'

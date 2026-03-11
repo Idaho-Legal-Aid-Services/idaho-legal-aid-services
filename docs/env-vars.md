@@ -34,6 +34,15 @@ on hosted environments.
 - `NEW_RELIC_ENTITY_GUID_BROWSER`
   - Target Browser entity GUID for deploy change tracking.
 
+### ILAS Site Assistant
+
+- `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL`
+  - Required runtime-only LegalServer intake URL for assistant health checks.
+  - Must be an absolute `https` URL and include the LegalServer `pid` and `h`
+    query keys.
+  - Required on Pantheon `dev`, `test`, and `live` if you want
+    `checks.retrieval_configuration` to stay healthy across promotion.
+
 ## GitHub Actions Secrets and Variables
 
 These are used by CI/release workflows, not by Drupal runtime.
