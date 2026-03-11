@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/common.sh"
 
 CHECK_POLL_SECONDS=5
 CHECK_POLL_ATTEMPTS=36
+PR_POLL_SECONDS=2
+PR_POLL_ATTEMPTS=15
 
 usage() {
   cat <<'USAGE'
@@ -47,8 +49,29 @@ find_open_publish_pr() {
     if (!is_array($data) || empty($data[0]["number"])) {
       exit(1);
     }
-    echo $data[0]["number"], "\t", ($data[0]["url"] ?? ""), "\t", ($data[0]["title"] ?? "");
+    echo $data[0]["number"], "\t", ($data[0]["url"] ?? ""), "\t", ($data[0]["title"] ?? ""), PHP_EOL;
   ' <<< "$pr_json"
+}
+
+wait_for_open_publish_pr() {
+  local publish_branch="$1"
+  local attempt=0
+  local pr_record=""
+
+  while true; do
+    if pr_record="$(find_open_publish_pr "$publish_branch")"; then
+      printf '%s\n' "$pr_record"
+      return 0
+    fi
+
+    attempt=$((attempt + 1))
+    if (( attempt >= PR_POLL_ATTEMPTS )); then
+      return 1
+    fi
+
+    info "Waiting for helper PR $publish_branch to appear on GitHub..."
+    sleep "$PR_POLL_SECONDS"
+  done
 }
 
 quality_checks_visible() {
@@ -90,6 +113,7 @@ wait_for_quality_checks() {
 main() {
   local branch=""
   local publish_branch=""
+  local pr_record=""
   local pr_number=""
   local pr_url=""
   local pr_title=""
@@ -130,7 +154,8 @@ main() {
 
   publish_branch="$(expected_publish_branch)"
 
-  if IFS=$'\t' read -r pr_number pr_url pr_title < <(find_open_publish_pr "$publish_branch"); then
+  if pr_record="$(wait_for_open_publish_pr "$publish_branch")"; then
+    IFS=$'\t' read -r pr_number pr_url pr_title <<< "$pr_record"
     info "Found helper PR #$pr_number for $publish_branch"
     if [[ -n "$pr_url" ]]; then
       info "$pr_url"
