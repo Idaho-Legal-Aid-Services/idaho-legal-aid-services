@@ -154,7 +154,7 @@ wait_for_master_quality_gate_run() {
       return 1
     fi
 
-    info "Waiting for post-merge Quality Gate run for $head_sha..."
+    printf '[info] Waiting for post-merge Quality Gate run for %s...\n' "$head_sha" >&2
     sleep "$MASTER_RUN_POLL_SECONDS"
   done
 }
