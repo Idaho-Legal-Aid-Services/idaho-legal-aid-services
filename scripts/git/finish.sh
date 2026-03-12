@@ -9,6 +9,8 @@ CHECK_POLL_SECONDS=5
 CHECK_POLL_ATTEMPTS=36
 PR_POLL_SECONDS=2
 PR_POLL_ATTEMPTS=15
+MASTER_RUN_POLL_SECONDS=5
+MASTER_RUN_POLL_ATTEMPTS=24
 
 usage() {
   cat <<'USAGE'
@@ -110,6 +112,53 @@ wait_for_quality_checks() {
   done
 }
 
+find_master_quality_gate_run() {
+  local head_sha="$1"
+  local run_json=""
+
+  run_json="$(gh run list --workflow "Quality Gate" --event push --limit 20 --json databaseId,headSha,status,conclusion,url)"
+
+  php -r '
+    $headSha = $argv[1];
+    $runs = json_decode(stream_get_contents(STDIN), true);
+    if (!is_array($runs)) {
+      exit(1);
+    }
+
+    foreach ($runs as $run) {
+      if (($run["headSha"] ?? "") !== $headSha) {
+        continue;
+      }
+
+      echo ($run["databaseId"] ?? ""), "\t", ($run["url"] ?? ""), "\t", ($run["status"] ?? ""), "\t", ($run["conclusion"] ?? ""), PHP_EOL;
+      exit(0);
+    }
+
+    exit(1);
+  ' "$head_sha" <<< "$run_json"
+}
+
+wait_for_master_quality_gate_run() {
+  local head_sha="$1"
+  local attempt=0
+  local run_record=""
+
+  while true; do
+    if run_record="$(find_master_quality_gate_run "$head_sha")"; then
+      printf '%s\n' "$run_record"
+      return 0
+    fi
+
+    attempt=$((attempt + 1))
+    if (( attempt >= MASTER_RUN_POLL_ATTEMPTS )); then
+      return 1
+    fi
+
+    info "Waiting for post-merge Quality Gate run for $head_sha..."
+    sleep "$MASTER_RUN_POLL_SECONDS"
+  done
+}
+
 main() {
   local branch=""
   local publish_branch=""
@@ -123,6 +172,13 @@ main() {
   local origin_status=""
   local origin_remote_only=""
   local origin_local_only=""
+  local merge_sha=""
+  local master_run_record=""
+  local master_run_id=""
+  local master_run_url=""
+  local master_run_status=""
+  local master_run_conclusion=""
+  local master_gate_ok="true"
 
   if (($# > 0)); then
     case "$1" in
@@ -191,8 +247,32 @@ main() {
     esac
   fi
 
+  fetch_remote "github"
+  merge_sha="$(git -C "$REPO_ROOT" rev-parse github/master)"
+  if ! master_run_record="$(wait_for_master_quality_gate_run "$merge_sha")"; then
+    err "Timed out waiting for post-merge Quality Gate run for $merge_sha."
+    err "Inspect with: gh run list --workflow \"Quality Gate\" --event push --limit 20"
+    exit 1
+  fi
+
+  IFS=$'\t' read -r master_run_id master_run_url master_run_status master_run_conclusion <<< "$master_run_record"
+  info "Post-merge Quality Gate run: $master_run_id"
+  if [[ -n "$master_run_url" ]]; then
+    info "$master_run_url"
+  fi
+  info "Waiting for post-merge Quality Gate run to finish..."
+  if ! gh run watch "$master_run_id" --exit-status; then
+    master_gate_ok="false"
+  fi
+
   info "Syncing local master from github/master..."
   bash "$SCRIPT_DIR/sync-master.sh"
+
+  if [[ "$master_gate_ok" != "true" ]]; then
+    err "Post-merge Quality Gate failed for github/master at $merge_sha."
+    err "Refusing to deploy Pantheon dev while master is red."
+    exit 1
+  fi
 
   IFS=$'\t' read -r origin_status origin_remote_only origin_local_only < <(describe_remote_status "origin" "$branch")
   print_remote_status "origin" "$branch" "$origin_status" "$origin_remote_only" "$origin_local_only"

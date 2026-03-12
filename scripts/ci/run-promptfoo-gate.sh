@@ -40,6 +40,9 @@ TARGET_KIND="unknown"
 TARGET_SOURCE="unknown"
 TARGET_HOST=""
 DDEV_PRIMARY_URL=""
+REQUESTED_TARGET_ENV=""
+RESOLVED_TARGET_ENV=""
+TARGET_VALIDATION_STATUS="unvalidated"
 CONNECTIVITY_STATUS="skipped"
 CONNECTIVITY_ERROR_CODE=""
 QUALITY_PHASE="not_started"
@@ -368,23 +371,43 @@ resolve_assistant_target() {
   local output exit_code=0
   output="$(bash "$RESOLVE_TARGET_SCRIPT" --site "$SITE_NAME" --env "$ENV_NAME" 2>/dev/null)" || exit_code=$?
 
+  if [[ -n "$output" ]]; then
+    while IFS='=' read -r key value; do
+      case "$key" in
+        assistant_url) ILAS_ASSISTANT_URL="$value" ;;
+        target_kind) TARGET_KIND="$value" ;;
+        target_source) TARGET_SOURCE="$value" ;;
+        target_host) TARGET_HOST="$value" ;;
+        ddev_primary_url) DDEV_PRIMARY_URL="$value" ;;
+        requested_env) REQUESTED_TARGET_ENV="$value" ;;
+        resolved_target_env) RESOLVED_TARGET_ENV="$value" ;;
+        target_validation_status) TARGET_VALIDATION_STATUS="$value" ;;
+      esac
+    done <<< "$output"
+  fi
+
+  if [[ "$exit_code" -eq 4 && "$TARGET_VALIDATION_STATUS" == "target_env_mismatch" ]]; then
+    cat >&2 <<EOF
+Promptfoo target validation failed:
+  requested_env=${REQUESTED_TARGET_ENV:-$ENV_NAME}
+  resolved_target_env=${RESOLVED_TARGET_ENV:-unknown}
+  assistant_url=${ILAS_ASSISTANT_URL:-}
+Update ILAS_ASSISTANT_URL so it points at the requested Pantheon environment before running the gate.
+EOF
+    CONNECTIVITY_STATUS="failed"
+    CONNECTIVITY_ERROR_CODE="target_env_mismatch"
+    FAILURE_KIND="configuration"
+    FAILURE_CODE="target_env_mismatch"
+    return 4
+  fi
+
   if [[ "$exit_code" -ne 0 || -z "$output" ]]; then
     CONNECTIVITY_STATUS="failed"
     CONNECTIVITY_ERROR_CODE="target_resolution_failed"
     FAILURE_KIND="connectivity"
     FAILURE_CODE="target_resolution_failed"
-    return 1
+    return 3
   fi
-
-  while IFS='=' read -r key value; do
-    case "$key" in
-      assistant_url) ILAS_ASSISTANT_URL="$value" ;;
-      target_kind) TARGET_KIND="$value" ;;
-      target_source) TARGET_SOURCE="$value" ;;
-      target_host) TARGET_HOST="$value" ;;
-      ddev_primary_url) DDEV_PRIMARY_URL="$value" ;;
-    esac
-  done <<< "$output"
 
   export ILAS_ASSISTANT_URL
   return 0
@@ -605,6 +628,9 @@ write_summary() {
     echo "target_kind=${TARGET_KIND}"
     echo "target_source=${TARGET_SOURCE}"
     echo "target_host=${TARGET_HOST}"
+    echo "requested_target_env=${REQUESTED_TARGET_ENV}"
+    echo "resolved_target_env=${RESOLVED_TARGET_ENV}"
+    echo "target_validation_status=${TARGET_VALIDATION_STATUS}"
     echo "connectivity_status=${CONNECTIVITY_STATUS}"
     echo "connectivity_error_code=${CONNECTIVITY_ERROR_CODE}"
     echo "quality_phase=${QUALITY_PHASE}"
@@ -829,10 +855,35 @@ PLANNED_CASE_COUNT=$((PLANNED_SMOKE_CASE_COUNT + PLANNED_PRIMARY_CASE_COUNT + PL
 mkdir -p "$(dirname "$SUMMARY_FILE")"
 
 if [[ "$SKIP_EVAL" == "true" ]]; then
+  QUALITY_PHASE="target_resolution"
+  if [[ -n "${ILAS_ASSISTANT_URL:-}" ]]; then
+    resolve_assistant_target
+    target_resolution_exit=$?
+    if [[ "$target_resolution_exit" -ne 0 ]]; then
+      finalize_and_exit "$target_resolution_exit"
+    fi
+
+    resolve_rate_limits
+    if [[ -z "$CONFIGURED_RATE_LIMIT_PER_MINUTE_VALUE" || -z "$CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE" ]]; then
+      cat >&2 <<EOF
+Promptfoo rate-limit preflight could not resolve required limits for ${SITE_NAME}.${ENV_NAME}.
+Provide ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE and ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR,
+or ensure Terminus can read ilas_site_assistant.settings from the requested remote env.
+EOF
+      RATE_LIMIT_PREFLIGHT_STATUS="unresolved"
+      FAILURE_KIND="capacity"
+      FAILURE_CODE="rate_limit_unresolved"
+      finalize_and_exit 4
+    fi
+  else
+    ILAS_ASSISTANT_URL="${ILAS_ASSISTANT_URL:-https://example.invalid/assistant/api/message}"
+    TARGET_SOURCE="skip_eval"
+    REQUESTED_TARGET_ENV="$ENV_NAME"
+    TARGET_VALIDATION_STATUS="not_applicable"
+    classify_assistant_url "$ILAS_ASSISTANT_URL" ""
+  fi
+
   QUALITY_PHASE="simulated"
-  ILAS_ASSISTANT_URL="${ILAS_ASSISTANT_URL:-https://example.invalid/assistant/api/message}"
-  TARGET_SOURCE="skip_eval"
-  classify_assistant_url "$ILAS_ASSISTANT_URL" ""
   if [[ -n "$SIMULATED_PASS_RATE" ]]; then
     PASS_RATE="$SIMULATED_PASS_RATE"
   fi
@@ -840,11 +891,20 @@ if [[ "$SKIP_EVAL" == "true" ]]; then
 fi
 
 QUALITY_PHASE="target_resolution"
-resolve_assistant_target || finalize_and_exit 3
+resolve_assistant_target
+target_resolution_exit=$?
+if [[ "$target_resolution_exit" -ne 0 ]]; then
+  finalize_and_exit "$target_resolution_exit"
+fi
 ensure_ddev_node_trust || finalize_and_exit 3
 resolve_rate_limits
 
 if [[ -z "$CONFIGURED_RATE_LIMIT_PER_MINUTE_VALUE" || -z "$CONFIGURED_RATE_LIMIT_PER_HOUR_VALUE" ]]; then
+  cat >&2 <<EOF
+Promptfoo rate-limit preflight could not resolve required limits for ${SITE_NAME}.${ENV_NAME}.
+Provide ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE and ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR,
+or ensure Terminus can read ilas_site_assistant.settings from the requested remote env.
+EOF
   RATE_LIMIT_PREFLIGHT_STATUS="unresolved"
   FAILURE_KIND="capacity"
   FAILURE_CODE="rate_limit_unresolved"

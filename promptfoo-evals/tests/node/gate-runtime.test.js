@@ -8,7 +8,11 @@ const {
   discoverNodeExtraCaCerts,
   listNodeExtraCaCandidates,
 } = require('../../lib/node-ca-discovery');
-const { classifyTargetUrl } = require('../../lib/gate-target');
+const {
+  classifyTargetUrl,
+  inferPantheonEnvFromHost,
+  validateTargetEnv,
+} = require('../../lib/gate-target');
 const {
   IlasLiveTransport,
   classifyFetchError,
@@ -120,14 +124,49 @@ test('classifyTargetUrl marks DDEV hosts distinctly from remote hosts', () => {
     'https://ilas-pantheon.ddev.site'
   );
   const remoteTarget = classifyTargetUrl(
-    'https://dev-idaholegalaid.pantheonsite.io/assistant/api/message',
+    'https://dev-idaho-legal-aid-services.pantheonsite.io/assistant/api/message',
     'https://ilas-pantheon.ddev.site'
   );
 
   assert.equal(ddevTarget.targetKind, 'ddev');
   assert.equal(ddevTarget.host, 'ilas-pantheon.ddev.site');
+  assert.equal(ddevTarget.pantheonEnv, '');
   assert.equal(remoteTarget.targetKind, 'remote');
-  assert.equal(remoteTarget.host, 'dev-idaholegalaid.pantheonsite.io');
+  assert.equal(remoteTarget.host, 'dev-idaho-legal-aid-services.pantheonsite.io');
+  assert.equal(remoteTarget.pantheonEnv, 'dev');
+});
+
+test('inferPantheonEnvFromHost recognizes Pantheon dev/test/live hosts', () => {
+  assert.equal(inferPantheonEnvFromHost('dev-idaho-legal-aid-services.pantheonsite.io'), 'dev');
+  assert.equal(inferPantheonEnvFromHost('test-idaho-legal-aid-services.pantheonsite.io'), 'test');
+  assert.equal(inferPantheonEnvFromHost('live-idaho-legal-aid-services.pantheonsite.io'), 'live');
+  assert.equal(inferPantheonEnvFromHost('example.invalid'), '');
+});
+
+test('validateTargetEnv detects Pantheon target mismatches without changing DDEV behavior', () => {
+  const matchedRemote = validateTargetEnv(
+    'https://dev-idaho-legal-aid-services.pantheonsite.io/assistant/api/message',
+    'dev'
+  );
+  const mismatchedRemote = validateTargetEnv(
+    'https://test-idaho-legal-aid-services.pantheonsite.io/assistant/api/message',
+    'dev'
+  );
+  const ddevTarget = validateTargetEnv(
+    'https://ilas-pantheon.ddev.site/assistant/api/message',
+    'dev',
+    'https://ilas-pantheon.ddev.site'
+  );
+
+  assert.equal(matchedRemote.targetValidationStatus, 'matched');
+  assert.equal(matchedRemote.resolvedTargetEnv, 'dev');
+
+  assert.equal(mismatchedRemote.targetValidationStatus, 'target_env_mismatch');
+  assert.equal(mismatchedRemote.resolvedTargetEnv, 'test');
+
+  assert.equal(ddevTarget.targetKind, 'ddev');
+  assert.equal(ddevTarget.targetValidationStatus, 'not_applicable');
+  assert.equal(ddevTarget.resolvedTargetEnv, '');
 });
 
 test('createSerializedPacer spaces concurrent requests deterministically', async () => {
