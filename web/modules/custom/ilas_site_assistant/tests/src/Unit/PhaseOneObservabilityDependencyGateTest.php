@@ -82,7 +82,10 @@ class PhaseOneObservabilityDependencyGateTest extends TestCase {
     $this->assertStringContainsString('terminus env:view "idaho-legal-aid-services.${ENV}" --print', $runbook);
     $this->assertStringContainsString('export ILAS_ASSISTANT_URL=', $runbook);
     $this->assertStringContainsString('npm run eval:promptfoo', $runbook);
-    $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh --env test --mode auto', $runbook);
+    $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh --env dev --mode auto', $runbook);
+    $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE=15', $runbook);
+    $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR=120', $runbook);
+    $this->assertStringContainsString('target_env_mismatch', $runbook);
     $this->assertStringContainsString('`master`, `main`, and `release/*` branches are blocking for threshold failures.', $runbook);
     $this->assertStringContainsString('Expected readiness result', $runbook);
     $this->assertStringNotContainsString('config:get raven.settings -y', $runbook);

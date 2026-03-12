@@ -2320,13 +2320,29 @@ Use repo scripts for provider-agnostic CI runners (Jenkins/Circle/GitLab/Buildki
 
 ```bash
 # Blocking on master/main/release branches, advisory elsewhere (auto-detected via CI_BRANCH).
-scripts/ci/run-promptfoo-gate.sh --env test --mode auto
+scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 
 # Force advisory/blocking for local simulation.
 CI_BRANCH=feature/test scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 CI_BRANCH=master scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 CI_BRANCH=release/2026-03 scripts/ci/run-promptfoo-gate.sh --env dev --mode auto
 ```
+
+GitHub Actions blocking runs should keep these settings aligned with Pantheon
+`dev`:
+- `ILAS_ASSISTANT_URL=https://dev-idaho-legal-aid-services.pantheonsite.io/assistant/api/message`
+- `ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE=15`
+- `ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR=120`
+
+GitHub Actions uses two Promptfoo modes:
+- PR/helper-branch runs use the live eval path when `ILAS_ASSISTANT_URL` is set.
+- Post-merge `push` runs on `master`/`main`/`release/*` use `--skip-eval`
+  config parity against the same explicit Pantheon `dev` URL so merge-commit
+  trust checks do not silently drift from CI settings.
+
+If `ILAS_ASSISTANT_URL` explicitly points at a different Pantheon environment
+than the requested `--env`, `scripts/ci/run-promptfoo-gate.sh` now fails with
+`target_env_mismatch` before rate-limit or eval work begins.
 
 Expected CI policy:
 - `master`, `main`, and `release/*` branches are blocking for threshold failures.
@@ -2366,7 +2382,7 @@ ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
 ILAS_ASSISTANT_URL="https://example.invalid/assistant/api/message" \
   CI_BRANCH=release/2026-03 \
   scripts/ci/run-external-quality-gate.sh \
-    --env test \
+    --env dev \
     --mode auto \
     --threshold 90 \
     --config promptfooconfig.abuse.yaml \

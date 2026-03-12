@@ -109,6 +109,8 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('run-promptfoo-gate.sh', $workflow);
     $this->assertStringContainsString('--skip-eval', $workflow);
     $this->assertStringContainsString('--simulate-pass-rate', $workflow);
+    $this->assertStringContainsString('CI_PROMPTFOO_ENV: dev', $workflow);
+    $this->assertStringContainsString('TARGET_ENV="${CI_PROMPTFOO_ENV}"', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR', $workflow);
 

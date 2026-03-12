@@ -49,12 +49,16 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
     $this->assertStringContainsString('discover-node-extra-ca-certs.js', $script);
     $this->assertStringContainsString('target_kind=', $script);
     $this->assertStringContainsString('target_source=', $script);
+    $this->assertStringContainsString('requested_target_env=', $script);
+    $this->assertStringContainsString('resolved_target_env=', $script);
+    $this->assertStringContainsString('target_validation_status=', $script);
     $this->assertStringContainsString('connectivity_status=', $script);
     $this->assertStringContainsString('connectivity_error_code=', $script);
     $this->assertStringContainsString('quality_phase=', $script);
     $this->assertStringContainsString('rate_limit_source=', $script);
     $this->assertStringContainsString('effective_request_delay_ms=', $script);
     $this->assertStringContainsString('ddev_rate_limit_override=', $script);
+    $this->assertStringContainsString('target_env_mismatch', $script);
     $this->assertStringContainsString('finalize_and_exit 2', $script);
     $this->assertStringContainsString('finalize_and_exit 3', $script);
     $this->assertStringContainsString('finalize_and_exit 4', $script);
@@ -117,8 +121,10 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
   public function testWorkflowPassesExplicitRemoteRateLimitEnvVars(): void {
     $workflow = self::readFile('.github/workflows/quality-gate.yml');
 
+    $this->assertStringContainsString('CI_PROMPTFOO_ENV: dev', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR', $workflow);
+    $this->assertStringContainsString('TARGET_ENV="${CI_PROMPTFOO_ENV}"', $workflow);
     $this->assertStringContainsString('npm run test:promptfoo:runtime', $workflow);
   }
 

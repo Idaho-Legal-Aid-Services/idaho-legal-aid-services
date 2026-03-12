@@ -82,18 +82,29 @@ if [[ -z "$assistant_url" ]]; then
 fi
 
 target_json="$(
-  node - "$assistant_url" "$ddev_primary_url" "$REPO_ROOT/promptfoo-evals/lib/gate-target.js" <<'NODE'
-const [assistantUrl, ddevPrimaryUrl, libPath] = process.argv.slice(2);
-const { classifyTargetUrl } = require(libPath);
-process.stdout.write(JSON.stringify(classifyTargetUrl(assistantUrl, ddevPrimaryUrl)));
+  node - "$assistant_url" "$ENV_NAME" "$ddev_primary_url" "$REPO_ROOT/promptfoo-evals/lib/gate-target.js" <<'NODE'
+const [assistantUrl, requestedEnv, ddevPrimaryUrl, libPath] = process.argv.slice(2);
+const { validateTargetEnv } = require(libPath);
+process.stdout.write(JSON.stringify(validateTargetEnv(assistantUrl, requestedEnv, ddevPrimaryUrl)));
 NODE
 )"
 
 target_kind="$(printf '%s' "$target_json" | node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(data.targetKind);")"
 target_host="$(printf '%s' "$target_json" | node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(data.host);")"
+requested_env="$(printf '%s' "$target_json" | node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(data.requestedEnv || '');")"
+resolved_target_env="$(printf '%s' "$target_json" | node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(data.resolvedTargetEnv || '');")"
+target_validation_status="$(printf '%s' "$target_json" | node -e "const fs=require('node:fs'); const data=JSON.parse(fs.readFileSync(0,'utf8')); process.stdout.write(data.targetValidationStatus || '');")"
 
 printf 'assistant_url=%s\n' "$assistant_url"
 printf 'target_kind=%s\n' "$target_kind"
 printf 'target_source=%s\n' "$target_source"
 printf 'target_host=%s\n' "$target_host"
 printf 'ddev_primary_url=%s\n' "$ddev_primary_url"
+printf 'requested_env=%s\n' "$requested_env"
+printf 'resolved_target_env=%s\n' "$resolved_target_env"
+printf 'target_validation_status=%s\n' "$target_validation_status"
+
+if [[ "$target_validation_status" == "target_env_mismatch" ]]; then
+  echo "Configured ILAS_ASSISTANT_URL targets Pantheon '$resolved_target_env' but '$requested_env' was requested." >&2
+  exit 4
+fi

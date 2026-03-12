@@ -17,6 +17,9 @@ concurrency:
   group: quality-gate-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CI_PROMPTFOO_ENV: dev
+
 jobs:
   quality-gate:
     name: PHPUnit Quality Gate
@@ -81,7 +84,7 @@ jobs:
       - name: Run promptfoo transport/runtime tests
         run: npm run test:promptfoo:runtime
 
-      - name: Run promptfoo gate (real eval when ILAS_ASSISTANT_URL is configured)
+      - name: Run promptfoo gate (live eval on PRs, config parity on post-merge pushes)
         env:
           ILAS_ASSISTANT_URL: ${{ secrets.ILAS_ASSISTANT_URL }}
           ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE: ${{ vars.ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE }}
@@ -90,10 +93,23 @@ jobs:
         run: |
           set -euo pipefail
           BRANCH="${{ github.ref_name }}"
-          if [[ -n "${ILAS_ASSISTANT_URL:-}" ]]; then
+          EVENT_NAME="${{ github.event_name }}"
+          TARGET_ENV="${CI_PROMPTFOO_ENV}"
+          if [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
+            if [[ -z "${ILAS_ASSISTANT_URL:-}" ]]; then
+              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking branches (master/main/release/*)."
+              exit 1
+            fi
+            echo "::notice::Running post-merge promptfoo config parity gate against ILAS_ASSISTANT_URL"
+            bash scripts/ci/run-promptfoo-gate.sh \
+              --env "$TARGET_ENV" \
+              --mode auto \
+              --skip-eval \
+              --simulate-pass-rate 100
+          elif [[ -n "${ILAS_ASSISTANT_URL:-}" ]]; then
             echo "::notice::Running real promptfoo eval against ILAS_ASSISTANT_URL"
             bash scripts/ci/run-promptfoo-gate.sh \
-              --env dev \
+              --env "$TARGET_ENV" \
               --mode auto
           else
             if [[ "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
@@ -102,7 +118,7 @@ jobs:
             fi
             echo "::warning::ILAS_ASSISTANT_URL missing; running simulated promptfoo gate."
             bash scripts/ci/run-promptfoo-gate.sh \
-              --env dev \
+              --env "$TARGET_ENV" \
               --mode auto \
               --skip-eval \
               --simulate-pass-rate 100

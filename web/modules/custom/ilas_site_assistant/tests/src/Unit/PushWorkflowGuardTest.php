@@ -105,8 +105,11 @@ final class PushWorkflowGuardTest extends TestCase {
 
     $this->assertStringContainsString('gh pr checks', $finishHelper);
     $this->assertStringContainsString('gh pr merge', $finishHelper);
+    $this->assertStringContainsString('gh run list --workflow "Quality Gate" --event push', $finishHelper);
+    $this->assertStringContainsString('gh run watch', $finishHelper);
     $this->assertStringContainsString('sync-master.sh', $finishHelper);
     $this->assertStringContainsString('publish.sh" --origin-only', $finishHelper);
+    $this->assertStringContainsString('Refusing to deploy Pantheon dev while master is red.', $finishHelper);
     $this->assertStringContainsString('Commit or stash them before running npm run git:finish.', $finishHelper);
   }
 
