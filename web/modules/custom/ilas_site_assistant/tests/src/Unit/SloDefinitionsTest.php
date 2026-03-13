@@ -7,15 +7,14 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for SloDefinitions typed accessor service.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SloDefinitions
  */
+#[CoversClass(SloDefinitions::class)]
 #[Group('ilas_site_assistant')]
 class SloDefinitionsTest extends TestCase {
 
@@ -47,16 +46,6 @@ class SloDefinitionsTest extends TestCase {
 
   /**
    * Tests that all getters return correct default values when config is empty.
-   *
-   * @covers ::getAvailabilityTargetPct
-   * @covers ::getLatencyP95TargetMs
-   * @covers ::getLatencyP99TargetMs
-   * @covers ::getErrorRateTargetPct
-   * @covers ::getErrorBudgetWindowHours
-   * @covers ::getCronMaxAgeSeconds
-   * @covers ::getCronExpectedCadenceSeconds
-   * @covers ::getQueueMaxDepth
-   * @covers ::getQueueMaxAgeSeconds
    */
   public function testDefaultValues(): void {
     $slo = $this->buildService();
@@ -74,16 +63,6 @@ class SloDefinitionsTest extends TestCase {
 
   /**
    * Tests that config overrides are returned instead of defaults.
-   *
-   * @covers ::getAvailabilityTargetPct
-   * @covers ::getLatencyP95TargetMs
-   * @covers ::getLatencyP99TargetMs
-   * @covers ::getErrorRateTargetPct
-   * @covers ::getErrorBudgetWindowHours
-   * @covers ::getCronMaxAgeSeconds
-   * @covers ::getCronExpectedCadenceSeconds
-   * @covers ::getQueueMaxDepth
-   * @covers ::getQueueMaxAgeSeconds
    */
   public function testConfigOverrides(): void {
     $slo = $this->buildService([
@@ -111,16 +90,6 @@ class SloDefinitionsTest extends TestCase {
 
   /**
    * Tests that all getters return the correct types.
-   *
-   * @covers ::getAvailabilityTargetPct
-   * @covers ::getLatencyP95TargetMs
-   * @covers ::getLatencyP99TargetMs
-   * @covers ::getErrorRateTargetPct
-   * @covers ::getErrorBudgetWindowHours
-   * @covers ::getCronMaxAgeSeconds
-   * @covers ::getCronExpectedCadenceSeconds
-   * @covers ::getQueueMaxDepth
-   * @covers ::getQueueMaxAgeSeconds
    */
   public function testReturnTypes(): void {
     $slo = $this->buildService();

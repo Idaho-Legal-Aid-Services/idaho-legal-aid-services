@@ -94,22 +94,6 @@ ilas_site_assistant.settings:
     escalation_message:
       type: string
       label: 'Escalation message'
-    policy_keywords:
-      type: mapping
-      label: 'Policy keywords'
-      mapping:
-        legal_advice:
-          type: sequence
-          label: 'Legal advice keywords'
-          sequence:
-            type: string
-            label: 'Keyword'
-        pii_indicators:
-          type: sequence
-          label: 'PII indicator keywords'
-          sequence:
-            type: string
-            label: 'Keyword'
     rate_limit_per_minute:
       type: integer
       label: 'Rate limit per minute per IP'
@@ -197,12 +181,6 @@ ilas_site_assistant.settings:
         temperature:
           type: float
           label: 'Temperature (0.0-1.0)'
-        enhance_faq:
-          type: boolean
-          label: 'Enhance FAQ responses'
-        enhance_resources:
-          type: boolean
-          label: 'Enhance resource responses'
         enhance_greetings:
           type: boolean
           label: 'Enhance greeting responses'
@@ -656,6 +634,12 @@ ilas_site_assistant.settings:
         monthly_call_limit:
           type: integer
           label: 'Maximum LLM API calls per month (0 = unlimited)'
+        per_ip_hourly_call_limit:
+          type: integer
+          label: 'Maximum LLM API calls per trusted client identity per window (0 = disabled)'
+        per_ip_window_seconds:
+          type: integer
+          label: 'Per-client identity budget window in seconds'
         sample_rate:
           type: float
           label: 'Sampling rate for LLM calls (0.0-1.0)'

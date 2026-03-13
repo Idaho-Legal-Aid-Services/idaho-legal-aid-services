@@ -659,8 +659,9 @@ This dated addendum records `XDP-06` closure for cross-phase dependency row #6:
 3. Runtime proof and command summaries are captured in
    `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt`,
    including prerequisite pass/fail markers for cost-control config,
-   fail-closed cost policy behavior, and SLO monitoring, with non-blocking
-   docs continuity retained separately.[^CLAIM-165]
+   fail-closed cost policy behavior, `dependency.per-ip-budget`,
+   `dependency.cache-effectiveness`, `dependency.metrics-cost-control`, and SLO
+   monitoring, with non-blocking docs continuity retained separately.[^CLAIM-165]
 4. Scope boundaries remain unchanged: this closure adds governance enforcement
    artifacts only and does not expand runtime behavior.[^CLAIM-165]
 
@@ -1080,6 +1081,35 @@ and `N-34`.
    unavailable, but that path is no longer part of normal query retrieval
    proof.
 
+### Re-Audit Remediation RAUD-25 Assistant API Crawler Policy (2026-03-13)
+
+This dated addendum records re-audit remediation `RAUD-25` for findings `L2`
+and `N-29`.
+
+1. Hosted baseline verification on 2026-03-13 showed that
+   `https://idaholegalaid.org/robots.txt` did not serve
+   `Disallow: /assistant/api/`, while public `GET /assistant/api/suggest` and
+   `GET /assistant/api/session/bootstrap` remained reachable without any
+   endpoint-specific `X-Robots-Tag` protection.
+2. The effective crawler-policy source of truth is now explicit rather than
+   assumed: the served site uses the static file `web/robots.txt`, not the
+   Drupal `robotstxt` route, because the file exists at webroot and
+   `composer.json` preserves it with `"[web-root]/robots.txt": false`.
+3. `web/robots.txt` and the mirrored inactive config exports
+   (`config/robotstxt.settings.yml`,
+   `web/sites/default/files/sync/robotstxt.settings.yml`) now all disallow
+   `/assistant/api/` and `/index.php/assistant/api/` while deliberately
+   leaving the public `/assistant` page crawlable.
+4. Pantheon non-production crawler behavior is documented conservatively:
+   `dev`/`test`/`live.pantheonsite.io` already serve platform-managed blanket
+   `Disallow: /` `robots.txt` responses, but that infrastructure behavior does
+   not by itself close the primary-domain finding.
+5. Repo/local verification is captured in
+   `docs/aila/runtime/raud-25-crawler-policy-controls.txt`. Because the
+   primary domain still served the pre-remediation `robots.txt` content during
+   this session, the remediation is currently only `Partially Fixed` and
+   remains deploy-bound until the hosted recheck succeeds.[^CLAIM-186]
+
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 
 This dated addendum records P1-EXT-01 completion for Phase 1 Exit criterion #1.
@@ -1389,12 +1419,17 @@ This dated addendum records `P3-OBJ-02` closure for Phase 3 Objective #2:
    remain enforced through `PerformanceMonitor` + `SloAlertService` (`CLAIM-084`)
    with no runtime architecture expansion.[^CLAIM-077][^CLAIM-084][^CLAIM-147]
 2. `CostControlPolicy` service implements `IMP-COST-01` acceptance criteria:
-   daily/monthly budget caps, LLM sampling gate, cache-hit-rate monitoring,
-   cost estimation, and consolidated kill-switch evaluator. Integrated into
+   the prior global-only budget model is now superseded by per-IP budget enforcement,
+   cache-hit-rate monitoring, cache-effectiveness proof, cost estimation, and a
+   consolidated kill-switch evaluator. Integrated into
    `LlmEnhancer` as nullable dependency with full unit test coverage in
-   `CostControlPolicyTest.php`.[^CLAIM-147]
-3. Runbook section-3 verification for `P3-OBJ-02` now requires `VC-UNIT` and
-   `VC-DRUPAL-UNIT` plus behavioral proof from `CostControlPolicyTest.php`,
+   `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`,
+   `LlmEnhancerHardeningTest.php`, and
+   `AssistantApiControllerCostControlMetricsTest.php`.[^CLAIM-147]
+3. Runbook section-3 verification for `P3-OBJ-02` now requires
+   `VC-PURE`, `VC-UNIT`, and `VC-QUALITY-GATE` plus behavioral proof from
+   `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`,
+   `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`,
    `PerformanceMonitorTest.php`, and `SloAlertServiceTest.php`, and captures
    sanitized runtime proof in
    `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`.[^CLAIM-147]
@@ -1516,9 +1551,11 @@ product/platform owners."
    existing `CLAIM-077` (LLM call guardrails) and `CLAIM-084` (SLO/performance
    monitoring contracts) continuity without runtime architecture expansion.[^CLAIM-077][^CLAIM-084][^CLAIM-154]
 2. Verification for `P3-EXT-02` is codified in runbook section-3 via
-   `VC-RUNBOOK-LOCAL`, `VC-RUNBOOK-PANTHEON`, dashboard monitoring checks for
-   `/assistant/api/health` + `/assistant/api/metrics`, source-anchor checks, and
-   targeted closure guard coverage in `PhaseThreeExitCriteriaTwoGateTest.php`.[^CLAIM-154]
+   `VC-PURE`, `VC-QUALITY-GATE`, `VC-PANTHEON-READONLY`, dashboard monitoring
+   checks for `/assistant/api/health` + `/assistant/api/metrics`, explicit
+   `metrics.cost_control` / `thresholds.cost_control` continuity, source-anchor
+   checks, and targeted closure guard coverage in
+   `PhaseThreeExitCriteriaTwoGateTest.php`.[^CLAIM-154]
 3. Product/platform owner acceptance is recorded as role-based closure markers
    in runtime evidence (`owner-acceptance-product-role=accepted`,
    `owner-acceptance-platform-role=accepted`,
@@ -1526,7 +1563,9 @@ product/platform owners."
    `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`.[^CLAIM-154]
 4. Governance linkage remains active for `IMP-COST-01` and `R-PERF-01`, now
    carrying explicit `P3-EXT-02` owner-acceptance/runtime-marker continuity in
-   backlog/risk artifacts with no change to risk posture.[^CLAIM-154]
+   backlog/risk artifacts with no change to risk posture. Deployment remains pending
+   until Pantheon read-only checks reflect the new per-IP keys and
+   `metrics.cost_control` payload.[^CLAIM-154]
 5. Scope boundaries remain unchanged: no net-new assistant channels or
    third-party model expansion beyond audited providers, and no platform-wide
    refactor of unrelated Drupal subsystems. Residual `B-04` remains open and
@@ -1853,3 +1892,4 @@ operationalization proof infrastructure.
 [^CLAIM-182]: [CLAIM-182](evidence-index.md#claim-182)
 [^CLAIM-183]: [CLAIM-183](evidence-index.md#claim-183)
 [^CLAIM-185]: [CLAIM-185](evidence-index.md#claim-185)
+[^CLAIM-186]: [CLAIM-186](evidence-index.md#claim-186)

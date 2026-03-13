@@ -233,7 +233,6 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
       'safety_alerting.recipients' => '',
       'ab_testing.enabled' => FALSE,
       'ab_testing.experiments' => [],
-      'policy_keywords' => [],
     ];
 
     $values = array_merge($defaults, $overrides);

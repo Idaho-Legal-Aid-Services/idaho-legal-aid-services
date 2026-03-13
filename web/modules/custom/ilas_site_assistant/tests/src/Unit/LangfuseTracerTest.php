@@ -5,15 +5,15 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Tests LangfuseTracer batch event types and trace lifecycle.
- *
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\LangfuseTracer
  */
+#[CoversClass(LangfuseTracer::class)]
 #[Group('ilas_site_assistant')]
 class LangfuseTracerTest extends TestCase {
 
@@ -82,14 +82,6 @@ class LangfuseTracerTest extends TestCase {
    *
    * Regression test for OBS-1: endTrace() previously emitted 'trace-create'
    * instead of 'trace-update', causing duplicate traces in Langfuse.
-   *
-   * @covers ::startTrace
-   * @covers ::endTrace
-   * @covers ::startSpan
-   * @covers ::endSpan
-   * @covers ::startGeneration
-   * @covers ::endGeneration
-   * @covers ::getTracePayload
    */
   public function testFullLifecycleEventTypeSequence(): void {
     $tracer = $this->buildTracer();
@@ -125,9 +117,6 @@ class LangfuseTracerTest extends TestCase {
    * Tests that endTrace emits 'trace-update', not 'trace-create'.
    *
    * Minimal regression test for OBS-1.
-   *
-   * @covers ::startTrace
-   * @covers ::endTrace
    */
   public function testEndTraceEmitsTraceUpdate(): void {
     $tracer = $this->buildTracer();
@@ -147,8 +136,6 @@ class LangfuseTracerTest extends TestCase {
    *
    * The trace-update event must reference the same trace ID so Langfuse
    * merges it with the original trace rather than creating a new one.
-   *
-   * @covers ::endTrace
    */
   public function testTraceUpdateBodyUsesOriginalTraceId(): void {
     $tracer = $this->buildTracer();
@@ -173,8 +160,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that endTrace closes dangling spans automatically.
-   *
-   * @covers ::endTrace
    */
   public function testEndTraceClosesDanglingSpans(): void {
     $tracer = $this->buildTracer();
@@ -193,8 +178,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that endTrace closes a dangling generation automatically.
-   *
-   * @covers ::endTrace
    */
   public function testEndTraceClosesDanglingGeneration(): void {
     $tracer = $this->buildTracer();
@@ -213,10 +196,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that a disabled tracer produces no payload.
-   *
-   * @covers ::startTrace
-   * @covers ::endTrace
-   * @covers ::getTracePayload
    */
   public function testDisabledTracerProducesNoPayload(): void {
     $tracer = $this->buildDisabledTracer();
@@ -234,8 +213,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that the payload includes correct metadata.
-   *
-   * @covers ::getTracePayload
    */
   public function testPayloadMetadata(): void {
     $tracer = $this->buildTracer();
@@ -252,8 +229,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that addEvent produces event-create type.
-   *
-   * @covers ::addEvent
    */
   public function testAddEventType(): void {
     $tracer = $this->buildTracer();
@@ -270,9 +245,6 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that nested spans get correct parent observation IDs.
-   *
-   * @covers ::startSpan
-   * @covers ::endSpan
    */
   public function testNestedSpanParenting(): void {
     $tracer = $this->buildTracer();

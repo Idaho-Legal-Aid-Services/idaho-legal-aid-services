@@ -3,6 +3,7 @@
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\EventSubscriber\CsrfDenialResponseSubscriber;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -14,9 +15,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 /**
  * Unit tests for CsrfDenialResponseSubscriber.
  *
- * @group ilas_site_assistant
  * @see \Drupal\ilas_site_assistant\EventSubscriber\CsrfDenialResponseSubscriber
  */
+#[Group('ilas_site_assistant')]
 class CsrfDenialResponseSubscriberTest extends TestCase {
 
   /**

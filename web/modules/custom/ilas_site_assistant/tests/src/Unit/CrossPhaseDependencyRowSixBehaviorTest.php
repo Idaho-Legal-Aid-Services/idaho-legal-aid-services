@@ -55,6 +55,26 @@ final class CrossPhaseDependencyRowSixBehaviorTest extends BehavioralDependencyG
   }
 
   /**
+   * Cost policy must enforce granular per-IP budgets in addition to global caps.
+   */
+  public function testCostPolicyBehaviorBlocksWhenPerIpBudgetTrips(): void {
+    $policy = $this->buildPolicy([
+      'cost_control.daily_call_limit' => 0,
+      'cost_control.monthly_call_limit' => 0,
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.per_ip_window_seconds' => 3600,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $this->assertSame(['allowed' => TRUE, 'reason' => 'allowed'], $policy->beginRequest('198.51.100.10'));
+    $this->assertSame(
+      ['allowed' => FALSE, 'reason' => 'per_ip_budget_exceeded'],
+      $policy->beginRequest('198.51.100.10'),
+    );
+    $this->assertSame(['allowed' => TRUE, 'reason' => 'allowed'], $policy->beginRequest('198.51.100.11'));
+  }
+
+  /**
    * SLO monitoring must emit a violation when latency budget is breached.
    */
   public function testSloMonitoringBehaviorBlocksWhenLatencyBudgetIsBreached(): void {
@@ -138,6 +158,8 @@ final class CrossPhaseDependencyRowSixBehaviorTest extends BehavioralDependencyG
     $configValues = [
       'cost_control.daily_call_limit' => 5000,
       'cost_control.monthly_call_limit' => 100000,
+      'cost_control.per_ip_hourly_call_limit' => 10,
+      'cost_control.per_ip_window_seconds' => 3600,
       'cost_control.sample_rate' => 1.0,
       'cost_control.cache_hit_rate_target' => 0.30,
       'cost_control.cache_stats_window_seconds' => 86400,
@@ -223,6 +245,8 @@ final class CrossPhaseDependencyRowSixBehaviorTest extends BehavioralDependencyG
     $requiredCostKeys = [
       'daily_call_limit',
       'monthly_call_limit',
+      'per_ip_hourly_call_limit',
+      'per_ip_window_seconds',
       'sample_rate',
       'cache_hit_rate_target',
       'cache_stats_window_seconds',

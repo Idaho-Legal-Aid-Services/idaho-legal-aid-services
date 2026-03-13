@@ -19,6 +19,38 @@ class PolicyFilter {
   use StringTranslationTrait;
 
   /**
+   * Code-owned fallback legal-advice keywords.
+   */
+  private const GOVERNED_LEGAL_ADVICE_KEYWORDS = [
+    'should i',
+    'what are my chances',
+    'is it legal',
+    'can i sue',
+    'statute',
+    'law says',
+    'my rights',
+    'will i win',
+    'case outcome',
+    'legal advice',
+    'advise me',
+    'what should i do',
+  ];
+
+  /**
+   * Code-owned fallback PII indicators.
+   */
+  private const GOVERNED_PII_INDICATORS = [
+    '@',
+    'my name is',
+    'my address',
+    'social security',
+    'ssn',
+    'phone number',
+    'date of birth',
+    'case number',
+  ];
+
+  /**
    * The config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
@@ -201,6 +233,14 @@ class PolicyFilter {
     if (function_exists('ilas_site_assistant_get_canonical_urls')) {
       return ilas_site_assistant_get_canonical_urls();
     }
+
+    $canonical_urls = $this->configFactory
+      ->get('ilas_site_assistant.settings')
+      ->get('canonical_urls');
+    if (is_array($canonical_urls) && $canonical_urls !== []) {
+      return $canonical_urls;
+    }
+
     // Fallback defaults.
     return [
       'apply' => '/apply-for-help',
@@ -363,43 +403,31 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
       ];
     }
 
-    // Check config-based keywords.
-    $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $policy_keywords = $config->get('policy_keywords') ?? [];
-
-    // Check legal advice keywords from config.
-    $legal_advice_keywords = $policy_keywords['legal_advice'] ?? [];
-    foreach ($legal_advice_keywords as $keyword) {
-      if (stripos($message, $keyword) !== FALSE) {
-        return [
-          'violation' => TRUE,
-          'type' => self::VIOLATION_LEGAL_ADVICE,
-          'response' => $this->t('I can\'t give legal advice, but I can help you find resources. For personalized assistance, please contact our Legal Advice Line or apply for help.'),
-          'escalation_level' => 'standard',
-          'links' => [
-            ['label' => $this->t('Legal Advice Line'), 'url' => $urls['hotline'], 'type' => 'hotline'],
-            ['label' => $this->t('Apply for Help'), 'url' => $urls['apply'], 'type' => 'apply'],
-          ],
-        ];
-      }
+    // Keep the lowest-priority keyword heuristics reviewable in code rather
+    // than exportable config so operators can still audit intentional changes.
+    if ($this->matchesGovernedLegalAdviceKeyword($message)) {
+      return [
+        'violation' => TRUE,
+        'type' => self::VIOLATION_LEGAL_ADVICE,
+        'response' => $this->t('I can\'t give legal advice, but I can help you find resources. For personalized assistance, please contact our Legal Advice Line or apply for help.'),
+        'escalation_level' => 'standard',
+        'links' => [
+          ['label' => $this->t('Legal Advice Line'), 'url' => $urls['hotline'], 'type' => 'hotline'],
+          ['label' => $this->t('Apply for Help'), 'url' => $urls['apply'], 'type' => 'apply'],
+        ],
+      ];
     }
 
-    // Check PII indicators from config.
-    $pii_indicators = $policy_keywords['pii_indicators'] ?? [];
-    foreach ($pii_indicators as $indicator) {
-      if (stripos($message, $indicator) !== FALSE) {
-        if ($this->looksLikePiiSharing($message, $indicator)) {
-          return [
-            'violation' => TRUE,
-            'type' => self::VIOLATION_PII,
-            'response' => $this->t('For your privacy, please avoid sharing personal information in this chat. You can apply for services securely using the link below.'),
-            'escalation_level' => 'standard',
-            'links' => [
-              ['label' => $this->t('Apply for Help (Secure)'), 'url' => $urls['apply'], 'type' => 'apply'],
-            ],
-          ];
-        }
-      }
+    if ($this->matchesGovernedPiiIndicator($message)) {
+      return [
+        'violation' => TRUE,
+        'type' => self::VIOLATION_PII,
+        'response' => $this->t('For your privacy, please avoid sharing personal information in this chat. You can apply for services securely using the link below.'),
+        'escalation_level' => 'standard',
+        'links' => [
+          ['label' => $this->t('Apply for Help (Secure)'), 'url' => $urls['apply'], 'type' => 'apply'],
+        ],
+      ];
     }
 
     return [
@@ -455,6 +483,32 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
    */
   protected function containsPii(string $message) {
     return $this->matchesPatterns($message, $this->piiPatterns);
+  }
+
+  /**
+   * Checks whether a code-owned legal-advice keyword is present.
+   */
+  protected function matchesGovernedLegalAdviceKeyword(string $message): bool {
+    foreach (self::GOVERNED_LEGAL_ADVICE_KEYWORDS as $keyword) {
+      if (stripos($message, $keyword) !== FALSE) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Checks whether a code-owned PII indicator is present with accompanying data.
+   */
+  protected function matchesGovernedPiiIndicator(string $message): bool {
+    foreach (self::GOVERNED_PII_INDICATORS as $indicator) {
+      if (stripos($message, $indicator) !== FALSE && $this->looksLikePiiSharing($message, $indicator)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
   }
 
   /**

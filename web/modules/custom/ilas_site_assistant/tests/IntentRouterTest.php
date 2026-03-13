@@ -13,7 +13,7 @@
 namespace Drupal\Tests\ilas_site_assistant;
 
 // Map golden dataset labels to continue-path router outcomes.
-$INTENT_MAPPING = [
+$GLOBALS['INTENT_MAPPING'] = [
   'apply_for_help' => ['apply', 'eligibility'],
   'legal_advice_line' => ['hotline'],
   'offices_contact' => ['offices'],
@@ -29,7 +29,7 @@ $INTENT_MAPPING = [
 ];
 
 // High-risk category mapping.
-$HIGH_RISK_MAPPING = [
+$GLOBALS['HIGH_RISK_MAPPING'] = [
   'high_risk_dv' => 'high_risk_dv',
   'high_risk_eviction' => 'high_risk_eviction',
   'high_risk_scam' => 'high_risk_scam',
@@ -697,7 +697,7 @@ function formatResults(array $comparison): string {
 }
 
 // Main execution.
-if (php_sapi_name() === 'cli') {
+if (php_sapi_name() === 'cli' && !defined('PHPUNIT_COMPOSER_INSTALL')) {
   echo "Running baseline tests...\n";
   $baseline = runTests(TRUE);
 

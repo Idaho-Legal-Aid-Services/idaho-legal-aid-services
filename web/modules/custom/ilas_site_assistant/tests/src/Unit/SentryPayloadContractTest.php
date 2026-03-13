@@ -13,8 +13,6 @@ use PHPUnit\Framework\TestCase;
  *
  * Validates that SentryOptionsSubscriber constants match the actual enforcement
  * logic, ensuring the approved payload contract stays synchronized (PHARD-01).
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class SentryPayloadContractTest extends TestCase {

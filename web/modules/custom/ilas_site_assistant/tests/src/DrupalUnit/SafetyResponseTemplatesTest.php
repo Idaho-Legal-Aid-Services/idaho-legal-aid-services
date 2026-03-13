@@ -5,6 +5,8 @@ namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\ilas_site_assistant\Service\SafetyResponseTemplates;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for SafetyResponseTemplates service.
@@ -15,9 +17,9 @@ use Drupal\Tests\UnitTestCase;
  * - Do not hard-route to /services as primary action for OOS
  * - Include external referrals where appropriate
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SafetyResponseTemplates
  */
+#[CoversClass(SafetyResponseTemplates::class)]
+#[Group('ilas_site_assistant')]
 class SafetyResponseTemplatesTest extends UnitTestCase {
 
   /**

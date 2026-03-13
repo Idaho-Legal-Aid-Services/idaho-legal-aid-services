@@ -11,15 +11,15 @@ use Drupal\Core\Queue\QueueInterface;
 use Drupal\ilas_site_assistant\EventSubscriber\LangfuseTerminateSubscriber;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Tests LangfuseTerminateSubscriber queue depth cap and enqueued_at stamping.
- *
- * @coversDefaultClass \Drupal\ilas_site_assistant\EventSubscriber\LangfuseTerminateSubscriber
  */
+#[CoversClass(LangfuseTerminateSubscriber::class)]
 #[Group('ilas_site_assistant')]
 class LangfuseTerminateSubscriberTest extends TestCase {
 
@@ -93,8 +93,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that a normal enqueue succeeds and stamps enqueued_at.
-   *
-   * @covers ::onTerminate
    */
   public function testNormalEnqueueSucceeds(): void {
     $payload = [
@@ -128,8 +126,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that enqueue is dropped when queue is exactly at max depth.
-   *
-   * @covers ::onTerminate
    */
   public function testEnqueueDroppedWhenQueueAtMax(): void {
     $payload = [
@@ -157,8 +153,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that enqueue is dropped when queue exceeds max depth.
-   *
-   * @covers ::onTerminate
    */
   public function testEnqueueDroppedWhenQueueAboveMax(): void {
     $payload = [
@@ -181,8 +175,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that a custom max depth from config is respected.
-   *
-   * @covers ::onTerminate
    */
   public function testCustomMaxDepthFromConfig(): void {
     $payload = [
@@ -205,8 +197,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that an inactive tracer skips entirely — no queue interaction.
-   *
-   * @covers ::onTerminate
    */
   public function testInactiveTracerSkipsEntirely(): void {
     $mocks = $this->buildSubscriber(
@@ -221,8 +211,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that a null payload skips enqueue.
-   *
-   * @covers ::onTerminate
    */
   public function testNullPayloadSkipsEnqueue(): void {
     $mocks = $this->buildSubscriber(
@@ -237,8 +225,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests that exceptions are logged, not propagated.
-   *
-   * @covers ::onTerminate
    */
   public function testExceptionLoggedNotPropagated(): void {
     $mocks = $this->buildSubscriber(
@@ -259,8 +245,6 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
   /**
    * Tests enqueue metadata recording for queue age monitoring.
-   *
-   * @covers ::onTerminate
    */
   public function testEnqueueMetadataRecordedWhenMonitorAvailable(): void {
     $payload = [

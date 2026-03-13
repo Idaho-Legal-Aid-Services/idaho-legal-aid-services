@@ -22,8 +22,6 @@ use Symfony\Component\Yaml\Yaml;
  * Validates Sentry and Langfuse story completion:
  * - Sentry: synthetic events get environment tags, PII scrubbed, runbook doc-lock
  * - Langfuse: full lifecycle, queue health, install config policy-cap
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class ImpObs01AcceptanceTest extends TestCase {

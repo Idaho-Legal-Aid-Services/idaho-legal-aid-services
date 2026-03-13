@@ -4,7 +4,9 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\ilas_site_assistant\Service\RankingEnhancer;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,10 +18,9 @@ use PHPUnit\Framework\TestCase;
  * - Canonical URL boost
  * - De-duplication
  * - Field weight scoring
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\RankingEnhancer
  */
+#[CoversClass(RankingEnhancer::class)]
+#[Group('ilas_site_assistant')]
 class RankingEnhancerTest extends TestCase {
 
   /**
@@ -42,8 +43,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that exact canonical term triggers synonym expansion.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryExactCanonical(): void {
     $expanded = $this->ranker->expandQuery(['eviction']);
@@ -56,8 +55,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that exact synonym triggers reverse expansion to canonical.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryReverseSynonym(): void {
     $expanded = $this->ranker->expandQuery(['evicted']);
@@ -70,8 +67,6 @@ class RankingEnhancerTest extends TestCase {
    *
    * Before fix: strpos('bankruptcy', 'bank') !== FALSE caused false expansion.
    * After fix: word-boundary matching prevents this.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryTokenBoundaryBankruptcyNotBank(): void {
     $expanded = $this->ranker->expandQuery(['bankruptcy']);
@@ -92,8 +87,6 @@ class RankingEnhancerTest extends TestCase {
    *
    * "snap" is a synonym of "food stamps". It should expand to the canonical
    * and its siblings — but NOT match unrelated canonicals via substring.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQuerySnapExpandsFoodStamps(): void {
     $expanded = $this->ranker->expandQuery(['snap']);
@@ -104,8 +97,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests multi-word synonym expansion.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryMultiWordSynonym(): void {
     // "child support" is a canonical term.
@@ -117,8 +108,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that unrelated terms get no synonym expansion.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryNoExpansionForUnknownTerms(): void {
     $expanded = $this->ranker->expandQuery(['xylophone']);
@@ -128,8 +117,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests deduplication in expanded results.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryDeduplicates(): void {
     $expanded = $this->ranker->expandQuery(['eviction', 'eviction']);
@@ -142,8 +129,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests Spanish synonym expansion (bidirectional).
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQuerySpanishSynonyms(): void {
     // "abogado" is a synonym of "lawyer".
@@ -154,8 +139,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests common misspelling expansion.
-   *
-   * @covers ::expandQuery
    */
   public function testExpandQueryMisspellings(): void {
     // "lawer" is a synonym of "lawyer".
@@ -170,8 +153,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests canonical URL boost for known paths.
-   *
-   * @covers ::getUrlBoost
    */
   #[DataProvider('canonicalBoostProvider')]
   public function testCanonicalUrlBoost(string $url, int $expectedMinBoost): void {
@@ -191,8 +172,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that unknown URLs get zero boost.
-   *
-   * @covers ::getUrlBoost
    */
   public function testUnknownUrlZeroBoost(): void {
     $boost = $this->ranker->getUrlBoost('https://example.com/random-page');
@@ -205,8 +184,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that duplicate URLs are merged (keeping first/highest-scored).
-   *
-   * @covers ::deduplicateByUrl
    */
   public function testDeduplicateByUrl(): void {
     $items = [
@@ -224,8 +201,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that items without URLs are kept.
-   *
-   * @covers ::deduplicateByUrl
    */
   public function testDeduplicateKeepsItemsWithoutUrl(): void {
     $items = [
@@ -240,8 +215,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests URL normalization during deduplication (trailing slash, query string).
-   *
-   * @covers ::deduplicateByUrl
    */
   public function testDeduplicateNormalizesUrls(): void {
     $items = [
@@ -261,8 +234,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests that title match scores higher than body match.
-   *
-   * @covers ::scoreFaqResults
    */
   public function testTitleScoresHigherThanBody(): void {
     $items = [
@@ -287,8 +258,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests exact title match gets highest score.
-   *
-   * @covers ::scoreFaqResults
    */
   public function testExactTitleMatchHighestScore(): void {
     $items = [
@@ -312,8 +281,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests keyword extraction removes stop words.
-   *
-   * @covers ::extractKeywords
    */
   public function testExtractKeywordsRemovesStopWords(): void {
     $keywords = $this->ranker->extractKeywords('how do I apply for legal help in Idaho');
@@ -330,8 +297,6 @@ class RankingEnhancerTest extends TestCase {
 
   /**
    * Tests resource scoring with type filter.
-   *
-   * @covers ::scoreResourceResults
    */
   public function testResourceScoringTypeFilter(): void {
     $items = [

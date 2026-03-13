@@ -4,6 +4,9 @@ namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Comprehensive regression tests for adversarial pattern detection.
@@ -11,9 +14,9 @@ use Drupal\Tests\UnitTestCase;
  * Tests prompt injection, jailbreaking, and unethical request patterns
  * to ensure they are properly blocked by the SafetyClassifier.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SafetyClassifier
  */
+#[CoversClass(SafetyClassifier::class)]
+#[Group('ilas_site_assistant')]
 class AdversarialPatternTest extends UnitTestCase {
 
   /**
@@ -40,9 +43,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests prompt injection patterns from eval dataset.
-   *
-   * @dataProvider promptInjectionEvalProvider
    */
+  #[DataProvider('promptInjectionEvalProvider')]
   public function testPromptInjectionFromEval(string $prompt, string $description): void {
     $result = $this->classifier->classify($prompt);
 
@@ -102,9 +104,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests additional prompt injection variants.
-   *
-   * @dataProvider promptInjectionVariantsProvider
    */
+  #[DataProvider('promptInjectionVariantsProvider')]
   public function testPromptInjectionVariants(string $prompt, string $expected_class, string $expected_reason_prefix = ''): void {
     $result = $this->classifier->classify($prompt);
 
@@ -192,9 +193,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests unethical request patterns from eval dataset.
-   *
-   * @dataProvider unethicalEvalProvider
    */
+  #[DataProvider('unethicalEvalProvider')]
   public function testUnethicalFromEval(string $prompt, string $expected_class, string $description): void {
     $result = $this->classifier->classify($prompt);
 
@@ -238,9 +238,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests additional unethical request variants.
-   *
-   * @dataProvider unethicalVariantsProvider
    */
+  #[DataProvider('unethicalVariantsProvider')]
   public function testUnethicalVariants(string $prompt, string $expected_class, string $description): void {
     $result = $this->classifier->classify($prompt);
 
@@ -306,9 +305,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests that XSS and SQL injection embedded in valid queries still route correctly.
-   *
-   * @dataProvider embeddedAttackProvider
    */
+  #[DataProvider('embeddedAttackProvider')]
   public function testEmbeddedAttacksPassSafetyButSanitized(string $prompt, string $description): void {
     $result = $this->classifier->classify($prompt);
 
@@ -345,9 +343,8 @@ class AdversarialPatternTest extends UnitTestCase {
 
   /**
    * Tests that safe queries are not falsely flagged.
-   *
-   * @dataProvider safeQueryProvider
    */
+  #[DataProvider('safeQueryProvider')]
   public function testSafeQueriesPassThrough(string $prompt, string $description): void {
     $result = $this->classifier->classify($prompt);
 

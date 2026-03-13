@@ -4,6 +4,7 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -12,8 +13,8 @@ use Psr\Log\LoggerInterface;
  * Tests the generic_answer, feedback_helpful, and feedback_not_helpful
  * event types added for the search quality analytics dashboard.
  *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class SearchAnalyticsKernelTest extends AssistantKernelTestBase {
 
   /**

@@ -17,7 +17,6 @@ use Symfony\Component\Yaml\Yaml;
  * payloads matching the approved Langfuse ingestion format, and that the
  * Drush service entry is correctly registered.
  *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class LangfuseProbeCommandTest extends TestCase {

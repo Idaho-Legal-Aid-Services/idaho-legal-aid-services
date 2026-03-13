@@ -397,17 +397,25 @@ Use this command bundle to verify Phase 3 Objective #2:
 "Finalize performance and cost guardrails with operational runbooks."
 
 ```bash
-# 1) Required prompt validation aliases.
-# VC-UNIT
-ddev exec vendor/bin/phpunit \
-  --configuration /var/www/html/phpunit.xml \
-  --group ilas_site_assistant \
-  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+# 1) Required proof aliases.
+# VC-PURE
+vendor/bin/phpunit \
+  -c /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml \
+  --filter 'CostControlPolicyTest|LlmControlConcurrencyTest|LlmEnhancerHardeningTest|ConfigCompletenessDriftTest|CrossPhaseDependencyRowSixBehaviorTest|AssistantApiControllerCostControlMetricsTest'
 
-# VC-DRUPAL-UNIT
+# VC-UNIT
 vendor/bin/phpunit \
   --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
-  --testsuite drupal-unit
+  --group ilas_site_assistant \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php
+
+# VC-QUALITY-GATE
+bash /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 
 # 2) Source guardrail anchor checks (LLM + performance/SLO).
 rg -n "isLiveEnvironment|llm\\.enabled|circuitBreaker|rateLimiter|global rate limit|circuit breaker" \
@@ -428,6 +436,12 @@ rg -n "class SloAlertService|checkAll|SLO violation|checkLatencySlo|checkErrorRa
 rg -n "class CostControlPolicy|isRequestAllowed|evaluateKillSwitch|estimateCost|getSummary|isDailyBudgetExhausted|isMonthlyBudgetExhausted" \
   web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php
 
+rg -n "LlmControlConcurrencyTest.php|LlmEnhancerHardeningTest.php|AssistantApiControllerCostControlMetricsTest.php|cost-proof-per-ip-status|cost-proof-cache-hit-rate|cost-proof-call-reduction-rate" \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php \
+  docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt
+
 # 3) Optional docs continuity check (non-blocking).
 ddev exec vendor/bin/phpunit \
   --configuration /var/www/html/phpunit.xml \
@@ -436,14 +450,19 @@ ddev exec vendor/bin/phpunit \
 ```
 
 Expected `P3-OBJ-02` verification result:
-- `VC-UNIT` and `VC-DRUPAL-UNIT` pass with behavioral cost/performance proof included.
+- `VC-PURE`, `VC-UNIT`, and `VC-QUALITY-GATE` pass with behavioral cost/performance proof included.
 - LLM call guardrail anchors remain present in `LlmEnhancer`,
   `LlmCircuitBreaker`, and `LlmRateLimiter` without net-new provider/channel
   expansion.
 - Performance/SLO guardrail anchors remain present in `PerformanceMonitor` and
   `SloAlertService`.
-- `CostControlPolicy` anchors remain present with budget caps, sampling gate,
-  cache-hit monitoring, cost estimation, and kill-switch evaluator (IMP-COST-01).
+- `CostControlPolicy` anchors remain present with budget caps, per-IP budget
+  enforcement, sampling gate, cache-hit monitoring, cache-effectiveness proof,
+  cost estimation, and kill-switch evaluator (IMP-COST-01).
+- Runtime proof includes `cost-proof-per-ip-status`, `cost-proof-per-ip-limit`,
+  `cost-proof-cache-hit-rate`, `cost-proof-cache-hit-target`,
+  `cost-proof-cache-sample-count`, `cost-proof-call-reduction-rate`, and
+  `cost-proof-status`.
 - Optional docs continuity remains runnable through
   `PhaseThreeObjectiveTwoGateTest.php` in the non-blocking
   `ilas_site_assistant_docs` group.
@@ -462,15 +481,17 @@ product/platform owners."
 
 ```bash
 # 1) Validation command aliases from prompt matrix.
-# VC-RUNBOOK-LOCAL
-cd /home/evancurry/idaho-legal-aid-services && \
-  ddev drush status && \
-  ddev drush config:get ilas_site_assistant.settings -y && \
-  ddev drush state:get system.cron_last
+# VC-PURE
+vendor/bin/phpunit \
+  -c /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml \
+  --filter 'CostControlPolicyTest|LlmControlConcurrencyTest|LlmEnhancerHardeningTest|AssistantApiControllerCostControlMetricsTest|PhaseThreeExitCriteriaTwoGateTest|PhaseThreeObjectiveTwoGateTest'
 
-# VC-RUNBOOK-PANTHEON
+# VC-QUALITY-GATE
+bash /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
+
+# VC-PANTHEON-READONLY
 for ENV in dev test live; do
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y
 done
 
 # 2) Monitoring checks (local + Pantheon continuity).
@@ -489,9 +510,10 @@ rg -n "class LlmEnhancer|circuit breaker|global rate limit|CostControlPolicy" \
   web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php \
   web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php
 
-rg -n "class PerformanceMonitor|class SloAlertService|SLO violation" \
-  web/modules/custom/ilas_site_assistant/src/Service/PerformanceMonitor.php \
-  web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php
+rg -n "metrics\\.cost_control|thresholds\\.cost_control|AssistantApiControllerCostControlMetricsTest.php|cost-proof-status=pass|metrics-cost-control=present|thresholds-cost-control=present" \
+  web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php \
+  web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php \
+  docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt
 
 rg -n "Phase 3 Exit #2 disposition \\(2026-03-06\\)|P3-EXT-02|phase3-exit2-cost-performance-owner-acceptance.txt|CLAIM-154|PhaseThreeExitCriteriaTwoGateTest.php" \
   docs/aila/roadmap.md \
@@ -511,15 +533,18 @@ cd /home/evancurry/idaho-legal-aid-services && \
 ```
 
 Expected `P3-EXT-02` verification result:
-- `VC-RUNBOOK-LOCAL` confirms local runtime visibility with `system.cron_last`
-  continuity and assistant config visibility.
-- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
-  `dev`/`test`/`live`.
+- `VC-PURE` and `VC-QUALITY-GATE` confirm local behavioral proof and quality-gate continuity.
+- `VC-PANTHEON-READONLY` confirms target-environment continuity on
+  `dev`/`test`/`live`, or records deployment pending state when the hosted
+  `cost_control` block still omits `per_ip_hourly_call_limit` /
+  `per_ip_window_seconds`.
 - `/assistant/api/health` and `/assistant/api/metrics` monitoring checks return
   deterministic JSON payloads in local and Pantheon contexts (operational
   payloads or controlled `access_denied` payloads, depending on route
   permissions in the target environment).
-- Guardrail anchors remain present for `CLAIM-077` and `CLAIM-084` service paths.
+- Guardrail anchors remain present for `CLAIM-077` and `CLAIM-084` service paths,
+  and `/assistant/api/metrics` exposes `metrics.cost_control` plus
+  `thresholds.cost_control` in repo-local proof.
 - Owner-acceptance continuity markers are present across roadmap/current-state/
   evidence/runbook/backlog/risk and runtime artifact references.
 - Optional docs continuity remains runnable through
@@ -529,8 +554,9 @@ Expected `P3-EXT-02` verification result:
 - Scope boundaries remain unchanged: no net-new assistant channels or
   third-party model expansion beyond audited providers, and no platform-wide
   refactor of unrelated Drupal subsystems. Residual `B-04` remains open.
-- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
-  treat `P3-EXT-02` closure as blocked until authenticated Pantheon continuity
+- If `VC-PANTHEON-READONLY` shows the deployed config missing `per_ip_hourly_call_limit`
+  or `per_ip_window_seconds`, or hosted metrics continuity is unavailable,
+  treat deployment closure as pending until authenticated Pantheon continuity
   output is captured.
 
 Store sanitized output in:
@@ -1461,15 +1487,24 @@ downstream phase continuity.
 
 ```bash
 # 1) Required validation aliases from prompt matrix.
-# VC-UNIT
-ddev exec vendor/bin/phpunit \
-  --configuration /var/www/html/phpunit.xml \
-  --group ilas_site_assistant \
-  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+# VC-PURE
+vendor/bin/phpunit \
+  -c /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml \
+  --filter 'CostControlPolicyTest|LlmControlConcurrencyTest|LlmEnhancerHardeningTest|CrossPhaseDependencyRowSixBehaviorTest|AssistantApiControllerCostControlMetricsTest'
 
-# VC-RUNBOOK-PANTHEON
+# VC-UNIT
+vendor/bin/phpunit \
+  --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
+  --group ilas_site_assistant \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php
+
+# VC-PANTHEON-READONLY
 for ENV in dev test live; do
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y
 done
 
 # 2) Prerequisite anchor checks: CSRF matrix + route enforcement verification.
@@ -1820,17 +1855,20 @@ rg -n "VC-RUNBOOK-LOCAL|VC-TOGGLE-CHECK|system\\.cron_last=|name: Quality Gate|C
   docs/aila/runtime/phase2-entry1-observability-ci-baseline.txt
 
 # 3) Phase 3 cost-guardrail continuity anchors.
-rg -n "p3-obj-02-status=closed|guard-anchor-cost-control-policy=present" \
+rg -n "p3-obj-02-status=closed|guard-anchor-cost-control-policy=present|cost-proof-status=pass|cost-proof-per-ip-status=pass" \
   docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt
 
-rg -n "p3-ext-02-status=closed|owner-acceptance-product-role=accepted|owner-acceptance-platform-role=accepted" \
+rg -n "p3-ext-02-status=closed|owner-acceptance-product-role=accepted|owner-acceptance-platform-role=accepted|metrics-cost-control=present|thresholds-cost-control=present" \
   docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt
 
 # 4) Targeted behavioral dependency proof for row #6.
-ddev exec vendor/bin/phpunit \
-  --configuration /var/www/html/phpunit.xml \
+rg -n "dependency.per-ip-budget=pass|dependency.cache-effectiveness=pass|dependency.metrics-cost-control=pass" \
+  docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt
+
+vendor/bin/phpunit \
+  --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml \
   --group ilas_site_assistant \
-  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php
 
 # 5) Optional docs continuity check (non-blocking).
 ddev exec vendor/bin/phpunit \
@@ -1840,11 +1878,12 @@ ddev exec vendor/bin/phpunit \
 ```
 
 Expected `XDP-06` dependency result:
-- `VC-UNIT` passes with row #6 behavioral proof included.
-- `VC-RUNBOOK-PANTHEON` confirms target-environment continuity on
+- `VC-PURE` and `VC-UNIT` pass with row #6 behavioral proof included.
+- `VC-PANTHEON-READONLY` confirms target-environment continuity on
   `dev`/`test`/`live`.
-- Cost-control config, fail-closed cost policy behavior, and SLO monitoring
-  remain verified.
+- Cost-control config, fail-closed cost policy behavior, `dependency.per-ip-budget`,
+  `dependency.cache-effectiveness`, `dependency.metrics-cost-control`, and SLO
+  monitoring remain verified.
 - Phase 3 cost-guardrail continuity anchors remain present in objective/exit
   runtime closure artifacts.
 - Optional docs continuity remains runnable through the non-blocking
@@ -1854,7 +1893,7 @@ Expected `XDP-06` dependency result:
   all prerequisites present => `xdp-06-status=closed`,
   `xdp-06-unresolved-dependency-count=0`,
   `xdp-06-unresolved-dependencies=none`.
-- If `VC-RUNBOOK-PANTHEON` fails (auth/connectivity/command failure),
+- If `VC-PANTHEON-READONLY` fails (auth/connectivity/command failure),
   treat `XDP-06` closure continuity as blocked until authenticated output is
   captured.
 
@@ -3621,6 +3660,52 @@ Expected `RAUD-22` verification result:
 - `getCategoriesLegacy()` may still use `getAllFaqsLegacy()` when the FAQ
   lexical index is unavailable; treat that as an explicit browse-only residual
   fallback, not a request-path verification failure.
+
+### RAUD-25 assistant API crawler-policy verification
+
+- Baseline before the remediation:
+  - Hosted production fetch on March 13, 2026 showed
+    `https://idaholegalaid.org/robots.txt` omitted
+    `Disallow: /assistant/api/`.
+  - Public `GET /assistant/api/suggest` and
+    `GET /assistant/api/session/bootstrap` remained reachable on the primary
+    domain with no endpoint `X-Robots-Tag` header, so crawler policy depended
+    on `robots.txt` rather than per-endpoint noindex headers.
+  - `web/robots.txt` existed in repo and `composer.json` preserved it via
+    `"[web-root]/robots.txt": false`, making the static file the effective
+    source of truth rather than the Drupal `robotstxt` route.
+  - Pantheon `dev`/`test`/`live.pantheonsite.io` already served
+    platform-managed `robots.txt` responses with `Disallow: /` and
+    `X-Robots-Tag: noindex`, but the same public assistant GET endpoints still
+    returned `200`.
+- Required verification commands for the remediation report:
+  - `VC-PURE`
+  - `VC-RUNBOOK-LOCAL`
+  - `VC-PANTHEON-READONLY`
+- Targeted repo/local checks:
+  - `rg -n "\[web-root\]/robots.txt|assistant/api/" composer.json web/robots.txt config/robotstxt.settings.yml web/sites/default/files/sync/robotstxt.settings.yml`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/RobotsTxtCrawlerPolicyContractTest.php`
+  - `curl -k -sS -D - https://ilas-pantheon.ddev.site/robots.txt -o /tmp/raud25-local-robots.txt && sed -n '1,120p' /tmp/raud25-local-robots.txt`
+- Hosted read-only checks after deployment:
+  - `curl -L -sS -D - https://idaholegalaid.org/robots.txt -o /tmp/raud25-prod-robots.txt && sed -n '1,120p' /tmp/raud25-prod-robots.txt`
+  - `curl -L -sS -D - "https://idaholegalaid.org/assistant/api/suggest?q=housing&type=all" -o /tmp/raud25-prod-suggest.json | sed -n '1,20p'`
+  - `curl -L -sS -D - "https://idaholegalaid.org/assistant/api/session/bootstrap" -o /tmp/raud25-prod-bootstrap.txt | sed -n '1,20p'`
+  - `for ENV in dev test live; do BASE_URL="$(terminus env:view "idaho-legal-aid-services.${ENV}" --print)"; echo "=== ${ENV} robots ==="; curl -L -sS -D - "${BASE_URL%/}/robots.txt" -o "/tmp/raud25-${ENV}-robots.txt" | sed -n '1,20p'; echo "=== ${ENV} suggest ==="; curl -L -sS -D - "${BASE_URL%/}/assistant/api/suggest?q=housing&type=all" -o "/tmp/raud25-${ENV}-suggest.json" | sed -n '1,20p'; done`
+- Expected contract after the remediation:
+  - `web/robots.txt` and both `robotstxt` config exports all disallow
+    `/assistant/api/` and `/index.php/assistant/api/`.
+  - The local served `https://ilas-pantheon.ddev.site/robots.txt` response
+    includes both assistant API rules.
+  - The hosted primary domain `https://idaholegalaid.org/robots.txt` must
+    include the same assistant API rules before the finding can be called
+    `Fixed`.
+  - Pantheon non-production blanket `Disallow: /` responses are supporting
+    infrastructure evidence only; they do not prove primary-domain closure by
+    themselves.
+  - If the primary domain still omits the rule after repo changes, classify
+    the finding as `Partially Fixed` or `Unverified`, never `Fixed`.
+- Archive the executed command summaries and final classification in
+  `docs/aila/runtime/raud-25-crawler-policy-controls.txt`.
 
 ## 7) Retrospective regression checklist (mandatory)
 

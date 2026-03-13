@@ -13,16 +13,15 @@ use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use Drupal\ilas_site_assistant\Service\SloAlertService;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for SloAlertService.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SloAlertService
  */
+#[CoversClass(SloAlertService::class)]
 #[Group('ilas_site_assistant')]
 class SloAlertServiceTest extends TestCase {
 
@@ -140,8 +139,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkLatencySlo fires a warning when P95 exceeds target.
-   *
-   * @covers ::checkLatencySlo
    */
   public function testLatencySloViolationFiresWarning(): void {
     $slo = $this->buildSlo();
@@ -163,8 +160,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkAvailabilitySlo fires when availability is below target.
-   *
-   * @covers ::checkAvailabilitySlo
    */
   public function testAvailabilitySloViolationFiresWarning(): void {
     $slo = $this->buildSlo();
@@ -186,8 +181,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkAvailabilitySlo does not fire when target is met.
-   *
-   * @covers ::checkAvailabilitySlo
    */
   public function testAvailabilitySloHealthyNoWarning(): void {
     $slo = $this->buildSlo();
@@ -204,8 +197,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkLatencySlo does NOT fire when within target.
-   *
-   * @covers ::checkLatencySlo
    */
   public function testLatencySloHealthyNoWarning(): void {
     $slo = $this->buildSlo();
@@ -222,8 +213,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that cooldown suppresses duplicate alerts.
-   *
-   * @covers ::checkLatencySlo
    */
   public function testCooldownSuppressesDuplicateAlert(): void {
     $slo = $this->buildSlo();
@@ -242,8 +231,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkErrorRateSlo fires a warning when error rate exceeds target.
-   *
-   * @covers ::checkErrorRateSlo
    */
   public function testErrorRateSloViolation(): void {
     $slo = $this->buildSlo();
@@ -265,8 +252,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkCronSlo fires a warning when cron is stale.
-   *
-   * @covers ::checkCronSlo
    */
   public function testCronSloViolation(): void {
     $slo = $this->buildSlo();
@@ -287,8 +272,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkCronSlo does not fire when cron is healthy.
-   *
-   * @covers ::checkCronSlo
    */
   public function testCronSloHealthyNoWarning(): void {
     $slo = $this->buildSlo();
@@ -304,8 +287,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkQueueSlo fires a warning when queue is backlogged.
-   *
-   * @covers ::checkQueueSlo
    */
   public function testQueueSloViolation(): void {
     $slo = $this->buildSlo();
@@ -326,8 +307,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that checkAll delegates to all individual checks.
-   *
-   * @covers ::checkAll
    */
   public function testCheckAllDelegation(): void {
     $slo = $this->buildSlo();
@@ -346,8 +325,6 @@ class SloAlertServiceTest extends TestCase {
 
   /**
    * Tests that no alerts fire without optional services.
-   *
-   * @covers ::checkAll
    */
   public function testNoAlertsWithoutServices(): void {
     $slo = $this->buildSlo();

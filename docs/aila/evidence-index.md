@@ -708,9 +708,10 @@ Evidence precedence used in this audit:
   guardrail services, runtime proof capture, and non-blocking docs continuity
   without net-new assistant channels or model-provider expansion.
 - Addendum (2026-03-05, IMP-COST-01): `CostControlPolicy` service implements
-  budget caps (daily/monthly), sampling gate, cache-hit-rate monitoring, cost
-  estimation, and consolidated kill-switch evaluator. Integrated into
-  `LlmEnhancer` as nullable dependency.
+  budget caps (daily/monthly), per-IP budget enforcement, sampling gate,
+  cache-hit-rate monitoring, cache-effectiveness proof, cost estimation, and a
+  consolidated kill-switch evaluator. Integrated into `LlmEnhancer` as nullable
+  dependency.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 Objective #2 disposition dated 2026-03-05)
   - `docs/aila/current-state.md` (P3-OBJ-02 operational disposition addendum)
@@ -1992,8 +1993,8 @@ Evidence precedence used in this audit:
 ### CLAIM-147
 - Claim: Phase 3 Objective #2 is closed as implemented — performance and cost
   guardrails are finalized with operational runbooks by enforcing reproducible
-  verification (`VC-UNIT`, `VC-DRUPAL-UNIT`), behavioral cost/performance
-  proof, runtime proof artifacts, and active-mitigation governance posture
+  verification (`VC-PURE`, `VC-UNIT`, `VC-QUALITY-GATE`), behavioral
+  cost/performance proof, runtime proof artifacts, and active-mitigation governance posture
   updates (`IMP-COST-01`, `R-PERF-01`) with non-blocking docs continuity and
   without net-new assistant channels,
   third-party model-provider expansion, or unrelated platform refactors.
@@ -2001,13 +2002,16 @@ Evidence precedence used in this audit:
   - `docs/aila/roadmap.md` (Phase 3 Objective #2 disposition dated 2026-03-05)
   - `docs/aila/current-state.md` (P3-OBJ-02 operational disposition addendum)
   - `docs/aila/runbook.md` (P3-OBJ-02 verification subsection in section 3)
-  - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt` (sanitized VC alias output + guard-anchor proof markers)
+  - `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt` (sanitized VC alias output + guard-anchor proof markers + per-IP budget enforcement proof + cache-effectiveness proof)
   - `docs/aila/backlog.md` (`IMP-COST-01` active mitigation row)
   - `docs/aila/risk-register.md` (`R-PERF-01` active mitigation row)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeObjectiveTwoGateTest.php` (non-blocking objective docs continuity lock)
   - `docs/aila/system-map.mmd` (Diagram A continuity anchors retained)
   - `web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php` (IMP-COST-01 budget/sampling/kill-switch policy service)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php` (IMP-COST-01 acceptance test coverage)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php` (per-IP admission concurrency proof)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php` (cache-effectiveness proof)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php` (metrics.cost_control exposure proof)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php` (performance monitoring proof)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php` (SLO alert proof)
 
@@ -2166,17 +2170,19 @@ Evidence precedence used in this audit:
 ### CLAIM-154
 - Claim: Phase 3 exit criterion #2 is closed as implemented — cost/performance
   controls are documented, monitored, and accepted by product/platform owners.
-  Closure is enforced through section-3 runbook verification (`VC-RUNBOOK-LOCAL`,
-  `VC-RUNBOOK-PANTHEON`), monitoring continuity checks (`/assistant/api/health`,
-  `/assistant/api/metrics`), role-based owner acceptance markers in a runtime
-  proof artifact, behavioral monitoring proof, and non-blocking docs continuity without net-new assistant
-  channels, third-party model-provider expansion, or unrelated platform
-  refactors. Residual boundary `B-04` remains open.
+  Closure is enforced through section-3 runbook verification (`VC-PURE`,
+  `VC-QUALITY-GATE`, `VC-PANTHEON-READONLY`), monitoring continuity checks
+  (`/assistant/api/health`, `/assistant/api/metrics`), role-based owner
+  acceptance markers in a runtime proof artifact, behavioral monitoring proof,
+  and non-blocking docs continuity without net-new assistant channels,
+  third-party model-provider expansion, or unrelated platform refactors.
+  Residual boundary `B-04` remains open, and Pantheon read-only deployment
+  check remains an explicit closure dependency.
 - Evidence:
   - `docs/aila/roadmap.md` (Phase 3 Exit #2 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-EXT-02 cost/performance owner-acceptance disposition addendum)
   - `docs/aila/runbook.md` (P3-EXT-02 verification subsection in section 3)
-  - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt` (sanitized VC alias output + monitoring + owner-acceptance markers)
+  - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt` (sanitized VC alias output + monitoring + owner-acceptance markers + Pantheon read-only deployment check)
   - `docs/aila/backlog.md` (`IMP-COST-01` row includes P3-EXT-02 owner-acceptance traceability)
   - `docs/aila/risk-register.md` (`R-PERF-01` row includes P3-EXT-02 runtime-marker continuity)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaTwoGateTest.php` (non-blocking exit-criterion docs continuity lock)
@@ -2396,14 +2402,15 @@ Evidence precedence used in this audit:
 ### CLAIM-165
 - Claim: Cross-phase dependency row #6 for cost guardrails (`IMP-COST-01`) is
   closed as an enforceable dependency guardrail: cost-control config, fail-closed
-  cost policy behavior, and SLO monitoring are locked for Phase 3 consumption,
-  and unresolved prerequisites deterministically report blocked status
+  cost policy behavior, per-IP budget enforcement, cache-effectiveness proof,
+  metrics.cost_control exposure, and SLO monitoring are locked for Phase 3
+  consumption, and unresolved prerequisites deterministically report blocked status
   (`xdp-06-status=blocked`) until count/list markers resolve to zero/none.
 - Evidence:
   - `docs/aila/roadmap.md` (cross-phase dependency row #6 disposition dated 2026-03-07)
   - `docs/aila/current-state.md` (XDP-06 cross-phase dependency disposition addendum)
   - `docs/aila/runbook.md` (XDP-06 verification subsection and runtime bundle references)
-  - `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt` (deterministic status + unresolved markers)
+  - `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt` (deterministic status + unresolved markers + dependency.per-ip-budget/cache-effectiveness/metrics-cost-control markers)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php` (blocking dependency closure behavior)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixGateTest.php` (non-blocking dependency docs continuity lock)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php` (cost policy fail-closed prerequisite proof)
@@ -2749,3 +2756,24 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md`
   - `docs/aila/runtime/raud-20-read-endpoint-abuse-controls.txt`
 - Status: Implemented.
+
+### CLAIM-186
+- Claim: Re-audit remediation `RAUD-25` makes assistant API crawler policy
+  explicit at the served static-file source of truth: `web/robots.txt` and the
+  mirrored `robotstxt` config exports now disallow `/assistant/api/` and
+  `/index.php/assistant/api/`, a pure contract test locks parity, and runtime
+  verification requires direct hosted `robots.txt` fetches instead of
+  config-only assertions. Production still served the pre-remediation rule set
+  on 2026-03-13, so the finding remains `Partially Fixed` pending deployment.
+- Evidence:
+  - `web/robots.txt`
+  - `config/robotstxt.settings.yml`
+  - `web/sites/default/files/sync/robotstxt.settings.yml`
+  - `composer.json`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RobotsTxtCrawlerPolicyContractTest.php`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/runbook.md`
+  - `docs/aila/runtime/raud-25-crawler-policy-controls.txt`
+- Status: Implemented — hosted primary-domain recheck still pending.

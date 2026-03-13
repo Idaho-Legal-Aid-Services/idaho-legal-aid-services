@@ -44,6 +44,7 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
       'Exit criterion #2 is closed as implemented: cost/performance controls are documented, monitored, and accepted by product/platform owners.',
       $roadmap
     );
+    $this->assertStringContainsString('Deployed closure remains pending until Pantheon read-only checks reflect the per-IP keys and metrics payload', $roadmap);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $roadmap);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $roadmap);
     $this->assertStringContainsString('CLAIM-154', $roadmap);
@@ -63,10 +64,13 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
       $currentState
     );
     $this->assertStringContainsString('`P3-EXT-02`', $currentState);
-    $this->assertStringContainsString('`VC-RUNBOOK-LOCAL`', $currentState);
-    $this->assertStringContainsString('`VC-RUNBOOK-PANTHEON`', $currentState);
+    $this->assertStringContainsString('`VC-PURE`', $currentState);
+    $this->assertStringContainsString('`VC-QUALITY-GATE`', $currentState);
+    $this->assertStringContainsString('`VC-PANTHEON-READONLY`', $currentState);
     $this->assertStringContainsString('owner-acceptance-product-role=accepted', $currentState);
     $this->assertStringContainsString('owner-acceptance-platform-role=accepted', $currentState);
+    $this->assertStringContainsString('metrics.cost_control', $currentState);
+    $this->assertStringContainsString('Deployment remains pending', $currentState);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $currentState);
     $this->assertStringContainsString('[^CLAIM-154]', $currentState);
   }
@@ -81,13 +85,16 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
       '### Phase 3 exit #2 cost/performance controls documented + monitored + owner acceptance verification (`P3-EXT-02`)',
       $runbook
     );
-    $this->assertStringContainsString('# VC-RUNBOOK-LOCAL', $runbook);
-    $this->assertStringContainsString('# VC-RUNBOOK-PANTHEON', $runbook);
+    $this->assertStringContainsString('# VC-PURE', $runbook);
+    $this->assertStringContainsString('# VC-QUALITY-GATE', $runbook);
+    $this->assertStringContainsString('# VC-PANTHEON-READONLY', $runbook);
     $this->assertStringContainsString('/assistant/api/health', $runbook);
     $this->assertStringContainsString('/assistant/api/metrics', $runbook);
+    $this->assertStringContainsString('metrics.cost_control', $runbook);
+    $this->assertStringContainsString('thresholds.cost_control', $runbook);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $runbook);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $runbook);
-    $this->assertStringContainsString('If `VC-RUNBOOK-PANTHEON` fails', $runbook);
+    $this->assertStringContainsString('If `VC-PANTHEON-READONLY` shows the deployed config missing `per_ip_hourly_call_limit`', $runbook);
     $this->assertStringContainsString('[^CLAIM-154]', $runbook);
   }
 
@@ -106,6 +113,7 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     );
     $this->assertStringContainsString('### CLAIM-154', $evidenceIndex);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $evidenceIndex);
+    $this->assertStringContainsString('Pantheon read-only deployment check', $evidenceIndex);
   }
 
   /**
@@ -115,8 +123,8 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $artifact = self::readFile('docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt');
 
     $this->assertStringContainsString('# Phase 3 Exit #2 Runtime Evidence (P3-EXT-02)', $artifact);
-    $this->assertStringContainsString('`VC-RUNBOOK-LOCAL`', $artifact);
-    $this->assertStringContainsString('`VC-RUNBOOK-PANTHEON`', $artifact);
+    $this->assertStringContainsString('`VC-PURE`', $artifact);
+    $this->assertStringContainsString('`VC-PANTHEON-READONLY`', $artifact);
     $this->assertStringContainsString('p3-ext-02-status=closed', $artifact);
     $this->assertStringContainsString('p3-ext-02-claim-077=present', $artifact);
     $this->assertStringContainsString('p3-ext-02-claim-084=present', $artifact);
@@ -124,6 +132,10 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('owner-acceptance-product-role=accepted', $artifact);
     $this->assertStringContainsString('owner-acceptance-platform-role=accepted', $artifact);
     $this->assertStringContainsString('owner-acceptance-date=2026-03-06', $artifact);
+    $this->assertStringContainsString('metrics-cost-control=present', $artifact);
+    $this->assertStringContainsString('thresholds-cost-control=present', $artifact);
+    $this->assertStringContainsString('cost-proof-status=pass', $artifact);
+    $this->assertStringContainsString('vc-pantheon-readonly-status=blocked', $artifact);
     $this->assertStringContainsString('b04-status=open', $artifact);
   }
 
@@ -137,11 +149,13 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('Active mitigation (IMP-COST-01 / P3-OBJ-02, 2026-03-05)', $backlog);
     $this->assertStringContainsString('P3-EXT-02', $backlog);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $backlog);
+    $this->assertStringContainsString('deployment pending', $backlog);
 
     $this->assertStringContainsString('| R-PERF-01 |', $riskRegister);
     $this->assertStringContainsString('P3-EXT-02', $riskRegister);
     $this->assertStringContainsString('owner-acceptance-product-role', $riskRegister);
     $this->assertStringContainsString('owner-acceptance-platform-role', $riskRegister);
+    $this->assertStringContainsString('vc-pantheon-readonly-status', $riskRegister);
   }
 
   /**

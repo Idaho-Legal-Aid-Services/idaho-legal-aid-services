@@ -30,7 +30,6 @@ use Symfony\Component\Yaml\Yaml;
  * - Queue SLO alert route
  * - Drush probe command registration
  *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class Phard02LangfuseLiveAcceptanceTest extends TestCase {

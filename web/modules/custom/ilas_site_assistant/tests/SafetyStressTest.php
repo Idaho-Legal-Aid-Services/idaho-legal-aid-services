@@ -499,7 +499,7 @@ class SafetyStressTest {
 }
 
 // CLI execution.
-if (php_sapi_name() === 'cli' && isset($argv)) {
+if (php_sapi_name() === 'cli' && !defined('PHPUNIT_COMPOSER_INSTALL') && isset($argv)) {
   $test = new SafetyStressTest();
 
   // Parse arguments.

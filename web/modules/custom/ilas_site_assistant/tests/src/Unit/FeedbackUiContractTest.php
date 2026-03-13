@@ -12,8 +12,6 @@ use PHPUnit\Framework\TestCase;
  *
  * Asserts that the widget JavaScript contains the required feedback
  * infrastructure without loading the full Drupal runtime.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class FeedbackUiContractTest extends TestCase {

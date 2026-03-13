@@ -6,12 +6,13 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\Component\Serialization\Yaml;
 use Drupal\KernelTests\KernelTestBase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Tests the RAUD-21 lexical Search API index repair update hook.
  *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 final class RetrievalIndexUpdateHookKernelTest extends KernelTestBase {
 
   /**

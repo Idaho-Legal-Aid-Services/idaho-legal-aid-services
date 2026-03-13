@@ -12,13 +12,16 @@ use Drupal\ilas_site_assistant\Service\Disambiguator;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for IntentRouter service.
  *
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\IntentRouter
- * @group ilas_site_assistant
  */
+#[CoversClass(IntentRouter::class)]
+#[Group('ilas_site_assistant')]
 class IntentRouterServiceTest extends UnitTestCase {
 
   /**
@@ -109,10 +112,8 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests greeting detection.
-   *
-   * @covers ::route
-   * @dataProvider greetingProvider
    */
+  #[DataProvider('greetingProvider')]
   public function testGreetingDetection(string $message, bool $expectGreeting): void {
     $result = $this->intentRouter->route($message);
 
@@ -140,10 +141,8 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests apply intent detection.
-   *
-   * @covers ::route
-   * @dataProvider applyProvider
    */
+  #[DataProvider('applyProvider')]
   public function testApplyDetection(string $message, string $expectedType): void {
     $result = $this->intentRouter->route($message);
     $this->assertEquals($expectedType, $result['type']);
@@ -164,8 +163,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests eligibility intent detection.
-   *
-   * @covers ::route
    */
   public function testEligibilityDetection(): void {
     $messages = [
@@ -183,8 +180,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests hotline intent detection.
-   *
-   * @covers ::route
    */
   public function testHotlineDetection(): void {
     $messages = [
@@ -201,8 +196,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests offices intent detection.
-   *
-   * @covers ::route
    */
   public function testOfficesDetection(): void {
     $messages = [
@@ -220,8 +213,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests forms intent detection.
-   *
-   * @covers ::route
    */
   public function testFormsDetection(): void {
     $messages = [
@@ -239,10 +230,8 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests guides intent detection.
-   *
-   * @covers ::route
-   * @dataProvider guidesFinderProvider
    */
+  #[DataProvider('guidesFinderProvider')]
   public function testGuidesDetection(string $message): void {
     $result = $this->intentRouter->route($message);
     $this->assertEquals('guides_finder', $result['type'], "Failed for: $message");
@@ -279,8 +268,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests FAQ intent detection.
-   *
-   * @covers ::route
    */
   public function testFaqDetection(): void {
     $messages = [
@@ -297,10 +284,8 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests service area detection.
-   *
-   * @covers ::route
-   * @dataProvider serviceAreaProvider
    */
+  #[DataProvider('serviceAreaProvider')]
   public function testServiceAreaDetection(string $message, string $expectedType, ?string $expectedArea): void {
     $result = $this->intentRouter->route($message);
 
@@ -328,8 +313,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests donate intent detection.
-   *
-   * @covers ::route
    */
   public function testDonateDetection(): void {
     $messages = [
@@ -346,8 +329,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests feedback intent detection.
-   *
-   * @covers ::route
    */
   public function testFeedbackDetection(): void {
     $messages = [
@@ -364,8 +345,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests services overview intent detection.
-   *
-   * @covers ::route
    */
   public function testServicesDetection(): void {
     $messages = [
@@ -382,8 +361,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests unknown intent fallback.
-   *
-   * @covers ::route
    */
   public function testUnknownFallback(): void {
     $messages = [
@@ -401,8 +378,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests that direct router calls no longer emit pre-routing outcomes.
-   *
-   * @covers ::route
    */
   public function testDirectRouterCallsRemainPureIntentRouting(): void {
     $messages = [
@@ -426,8 +401,6 @@ class IntentRouterServiceTest extends UnitTestCase {
    * Tests priority of intent detection.
    *
    * Eligibility should take priority over apply when both match.
-   *
-   * @covers ::route
    */
   public function testIntentPriority(): void {
     // This message matches both eligibility and apply patterns.
@@ -439,8 +412,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests risk detector intent detection.
-   *
-   * @covers ::route
    */
   public function testRiskDetectorDetection(): void {
     $messages = [
@@ -459,10 +430,8 @@ class IntentRouterServiceTest extends UnitTestCase {
    * Tests consumer debt intent detection.
    *
    * Ensures consumer debt-related queries route to the consumer service area.
-   *
-   * @covers ::route
-   * @dataProvider consumerDebtProvider
    */
+  #[DataProvider('consumerDebtProvider')]
   public function testConsumerDebtDetection(string $message, string $expectedType, ?string $expectedArea): void {
     $result = $this->intentRouter->route($message);
     $this->assertEquals($expectedType, $result['type'], "Unexpected type for: $message");
@@ -504,10 +473,8 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Tests Spanish consumer debt intent detection.
-   *
-   * @covers ::route
-   * @dataProvider consumerDebtSpanishProvider
    */
+  #[DataProvider('consumerDebtSpanishProvider')]
   public function testConsumerDebtSpanishDetection(string $message, string $expectedArea): void {
     $result = $this->intentRouter->route($message);
     $this->assertEquals('service_area', $result['type'], "Expected service_area type for Spanish: $message");
@@ -537,10 +504,8 @@ class IntentRouterServiceTest extends UnitTestCase {
    *
    * This is a critical guardrail test - medical bills/debt are CONSUMER issues
    * (debt collection), not healthcare access issues.
-   *
-   * @covers ::route
-   * @dataProvider medicalDebtNotHealthProvider
    */
+  #[DataProvider('medicalDebtNotHealthProvider')]
   public function testMedicalDebtRoutesToConsumerNotHealth(string $message): void {
     $result = $this->intentRouter->route($message);
 
@@ -572,8 +537,6 @@ class IntentRouterServiceTest extends UnitTestCase {
    *
    * "Debt collector keeps calling me" should route to consumer,
    * NOT to the legal advice hotline (despite containing "calling").
-   *
-   * @covers ::route
    */
   public function testDebtCollectorCallingDoesNotRouteToHotline(): void {
     $result = $this->intentRouter->route('a debt collector keeps calling me at work');
@@ -586,8 +549,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Deposit narratives containing "give" must not route to donations.
-   *
-   * @covers ::route
    */
   public function testDepositNarrativeDoesNotRouteToDonate(): void {
     $result = $this->buildProductionRouter()->route('she didnt give me any kind of list of what she took money for');
@@ -596,8 +557,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Housing retaliation concerns must not route to feedback.
-   *
-   * @covers ::route
    */
   public function testRetaliationConcernDoesNotRouteToFeedback(): void {
     $result = $this->buildProductionRouter()->route('my landlord is not renewing my lease because i complained');
@@ -608,8 +567,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Employment complaint phrasing must not route to website feedback.
-   *
-   * @covers ::route
    */
   public function testEmploymentComplaintDoesNotRouteToFeedback(): void {
     $result = $this->buildProductionRouter()->route('where do i file a complaint about this firing');
@@ -626,8 +583,6 @@ class IntentRouterServiceTest extends UnitTestCase {
 
   /**
    * Hotline-hours queries must route to hotline, not offices.
-   *
-   * @covers ::route
    */
   public function testHotlineHoursRoutesToHotline(): void {
     $result = $this->buildProductionRouter()->route('what hours can i call');

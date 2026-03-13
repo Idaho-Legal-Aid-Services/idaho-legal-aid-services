@@ -55,6 +55,7 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
       'work is blocked whenever unresolved dependency count is non-zero',
       $roadmap
     );
+    $this->assertStringContainsString('per-IP budget enforcement and cache-effectiveness proof', $roadmap);
     $this->assertStringContainsString(
       'phase3-xdp06-cost-guardrails-dependency-gate.txt',
       $roadmap
@@ -75,6 +76,8 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
     $this->assertStringContainsString('any unresolved prerequisite reports `xdp-06-status=blocked`', $currentState);
     $this->assertStringContainsString('pass reports `xdp-06-status=closed`', $currentState);
     $this->assertStringContainsString('xdp-06-unresolved-dependency-count', $currentState);
+    $this->assertStringContainsString('dependency.per-ip-budget', $currentState);
+    $this->assertStringContainsString('dependency.cache-effectiveness', $currentState);
     $this->assertStringContainsString('phase3-xdp06-cost-guardrails-dependency-gate.txt', $currentState);
     $this->assertStringContainsString('[^CLAIM-165]', $currentState);
   }
@@ -89,11 +92,14 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
       '### Cross-phase dependency row #6 cost guardrails verification (`XDP-06`)',
       $runbook
     );
+    $this->assertStringContainsString('# VC-PURE', $runbook);
     $this->assertStringContainsString('# VC-UNIT', $runbook);
-    $this->assertStringContainsString('# VC-RUNBOOK-PANTHEON', $runbook);
+    $this->assertStringContainsString('# VC-PANTHEON-READONLY', $runbook);
     $this->assertStringContainsString('any missing prerequisite => `xdp-06-status=blocked`', $runbook);
     $this->assertStringContainsString('all prerequisites present => `xdp-06-status=closed`', $runbook);
     $this->assertStringContainsString('xdp-06-unresolved-dependency-count=0', $runbook);
+    $this->assertStringContainsString('dependency.per-ip-budget=pass', $runbook);
+    $this->assertStringContainsString('dependency.cache-effectiveness=pass', $runbook);
     $this->assertStringContainsString('phase3-xdp06-cost-guardrails-dependency-gate.txt', $runbook);
     $this->assertStringContainsString('[^CLAIM-165]', $runbook);
   }
@@ -126,6 +132,9 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
     $this->assertStringContainsString('xdp-06-consumed-in=Phase 3', $artifact);
     $this->assertStringContainsString('dependency.cost-control-config=pass', $artifact);
     $this->assertStringContainsString('dependency.cost-policy-fail-closed=pass', $artifact);
+    $this->assertStringContainsString('dependency.per-ip-budget=pass', $artifact);
+    $this->assertStringContainsString('dependency.cache-effectiveness=pass', $artifact);
+    $this->assertStringContainsString('dependency.metrics-cost-control=pass', $artifact);
     $this->assertStringContainsString('dependency.slo-monitoring=pass', $artifact);
     $this->assertStringContainsString('xdp-06-unresolved-dependencies=none', $artifact);
 
@@ -166,10 +175,14 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
 
     $this->assertStringContainsString('p3-obj-02-status=closed', $phaseThreeObjectiveTwoRuntime);
     $this->assertStringContainsString('guard-anchor-cost-control-policy=present', $phaseThreeObjectiveTwoRuntime);
+    $this->assertStringContainsString('cost-proof-status=pass', $phaseThreeObjectiveTwoRuntime);
+    $this->assertStringContainsString('cost-proof-per-ip-status=pass', $phaseThreeObjectiveTwoRuntime);
 
     $this->assertStringContainsString('p3-ext-02-status=closed', $phaseThreeExitTwoRuntime);
     $this->assertStringContainsString('owner-acceptance-product-role=accepted', $phaseThreeExitTwoRuntime);
     $this->assertStringContainsString('owner-acceptance-platform-role=accepted', $phaseThreeExitTwoRuntime);
+    $this->assertStringContainsString('metrics-cost-control=present', $phaseThreeExitTwoRuntime);
+    $this->assertStringContainsString('vc-pantheon-readonly-status=', $phaseThreeExitTwoRuntime);
 
     $this->assertStringContainsString('testRuntimeArtifactContainsObjectiveTwoProofMarkers', $phaseThreeObjectiveTwoGate);
     $this->assertStringContainsString('testRuntimeArtifactContainsPhaseThreeExitTwoProofMarkers', $phaseThreeExitTwoGate);

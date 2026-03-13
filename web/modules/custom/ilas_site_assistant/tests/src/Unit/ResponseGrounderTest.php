@@ -7,7 +7,9 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -20,10 +22,9 @@ use Psr\Log\LoggerInterface;
  * - Official phone/address validation
  * - Caveat logic
  * - Complete grounding flows
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ResponseGrounder
  */
+#[CoversClass(ResponseGrounder::class)]
+#[Group('ilas_site_assistant')]
 class ResponseGrounderTest extends TestCase {
 
   /**
@@ -64,9 +65,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that addCitations adds sources array from results with URLs.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAddCitationsGeneratesSourcesArray(): void {
     $results = [
       ['title' => 'Eviction Guide', 'url' => 'https://idaholegalaid.org/guides/eviction', 'type' => 'guide'],
@@ -85,9 +84,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that addCitations limits sources to 3.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAddCitationsMaxThreeSources(): void {
     $results = [];
     for ($i = 1; $i <= 5; $i++) {
@@ -102,9 +99,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that results without URLs are excluded from sources.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAddCitationsExcludesResultsWithoutUrls(): void {
     $results = [
       ['title' => 'Has URL', 'url' => '/faq#page'],
@@ -120,9 +115,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that unsafe or off-domain citation URLs are stripped.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   #[DataProvider('disallowedCitationUrlProvider')]
   public function testCitationUrlRejectsDisallowedValues(string $url): void {
     $results = [
@@ -138,9 +131,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that approved ILAS citation URLs are preserved.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   #[DataProvider('allowedCitationUrlProvider')]
   public function testCitationUrlAllowsApprovedValues(string $url): void {
     $results = [
@@ -156,9 +147,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests mixed citation batches keep only approved URLs and still cap at 3.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAddCitationsFiltersMixedUrlsAndCapsAtThree(): void {
     $results = [
       ['title' => 'Bad JS', 'url' => 'javascript:alert(1)'],
@@ -180,9 +169,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that citation text is generated.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAddCitationsGeneratesCitationText(): void {
     $results = [
       ['title' => 'Guide One', 'url' => '/guides/1'],
@@ -199,9 +186,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that long titles are truncated in citations.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testCitationTitleTruncation(): void {
     $long_title = str_repeat('A', 100);
     $results = [['title' => $long_title, 'url' => '/guides/long']];
@@ -237,9 +222,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that unofficial phone numbers are replaced with safe text.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testValidateInfoReplacesUnofficialPhones(): void {
     $response = [
       'message' => 'Call (555) 123-4567 for help.',
@@ -255,9 +238,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that official phone numbers are preserved.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   #[DataProvider('officialPhoneProvider')]
   public function testValidateInfoPreservesOfficialPhones(string $phone): void {
     $response = [
@@ -282,9 +263,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that legal-advice patterns set _requires_review = TRUE (F-13).
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   #[DataProvider('legalAdvicePatternProvider')]
   public function testValidateInfoSetsRequiresReviewForLegalAdvice(string $message): void {
     $response = [
@@ -313,9 +292,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that safe text does NOT trigger _requires_review.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testValidateInfoSafeTextNoReview(): void {
     $response = [
       'message' => 'Idaho Legal Aid provides free legal help to low-income Idahoans.',
@@ -333,9 +310,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that FAQ/resources/topic types get caveat.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   #[DataProvider('caveatTypeProvider')]
   public function testAddCaveatsForContentTypes(string $type): void {
     $response = [
@@ -361,9 +336,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that emergency-type responses do NOT get caveat.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testNoCaveatForEmergencyType(): void {
     $response = [
       'message' => 'Call 911 immediately.',
@@ -377,9 +350,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that escalation-type responses do NOT get caveat.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testNoCaveatForEscalationType(): void {
     $response = [
       'message' => 'Please call our hotline.',
@@ -393,9 +364,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests eligibility caveat added for eligibility type.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testEligibilityCaveatAdded(): void {
     $response = [
       'message' => 'You may be eligible for our services.',
@@ -414,9 +383,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests all official phone numbers are recognized.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAllOfficialPhonesRecognized(): void {
     // We test via validateInformation — official phones should NOT be flagged.
     $official_numbers = [
@@ -443,9 +410,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests toll-free number recognized as official.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testTollFreeRecognizedAsOfficial(): void {
     $response = [
       'message' => 'Call 1-866-345-0106 toll-free.',
@@ -464,9 +429,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests official address match.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testOfficialAddressNotFlagged(): void {
     $response = [
       'message' => 'Visit us at 310 N 5th Street, Boise, ID 83702.',
@@ -480,9 +443,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests non-official address flagged.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testNonOfficialAddressFlagged(): void {
     $response = [
       'message' => 'Visit us at 999 Fake Boulevard, Boise, ID 83701.',
@@ -501,9 +462,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests groundFaqResponse complete flow.
-   *
-   * @covers ::groundFaqResponse
-   */
+   *   */
   public function testGroundFaqResponseFlow(): void {
     $faq = [
       'question' => 'How do I apply?',
@@ -523,9 +482,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests groundFaqResponse strips disallowed legacy source URLs.
-   *
-   * @covers ::groundFaqResponse
-   */
+   *   */
   public function testGroundFaqResponseStripsDisallowedLegacyUrl(): void {
     $faq = [
       'question' => 'Unsafe source',
@@ -545,9 +502,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests groundResourceResponse complete flow.
-   *
-   * @covers ::groundResourceResponse
-   */
+   *   */
   public function testGroundResourceResponseFlow(): void {
     $resources = [
       ['title' => 'Eviction Guide', 'url' => 'https://idaholegalaid.org/guides/eviction'],
@@ -566,9 +521,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests groundResourceResponse with custom intro message.
-   *
-   * @covers ::groundResourceResponse
-   */
+   *   */
   public function testGroundResourceResponseCustomIntro(): void {
     $resources = [
       ['title' => 'Form A', 'url' => 'https://idaholegalaid.org/forms/a'],
@@ -585,9 +538,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests validateGrounding flags phone not in corpus.
-   *
-   * @covers ::validateGrounding
-   */
+   *   */
   public function testValidateGroundingFlagsPhoneNotInCorpus(): void {
     $content = [
       ['answer' => 'Call us for help with housing.'],
@@ -605,9 +556,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests validateGrounding flags dollar amount not in corpus.
-   *
-   * @covers ::validateGrounding
-   */
+   *   */
   public function testValidateGroundingFlagsDollarNotInCorpus(): void {
     $content = [
       ['answer' => 'Filing fees vary by county.'],
@@ -624,9 +573,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests validateGrounding flags date not in corpus.
-   *
-   * @covers ::validateGrounding
-   */
+   *   */
   public function testValidateGroundingFlagsDateNotInCorpus(): void {
     $content = [
       ['answer' => 'Deadlines depend on your case.'],
@@ -643,9 +590,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests validateGrounding passes when info is in corpus.
-   *
-   * @covers ::validateGrounding
-   */
+   *   */
   public function testValidateGroundingPassesWhenInCorpus(): void {
     $content = [
       ['answer' => 'Call (208) 345-0106 for help. The fee is $50.'],
@@ -666,9 +611,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests getOfficialContacts returns all contacts.
-   *
-   * @covers ::getOfficialContacts
-   */
+   *   */
   public function testGetOfficialContactsAll(): void {
     $contacts = $this->grounder->getOfficialContacts('all');
 
@@ -680,9 +623,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests getOfficialContacts by type.
-   *
-   * @covers ::getOfficialContacts
-   */
+   *   */
   public function testGetOfficialContactsByType(): void {
     $hotline = $this->grounder->getOfficialContacts('hotline');
     $this->assertArrayHasKey('number', $hotline);
@@ -691,9 +632,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests grounding metadata added.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testGroundingMetadata(): void {
     $response = ['message' => 'Safe text.', 'type' => 'faq'];
     $result = $this->grounder->groundResponse($response);
@@ -708,9 +647,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests answerable response with off-domain-only URLs gets weak grounding flag.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAnswerableResponseWithoutCitationsGetsWeakGroundingFlag(): void {
     $results = [
       ['title' => 'Off Domain', 'url' => 'https://attacker.example.com/page'],
@@ -727,9 +664,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests navigation response without citations is NOT flagged.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testNavigationResponseWithoutCitationsNotFlagged(): void {
     $response = ['message' => 'Navigate here', 'type' => 'navigation'];
     $result = $this->grounder->groundResponse($response, []);
@@ -739,9 +674,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests answerable response with valid citations is NOT flagged.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAnswerableResponseWithValidCitationsNotFlagged(): void {
     $results = [
       ['title' => 'FAQ', 'url' => 'https://idaholegalaid.org/faq/housing'],
@@ -760,9 +693,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that freshness status is propagated to citation sources.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testCitationsFreshnessStatusPropagated(): void {
     $results = [
       [
@@ -787,9 +718,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that all-stale citations set _all_citations_stale flag.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testAllStaleCitationsFlag(): void {
     $results = [
       [
@@ -813,9 +742,7 @@ class ResponseGrounderTest extends TestCase {
 
   /**
    * Tests that mixed freshness does NOT set _all_citations_stale flag.
-   *
-   * @covers ::groundResponse
-   */
+   *   */
   public function testMixedFreshnessNoAllStaleFlag(): void {
     $results = [
       [

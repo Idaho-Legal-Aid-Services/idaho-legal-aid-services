@@ -4,6 +4,8 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\SafetyAlertService;
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Kernel tests for SafetyAlertService.
@@ -11,15 +13,13 @@ use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
  * Tests threshold detection, cooldown logic, and email dispatch
  * against a real database with mocked mail/state services.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SafetyAlertService
  */
+#[CoversClass(SafetyAlertService::class)]
+#[Group('ilas_site_assistant')]
 class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds does nothing when alerting is disabled.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsSkipsWhenDisabled(): void {
     $mailManager = $this->createMock('Drupal\Core\Mail\MailManagerInterface');
@@ -34,8 +34,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds does nothing without recipients.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsSkipsWithoutRecipients(): void {
     $mailManager = $this->createMock('Drupal\Core\Mail\MailManagerInterface');
@@ -51,8 +49,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds sends email when threshold is exceeded.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsSendsWhenExceeded(): void {
     $today = date('Y-m-d');
@@ -85,8 +81,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds does not send when below threshold.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsDoesNotSendBelowThreshold(): void {
     $today = date('Y-m-d');
@@ -110,8 +104,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds respects cooldown period.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsRespectsCooldown(): void {
     $now = 1700000000;
@@ -142,8 +134,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that checkThresholds sends to multiple recipients.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsSendsToMultipleRecipients(): void {
     $today = date('Y-m-d');
@@ -166,8 +156,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that invalid email addresses are skipped.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsSkipsInvalidEmails(): void {
     $today = date('Y-m-d');
@@ -190,8 +178,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that state is updated after sending an alert.
-   *
-   * @covers ::checkThresholds
    */
   public function testCheckThresholdsUpdatesState(): void {
     $now = 1700000000;
@@ -221,8 +207,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that only safety_violation event types are counted.
-   *
-   * @covers ::checkThresholds
    */
   public function testCountsOnlySafetyViolations(): void {
     $today = date('Y-m-d');
@@ -252,8 +236,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
    *
    * The tracker provides sub-day (timestamp-level) counting, overriding
    * the date-bucketed stats table counting.
-   *
-   * @covers ::checkThresholds
    */
   public function testTrackerBasedCountingUsed(): void {
     $now = 1700000000;
@@ -286,8 +268,6 @@ class SafetyAlertKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that tracker violations exceeding threshold trigger alert.
-   *
-   * @covers ::checkThresholds
    */
   public function testTrackerViolationsExceedThreshold(): void {
     $now = 1700000000;

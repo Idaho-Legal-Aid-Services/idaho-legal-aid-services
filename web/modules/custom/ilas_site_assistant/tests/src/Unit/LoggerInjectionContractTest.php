@@ -12,23 +12,19 @@ use Drupal\Core\Database\Schema;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Verifies analytics and conversation loggers use injected logger channels.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\AnalyticsLogger
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ConversationLogger
  */
+#[CoversClass(AnalyticsLogger::class)]
+#[CoversClass(ConversationLogger::class)]
 #[Group('ilas_site_assistant')]
 class LoggerInjectionContractTest extends TestCase {
 
-  /**
-   * @covers \Drupal\ilas_site_assistant\Service\AnalyticsLogger::log
-   */
   public function testAnalyticsLoggerLogsStatsWriteFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('DB connection lost');
     $update = new class($exception) {
@@ -74,9 +70,6 @@ class LoggerInjectionContractTest extends TestCase {
     $service->log('chat_open', '');
   }
 
-  /**
-   * @covers \Drupal\ilas_site_assistant\Service\AnalyticsLogger::logNoAnswer
-   */
   public function testAnalyticsLoggerLogsNoAnswerFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('No-answer write failed');
     $failedNoAnswerUpdate = new class($exception) {
@@ -145,9 +138,6 @@ class LoggerInjectionContractTest extends TestCase {
     $service->logNoAnswer('eviction help near me');
   }
 
-  /**
-   * @covers \Drupal\ilas_site_assistant\Service\AnalyticsLogger::cleanupOldData
-   */
   public function testAnalyticsLoggerLogsCleanupFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('Cleanup read failed');
     $database = $this->createMock(Connection::class);
@@ -174,9 +164,6 @@ class LoggerInjectionContractTest extends TestCase {
     $service->cleanupOldData();
   }
 
-  /**
-   * @covers \Drupal\ilas_site_assistant\Service\ConversationLogger::logExchange
-   */
   public function testConversationLoggerLogsExchangeFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('DB write failed');
     $schema = $this->createStub(Schema::class);
@@ -213,9 +200,6 @@ class LoggerInjectionContractTest extends TestCase {
     );
   }
 
-  /**
-   * @covers \Drupal\ilas_site_assistant\Service\ConversationLogger::cleanup
-   */
   public function testConversationLoggerLogsCleanupFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('Cleanup query failed');
     $schema = $this->createStub(Schema::class);

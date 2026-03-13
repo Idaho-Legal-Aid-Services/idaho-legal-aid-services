@@ -98,27 +98,27 @@ welcome_message: 'Hello! I can help you find information on our website. What ar
 escalation_message: 'For personalized legal assistance, please contact our Legal Advice Line or apply for help.'
 policy_keywords:
   legal_advice:
-    - 'should i'
-    - 'what are my chances'
-    - 'is it legal'
-    - 'can i sue'
-    - statute
-    - 'law says'
-    - 'my rights'
-    - 'will i win'
-    - 'case outcome'
-    - 'legal advice'
-    - 'advise me'
-    - 'what should i do'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
   pii_indicators:
-    - '@'
-    - 'my name is'
-    - 'my address'
-    - 'social security'
-    - ssn
-    - 'phone number'
-    - 'date of birth'
-    - 'case number'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
+    - '[redacted]'
 rate_limit_per_minute: 15
 rate_limit_per_hour: 120
 conversation_logging:
@@ -257,4 +257,3 @@ $ terminus remote:drush idaho-legal-aid-services.test -- watchdog:show --type=cr
                                            update_cron() took 3786.58ms.        
  ------- -------------- ------ ---------- ------------------------------------- 
  [notice] Command: idaho-legal-aid-services.test -- drush watchdog:show [Exit: 0] (Attempt 1/1)
-

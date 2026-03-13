@@ -4,6 +4,8 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -12,9 +14,9 @@ use Psr\Log\LoggerInterface;
  * Guards database column allowlists, retention cap enforcement, and
  * runtime privacy invariants with real database operations.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ConversationLogger
  */
+#[CoversClass(ConversationLogger::class)]
+#[Group('ilas_site_assistant')]
 class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
 
   /**
@@ -137,8 +139,6 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests cleanup respects MAX_RETENTION_HOURS cap even with high config value.
-   *
-   * @covers ::cleanup
    */
   public function testCleanupRespectsMaxRetentionCap(): void {
     $now = 1700000000;
@@ -189,8 +189,6 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests isUserNoticeRequired returns true when logging is enabled.
-   *
-   * @covers ::isUserNoticeRequired
    */
   public function testIsUserNoticeRequiredWhenLoggingEnabled(): void {
     $logger = $this->createConversationLogger([
@@ -203,8 +201,6 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests isUserNoticeRequired returns false when logging is disabled.
-   *
-   * @covers ::isUserNoticeRequired
    */
   public function testIsUserNoticeRequiredWhenLoggingDisabled(): void {
     $logger = $this->createConversationLogger([
@@ -220,8 +216,6 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
    *
    * Even if config has show_user_notice=false, resolveConfig() forces it true
    * when logging is enabled.
-   *
-   * @covers ::isUserNoticeRequired
    */
   public function testPrivacyInvariantForcesNoticeWhenLoggingEnabled(): void {
     $logger = $this->createConversationLogger([

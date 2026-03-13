@@ -5,6 +5,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\ilas_site_assistant\Service\InputNormalizer;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -18,9 +19,8 @@ use PHPUnit\Framework\TestCase;
  * - F-09: Hyphenation bypass
  * - F-10: Informational dampener
  * - F-11: Bilingual injection (mixed EN/ES, obfuscated Spanish)
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class AbuseResilienceTest extends TestCase {
 
   /**

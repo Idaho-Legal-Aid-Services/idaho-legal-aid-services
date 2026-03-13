@@ -2,7 +2,7 @@ name: 'ILAS Announcement Overlay'
 description: 'Provides a reusable announcement overlay popup feature for the homepage.'
 type: module
 core_version_requirement: ^10.1 || ^11
-package: ILAS Custom
+package: 'Idaho Legal Aid - Site Features'
 
 dependencies:
   - drupal:block

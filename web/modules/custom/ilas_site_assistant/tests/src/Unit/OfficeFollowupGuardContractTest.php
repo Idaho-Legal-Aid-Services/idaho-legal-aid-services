@@ -53,7 +53,11 @@ final class OfficeFollowupGuardContractTest extends TestCase {
       }
 
     });
-    $container->set('string_translation', $this->createStub(TranslationInterface::class));
+    $translationStub = $this->createStub(TranslationInterface::class);
+    $translationStub->method('translateString')->willReturnCallback(
+      static fn($markup) => $markup->getUntranslatedString()
+    );
+    $container->set('string_translation', $translationStub);
     $container->set('config.factory', $configFactory);
     \Drupal::setContainer($container);
   }

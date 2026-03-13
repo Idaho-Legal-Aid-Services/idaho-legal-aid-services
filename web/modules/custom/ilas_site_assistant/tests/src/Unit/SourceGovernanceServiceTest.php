@@ -9,6 +9,7 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -16,10 +17,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for SourceGovernanceService.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SourceGovernanceService
  */
+#[CoversClass(SourceGovernanceService::class)]
 #[Group('ilas_site_assistant')]
 final class SourceGovernanceServiceTest extends TestCase {
 
@@ -126,9 +125,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     return new SourceGovernanceService($configFactory, $state, $logger);
   }
 
-  /**
-   * @covers ::sanitizeCitationUrl
-   */
   #[DataProvider('allowedCitationUrlProvider')]
   public function testSanitizeCitationUrlAllowsApprovedUrls(string $url): void {
     $service = $this->buildService();
@@ -136,9 +132,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertSame($url, $service->sanitizeCitationUrl($url));
   }
 
-  /**
-   * @covers ::sanitizeCitationUrl
-   */
   #[DataProvider('disallowedCitationUrlProvider')]
   public function testSanitizeCitationUrlRejectsDisallowedUrls(string $url): void {
     $service = $this->buildService();
@@ -167,9 +160,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     ];
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultClassifiesFreshStaleAndUnknown(): void {
     $service = $this->buildService();
     $now = time();
@@ -202,9 +192,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertContains('unknown_freshness', $unknown['governance_flags']);
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultFlagsMissingSourceUrl(): void {
     $service = $this->buildService();
 
@@ -217,9 +204,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertContains('missing_source_url', $result['governance_flags']);
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultFlagsInvalidSourceUrl(): void {
     $service = $this->buildService();
 
@@ -235,10 +219,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertNotContains('missing_source_url', $result['governance_flags']);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testObservationSnapshotAggregatesBySourceClass(): void {
     $service = $this->buildService();
     $now = time();
@@ -280,10 +260,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertArrayHasKey('min_observations_met', $snapshot);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testDegradedThresholdAndAlertCooldownBehavior(): void {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())
@@ -328,10 +304,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertArrayHasKey('next_alert_eligible_at', $secondSnapshot);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testUnknownMissingBelowMinimumObservationsDoesNotDegrade(): void {
     $service = $this->buildService();
     $now = time();
@@ -364,10 +336,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertSame('healthy', $snapshot['status']);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testUnknownRatioDegradesWhenMinimumObservationsMet(): void {
     $service = $this->buildService();
     $now = time();
@@ -395,10 +363,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertSame('degraded', $snapshot['status']);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testMissingSourceUrlRatioDegradesWhenMinimumObservationsMet(): void {
     $service = $this->buildService();
     $now = time();
@@ -426,10 +390,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertSame('degraded', $snapshot['status']);
   }
 
-  /**
-   * @covers ::recordObservationBatch
-   * @covers ::getSnapshot
-   */
   public function testStaleRatioStillDegradesIndependentOfMinimumSampleGate(): void {
     $service = $this->buildService();
     $batch = [
@@ -459,9 +419,6 @@ final class SourceGovernanceServiceTest extends TestCase {
   // Retrieval contract tests (PHARD-06)
   // =========================================================================
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultRejectsUnapprovedSourceClass(): void {
     $service = $this->buildService();
 
@@ -475,9 +432,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     ], 'external_scraper');
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultAcceptsAllApprovedSourceClasses(): void {
     $service = $this->buildService();
 
@@ -492,9 +446,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     }
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultIncludesContractVersion(): void {
     $service = $this->buildService();
 
@@ -508,9 +459,6 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertSame(RetrievalContract::POLICY_VERSION, $result['provenance']['retrieval_contract_version']);
   }
 
-  /**
-   * @covers ::annotateResult
-   */
   public function testAnnotateResultIncludesEnforcementMode(): void {
     $service = $this->buildService();
 

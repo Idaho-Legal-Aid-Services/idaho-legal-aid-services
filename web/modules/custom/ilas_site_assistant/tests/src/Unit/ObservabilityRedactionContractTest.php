@@ -16,7 +16,6 @@ use ReflectionClass;
  * End-to-end validation that the before_send callback and PiiRedactor
  * cooperate to replace all 9 PII types with [REDACTED-*] tokens.
  *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class ObservabilityRedactionContractTest extends TestCase {

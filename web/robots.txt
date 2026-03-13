@@ -49,6 +49,8 @@ Disallow: /themes/README.txt
 # Entity Print / PDF routes (not used publicly, block bot crawling)
 Disallow: /print/
 Disallow: /entityprint/
+# Assistant API endpoints are interactive JSON/session surfaces, not content.
+Disallow: /assistant/api/
 # Paths (clean URLs)
 Disallow: /admin/
 Disallow: /comment/reply/
@@ -75,6 +77,7 @@ Disallow: /media/*/delete
 Disallow: /node/*/edit
 Disallow: /node/*/delete
 # Paths (no clean URLs)
+Disallow: /index.php/assistant/api/
 Disallow: /index.php/admin/
 Disallow: /index.php/comment/reply/
 Disallow: /index.php/filter/tips

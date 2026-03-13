@@ -2,6 +2,7 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -14,9 +15,8 @@ use PHPUnit\Framework\TestCase;
  *
  * This test verifies that the safe conversion pattern used in
  * scripts/drush/route-names.php works correctly for all iterable types.
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class SafeToArrayTest extends TestCase {
 
   /**

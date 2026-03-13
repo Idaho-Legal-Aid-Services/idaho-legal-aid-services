@@ -4,6 +4,9 @@ namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 
 use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for OutOfScopeClassifier service.
@@ -12,9 +15,9 @@ use Drupal\Tests\UnitTestCase;
  * non-Idaho jurisdiction, emergency services, and other out-of-scope
  * categories.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\OutOfScopeClassifier
  */
+#[CoversClass(OutOfScopeClassifier::class)]
+#[Group('ilas_site_assistant')]
 class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
@@ -45,9 +48,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests criminal arrest detection.
-   *
-   * @dataProvider criminalArrestProvider
-   */
+     */
+  #[DataProvider('criminalArrestProvider')]
   public function testCriminalArrestDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -72,9 +74,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests criminal charges detection.
-   *
-   * @dataProvider criminalChargesProvider
-   */
+     */
+  #[DataProvider('criminalChargesProvider')]
   public function testCriminalChargesDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -97,9 +98,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests DUI/DWI detection.
-   *
-   * @dataProvider duiDwiProvider
-   */
+     */
+  #[DataProvider('duiDwiProvider')]
   public function testDuiDwiDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -122,9 +122,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests incarceration detection.
-   *
-   * @dataProvider incarcerationProvider
-   */
+     */
+  #[DataProvider('incarcerationProvider')]
   public function testIncarcerationDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -147,9 +146,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests probation/parole detection.
-   *
-   * @dataProvider probationParoleProvider
-   */
+     */
+  #[DataProvider('probationParoleProvider')]
   public function testProbationParoleDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -172,9 +170,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests criminal defense representation detection.
-   *
-   * @dataProvider criminalRepresentationProvider
-   */
+     */
+  #[DataProvider('criminalRepresentationProvider')]
   public function testCriminalRepresentationDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -196,9 +193,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests expungement detection.
-   *
-   * @dataProvider expungementProvider
-   */
+     */
+  #[DataProvider('expungementProvider')]
   public function testExpungementDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -224,9 +220,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests visa-related detection.
-   *
-   * @dataProvider visaProvider
-   */
+     */
+  #[DataProvider('visaProvider')]
   public function testVisaDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -250,9 +245,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests green card detection.
-   *
-   * @dataProvider greenCardProvider
-   */
+     */
+  #[DataProvider('greenCardProvider')]
   public function testGreenCardDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -274,9 +268,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests citizenship/naturalization detection.
-   *
-   * @dataProvider citizenshipProvider
-   */
+     */
+  #[DataProvider('citizenshipProvider')]
   public function testCitizenshipDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -298,9 +291,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests deportation detection.
-   *
-   * @dataProvider deportationProvider
-   */
+     */
+  #[DataProvider('deportationProvider')]
   public function testDeportationDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -322,9 +314,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests asylum/refugee detection.
-   *
-   * @dataProvider asylumProvider
-   */
+     */
+  #[DataProvider('asylumProvider')]
   public function testAsylumDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -344,9 +335,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests undocumented status detection.
-   *
-   * @dataProvider undocumentedProvider
-   */
+     */
+  #[DataProvider('undocumentedProvider')]
   public function testUndocumentedDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -368,9 +358,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests general immigration detection.
-   *
-   * @dataProvider generalImmigrationProvider
-   */
+     */
+  #[DataProvider('generalImmigrationProvider')]
   public function testGeneralImmigrationDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -395,9 +384,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests non-Idaho location detection.
-   *
-   * @dataProvider nonIdahoProvider
-   */
+     */
+  #[DataProvider('nonIdahoProvider')]
   public function testNonIdahoDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -428,9 +416,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests emergency services detection.
-   *
-   * @dataProvider emergencyServicesProvider
-   */
+     */
+  #[DataProvider('emergencyServicesProvider')]
   public function testEmergencyServicesDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -459,9 +446,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests business/commercial detection.
-   *
-   * @dataProvider businessCommercialProvider
-   */
+     */
+  #[DataProvider('businessCommercialProvider')]
   public function testBusinessCommercialDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -490,9 +476,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests federal matters detection.
-   *
-   * @dataProvider federalMattersProvider
-   */
+     */
+  #[DataProvider('federalMattersProvider')]
   public function testFederalMattersDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -519,9 +504,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests high-value civil detection.
-   *
-   * @dataProvider highValueCivilProvider
-   */
+     */
+  #[DataProvider('highValueCivilProvider')]
   public function testHighValueCivilDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -549,9 +533,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests that in-scope queries are not flagged.
-   *
-   * @dataProvider inScopeProvider
-   */
+     */
+  #[DataProvider('inScopeProvider')]
   public function testInScopeQueries(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -585,9 +568,8 @@ class OutOfScopeClassifierTest extends UnitTestCase {
 
   /**
    * Tests Spanish language out-of-scope detection.
-   *
-   * @dataProvider spanishOosProvider
-   */
+     */
+  #[DataProvider('spanishOosProvider')]
   public function testSpanishOosDetection(string $prompt, string $expected_category): void {
     $result = $this->classifier->classify($prompt);
 

@@ -12,7 +12,8 @@ content: |
   # Ignored: http://example.com/site/robots.txt
   #
   # For more information about the robots.txt standard, see:
-  # http://www.robotstxt.org/robots
+  # http://www.robotstxt.org/robotstxt.html
+
   User-agent: *
   # CSS, JS, Images
   Allow: /core/*.css$
@@ -49,12 +50,20 @@ content: |
   # Entity Print / PDF routes (not used publicly, block bot crawling)
   Disallow: /print/
   Disallow: /entityprint/
+  # Assistant API endpoints are interactive JSON/session surfaces, not content.
+  Disallow: /assistant/api/
   # Paths (clean URLs)
   Disallow: /admin/
   Disallow: /comment/reply/
   Disallow: /filter/tips
   Disallow: /node/add/
+  # SECURITY: Block Facet Spam & Search Attacks
+  Disallow: /search
   Disallow: /search/
+  Disallow: /*/search
+  Disallow: /*/search*
+  Disallow: /search?*f[*
+  Disallow: /search?*f%5B*
   Disallow: /site-search
   Disallow: /site-search/
   Disallow: /user/register
@@ -63,10 +72,13 @@ content: |
   Disallow: /user/logout
   Disallow: /media/oembed
   Disallow: /*/media/oembed
-  # Webforms (prevent indexing of form pages)
-  Disallow: /form/
-  Disallow: /webform/
+  # Block bots from probing entity admin routes
+  Disallow: /media/*/edit
+  Disallow: /media/*/delete
+  Disallow: /node/*/edit
+  Disallow: /node/*/delete
   # Paths (no clean URLs)
+  Disallow: /index.php/assistant/api/
   Disallow: /index.php/admin/
   Disallow: /index.php/comment/reply/
   Disallow: /index.php/filter/tips
@@ -78,5 +90,6 @@ content: |
   Disallow: /index.php/user/logout
   Disallow: /index.php/media/oembed
   Disallow: /index.php/*/media/oembed
+
   # XML sitemap
   Sitemap: https://idaholegalaid.org/sitemap.xml

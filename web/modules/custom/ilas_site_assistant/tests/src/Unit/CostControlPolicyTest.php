@@ -224,9 +224,15 @@ class CostControlPolicyTest extends TestCase {
       'daily_limit',
       'monthly_calls',
       'monthly_limit',
+      'cache_hits',
+      'cache_misses',
+      'cache_requests',
       'cache_hit_rate',
+      'cache_hit_rate_target',
       'kill_switch_active',
       'sample_rate',
+      'per_ip_hourly_call_limit',
+      'per_ip_window_seconds',
     ];
     foreach ($requiredKeys as $key) {
       $this->assertArrayHasKey($key, $summary, "Summary missing key: $key");
@@ -405,14 +411,67 @@ class CostControlPolicyTest extends TestCase {
   }
 
   /**
+   * Tests per-IP budget blocks after the configured identity limit is reached.
+   */
+  public function testPerIpBudgetBlocksWhenIdentityLimitReached(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.per_ip_window_seconds' => 3600,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $identity = '198.51.100.10';
+    $this->assertSame(['allowed' => TRUE, 'reason' => 'allowed'], $policy->beginRequest($identity));
+
+    $result = $policy->beginRequest($identity);
+    $this->assertFalse($result['allowed']);
+    $this->assertSame('per_ip_budget_exceeded', $result['reason']);
+
+    $stored = $this->storedState[CostControlPolicy::STATE_KEY_PER_IP] ?? [];
+    $hashedIdentity = CostControlPolicy::hashBudgetIdentity($identity);
+    $this->assertArrayHasKey($hashedIdentity, $stored);
+    $this->assertArrayNotHasKey($identity, $stored, 'Raw identity must not be persisted.');
+  }
+
+  /**
+   * Tests per-IP budgets isolate separate identities.
+   */
+  public function testPerIpBudgetIsScopedPerIdentity(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $this->assertTrue($policy->beginRequest('198.51.100.10')['allowed']);
+    $this->assertTrue($policy->beginRequest('198.51.100.11')['allowed']);
+  }
+
+  /**
+   * Tests zero per-IP limit disables granular identity enforcement.
+   */
+  public function testPerIpBudgetCanBeDisabled(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'cost_control.per_ip_hourly_call_limit' => 0,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $this->assertTrue($policy->beginRequest('198.51.100.10')['allowed']);
+    $this->assertTrue($policy->beginRequest('198.51.100.10')['allowed']);
+    $this->assertArrayNotHasKey(CostControlPolicy::STATE_KEY_PER_IP, $this->storedState);
+  }
+
+  /**
    * Tests reset clears all state.
    */
   public function testResetClearsAllState(): void {
-    $policy = $this->buildPolicy();
+    $policy = $this->buildPolicy(configOverrides: [
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
 
     $policy->recordCall();
     $policy->recordCall();
     $policy->recordCacheHit();
+    $policy->beginRequest('198.51.100.10');
     $policy->activateKillSwitch();
 
     $policy->reset();
@@ -422,6 +481,8 @@ class CostControlPolicyTest extends TestCase {
     $this->assertEquals(0, $summary['monthly_calls']);
     $this->assertNull($summary['cache_hit_rate']);
     $this->assertFalse($summary['kill_switch_active']);
+    $this->assertArrayHasKey(CostControlPolicy::STATE_KEY_PER_IP, $this->storedState);
+    $this->assertNull($this->storedState[CostControlPolicy::STATE_KEY_PER_IP]);
   }
 
   // ---------------------------------------------------------------
@@ -450,6 +511,8 @@ class CostControlPolicyTest extends TestCase {
     $configValues = [
       'cost_control.daily_call_limit' => 5000,
       'cost_control.monthly_call_limit' => 100000,
+      'cost_control.per_ip_hourly_call_limit' => 10,
+      'cost_control.per_ip_window_seconds' => 3600,
       'cost_control.sample_rate' => 1.0,
       'cost_control.cache_hit_rate_target' => 0.30,
       'cost_control.cache_stats_window_seconds' => 86400,

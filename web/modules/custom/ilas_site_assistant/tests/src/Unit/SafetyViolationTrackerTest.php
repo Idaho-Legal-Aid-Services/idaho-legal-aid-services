@@ -3,15 +3,14 @@
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for SafetyViolationTracker ring-buffer service.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SafetyViolationTracker
  */
+#[CoversClass(SafetyViolationTracker::class)]
 #[Group('ilas_site_assistant')]
 class SafetyViolationTrackerTest extends TestCase {
 
@@ -43,9 +42,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests basic record and countSince.
-   *
-   * @covers ::record
-   * @covers ::countSince
    */
   public function testRecordAndCountSince(): void {
     [$tracker] = $this->createTracker();
@@ -74,8 +70,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests that countSince returns 0 for empty tracker.
-   *
-   * @covers ::countSince
    */
   public function testCountSinceEmpty(): void {
     [$tracker] = $this->createTracker();
@@ -84,8 +78,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests prune removes old entries.
-   *
-   * @covers ::prune
    */
   public function testPrune(): void {
     [$tracker] = $this->createTracker();
@@ -106,8 +98,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests ring-buffer trim at MAX_ENTRIES.
-   *
-   * @covers ::record
    */
   public function testRingBufferTrim(): void {
     [$tracker] = $this->createTracker();
@@ -128,8 +118,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests reset clears all data.
-   *
-   * @covers ::reset
    */
   public function testReset(): void {
     [$tracker] = $this->createTracker();
@@ -144,8 +132,6 @@ class SafetyViolationTrackerTest extends TestCase {
 
   /**
    * Tests that countSince uses >= comparison (inclusive).
-   *
-   * @covers ::countSince
    */
   public function testCountSinceInclusive(): void {
     [$tracker] = $this->createTracker();

@@ -12,8 +12,6 @@ use PHPUnit\Framework\TestCase;
  *
  * Validates probe message safety (no PII patterns), guard behavior when
  * client_key is empty, and message format correctness (PHARD-01).
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class SentryProbeCommandTest extends TestCase {

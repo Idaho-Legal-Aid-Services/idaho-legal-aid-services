@@ -1046,8 +1046,8 @@ class AssistantApiController extends ControllerBase {
       $response_data = [
         'type' => 'escalation',
         'escalation_type' => $policy_result['type'],
-        'escalation_level' => $policy_result['escalation_level'],
-        'message' => $policy_result['response'],
+        'escalation_level' => $policy_result['escalation_level'] ?? 'standard',
+        'message' => $policy_result['response'] ?? '',
         'links' => $policy_result['links'] ?? [],
         'actions' => $this->getEscalationActions(),
         'reason_code' => 'policy_' . $policy_result['type'],
@@ -1445,7 +1445,7 @@ class AssistantApiController extends ControllerBase {
         'temperature' => $config->get('llm.temperature') ?? 0.3,
         'max_tokens' => $config->get('llm.max_tokens') ?? 150,
       ], $this->buildLangfuseInputPayload($user_message));
-      $llm_intent = $this->llmEnhancer->classifyIntent($user_message, $intent['type']);
+      $llm_intent = $this->llmEnhancer->classifyIntent($user_message, $intent['type'], $ip);
       $this->langfuseTracer?->endGeneration($llm_intent, $this->llmEnhancer->getLastUsage() ?? []);
       if ($llm_intent !== 'unknown' && $llm_intent !== $intent['type']) {
         $intent = ['type' => $llm_intent, 'source' => 'llm', 'extraction' => $intent['extraction'] ?? []];
@@ -1516,25 +1516,6 @@ class AssistantApiController extends ControllerBase {
       }
     }
 
-    // Enhance response with LLM if enabled.
-    $original_response = $response;
-    $llm_model = $config->get('llm.model') ?? 'gemini-1.5-flash';
-    $this->langfuseTracer?->startGeneration('llm.enhance', $llm_model, [
-      'temperature' => $config->get('llm.temperature') ?? 0.3,
-      'max_tokens' => $config->get('llm.max_tokens') ?? 150,
-    ], $this->buildLangfuseInputPayload($user_message));
-    $response = $this->llmEnhancer->enhanceResponse($response, $user_message);
-    $llm_was_used = ($response['llm_enhanced'] ?? FALSE);
-    $this->langfuseTracer?->endGeneration(
-      $llm_was_used ? $this->buildLangfuseOutputPayload((string) ($response['message'] ?? '')) : NULL,
-      $llm_was_used ? ($this->llmEnhancer->getLastUsage() ?? []) : []
-    );
-
-    if ($debug_mode && $llm_was_used) {
-      $debug_meta['llm_used'] = TRUE;
-      $debug_meta['processing_stages'][] = 'llm_enhancement';
-    }
-
     if ($debug_mode) {
       $rateLimiter = $this->llmEnhancer->getRateLimiter();
       if ($rateLimiter && $rateLimiter->wasRateLimited()) {
@@ -1544,8 +1525,8 @@ class AssistantApiController extends ControllerBase {
       }
     }
 
-    // Post-generation safety enforcement: block legal advice in LLM output,
-    // enforce _requires_review flag, and strip internal flags.
+    // Final response sanitation: enforce grounded-message replacement,
+    // apply freshness caveats, and remove legacy LLM-only payload fields.
     $this->langfuseTracer?->startSpan('safety.post_generation');
     $post_generation_safety = $this->enforcePostGenerationSafety($response, $request_id);
     $response = $post_generation_safety['response'];
@@ -3316,21 +3297,15 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
-   * Enforces safety on post-generation (LLM-enhanced) responses.
+   * Applies final safety and contract sanitation before serialization.
    *
-   * Three checks:
-   * 1. If ResponseGrounder set _requires_review, replace llm_summary with
-   *    a safe fallback (the LLM may have generated legal advice).
-   * 2. Run legal-advice regex on llm_summary to catch LLM output that
-   *    slipped past the Gemini safety filters.
-   * 3. Strip internal flags (_requires_review, _validation_warnings) from
-   *    the response before returning to the client.
-   *
-   * Only blocks llm_summary (LLM-generated). Never touches message
-   * (deterministic Drupal t() strings).
+   * The public response contract is now message-only for assistant copy.
+   * This method preserves deterministic grounded-message enforcement and
+   * freshness caveats while stripping any legacy LLM summary artifacts from
+   * the payload.
    *
    * @param array $response
-   *   The response data (may include llm_summary from LLM enhancer).
+   *   The response data.
    * @param string $request_id
    *   Per-request correlation UUID for structured logging.
    *
@@ -3342,9 +3317,10 @@ class AssistantApiController extends ControllerBase {
   protected function enforcePostGenerationSafety(array $response, string $request_id): array {
     $meta = [
       'review_flag_triggered' => FALSE,
-      'unsafe_llm_summary_detected' => FALSE,
       'message_replaced' => FALSE,
-      'llm_summary_replaced' => FALSE,
+      'weak_grounding_detected' => FALSE,
+      'stale_citations_caveat_added' => FALSE,
+      'llm_artifacts_stripped' => FALSE,
     ];
     $safe_fallback = $this->getPostGenerationSafeFallback();
 
@@ -3358,47 +3334,30 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('post_gen_safety_review_flag', $request_id);
       $response['message'] = $safe_fallback;
       $meta['message_replaced'] = TRUE;
-
-      if (array_key_exists('llm_summary', $response)) {
-        $response['llm_summary'] = $safe_fallback;
-        $meta['llm_summary_replaced'] = TRUE;
-      }
     }
 
-    // Check 2: Run legal-advice regex on llm_summary.
-    if (!empty($response['llm_summary'])) {
-      if ($this->containsLegalAdviceInOutput((string) $response['llm_summary'])) {
-        $meta['unsafe_llm_summary_detected'] = TRUE;
-        $this->logger->warning(
-          '[@request_id] Post-generation safety: legal advice detected in llm_summary, replacing',
-          ['@request_id' => $request_id]
-        );
-        $this->analyticsLogger->log('post_gen_safety_legal_advice', $request_id);
-        $response['llm_summary'] = $safe_fallback;
-        $meta['llm_summary_replaced'] = TRUE;
-      }
-    }
-
-    // Check 3: Weak grounding — answerable type without citations.
+    // Check 2: Weak grounding — answerable type without citations.
     if (!empty($response['_grounding_weak'])) {
+      $meta['weak_grounding_detected'] = TRUE;
       $this->logger->warning(
         '[@request_id] Post-generation safety: grounding weak, type=@type reason=@reason',
         ['@request_id' => $request_id, '@type' => $response['type'] ?? 'unknown', '@reason' => $response['_grounding_weak_reason'] ?? 'unknown']
       );
       $this->analyticsLogger->log('post_gen_safety_weak_grounding', $request_id);
-      if (isset($response['llm_summary'])) {
-        $response['llm_summary'] = (string) $this->t('I found some related information, but I could not verify specific sources. For reliable guidance, please contact our Legal Advice Line or apply for help.');
-        $meta['llm_summary_replaced'] = TRUE;
-      }
     }
 
-    // Check 4: Stale citations caveat.
+    // Check 3: Stale citations caveat.
     if (!empty($response['_all_citations_stale'])) {
       $response['freshness_caveat'] = 'Some of the information cited may not reflect the most recent updates. Please verify details by contacting our office or checking our website directly.';
       $this->analyticsLogger->log('post_gen_stale_citations', $request_id);
+      $meta['stale_citations_caveat_added'] = TRUE;
     }
 
-    // Strip internal flags before returning to client.
+    $meta['llm_artifacts_stripped'] = array_key_exists('llm_summary', $response)
+      || array_key_exists('llm_enhanced', $response);
+
+    // Strip internal flags and legacy response-enhancement artifacts.
+    unset($response['llm_summary'], $response['llm_enhanced']);
     unset($response['_requires_review']);
     unset($response['_validation_warnings']);
     unset($response['_grounding_version']);
@@ -3409,22 +3368,6 @@ class AssistantApiController extends ControllerBase {
       'response' => $response,
       'meta' => $meta,
     ];
-  }
-
-  /**
-   * Checks if LLM output text contains legal advice patterns.
-   *
-   * Based on ILAS Conversation Policy v4.1 Disallowed Content Rules.
-   * This is a deterministic last-resort check on LLM-generated text.
-   *
-   * @param string $text
-   *   The text to check (should already be normalized).
-   *
-   * @return bool
-   *   TRUE if legal advice detected.
-   */
-  protected function containsLegalAdviceInOutput(string $text): bool {
-    return PostGenerationLegalAdviceDetector::containsLegalAdvice($text);
   }
 
   /**
@@ -4375,6 +4318,27 @@ class AssistantApiController extends ControllerBase {
         'last_rate_limited_at' => $session_bootstrap['last_rate_limited_at'] ?? NULL,
       ];
       $response['thresholds']['session_bootstrap'] = $session_bootstrap['thresholds'] ?? [];
+    }
+
+    $costControlSummary = $this->llmEnhancer->getCostControlSummary();
+    if (is_array($costControlSummary)) {
+      $response['metrics']['cost_control'] = [
+        'daily_calls' => $costControlSummary['daily_calls'] ?? 0,
+        'monthly_calls' => $costControlSummary['monthly_calls'] ?? 0,
+        'cache_hits' => $costControlSummary['cache_hits'] ?? 0,
+        'cache_misses' => $costControlSummary['cache_misses'] ?? 0,
+        'cache_requests' => $costControlSummary['cache_requests'] ?? 0,
+        'cache_hit_rate' => $costControlSummary['cache_hit_rate'] ?? NULL,
+        'kill_switch_active' => $costControlSummary['kill_switch_active'] ?? FALSE,
+        'sample_rate' => $costControlSummary['sample_rate'] ?? 1.0,
+      ];
+      $response['thresholds']['cost_control'] = [
+        'daily_call_limit' => $costControlSummary['daily_limit'] ?? 0,
+        'monthly_call_limit' => $costControlSummary['monthly_limit'] ?? 0,
+        'cache_hit_rate_target' => $costControlSummary['cache_hit_rate_target'] ?? 0.0,
+        'per_ip_hourly_call_limit' => $costControlSummary['per_ip_hourly_call_limit'] ?? 0,
+        'per_ip_window_seconds' => $costControlSummary['per_ip_window_seconds'] ?? 0,
+      ];
     }
 
     return $this->jsonResponse($response);

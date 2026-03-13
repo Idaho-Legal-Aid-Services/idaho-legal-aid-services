@@ -140,6 +140,20 @@ Planning defaults applied:
     `getCategoriesLegacy()` may still trigger the legacy full FAQ preload when
     the lexical FAQ index is unavailable, but that browse-only fallback is
     outside the normal request-path proof surface.
+32. `RAUD-25` closes the repo-side crawler-policy gap behind `L2` and `N-29`:
+    the authoritative static `web/robots.txt` now explicitly disallows
+    `/assistant/api/` and `/index.php/assistant/api/` while leaving the public
+    `/assistant` page crawlable.
+33. The inactive Drupal `robotstxt` exports are also realigned to the same
+    content and locked by `RobotsTxtCrawlerPolicyContractTest.php`, so a future
+    source-of-truth shift cannot silently drop the assistant API disallow.
+34. Edge behavior is documented conservatively rather than inferred: Pantheon
+    non-production environments already serve platform-managed blanket
+    `Disallow: /` crawler policy, but the repo still contains no proof of a
+    production edge-only crawler rule.
+35. Remaining `RAUD-25` closure work is deploy-bound: the finding must remain
+    `Partially Fixed` until `https://idaholegalaid.org/robots.txt` is
+    re-fetched after deployment and shown to serve the assistant API disallow.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |
@@ -400,9 +414,9 @@ Explicit mapping:
 3. Deliver release readiness package and governance attestation. (Refs: current-state §7; evidence-index CLAIM-108, CLAIM-115; system-map Diagram A; runbook §4)
 
 ### Phase 3 Objective #2 disposition (2026-03-05)
-1. Objective #2 is closed as implemented: performance and cost guardrails are finalized through operational runbook verification and closure artifacts anchored to LLM call guardrails (`CLAIM-077`) and SLO/performance monitoring guardrails (`CLAIM-084`). (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-147; system-map Diagram A; runbook §3)
-2. Operational verification is codified in runbook section-3 command bundles (`VC-UNIT`, `VC-DRUPAL-UNIT`) plus behavioral proof from `CostControlPolicyTest.php`, `PerformanceMonitorTest.php`, and `SloAlertServiceTest.php`, with runtime proof captured in `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`. (Refs: evidence-index CLAIM-147; runbook §3)
-3. Governance posture is updated to active mitigation for cost pre-rollout controls (`IMP-COST-01`, `R-PERF-01`) with objective-level behavioral proof and non-blocking docs continuity via `PhaseThreeObjectiveTwoGateTest.php`. `CostControlPolicy` service delivers IMP-COST-01 acceptance criteria: budget caps, sampling gate, cache-hit monitoring, cost estimation, and kill-switch evaluator. (Refs: evidence-index CLAIM-147; runbook §3)
+1. Objective #2 is closed as implemented: performance and cost guardrails are finalized through operational runbook verification and closure artifacts anchored to LLM call guardrails (`CLAIM-077`) and SLO/performance monitoring guardrails (`CLAIM-084`). Re-audit hardening now records that the prior global-only budget model is no longer accepted as closure evidence. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-147; system-map Diagram A; runbook §3)
+2. Operational verification is codified in runbook section-3 command bundles (`VC-PURE`, `VC-UNIT`, `VC-QUALITY-GATE`) plus behavioral proof from `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`, `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`, `PerformanceMonitorTest.php`, and `SloAlertServiceTest.php`, with runtime proof captured in `docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt`. (Refs: evidence-index CLAIM-147; runbook §3)
+3. Governance posture is updated to active mitigation for cost pre-rollout controls (`IMP-COST-01`, `R-PERF-01`) with objective-level behavioral proof and non-blocking docs continuity via `PhaseThreeObjectiveTwoGateTest.php`. `CostControlPolicy` service now carries per-IP budget enforcement proof and cache-effectiveness proof; global-only budget model is no longer accepted as closure evidence. (Refs: evidence-index CLAIM-147; runbook §3)
 4. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-147; system-map Diagram A; runbook §3, §4)
 5. Promptfoo gate integrity remediation is enforced without threshold relaxation: multiline JS assertion return linting, deterministic per-run conversation salting (`ILAS_EVAL_RUN_ID`), failure adjudication artifacts, and targeted rubric precision fixes are applied while preserving the 90% blocking policy. (Refs: current-state §4F; evidence-index CLAIM-086, CLAIM-150; runbook §4)
 
@@ -451,10 +465,10 @@ Explicit mapping:
 4. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-153; system-map Diagram A; runbook §3, §4)
 
 ### Phase 3 Exit #2 disposition (2026-03-06)
-1. Exit criterion #2 is closed as implemented: cost/performance controls are documented, monitored, and accepted by product/platform owners. Closure continuity is anchored to existing LLM call guardrails (`CLAIM-077`) and SLO/performance monitoring guardrails (`CLAIM-084`) without runtime architecture expansion. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; system-map Diagram A; runbook §3)
-2. Verification is codified in runbook section-3 command bundles with required `VC-RUNBOOK-LOCAL` and `VC-RUNBOOK-PANTHEON` aliases, dashboard monitoring checks (`/assistant/api/health`, `/assistant/api/metrics`), behavioral proof from the monitored services, and non-blocking docs continuity via `PhaseThreeExitCriteriaTwoGateTest.php`. Runtime proof is captured in `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`. (Refs: evidence-index CLAIM-154; runbook §3)
+1. Exit criterion #2 is closed as implemented: cost/performance controls are documented, monitored, and accepted by product/platform owners. Closure continuity is anchored to existing LLM call guardrails (`CLAIM-077`) and SLO/performance monitoring guardrails (`CLAIM-084`) without runtime architecture expansion. Re-audit hardening now requires explicit per-IP budget and cache-effectiveness proof markers in the runtime artifact. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; system-map Diagram A; runbook §3)
+2. Verification is codified in runbook section-3 command bundles with required `VC-PURE`, `VC-QUALITY-GATE`, and `VC-PANTHEON-READONLY` aliases, dashboard monitoring checks (`/assistant/api/health`, `/assistant/api/metrics`), behavioral proof from the monitored services, and non-blocking docs continuity via `PhaseThreeExitCriteriaTwoGateTest.php`. Runtime proof is captured in `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`. (Refs: evidence-index CLAIM-154; runbook §3)
 3. Product/platform owner acceptance is recorded as role-based closure evidence (`owner-acceptance-product-role=accepted`, `owner-acceptance-platform-role=accepted`, dated 2026-03-06) in the runtime artifact and linked documentation. (Refs: current-state §7; evidence-index CLAIM-154; runbook §3)
-4. Performance/cost governance linkage remains active and now includes explicit exit-criterion continuity in backlog/risk artifacts (`IMP-COST-01`, `R-PERF-01`) tied to `P3-EXT-02` runtime markers. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; runbook §3)
+4. Performance/cost governance linkage remains active and now includes explicit exit-criterion continuity in backlog/risk artifacts (`IMP-COST-01`, `R-PERF-01`) tied to `P3-EXT-02` runtime markers. Deployed closure remains pending until Pantheon read-only checks reflect the per-IP keys and metrics payload. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; runbook §3)
 5. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-154; system-map Diagram A; runbook §3, §4)
 6. Residual risk posture remains unchanged: B-04 (sustained cron/queue load behavior under non-zero backlog) remains open and outside this closure item. (Refs: current-state §8; evidence-index CLAIM-118, CLAIM-121, CLAIM-154; runbook §3)
 
@@ -600,9 +614,9 @@ Explicit mapping:
    remains locked as prerequisite evidence consumed in Phase 3.
    (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-126, CLAIM-127, CLAIM-138, CLAIM-147, CLAIM-154, CLAIM-165; system-map Diagram A; runbook §3)
 2. Dependency-gate enforcement is codified through behavioral proof
-   (`CostControlPolicyTest.php`, `PerformanceMonitorTest.php`, `SloAlertServiceTest.php`, `CrossPhaseDependencyRowSixBehaviorTest.php`) plus non-blocking docs continuity via
+   (`CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`, `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`, `PerformanceMonitorTest.php`, `SloAlertServiceTest.php`, `CrossPhaseDependencyRowSixBehaviorTest.php`) plus non-blocking docs continuity via
    `CrossPhaseDependencyRowSixGateTest.php`; downstream Phase 3 cost-guardrail
-   work is blocked whenever unresolved dependency count is non-zero.
+   work is blocked whenever unresolved dependency count is non-zero. Row #6 now explicitly requires per-IP budget enforcement and cache-effectiveness proof in addition to the earlier config and SLO prerequisites.
 3. Runtime proof is captured in
    `docs/aila/runtime/phase3-xdp06-cost-guardrails-dependency-gate.txt` with
    deterministic status and unresolved-dependency markers.

@@ -17,7 +17,6 @@ use Symfony\Component\Yaml\Yaml;
  * and cron cleanup dispatch. Reads deployed artifacts directly — no Drupal
  * bootstrap required.
  *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class PrivacyPolicyContractTest extends TestCase {

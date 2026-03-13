@@ -104,6 +104,7 @@ class LlmControlConcurrencyTest extends TestCase {
     $config = [
       'cost_control.daily_call_limit' => 1,
       'cost_control.monthly_call_limit' => 1,
+      'cost_control.per_ip_hourly_call_limit' => 0,
       'llm.global_rate_limit.max_per_hour' => 0,
     ];
 
@@ -116,6 +117,51 @@ class LlmControlConcurrencyTest extends TestCase {
     $summary = $this->buildServiceBundle($config)['policy']->getSummary();
     $this->assertSame(1, $summary['daily_calls']);
     $this->assertSame(1, $summary['monthly_calls']);
+  }
+
+  /**
+   * Proves the per-IP boundary does not over-admit under concurrent access.
+   */
+  public function testPerIpBudgetBoundaryDoesNotOverAdmitUnderConcurrentAccess(): void {
+    $config = [
+      'cost_control.daily_call_limit' => 0,
+      'cost_control.monthly_call_limit' => 0,
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.per_ip_window_seconds' => 3600,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ];
+
+    $results = $this->runConcurrent(2, function () use ($config): array {
+      $bundle = $this->buildServiceBundle($config);
+      return $bundle['policy']->beginRequest('198.51.100.10');
+    });
+
+    $this->assertSame(1, $this->countAllowedResults($results));
+    $perIp = $this->buildServiceBundle($config)['state']->get(CostControlPolicy::STATE_KEY_PER_IP);
+    $this->assertIsArray($perIp);
+    $this->assertCount(1, $perIp);
+    $this->assertSame(1, reset($perIp)['count']);
+  }
+
+  /**
+   * Proves separate client identities do not share the per-IP budget bucket.
+   */
+  public function testPerIpBudgetAllowsIndependentIdentitiesInSharedState(): void {
+    $config = [
+      'cost_control.daily_call_limit' => 0,
+      'cost_control.monthly_call_limit' => 0,
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.per_ip_window_seconds' => 3600,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ];
+
+    $bundle = $this->buildServiceBundle($config);
+    $this->assertTrue($bundle['policy']->beginRequest('198.51.100.10')['allowed']);
+    $this->assertTrue($bundle['policy']->beginRequest('198.51.100.11')['allowed']);
+
+    $perIp = $bundle['state']->get(CostControlPolicy::STATE_KEY_PER_IP);
+    $this->assertIsArray($perIp);
+    $this->assertCount(2, $perIp);
   }
 
   /**
@@ -178,6 +224,8 @@ class LlmControlConcurrencyTest extends TestCase {
       'llm.circuit_breaker.cooldown_seconds' => 300,
       'cost_control.daily_call_limit' => 5000,
       'cost_control.monthly_call_limit' => 100000,
+      'cost_control.per_ip_hourly_call_limit' => 10,
+      'cost_control.per_ip_window_seconds' => 3600,
       'cost_control.cache_stats_window_seconds' => 86400,
       'cost_control.sample_rate' => 1.0,
       'cost_control.cache_hit_rate_target' => 0.30,

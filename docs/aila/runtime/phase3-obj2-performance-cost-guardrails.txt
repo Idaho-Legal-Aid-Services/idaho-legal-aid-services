@@ -1,16 +1,30 @@
 # Phase 3 Objective #2 Runtime Evidence (P3-OBJ-02)
 
-Date: 2026-03-05
+Date: 2026-03-13
+
+### VC-PURE
+command=vendor/bin/phpunit -c /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml --filter 'CostControlPolicyTest|LlmControlConcurrencyTest|LlmEnhancerHardeningTest|ConfigCompletenessDriftTest|CrossPhaseDependencyRowSixBehaviorTest|AssistantApiControllerCostControlMetricsTest' --colors=always
+status=passed
+exit_code=0
+tests=80
+assertions=425
 
 ### VC-UNIT
-command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+command=vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --group ilas_site_assistant --colors=always /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php
 status=passed
 exit_code=0
+tests=80
+assertions=425
+phpunit_deprecations=1
 
-### VC-DRUPAL-UNIT
-command=vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --testsuite drupal-unit
+### VC-QUALITY-GATE
+command=bash /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 status=passed
 exit_code=0
+unit_tests=2154
+drupal_unit_tests=581
+golden_tests=7
+promptfoo_runtime_tests=13
 
 ### Guardrail Anchors
 guard-anchor-llm-enhancer=present
@@ -20,11 +34,23 @@ guard-anchor-performance-monitor=present
 guard-anchor-slo-alert-service=present
 guard-anchor-cost-control-policy=present
 
+### Cost Proof
+cost-proof-prior-budget-model=global-only
+cost-proof-per-ip-status=pass
+cost-proof-per-ip-limit=10
+cost-proof-cache-hit-rate=0.90
+cost-proof-cache-hit-target=0.30
+cost-proof-cache-sample-count=10
+cost-proof-call-reduction-rate=0.90
+cost-proof-source-tests=CostControlPolicyTest.php,LlmControlConcurrencyTest.php,LlmEnhancerHardeningTest.php,AssistantApiControllerCostControlMetricsTest.php
+cost-proof-status=pass
+
 ### Scope Guardrails
+global-only budget model is no longer accepted as closure evidence.
 No net-new assistant channels or third-party model expansion beyond audited providers.
 No platform-wide refactor of unrelated Drupal subsystems.
 
 ### Disposition Markers
 p3-obj-02-status=closed
-p3-obj-02-enforcement=runbook+behavioral-proof+docs-continuity-nonblocking+runtime-artifact
+p3-obj-02-enforcement=runbook+behavioral-proof+proof-markers+docs-continuity-nonblocking+runtime-artifact
 p3-obj-02-scope=objective-closure-artifacts-only

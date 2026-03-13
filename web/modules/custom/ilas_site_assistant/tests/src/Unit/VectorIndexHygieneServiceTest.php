@@ -14,16 +14,15 @@ use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\search_api\IndexInterface;
 use Drupal\search_api\ServerInterface;
 use Drupal\search_api\Tracker\TrackerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for VectorIndexHygieneService.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\VectorIndexHygieneService
  */
+#[CoversClass(VectorIndexHygieneService::class)]
 #[Group('ilas_site_assistant')]
 final class VectorIndexHygieneServiceTest extends TestCase {
 
@@ -189,9 +188,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     return $index;
   }
 
-  /**
-   * @covers ::getSnapshot
-   */
   public function testDefaultPolicySnapshotContractValues(): void {
     $service = $this->buildService();
     $snapshot = $service->getSnapshot();
@@ -209,10 +205,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('assistant_resources_vector', $snapshot['indexes']['resource_vector']['index_id']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   * @covers ::getSnapshot
-   */
   public function testRunScheduledRefreshProcessesDueIndexesIncrementally(): void {
     $faqIndex = $this->buildCompliantIndexMock(100, 80, 20);
     $resourceIndex = $this->buildCompliantIndexMock(60, 40, 20);
@@ -241,10 +233,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertNotEmpty($snapshot['indexes']['resource_vector']['last_refresh_at']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   * @covers ::getSnapshot
-   */
   public function testRunScheduledRefreshSkipsIndexingWhenNotDue(): void {
     $faqIndex = $this->buildCompliantIndexMock();
     $resourceIndex = $this->buildCompliantIndexMock();
@@ -289,10 +277,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertFalse($snapshot['indexes']['resource_vector']['due']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   * @covers ::getSnapshot
-   */
   public function testMetadataDriftDetectionMarksDriftFields(): void {
     $faqIndex = $this->buildCompliantIndexMock(
       totalItems: 100,
@@ -334,9 +318,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertContains('dimensions', $snapshot['indexes']['faq_vector']['drift_fields']);
   }
 
-  /**
-   * @covers ::getSnapshot
-   */
   public function testOverdueDetectionUsesGraceWindow(): void {
     $service = $this->buildService();
     $lastRefresh = time() - ((24 * 3600) + (61 * 60));
@@ -362,10 +343,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('degraded', $snapshot['status']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   * @covers ::getSnapshot
-   */
   public function testSnapshotCapturesTrackerCounts(): void {
     $faqIndex = $this->buildCompliantIndexMock(200, 150, 50);
     $resourceIndex = $this->buildCompliantIndexMock(80, 70, 10);
@@ -387,10 +364,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame(60, $snapshot['totals']['remaining_items']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   * @covers ::getSnapshot
-   */
   public function testExceptionIsolationPreservesSecondIndexProcessing(): void {
     $faqIndex = $this->buildCompliantIndexMock();
     $resourceIndex = $this->buildCompliantIndexMock();
@@ -415,9 +388,6 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('degraded', $snapshot['status']);
   }
 
-  /**
-   * @covers ::runScheduledRefresh
-   */
   public function testDegradedAlertUsesCooldown(): void {
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects($this->once())

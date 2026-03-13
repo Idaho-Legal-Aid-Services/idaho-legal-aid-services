@@ -14,8 +14,6 @@ use PHPUnit\Framework\TestCase;
  * Ensures the telemetry schema value object remains the single source of
  * truth for field names used by Langfuse metadata, Sentry tags, and
  * Drupal log context.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class TelemetrySchemaContractTest extends TestCase {

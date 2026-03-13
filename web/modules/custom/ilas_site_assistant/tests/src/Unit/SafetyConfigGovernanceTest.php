@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
@@ -195,6 +196,59 @@ class SafetyConfigGovernanceTest extends TestCase {
         "Schema missing safety-critical block: {$block}",
       );
     }
+  }
+
+  /**
+   * Policy keywords must not remain exportable or runtime-configurable.
+   */
+  public function testPolicyKeywordsAreNoLongerExportedOrRuntimeOverridden(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+    $schema = self::schemaConfig();
+
+    $this->assertArrayNotHasKey('policy_keywords', $install);
+    $this->assertArrayNotHasKey('policy_keywords', $active);
+    $this->assertArrayNotHasKey('policy_keywords', $schema['ilas_site_assistant.settings']['mapping'] ?? []);
+
+    $path = self::repoRoot() . '/web/sites/default/settings.php';
+    $this->assertFileExists($path, 'settings.php not found');
+
+    $contents = file_get_contents($path);
+    $this->assertIsString($contents);
+    $this->assertStringNotContainsString('policy_keywords', $contents);
+  }
+
+  /**
+   * PolicyFilter fallback keywords remain explicit and reviewable in code.
+   */
+  public function testPolicyFilterFallbackKeywordsRemainGovernedInCode(): void {
+    $reflection = new \ReflectionClass(PolicyFilter::class);
+
+    $this->assertSame([
+      'should i',
+      'what are my chances',
+      'is it legal',
+      'can i sue',
+      'statute',
+      'law says',
+      'my rights',
+      'will i win',
+      'case outcome',
+      'legal advice',
+      'advise me',
+      'what should i do',
+    ], $reflection->getConstant('GOVERNED_LEGAL_ADVICE_KEYWORDS'));
+
+    $this->assertSame([
+      '@',
+      'my name is',
+      'my address',
+      'social security',
+      'ssn',
+      'phone number',
+      'date of birth',
+      'case number',
+    ], $reflection->getConstant('GOVERNED_PII_INDICATORS'));
   }
 
   /**

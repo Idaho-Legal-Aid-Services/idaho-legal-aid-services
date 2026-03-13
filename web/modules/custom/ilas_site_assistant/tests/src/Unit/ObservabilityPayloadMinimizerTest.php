@@ -6,22 +6,19 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for observability payload minimization helpers.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer
  */
+#[CoversClass(ObservabilityPayloadMinimizer::class)]
 #[Group('ilas_site_assistant')]
 class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests metadata generation for redacted text.
-   *
-   * @covers ::buildTextMetadata
    */
   public function testBuildTextMetadataReturnsHashBucketAndProfile(): void {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadata('My email is john@example.com');
@@ -33,8 +30,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests language hints for Spanish text.
-   *
-   * @covers ::buildTextMetadataWithLanguage
    */
   public function testBuildTextMetadataWithLanguageDetectsSpanish(): void {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage('Me llamo Juan y necesito ayuda');
@@ -44,8 +39,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests that click analytics normalize to URL paths only.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueUsesPathForClicks(): void {
     $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
@@ -58,8 +51,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests that topic selection only keeps controlled numeric IDs.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueUsesTopicIds(): void {
     $this->assertSame('42', ObservabilityPayloadMinimizer::normalizeAnalyticsValue('topic_selected', '42'));
@@ -71,8 +62,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests that unexpected free text is not preserved in analytics values.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueDropsUnexpectedFreeText(): void {
     $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
@@ -85,8 +74,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests conversation identifiers are hashed for loop-break analytics.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueHashesClarifyLoopBreakId(): void {
     $conversationId = '12345678-1234-4123-8123-123456789abc';
@@ -99,8 +86,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests disambiguation-trigger analytics normalize to stable safe tokens.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueForDisambiguationTrigger(): void {
     $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
@@ -113,8 +98,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests ambiguity buckets serialize to low-cardinality safe metadata.
-   *
-   * @covers ::normalizeAnalyticsValue
    */
   public function testNormalizeAnalyticsValueForAmbiguityBucket(): void {
     $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
@@ -132,8 +115,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests assignment serialization produces stable, token-only output.
-   *
-   * @covers ::serializeAssignments
    */
   public function testSerializeAssignmentsSortsAndNormalizes(): void {
     $serialized = ObservabilityPayloadMinimizer::serializeAssignments([
@@ -146,8 +127,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests keyword counting across strings and arrays.
-   *
-   * @covers ::keywordCount
    */
   public function testKeywordCountHandlesStringsAndArrays(): void {
     $this->assertSame(3, ObservabilityPayloadMinimizer::keywordCount('eviction forms housing'));
@@ -156,8 +135,6 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
 
   /**
    * Tests exception signatures are deterministic and redacted.
-   *
-   * @covers ::exceptionSignature
    */
   public function testExceptionSignatureIsDeterministicAndRedacted(): void {
     $throwable = new \RuntimeException('My email is john@example.com');

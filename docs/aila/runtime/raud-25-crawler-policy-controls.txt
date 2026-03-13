@@ -1,0 +1,75 @@
+# RAUD-25 Assistant API Crawler Policy Controls
+
+- Date: 2026-03-13
+- Prompt ID: `RAUD-25`
+- Finding IDs: `L2`, `N-29`
+- Prior status: Open / unverified. Hosted production verification on 2026-03-13 showed `https://idaholegalaid.org/robots.txt` omitted `Disallow: /assistant/api/`, public `GET /assistant/api/suggest` and `GET /assistant/api/session/bootstrap` remained reachable without endpoint `X-Robots-Tag` protection, and the effective source of truth was the static `web/robots.txt` file rather than Drupal `robotstxt` config.
+- Post-change status: Partially Fixed
+- Verification level tag: `Partially Fixed`
+
+## Evidence
+
+### Pre-change baseline
+
+- Hosted production `robots.txt` fetch:
+  - Command summary: `curl -L -sS -D - https://idaholegalaid.org/robots.txt -o /tmp/raud25-prod-robots.txt` then `rg -n "assistant/api" /tmp/raud25-prod-robots.txt`.
+  - Result: `HTTP/2 200` from the primary domain with no `assistant/api` disallow lines present in the response body.
+- Hosted production public assistant endpoint headers:
+  - Command summary: `curl -L -sS -D - "https://idaholegalaid.org/assistant/api/suggest?q=housing&type=all" -o /tmp/raud25-prod-suggest.json` and `curl -L -sS -D - "https://idaholegalaid.org/assistant/api/session/bootstrap" -o /tmp/raud25-prod-bootstrap.txt`.
+  - Result: both endpoints returned `HTTP/2 200`; the captured headers did not include an endpoint `X-Robots-Tag`, so crawler policy depended on `robots.txt` rather than per-endpoint noindex headers.
+- Pantheon environment crawler-policy baseline:
+  - Command summary: `for ENV in dev test live; do BASE_URL="$(terminus env:view "idaho-legal-aid-services.${ENV}" --print)"; curl -L -sS -D - "${BASE_URL%/}/robots.txt"; curl -L -sS -D - "${BASE_URL%/}/assistant/api/suggest?q=housing&type=all"; done`.
+  - Result: `dev`, `test`, and `live.pantheonsite.io` all returned Pantheon-managed `robots.txt` bodies with `User-agent: *` + `Disallow: /` and `x-robots-tag: noindex`, while the same `GET /assistant/api/suggest` requests still returned `HTTP/2 200`.
+- Repo source-of-truth scan:
+  - Command summary: `rg -n "\[web-root\]/robots.txt|assistant/api/" composer.json web/robots.txt config/robotstxt.settings.yml web/sites/default/files/sync/robotstxt.settings.yml`.
+  - Result: `composer.json` preserved `web/robots.txt` with `"[web-root]/robots.txt": false`, confirming the static file was the served source of truth before the remediation.
+
+### Post-change implementation proof
+
+- Static-file and mirrored-config update:
+  - Command summary: `rg -n "assistant/api/|\[web-root\]/robots.txt" composer.json web/robots.txt config/robotstxt.settings.yml web/sites/default/files/sync/robotstxt.settings.yml`.
+  - Result: `web/robots.txt`, `config/robotstxt.settings.yml`, and `web/sites/default/files/sync/robotstxt.settings.yml` all now contain `Disallow: /assistant/api/` and `Disallow: /index.php/assistant/api/`; `composer.json` still preserves the static file.
+- Targeted pure regression guard:
+  - Command summary: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/RobotsTxtCrawlerPolicyContractTest.php`.
+  - Result: passed `4 tests`, `24 assertions`.
+- Local served crawler-policy proof:
+  - Command summary: `curl -k -sS -D - https://ilas-pantheon.ddev.site/robots.txt -o /tmp/raud25-local-robots.txt` then `rg -n "assistant/api" /tmp/raud25-local-robots.txt`.
+  - Result: local DDEV served `HTTP/2 200` with both assistant disallow lines present (`Disallow: /assistant/api/` and `Disallow: /index.php/assistant/api/`).
+- VC-RUNBOOK-LOCAL preflight:
+  - Command summary: `ddev drush status && ddev drush config:get ilas_site_assistant.settings -y && ddev drush state:get system.cron_last`.
+  - Result: Drupal bootstrap and database status were healthy locally; assistant config and `system.cron_last` were readable in the same session as the crawler-policy checks.
+- VC-PANTHEON-READONLY / hosted recheck:
+  - Command summary: `terminus env:view "idaho-legal-aid-services.${ENV}" --print` for `dev`/`test`/`live`, plus direct `curl` fetches to each environment `robots.txt`, and a fresh production fetch to `https://idaholegalaid.org/robots.txt`.
+  - Result: Pantheon env URLs resolved successfully and still served platform blanket `Disallow: /`; the primary production domain still did not serve the new assistant API disallow, so hosted closure is not yet proven.
+
+## Changed files
+
+- `web/robots.txt`
+- `config/robotstxt.settings.yml`
+- `web/sites/default/files/sync/robotstxt.settings.yml`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RobotsTxtCrawlerPolicyContractTest.php`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/raud-25-crawler-policy-controls.txt`
+
+## Residual risks / unknowns
+
+- The primary production domain is still serving pre-remediation `robots.txt`, so the effective public crawler policy on `idaholegalaid.org` remains unchanged until deployment.
+- The assistant endpoints themselves still do not emit endpoint-specific `X-Robots-Tag` headers; this remediation relies on `robots.txt` rather than per-response noindex headers.
+- Pantheon non-production blanket `Disallow: /` behavior is infrastructure-managed and helpful as context, but it does not prove how the primary production domain is configured after deployment.
+- The Drupal `robotstxt` route remains inactive while `web/robots.txt` exists, so future policy edits must continue treating the static file as authoritative unless the project intentionally changes that architecture.
+
+## Rollback notes
+
+- Roll back the static `web/robots.txt` change, mirrored `robotstxt` exports, new contract test, and the associated doc/runtime-artifact updates as one code-only bundle.
+- No schema migration, database rollback, or Pantheon runtime-setting rollback is required for this remediation.
+- If the project later chooses to switch back to the Drupal `robotstxt` route, that should be handled as a separate change; this remediation intentionally does not remove `web/robots.txt`.
+
+## Still-unverified surfaces
+
+- Post-deploy primary-domain proof that `https://idaholegalaid.org/robots.txt` serves the assistant API disallow lines.
+- Any production CDN/edge crawler-policy behavior not visible through the publicly fetched `robots.txt` response.
+- Search-engine recrawl and cache propagation after the hosted rule is deployed.

@@ -1,7 +1,7 @@
 name: 'ILAS ADEPT'
 type: module
 description: 'Provides ADEPT autism education module integration with GA4 tracking and localStorage progress.'
-package: ILAS
+package: 'Idaho Legal Aid - Site Features'
 core_version_requirement: ^11
 dependencies:
   - drupal:node

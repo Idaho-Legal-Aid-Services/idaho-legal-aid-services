@@ -3,6 +3,8 @@
 namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\AbTestingService;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Kernel tests for AbTestingService.
@@ -10,15 +12,13 @@ use Drupal\ilas_site_assistant\Service\AbTestingService;
  * Tests deterministic variant assignment, config-driven experiment loading,
  * and allocation boundary behavior.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\AbTestingService
  */
+#[CoversClass(AbTestingService::class)]
+#[Group('ilas_site_assistant')]
 class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that isEnabled returns FALSE when disabled.
-   *
-   * @covers ::isEnabled
    */
   public function testIsEnabledReturnsFalseWhenDisabled(): void {
     $service = $this->createAbTestingService([
@@ -30,8 +30,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that isEnabled returns TRUE when enabled.
-   *
-   * @covers ::isEnabled
    */
   public function testIsEnabledReturnsTrueWhenEnabled(): void {
     $service = $this->createAbTestingService([
@@ -43,8 +41,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that getExperiments returns empty array when disabled.
-   *
-   * @covers ::getExperiments
    */
   public function testGetExperimentsReturnsEmptyWhenDisabled(): void {
     $service = $this->createAbTestingService([
@@ -59,8 +55,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that getExperiments returns configured experiments when enabled.
-   *
-   * @covers ::getExperiments
    */
   public function testGetExperimentsReturnsConfigured(): void {
     $experiments = [
@@ -83,8 +77,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that assignVariant is deterministic (same inputs = same output).
-   *
-   * @covers ::assignVariant
    */
   public function testAssignVariantIsDeterministic(): void {
     $service = $this->createAbTestingServiceWithExperiment();
@@ -101,8 +93,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that different conversation IDs can produce different variants.
-   *
-   * @covers ::assignVariant
    */
   public function testAssignVariantDistributes(): void {
     $service = $this->createAbTestingServiceWithExperiment();
@@ -127,8 +117,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that assignVariant returns NULL for an unknown experiment ID.
-   *
-   * @covers ::assignVariant
    */
   public function testAssignVariantReturnsNullForUnknownExperiment(): void {
     $service = $this->createAbTestingServiceWithExperiment();
@@ -139,8 +127,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that assignVariant returns NULL for experiments with mismatched counts.
-   *
-   * @covers ::assignVariant
    */
   public function testAssignVariantReturnsNullForMismatchedAllocation(): void {
     $service = $this->createAbTestingService([
@@ -160,8 +146,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that getAssignments returns variants for all active experiments.
-   *
-   * @covers ::getAssignments
    */
   public function testGetAssignmentsCoversAllExperiments(): void {
     $service = $this->createAbTestingService([
@@ -191,8 +175,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that getAssignments returns empty array when disabled.
-   *
-   * @covers ::getAssignments
    */
   public function testGetAssignmentsEmptyWhenDisabled(): void {
     $service = $this->createAbTestingService([
@@ -205,8 +187,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests allocation boundary: 100/0 split assigns all to first variant.
-   *
-   * @covers ::assignVariant
    */
   public function testAllocationBoundaryAllToFirst(): void {
     $service = $this->createAbTestingService([
@@ -230,8 +210,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests three-way split with uneven allocation.
-   *
-   * @covers ::assignVariant
    */
   public function testThreeWaySplit(): void {
     $service = $this->createAbTestingService([
@@ -260,8 +238,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that experiments with empty variants return NULL.
-   *
-   * @covers ::assignVariant
    */
   public function testEmptyVariantsReturnsNull(): void {
     $service = $this->createAbTestingService([
@@ -281,8 +257,6 @@ class AbTestingKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that experiments without ID are skipped in getAssignments.
-   *
-   * @covers ::getAssignments
    */
   public function testExperimentsWithoutIdAreSkipped(): void {
     $service = $this->createAbTestingService([

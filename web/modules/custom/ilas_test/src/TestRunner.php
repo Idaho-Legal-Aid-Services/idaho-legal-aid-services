@@ -229,31 +229,7 @@ class TestRunner {
    * Test donation manager.
    */
   protected function testDonationManager() {
-    $test_name = 'Donation Manager';
-    
-    try {
-      $donation_manager = \Drupal::service('ilas_donations.manager');
-      
-      // Test donation processing
-      $donation_data = [
-        'amount' => 100.00,
-        'first_name' => 'Test',
-        'last_name' => 'Donor',
-        'email' => 'test@example.com',
-      ];
-      
-      $result = $donation_manager->processDonation($donation_data);
-      
-      if (isset($result['contribution_id'])) {
-        $this->recordTestResult('unit', $test_name, TRUE);
-      }
-      else {
-        $this->recordTestResult('unit', $test_name, FALSE, 'Failed to process donation');
-      }
-    }
-    catch (\Exception $e) {
-      $this->recordTestResult('unit', $test_name, FALSE, $e->getMessage());
-    }
+    // Removed: ilas_donations module was never implemented.
   }
 
   /**

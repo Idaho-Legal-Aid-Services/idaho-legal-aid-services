@@ -92,6 +92,25 @@
           return false;
         }
       }
+      // Safari ITP masks cross-origin script URLs as webkit-masked-url://hidden/.
+      // If every frame is masked, the error is from a third-party script (e.g.
+      // GA4/GTM) and not from site-owned code — treat it as noise.
+      // Safety: This cannot drop real AILA errors because:
+      // (a) Site-owned frames (idaholegalaid.org, /modules/, /themes/) exit early above
+      // (b) AILA errors use Sentry.captureMessage() — no exception.stacktrace to inspect
+      // (c) Safari ITP only masks cross-origin scripts, not same-origin
+      if (frames.length > 0) {
+        var allMasked = true;
+        for (var k = 0; k < frames.length; k++) {
+          if ((frames[k].filename || '') !== 'webkit-masked-url://hidden/') {
+            allMasked = false;
+            break;
+          }
+        }
+        if (allMasked) {
+          return true;
+        }
+      }
     }
     else if (event.message) {
       message = event.message;

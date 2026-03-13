@@ -5,6 +5,9 @@ namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 use Drupal\Tests\UnitTestCase;
 use Drupal\ilas_site_assistant\Service\KeywordExtractor;
 use Drupal\Core\Cache\CacheBackendInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
@@ -12,9 +15,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  *
  * These tests cover previously failing cases from the evaluation harness.
  *
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\KeywordExtractor
- * @group ilas_site_assistant
  */
+#[CoversClass(KeywordExtractor::class)]
+#[Group('ilas_site_assistant')]
 class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
@@ -57,10 +60,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests typo correction in apply queries.
-   *
-   * @covers ::extract
-   * @dataProvider typoApplyProvider
    */
+  #[DataProvider('typoApplyProvider')]
   public function testTypoCorrectionApply(string $query, string $expectedKeyword): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -99,10 +100,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests Spanish keyword extraction.
-   *
-   * @covers ::extract
-   * @dataProvider spanishQueryProvider
    */
+  #[DataProvider('spanishQueryProvider')]
   public function testSpanishKeywordExtraction(string $query, string $expectedKeyword): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -134,10 +133,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests custody+forms keyword extraction (PHARD-04).
-   *
-   * @covers ::extract
-   * @dataProvider custodyFormsProvider
    */
+  #[DataProvider('custodyFormsProvider')]
   public function testCustodyFormsExtraction(string $query, string $expectedKeyword): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -168,10 +165,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests phrase detection for legal-aid terms.
-   *
-   * @covers ::extract
-   * @dataProvider phraseDetectionProvider
    */
+  #[DataProvider('phraseDetectionProvider')]
   public function testPhraseDetection(string $query, string $expectedPhrase): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -205,8 +200,6 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Deprecated pre-routing fields must not be emitted by extraction.
-   *
-   * @covers ::extract
    */
   public function testExtractDoesNotExposeDeprecatedPreRoutingFields(): void {
     $result = $this->keywordExtractor->extract('my deadline is tomorrow and i need immigration help');
@@ -217,10 +210,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests negative keyword blocking.
-   *
-   * @covers ::hasNegativeKeyword
-   * @dataProvider negativeKeywordProvider
    */
+  #[DataProvider('negativeKeywordProvider')]
   public function testNegativeKeywordBlocking(string $query, string $intent, bool $shouldBlock): void {
     $hasNegative = $this->keywordExtractor->hasNegativeKeyword($intent, $query);
 
@@ -249,8 +240,6 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests multi-intent detection scenarios.
-   *
-   * @covers ::extract
    */
   public function testMultiIntentScenarios(): void {
     // Query that could match multiple intents.
@@ -274,10 +263,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests handling of very short queries.
-   *
-   * @covers ::extract
-   * @dataProvider shortQueryProvider
    */
+  #[DataProvider('shortQueryProvider')]
   public function testShortQueryHandling(string $query): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -301,10 +288,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests hotline variations.
-   *
-   * @covers ::extract
-   * @dataProvider hotlineVariationsProvider
    */
+  #[DataProvider('hotlineVariationsProvider')]
   public function testHotlineVariations(string $query): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -350,10 +335,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests office/location variations.
-   *
-   * @covers ::extract
-   * @dataProvider officeVariationsProvider
    */
+  #[DataProvider('officeVariationsProvider')]
   public function testOfficeVariations(string $query): void {
     $result = $this->keywordExtractor->extract($query);
 
@@ -390,10 +373,8 @@ class KeywordExtractionRegressionTest extends UnitTestCase {
 
   /**
    * Tests donation variations.
-   *
-   * @covers ::extract
-   * @dataProvider donationVariationsProvider
    */
+  #[DataProvider('donationVariationsProvider')]
   public function testDonationVariations(string $query): void {
     $result = $this->keywordExtractor->extract($query);
 

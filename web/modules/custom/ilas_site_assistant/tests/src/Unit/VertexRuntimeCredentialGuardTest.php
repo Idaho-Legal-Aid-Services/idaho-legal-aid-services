@@ -158,8 +158,6 @@ class VertexRuntimeCredentialGuardTest extends TestCase {
       'llm_service_account' => '{"private_key":"should-not-save"}',
       'llm_max_tokens' => 150,
       'llm_temperature' => 0.3,
-      'llm_enhance_faq' => TRUE,
-      'llm_enhance_resources' => TRUE,
       'llm_enhance_greetings' => FALSE,
       'llm_fallback_on_error' => TRUE,
       'conversation_logging_enabled' => FALSE,

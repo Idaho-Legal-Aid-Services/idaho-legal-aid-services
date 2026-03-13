@@ -8,15 +8,14 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\ilas_site_assistant\Service\CronHealthTracker;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for CronHealthTracker.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\CronHealthTracker
  */
+#[CoversClass(CronHealthTracker::class)]
 #[Group('ilas_site_assistant')]
 class CronHealthTrackerTest extends TestCase {
 
@@ -68,8 +67,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests that recordRun stores all state keys.
-   *
-   * @covers ::recordRun
    */
   public function testRecordRunStoresState(): void {
     $state = $this->buildState();
@@ -85,8 +82,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests that a failed run increments consecutive failures.
-   *
-   * @covers ::recordRun
    */
   public function testFailedRunIncrementsFailures(): void {
     $state = $this->buildState();
@@ -101,8 +96,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests that success resets consecutive failures.
-   *
-   * @covers ::recordRun
    */
   public function testSuccessResetsFailures(): void {
     $state = $this->buildState();
@@ -118,8 +111,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests healthy status when cron ran recently and succeeded.
-   *
-   * @covers ::getHealthStatus
    */
   public function testHealthyStatus(): void {
     $state = $this->buildState();
@@ -137,8 +128,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests stale status when cron has never run.
-   *
-   * @covers ::getHealthStatus
    */
   public function testStaleStatusNeverRun(): void {
     $state = $this->buildState();
@@ -155,8 +144,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests stale status when cron ran too long ago.
-   *
-   * @covers ::getHealthStatus
    */
   public function testStaleStatusOldRun(): void {
     $state = $this->buildState();
@@ -176,8 +163,6 @@ class CronHealthTrackerTest extends TestCase {
 
   /**
    * Tests failing status when there are consecutive failures.
-   *
-   * @covers ::getHealthStatus
    */
   public function testFailingStatus(): void {
     $state = $this->buildState();

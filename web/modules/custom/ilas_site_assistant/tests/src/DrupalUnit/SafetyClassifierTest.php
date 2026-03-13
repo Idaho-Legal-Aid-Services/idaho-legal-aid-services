@@ -4,13 +4,16 @@ namespace Drupal\Tests\ilas_site_assistant\DrupalUnit;
 
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for SafetyClassifier service.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\SafetyClassifier
  */
+#[CoversClass(SafetyClassifier::class)]
+#[Group('ilas_site_assistant')]
 class SafetyClassifierTest extends UnitTestCase {
 
   /**
@@ -44,9 +47,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests crisis/suicide detection.
-   *
-   * @dataProvider crisisPromptProvider
    */
+  #[DataProvider('crisisPromptProvider')]
   public function testCrisisDetection(string $prompt, string $expected_reason_code): void {
     $result = $this->classifier->classify($prompt);
 
@@ -72,9 +74,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests immediate danger detection.
-   *
-   * @dataProvider immediateDangerProvider
    */
+  #[DataProvider('immediateDangerProvider')]
   public function testImmediateDangerDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -99,9 +100,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests DV emergency detection.
-   *
-   * @dataProvider dvEmergencyProvider
    */
+  #[DataProvider('dvEmergencyProvider')]
   public function testDvEmergencyDetection(string $prompt, string $expected_reason_code): void {
     $result = $this->classifier->classify($prompt);
 
@@ -129,9 +129,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests eviction emergency detection.
-   *
-   * @dataProvider evictionEmergencyProvider
    */
+  #[DataProvider('evictionEmergencyProvider')]
   public function testEvictionEmergencyDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -158,9 +157,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests child safety emergency detection.
-   *
-   * @dataProvider childSafetyProvider
    */
+  #[DataProvider('childSafetyProvider')]
   public function testChildSafetyDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -187,9 +185,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests scam/identity theft detection.
-   *
-   * @dataProvider scamProvider
    */
+  #[DataProvider('scamProvider')]
   public function testScamDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -215,9 +212,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests wrongdoing request detection.
-   *
-   * @dataProvider wrongdoingProvider
    */
+  #[DataProvider('wrongdoingProvider')]
   public function testWrongdoingDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -254,9 +250,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests criminal matter detection (out of scope).
-   *
-   * @dataProvider criminalMatterProvider
    */
+  #[DataProvider('criminalMatterProvider')]
   public function testCriminalMatterDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -283,9 +278,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests immigration matter detection (out of scope).
-   *
-   * @dataProvider immigrationMatterProvider
    */
+  #[DataProvider('immigrationMatterProvider')]
   public function testImmigrationMatterDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -309,9 +303,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests PII detection.
-   *
-   * @dataProvider piiProvider
    */
+  #[DataProvider('piiProvider')]
   public function testPiiDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -335,9 +328,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests legal advice request detection.
-   *
-   * @dataProvider legalAdviceProvider
    */
+  #[DataProvider('legalAdviceProvider')]
   public function testLegalAdviceDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -366,9 +358,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests document drafting detection.
-   *
-   * @dataProvider documentDraftingProvider
    */
+  #[DataProvider('documentDraftingProvider')]
   public function testDocumentDraftingDetection(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -393,9 +384,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests safe messages pass through.
-   *
-   * @dataProvider safeMessageProvider
    */
+  #[DataProvider('safeMessageProvider')]
   public function testSafeMessages(string $prompt): void {
     $result = $this->classifier->classify($prompt);
 
@@ -488,9 +478,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests hyphenated urgency bypass fix (F-09).
-   *
-   * @dataProvider bypassFixtureProvider
    */
+  #[DataProvider('bypassFixtureProvider')]
   public function testHyphenatedUrgencyBypassFix(string $prompt, string $expected_class): void {
     $result = $this->classifier->classify($prompt);
     $this->assertEquals($expected_class, $result['class'],
@@ -513,9 +502,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests Spanish prompt injection patterns (F-11).
-   *
-   * @dataProvider spanishInjectionProvider
    */
+  #[DataProvider('spanishInjectionProvider')]
   public function testSpanishInjectionDetection(string $prompt, string $expected_reason): void {
     $result = $this->classifier->classify($prompt);
     $this->assertEquals(SafetyClassifier::CLASS_PROMPT_INJECTION, $result['class'],
@@ -541,9 +529,8 @@ class SafetyClassifierTest extends UnitTestCase {
 
   /**
    * Tests informational dampener edge cases (F-10).
-   *
-   * @dataProvider informationalDampenerEdgeCaseProvider
    */
+  #[DataProvider('informationalDampenerEdgeCaseProvider')]
   public function testInformationalDampenerEdgeCases(string $prompt, bool $should_be_safe, string $description): void {
     $result = $this->classifier->classify($prompt);
     $this->assertEquals($should_be_safe, $result['is_safe'],

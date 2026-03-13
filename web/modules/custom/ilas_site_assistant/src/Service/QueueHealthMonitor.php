@@ -82,6 +82,14 @@ class QueueHealthMonitor {
     $utilizationPct = $maxDepth > 0 ? round(($depth / $maxDepth) * 100, 2) : 0;
     $threshold = $maxDepth * self::BACKLOG_THRESHOLD_RATIO;
     $oldestEnqueuedAt = $this->getOldestEnqueuedAt();
+
+    // Self-heal: if the queue is empty, any residual oldest_enqueued_at
+    // is stale state from a prior drain cycle — clear it.
+    if ($depth <= 0 && $oldestEnqueuedAt !== NULL) {
+      $this->state->delete(self::STATE_OLDEST_ENQUEUED_AT);
+      $oldestEnqueuedAt = NULL;
+    }
+
     $oldestItemAge = $oldestEnqueuedAt !== NULL ? max(0, time() - $oldestEnqueuedAt) : NULL;
 
     $isBacklogged = $depth > $threshold;
@@ -141,8 +149,11 @@ class QueueHealthMonitor {
     }
 
     // Reset oldest timestamp when the queue is fully drained.
+    // Use <= 1 because recordDrain() is called from processItem() while the
+    // current item is still claimed (counted by numberOfItems()). If only 1
+    // item remains, it is the one being processed and will be deleted next.
     $queue = $this->queueFactory->get(self::QUEUE_NAME);
-    if ($queue->numberOfItems() <= 0) {
+    if ($queue->numberOfItems() <= 1) {
       $this->state->delete(self::STATE_OLDEST_ENQUEUED_AT);
     }
   }

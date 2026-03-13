@@ -55,10 +55,41 @@ class LlmAdmissionCoordinator {
   /**
    * Atomically evaluates and reserves request admission state.
    *
+   * @param string|null $budgetIdentity
+   *   The trusted identity string used for per-IP budgeting.
+   *
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function beginRequest(): array {
+  public function beginRequest(?string $budgetIdentity = NULL): array {
+    return $this->evaluateRequest($budgetIdentity, TRUE);
+  }
+
+  /**
+   * Evaluates request admission without reserving capacity.
+   *
+   * @param string|null $budgetIdentity
+   *   The trusted identity string used for per-IP budgeting.
+   *
+   * @return array
+   *   Array with 'allowed' (bool) and 'reason' (string).
+   */
+  public function previewRequest(?string $budgetIdentity = NULL): array {
+    return $this->evaluateRequest($budgetIdentity, FALSE);
+  }
+
+  /**
+   * Evaluates admission rules and optionally reserves capacity.
+   *
+   * @param string|null $budgetIdentity
+   *   The trusted identity string used for per-IP budgeting.
+   * @param bool $reserve
+   *   TRUE to reserve capacity, FALSE for a read-only preview.
+   *
+   * @return array
+   *   Array with 'allowed' (bool) and 'reason' (string).
+   */
+  protected function evaluateRequest(?string $budgetIdentity, bool $reserve): array {
     if (!$this->lock->acquire(self::CONTROL_LOCK, self::LOCK_TTL)) {
       return ['allowed' => FALSE, 'reason' => 'concurrency_lock_timeout'];
     }
@@ -74,6 +105,14 @@ class LlmAdmissionCoordinator {
       $limiter = $this->prepareRateLimiterWindow($this->getRateLimiterData(), $now);
       $daily = $this->getDailyBudgetData($now);
       $monthly = $this->getMonthlyBudgetData($now);
+      $normalizedIdentity = CostControlPolicy::normalizeBudgetIdentity($budgetIdentity);
+      $identityHash = $normalizedIdentity !== NULL
+        ? CostControlPolicy::hashBudgetIdentity($normalizedIdentity)
+        : NULL;
+      $perIpBudgets = $this->getPerIpBudgetState($now);
+      $perIpBudget = $identityHash !== NULL
+        ? ($perIpBudgets[$identityHash] ?? ['count' => 0, 'window_start' => $now])
+        : NULL;
 
       $probeRequired = FALSE;
       $transitionToHalfOpen = FALSE;
@@ -83,10 +122,12 @@ class LlmAdmissionCoordinator {
         if (($now - $breaker['opened_at']) < $cooldown) {
           return ['allowed' => FALSE, 'reason' => 'circuit_breaker_open'];
         }
-        $probeRequired = TRUE;
-        $transitionToHalfOpen = TRUE;
+        if ($reserve) {
+          $probeRequired = TRUE;
+          $transitionToHalfOpen = TRUE;
+        }
       }
-      elseif ($breaker['state'] === 'half_open') {
+      elseif ($breaker['state'] === 'half_open' && $reserve) {
         $probeRequired = TRUE;
       }
 
@@ -99,8 +140,15 @@ class LlmAdmissionCoordinator {
       if ($this->isBudgetExhausted($monthly, 'monthly_call_limit')) {
         return ['allowed' => FALSE, 'reason' => 'monthly_budget_exhausted'];
       }
+      if (!$this->perIpBudgetHasCapacity($perIpBudget)) {
+        return ['allowed' => FALSE, 'reason' => 'per_ip_budget_exceeded'];
+      }
       if (!$this->passesSamplingGate()) {
         return ['allowed' => FALSE, 'reason' => 'sampling_gate_rejected'];
+      }
+
+      if (!$reserve) {
+        return ['allowed' => TRUE, 'reason' => 'allowed'];
       }
 
       if ($probeRequired && !$this->lock->acquire(self::PROBE_LOCK, self::LOCK_TTL)) {
@@ -128,6 +176,14 @@ class LlmAdmissionCoordinator {
 
       $monthly['count']++;
       $this->state->set(CostControlPolicy::STATE_KEY_MONTHLY, $monthly);
+
+      if ($identityHash !== NULL && $this->getCostControlConfig('per_ip_hourly_call_limit') > 0) {
+        $perIpBudget['count']++;
+        $perIpBudget['window_start'] = (int) ($perIpBudget['window_start'] ?? $now);
+        $perIpBudgets[$identityHash] = $perIpBudget;
+        $this->state->set(CostControlPolicy::STATE_KEY_PER_IP, $perIpBudgets);
+        $this->logPerIpBudgetThresholds($perIpBudget, $identityHash);
+      }
 
       return ['allowed' => TRUE, 'reason' => 'allowed'];
     }
@@ -368,6 +424,7 @@ class LlmAdmissionCoordinator {
     $this->withBlockingControlLock(function (): void {
       $this->state->set(CostControlPolicy::STATE_KEY_DAILY, NULL);
       $this->state->set(CostControlPolicy::STATE_KEY_MONTHLY, NULL);
+      $this->state->set(CostControlPolicy::STATE_KEY_PER_IP, NULL);
       $this->state->set(CostControlPolicy::STATE_KEY_CACHE_STATS, NULL);
     });
   }
@@ -516,11 +573,59 @@ class LlmAdmissionCoordinator {
   }
 
   /**
+   * Returns normalized per-IP budget state with expired windows pruned.
+   *
+   * @return array<string, array{count:int, window_start:int}>
+   *   Active hashed per-IP budget buckets.
+   */
+  protected function getPerIpBudgetState(int $now): array {
+    $data = $this->state->get(CostControlPolicy::STATE_KEY_PER_IP);
+    $windowSeconds = $this->getCostControlConfig('per_ip_window_seconds');
+    if (!is_array($data)) {
+      return [];
+    }
+
+    $normalized = [];
+    foreach ($data as $identityHash => $bucket) {
+      if (!is_string($identityHash) || !is_array($bucket) || !isset($bucket['count'])) {
+        continue;
+      }
+
+      $windowStart = (int) ($bucket['window_start'] ?? 0);
+      if ($windowSeconds > 0 && ($now - $windowStart) >= $windowSeconds) {
+        continue;
+      }
+
+      $normalized[$identityHash] = [
+        'count' => (int) $bucket['count'],
+        'window_start' => $windowStart > 0 ? $windowStart : $now,
+      ];
+    }
+
+    return $normalized;
+  }
+
+  /**
    * Returns TRUE when a budget is exhausted.
    */
   protected function isBudgetExhausted(array $data, string $configKey): bool {
     $limit = $this->getCostControlConfig($configKey);
     return $limit > 0 && $data['count'] >= $limit;
+  }
+
+  /**
+   * Returns TRUE when the per-IP budget can admit one more request.
+   *
+   * @param array<string, int>|null $data
+   *   The current per-IP bucket or NULL when no identity was supplied.
+   */
+  protected function perIpBudgetHasCapacity(?array $data): bool {
+    $limit = $this->getCostControlConfig('per_ip_hourly_call_limit');
+    if ($data === NULL || $limit === 0) {
+      return TRUE;
+    }
+
+    return (int) ($data['count'] ?? 0) < $limit;
   }
 
   /**
@@ -542,6 +647,34 @@ class LlmAdmissionCoordinator {
 
     if ($data['count'] === $limit) {
       $this->logger->warning('Daily LLM budget exhausted (@count/@max).', [
+        '@count' => $data['count'],
+        '@max' => $limit,
+      ]);
+    }
+  }
+
+  /**
+   * Logs per-IP threshold crossings using the post-increment state.
+   */
+  protected function logPerIpBudgetThresholds(array $data, string $identityHash): void {
+    $limit = $this->getCostControlConfig('per_ip_hourly_call_limit');
+    if ($limit === 0) {
+      return;
+    }
+
+    $threshold80 = (int) ceil($limit * 0.8);
+    $identityLabel = substr($identityHash, 0, 12);
+    if ($data['count'] === $threshold80) {
+      $this->logger->notice('Per-IP LLM budget at 80% for identity @identity (@count/@max).', [
+        '@identity' => $identityLabel,
+        '@count' => $data['count'],
+        '@max' => $limit,
+      ]);
+    }
+
+    if ($data['count'] === $limit) {
+      $this->logger->warning('Per-IP LLM budget exhausted for identity @identity (@count/@max).', [
+        '@identity' => $identityLabel,
         '@count' => $data['count'],
         '@max' => $limit,
       ]);
@@ -618,6 +751,8 @@ class LlmAdmissionCoordinator {
     $defaults = [
       'daily_call_limit' => 5000,
       'monthly_call_limit' => 100000,
+      'per_ip_hourly_call_limit' => 10,
+      'per_ip_window_seconds' => 3600,
       'cache_stats_window_seconds' => 86400,
       'alert_cooldown_minutes' => 60,
     ];

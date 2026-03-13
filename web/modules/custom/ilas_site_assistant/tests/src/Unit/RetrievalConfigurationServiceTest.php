@@ -11,6 +11,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\search_api\IndexInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
@@ -253,9 +254,8 @@ final class RetrievalConfigurationServiceTest extends TestCase {
    *   Expected HTTPS validation flag.
    * @param bool $expectedConfigured
    *   Expected configured flag.
-   *
-   * @dataProvider legalServerUrlProvider
    */
+  #[DataProvider('legalServerUrlProvider')]
   public function testLegalServerRuntimeUrlValidation(array $settings, string $expectedStatus, bool $expectedHttps, bool $expectedConfigured): void {
     new Settings($settings);
 

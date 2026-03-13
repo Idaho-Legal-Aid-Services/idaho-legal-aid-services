@@ -4,15 +4,14 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for PerformanceMonitor: single state write, no race, cooldown preserved.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\PerformanceMonitor
  */
+#[CoversClass(PerformanceMonitor::class)]
 #[Group('ilas_site_assistant')]
 class PerformanceMonitorTest extends TestCase {
 
@@ -21,8 +20,6 @@ class PerformanceMonitorTest extends TestCase {
    *
    * Previously checkThresholds() also called state->set(), causing a
    * double-write race where the last_alert cooldown could be lost.
-   *
-   * @covers ::recordRequest
    */
   public function testSingleStateWrite(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -53,8 +50,6 @@ class PerformanceMonitorTest extends TestCase {
    * When a threshold is exceeded, checkThresholds() sets last_alert on
    * the metrics array by reference. The single state->set() in
    * recordRequest() persists it.
-   *
-   * @covers ::recordRequest
    */
   public function testCooldownPreservedInSingleWrite(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -102,8 +97,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that cooldown suppresses repeated alerts.
-   *
-   * @covers ::recordRequest
    */
   public function testCooldownSuppressesAlerts(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -139,8 +132,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that error rate threshold triggers alert.
-   *
-   * @covers ::recordRequest
    */
   public function testErrorRateThresholdTriggersAlert(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -187,8 +178,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that getSummary computes correct percentiles.
-   *
-   * @covers ::getSummary
    */
   public function testGetSummaryPercentiles(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -225,8 +214,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that custom SLO thresholds are used in summary threshold output.
-   *
-   * @covers ::getSummary
    */
   public function testGetSummaryUsesCustomSloThresholds(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -268,8 +255,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that getSummary returns no_data for empty metrics.
-   *
-   * @covers ::getSummary
    */
   public function testGetSummaryEmpty(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -292,8 +277,6 @@ class PerformanceMonitorTest extends TestCase {
 
   /**
    * Tests that request_id parameter is accepted.
-   *
-   * @covers ::recordRequest
    */
   public function testRecordRequestAcceptsRequestId(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');

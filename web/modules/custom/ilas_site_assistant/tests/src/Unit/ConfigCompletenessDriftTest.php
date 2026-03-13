@@ -15,8 +15,6 @@ use Symfony\Component\Yaml\Yaml;
  * config export contains all top-level keys from install defaults, the schema
  * covers all install defaults, active config has no orphan keys, LLM sub-keys
  * are complete, and disabled-by-default blocks remain disabled in install.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class ConfigCompletenessDriftTest extends TestCase {
@@ -243,6 +241,8 @@ class ConfigCompletenessDriftTest extends TestCase {
     $required_keys = [
       'daily_call_limit',
       'monthly_call_limit',
+      'per_ip_hourly_call_limit',
+      'per_ip_window_seconds',
       'sample_rate',
       'cache_hit_rate_target',
       'cache_stats_window_seconds',

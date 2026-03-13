@@ -457,7 +457,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['llm'] = [
       '#type' => 'details',
       '#title' => $this->t('LLM Enhancement (Gemini / Vertex AI)'),
-      '#description' => $this->t('Optional: Use Google Gemini or Vertex AI to generate more natural, conversational responses. The LLM only summarizes content from your site - it does not search the web or provide legal advice.'),
+      '#description' => $this->t('Optional: Use Google Gemini or Vertex AI for ambiguous intent classification and optional greeting variation. The LLM does not search the web or provide legal advice.'),
       '#open' => FALSE,
     ];
 
@@ -469,7 +469,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#title' => $this->t('Enable LLM Enhancement'),
       '#description' => $is_live_environment
         ? $this->t('Disabled in live: LLM enablement is out of scope through Phase 2 and requires a later readiness review.')
-        : $this->t('When enabled, the assistant will use Gemini AI to generate more natural responses. Requires API credentials below.'),
+        : $this->t('When enabled, the assistant may use Gemini AI for ambiguous intent classification and optional greeting responses. Requires API credentials below.'),
       '#default_value' => $is_live_environment ? FALSE : ($llm_config['enabled'] ?? FALSE),
       '#disabled' => $is_live_environment,
     ];
@@ -572,20 +572,6 @@ class AssistantSettingsForm extends ConfigFormBase {
           ':input[name="llm_enabled"]' => ['checked' => TRUE],
         ],
       ],
-    ];
-
-    $form['llm']['llm_options']['llm_enhance_faq'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enhance FAQ Responses'),
-      '#description' => $this->t('Summarize FAQ answers in a more conversational tone.'),
-      '#default_value' => $llm_config['enhance_faq'] ?? TRUE,
-    ];
-
-    $form['llm']['llm_options']['llm_enhance_resources'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enhance Resource Responses'),
-      '#description' => $this->t('Generate friendly introductions for form/guide/resource results.'),
-      '#default_value' => $llm_config['enhance_resources'] ?? TRUE,
     ];
 
     $form['llm']['llm_options']['llm_enhance_greetings'] = [
@@ -747,8 +733,6 @@ class AssistantSettingsForm extends ConfigFormBase {
       'location' => $form_state->getValue('llm_location'),
       'max_tokens' => (int) $form_state->getValue('llm_max_tokens'),
       'temperature' => (float) $form_state->getValue('llm_temperature'),
-      'enhance_faq' => (bool) $form_state->getValue('llm_enhance_faq'),
-      'enhance_resources' => (bool) $form_state->getValue('llm_enhance_resources'),
       'enhance_greetings' => (bool) $form_state->getValue('llm_enhance_greetings'),
       'fallback_on_error' => (bool) $form_state->getValue('llm_fallback_on_error'),
     ];

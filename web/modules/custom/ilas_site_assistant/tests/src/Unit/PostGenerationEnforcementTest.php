@@ -70,41 +70,47 @@ final class PostGenerationEnforcementTest extends TestCase {
   /**
    * Unsafe grounded messages must be replaced on the final controller path.
    */
-  public function testRequiresReviewReplacesFinalMessageAndSummary(): void {
-    [$controller, $analytics] = $this->buildController('This summary looks harmless but must be replaced.');
+  public function testRequiresReviewReplacesFinalMessageAndStripsLegacyLlmFields(): void {
+    [$controller, $analytics] = $this->buildController();
     $controller->processIntentResponse = $this->buildResponse(
       'You should file a complaint with the court.',
       'faq'
     );
+    $controller->processIntentResponse['llm_summary'] = 'This summary looks harmless but must be replaced.';
+    $controller->processIntentResponse['llm_enhanced'] = TRUE;
 
     $response = $controller->message($this->buildRequest());
     $body = json_decode($response->getContent(), TRUE);
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
-    $this->assertSame(self::SAFE_FALLBACK, $body['llm_summary'] ?? NULL);
+    $this->assertArrayNotHasKey('llm_summary', $body);
+    $this->assertArrayNotHasKey('llm_enhanced', $body);
     $this->assertSame('faq', $body['type'] ?? NULL);
     $this->assertContains('post_gen_safety_review_flag', $analytics->eventTypes());
     $this->assertInternalFieldsAreHidden($body);
   }
 
   /**
-   * Unsafe LLM summaries must be replaced on the controller response path.
+   * Legacy LLM-only fields must be stripped before serialization.
    */
-  public function testUnsafeLlmSummaryIsReplacedOnControllerPath(): void {
-    [$controller, $analytics] = $this->buildController('You should file a motion to dismiss right away.');
+  public function testLegacyLlmFieldsAreStrippedOnControllerPath(): void {
+    [$controller, $analytics] = $this->buildController();
     $controller->processIntentResponse = $this->buildResponse(
       'Idaho Legal Aid Services may have housing resources that can help.',
       'faq'
     );
+    $controller->processIntentResponse['llm_summary'] = 'You should file a motion to dismiss right away.';
+    $controller->processIntentResponse['llm_enhanced'] = TRUE;
 
     $response = $controller->message($this->buildRequest());
     $body = json_decode($response->getContent(), TRUE);
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame('Idaho Legal Aid Services may have housing resources that can help.', $body['message'] ?? NULL);
-    $this->assertSame(self::SAFE_FALLBACK, $body['llm_summary'] ?? NULL);
-    $this->assertContains('post_gen_safety_legal_advice', $analytics->eventTypes());
+    $this->assertArrayNotHasKey('llm_summary', $body);
+    $this->assertArrayNotHasKey('llm_enhanced', $body);
+    $this->assertNotContains('post_gen_safety_review_flag', $analytics->eventTypes());
     $this->assertInternalFieldsAreHidden($body);
   }
 
@@ -112,21 +118,22 @@ final class PostGenerationEnforcementTest extends TestCase {
    * Safe public responses must pass through unchanged.
    */
   public function testSafeResponsePassesThroughUnchanged(): void {
-    $safe_summary = 'Here are some housing resources that may help, and you can contact the Legal Advice Line for case-specific guidance.';
-    [$controller, $analytics] = $this->buildController($safe_summary);
+    [$controller, $analytics] = $this->buildController();
     $controller->processIntentResponse = $this->buildResponse(
       'Idaho Legal Aid Services provides general information about housing issues.',
       'faq'
     );
+    $controller->processIntentResponse['llm_summary'] = 'Here are some housing resources that may help.';
+    $controller->processIntentResponse['llm_enhanced'] = TRUE;
 
     $response = $controller->message($this->buildRequest());
     $body = json_decode($response->getContent(), TRUE);
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame('Idaho Legal Aid Services provides general information about housing issues.', $body['message'] ?? NULL);
-    $this->assertSame($safe_summary, $body['llm_summary'] ?? NULL);
+    $this->assertArrayNotHasKey('llm_summary', $body);
+    $this->assertArrayNotHasKey('llm_enhanced', $body);
     $this->assertNotContains('post_gen_safety_review_flag', $analytics->eventTypes());
-    $this->assertNotContains('post_gen_safety_legal_advice', $analytics->eventTypes());
     $this->assertInternalFieldsAreHidden($body);
   }
 
@@ -136,7 +143,7 @@ final class PostGenerationEnforcementTest extends TestCase {
    * @return array{0: PostGenerationTestableController, 1: RecordingAnalyticsLogger}
    *   The controller and analytics recorder.
    */
-  private function buildController(?string $llm_summary): array {
+  private function buildController(): array {
     $configFactory = $this->buildConfigFactory();
 
     $flood = $this->createStub(FloodInterface::class);
@@ -159,7 +166,7 @@ final class PostGenerationEnforcementTest extends TestCase {
     ]);
 
     $analyticsLogger = new RecordingAnalyticsLogger();
-    $llmEnhancer = new PostGenerationTestableLlmEnhancer($llm_summary);
+    $llmEnhancer = new PostGenerationTestableLlmEnhancer();
     $state = $this->createStub(StateInterface::class);
     $state->method('get')->willReturnCallback(static function (string $key, $default = NULL) {
       return $default;
@@ -239,11 +246,13 @@ final class PostGenerationEnforcementTest extends TestCase {
    * Tests that PHARD-03 internal flags are stripped from client response.
    */
   public function testWeakGroundingFlagStripping(): void {
-    [$controller, $analytics] = $this->buildController('Summary text.');
+    [$controller, $analytics] = $this->buildController();
     $controller->processIntentResponse = $this->buildResponse(
       'Some safe information about housing.',
       'faq'
     );
+    $controller->processIntentResponse['llm_summary'] = 'Summary text.';
+    $controller->processIntentResponse['llm_enhanced'] = TRUE;
     $controller->processIntentResponse['_grounding_weak'] = TRUE;
     $controller->processIntentResponse['_grounding_weak_reason'] = 'citation_required_type_without_citations';
     $controller->processIntentResponse['_all_citations_stale'] = TRUE;
@@ -261,14 +270,16 @@ final class PostGenerationEnforcementTest extends TestCase {
   }
 
   /**
-   * Tests that weak grounding replaces llm_summary on the controller path.
+   * Tests that weak grounding strips legacy LLM fields on the controller path.
    */
-  public function testWeakGroundingReplacesLlmSummary(): void {
-    [$controller, $analytics] = $this->buildController('Original LLM summary with claims.');
+  public function testWeakGroundingStripsLegacyLlmFields(): void {
+    [$controller, $analytics] = $this->buildController();
     $controller->processIntentResponse = $this->buildResponse(
       'Some safe information.',
       'faq'
     );
+    $controller->processIntentResponse['llm_summary'] = 'Original LLM summary with claims.';
+    $controller->processIntentResponse['llm_enhanced'] = TRUE;
     $controller->processIntentResponse['_grounding_weak'] = TRUE;
     $controller->processIntentResponse['_grounding_weak_reason'] = 'citation_required_type_without_citations';
 
@@ -276,7 +287,9 @@ final class PostGenerationEnforcementTest extends TestCase {
     $body = json_decode($response->getContent(), TRUE);
 
     $this->assertSame(200, $response->getStatusCode());
-    $this->assertStringContainsString('could not verify specific sources', $body['llm_summary'] ?? '');
+    $this->assertSame('Some safe information.', $body['message'] ?? NULL);
+    $this->assertArrayNotHasKey('llm_summary', $body);
+    $this->assertArrayNotHasKey('llm_enhanced', $body);
     $this->assertContains('post_gen_safety_weak_grounding', $analytics->eventTypes());
     $this->assertInternalFieldsAreHidden($body);
   }
@@ -292,10 +305,13 @@ final class PostGenerationEnforcementTest extends TestCase {
     $this->assertArrayNotHasKey('_grounding_weak_reason', $body);
     $this->assertArrayNotHasKey('_all_citations_stale', $body);
     $this->assertArrayNotHasKey('_stale_citation_count', $body);
+    $this->assertArrayNotHasKey('llm_summary', $body);
+    $this->assertArrayNotHasKey('llm_enhanced', $body);
     $this->assertArrayNotHasKey('review_flag_triggered', $body);
-    $this->assertArrayNotHasKey('unsafe_llm_summary_detected', $body);
     $this->assertArrayNotHasKey('message_replaced', $body);
-    $this->assertArrayNotHasKey('llm_summary_replaced', $body);
+    $this->assertArrayNotHasKey('weak_grounding_detected', $body);
+    $this->assertArrayNotHasKey('stale_citations_caveat_added', $body);
+    $this->assertArrayNotHasKey('llm_artifacts_stripped', $body);
   }
 
   /**
@@ -390,27 +406,17 @@ final class RecordingAnalyticsLogger extends AnalyticsLogger {
 }
 
 /**
- * LLM enhancer test double that returns a deterministic summary.
+ * LLM enhancer test double that preserves deterministic responses.
  */
 final class PostGenerationTestableLlmEnhancer extends LlmEnhancer {
 
-  /**
-   * Constructs the LLM enhancer test double.
-   */
-  public function __construct(
-    private readonly ?string $llmSummary,
-  ) {}
+  public function __construct() {}
 
   /**
    * {@inheritdoc}
    */
   public function enhanceResponse(array $response, string $userQuery): array {
-    if ($this->llmSummary === NULL) {
-      return $response;
-    }
-
-    $response['llm_summary'] = $this->llmSummary;
-    $response['llm_enhanced'] = TRUE;
+    unset($userQuery);
     return $response;
   }
 

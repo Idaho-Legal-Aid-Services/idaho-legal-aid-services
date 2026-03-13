@@ -7,15 +7,15 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\ilas_site_assistant\Plugin\QueueWorker\LangfuseExportWorker;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\Response;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Tests LangfuseExportWorker age-based discard and normal processing.
- *
- * @coversDefaultClass \Drupal\ilas_site_assistant\Plugin\QueueWorker\LangfuseExportWorker
  */
+#[CoversClass(LangfuseExportWorker::class)]
 #[Group('ilas_site_assistant')]
 class LangfuseExportWorkerTest extends TestCase {
 
@@ -90,8 +90,6 @@ class LangfuseExportWorkerTest extends TestCase {
 
   /**
    * Tests that a recent item is processed normally (HTTP call made).
-   *
-   * @covers ::processItem
    */
   public function testRecentItemProcessedNormally(): void {
     $mocks = $this->buildWorker();
@@ -110,8 +108,6 @@ class LangfuseExportWorkerTest extends TestCase {
 
   /**
    * Tests that a stale item is discarded without making an HTTP call.
-   *
-   * @covers ::processItem
    */
   public function testStaleItemDiscarded(): void {
     $mocks = $this->buildWorker(maxAge: 3600);
@@ -127,8 +123,6 @@ class LangfuseExportWorkerTest extends TestCase {
 
   /**
    * Tests that an item without enqueued_at is discarded as pre-upgrade.
-   *
-   * @covers ::processItem
    */
   public function testMissingEnqueuedAtDiscarded(): void {
     $mocks = $this->buildWorker();
@@ -144,8 +138,6 @@ class LangfuseExportWorkerTest extends TestCase {
 
   /**
    * Tests that a custom max age from config is respected.
-   *
-   * @covers ::processItem
    */
   public function testCustomMaxAgeFromConfig(): void {
     $mocks = $this->buildWorker(maxAge: 120);
@@ -161,8 +153,6 @@ class LangfuseExportWorkerTest extends TestCase {
 
   /**
    * Tests that an item just within max age is processed.
-   *
-   * @covers ::processItem
    */
   public function testItemJustWithinMaxAgeProcessed(): void {
     $mocks = $this->buildWorker(maxAge: 3600);
@@ -179,8 +169,6 @@ class LangfuseExportWorkerTest extends TestCase {
    *
    * If an item is stale AND credentials are empty, it should be discarded
    * by the age check (notice says "aged"), not by the credential check.
-   *
-   * @covers ::processItem
    */
   public function testStaleCheckRunsBeforeCredentialCheck(): void {
     // Build a worker with empty credentials.

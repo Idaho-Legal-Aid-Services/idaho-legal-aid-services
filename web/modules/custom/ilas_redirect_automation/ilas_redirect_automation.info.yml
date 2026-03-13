@@ -1,7 +1,7 @@
 name: 'ILAS Redirect Automation'
 type: module
 description: 'Automates 404 redirect resolution for migrated content paths with preview and approval workflow.'
-package: ILAS
+package: 'Idaho Legal Aid - Admin & Automation'
 core_version_requirement: ^11
 dependencies:
   - redirect:redirect

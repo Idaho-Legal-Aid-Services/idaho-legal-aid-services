@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for the RetrievalContract constants and static validators.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\RetrievalContract
  */
+#[CoversClass(RetrievalContract::class)]
 #[Group('ilas_site_assistant')]
 final class RetrievalContractTest extends TestCase {
 

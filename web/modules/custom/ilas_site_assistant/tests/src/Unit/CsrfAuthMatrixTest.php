@@ -6,6 +6,7 @@ use Drupal\Core\Access\CsrfRequestHeaderAccessCheck;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\ilas_site_assistant\Access\StrictCsrfRequestHeaderAccessCheck;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,9 +17,9 @@ use Symfony\Component\Routing\Route;
 /**
  * CSRF auth matrix coverage for strict CSRF enforcement.
  *
- * @group ilas_site_assistant
  * @see \Drupal\ilas_site_assistant\Access\StrictCsrfRequestHeaderAccessCheck
  */
+#[Group('ilas_site_assistant')]
 class CsrfAuthMatrixTest extends TestCase {
 
   /**

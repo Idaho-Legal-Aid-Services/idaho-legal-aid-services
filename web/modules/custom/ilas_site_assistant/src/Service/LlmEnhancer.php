@@ -120,6 +120,15 @@ class LlmEnhancer {
     'formulario', 'guia', 'guias', 'servicios', 'desalojo', 'custodia',
     'divorcio', 'hablar', 'aplicar',
   ];
+  const ENGLISH_CACHE_STOPWORDS = [
+    'a', 'an', 'and', 'are', 'can', 'could', 'do', 'does', 'for', 'how',
+    'i', 'in', 'is', 'me', 'my', 'of', 'please', 'the', 'to', 'what',
+    'where',
+  ];
+  const SPANISH_CACHE_STOPWORDS = [
+    'como', 'con', 'de', 'del', 'donde', 'el', 'la', 'las', 'lo', 'los',
+    'me', 'mi', 'mis', 'para', 'por', 'que', 'qué', 'un', 'una', 'yo',
+  ];
   const ENGLISH_PROMPT_MARKERS = [
     'help', 'legal help', 'need', 'want', 'where', 'how', 'office',
     'offices', 'phone', 'lawyer', 'forms', 'guides', 'services',
@@ -332,7 +341,19 @@ PROMPT,
   }
 
   /**
-   * Enhances a response with LLM-generated summary.
+   * Returns the current aggregate cost-control snapshot.
+   */
+  public function getCostControlSummary(): ?array {
+    return $this->costControlPolicy?->getSummary();
+  }
+
+  /**
+   * Preserves deterministic response payloads on the product response path.
+   *
+   * Response summarization was removed because the widget renders only the
+   * deterministic `message` field. The controller still keeps this method for
+   * backwards compatibility with the injected service shape, but it no longer
+   * performs any LLM work or mutates the response payload.
    *
    * @param array $response
    *   The original response from intent processing.
@@ -340,54 +361,10 @@ PROMPT,
    *   The user's original query.
    *
    * @return array
-   *   Enhanced response with optional 'llm_summary' field.
+   *   The unmodified response.
    */
   public function enhanceResponse(array $response, string $userQuery): array {
-    if (!$this->isEnabled()) {
-      return $response;
-    }
-
-    $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $type = $response['type'] ?? '';
-
-    // Don't enhance escalation or error responses.
-    if (in_array($type, ['escalation', 'error'])) {
-      return $response;
-    }
-
-    // Honor enhance_faq flag.
-    if ($type === 'faq' && !$config->get('llm.enhance_faq')) {
-      return $response;
-    }
-
-    // Honor enhance_resources flag.
-    if ($type === 'resources' && !$config->get('llm.enhance_resources')) {
-      return $response;
-    }
-
-    // Don't enhance if no results to summarize.
-    if (empty($response['results']) && empty($response['message'])) {
-      return $response;
-    }
-
-    try {
-      $summary = $this->generateSummary($response, $userQuery);
-      if ($summary) {
-        $response['llm_summary'] = $summary;
-        $response['llm_enhanced'] = TRUE;
-      }
-    }
-    catch (\Exception $e) {
-      $this->logger->warning('LLM enhancement failed: @class @error_signature', [
-        '@class' => get_class($e),
-        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
-      ]);
-      // Re-throw if fallback_on_error is disabled.
-      if (!$config->get('llm.fallback_on_error')) {
-        throw $e;
-      }
-    }
-
+    unset($userQuery);
     return $response;
   }
 
@@ -402,7 +379,7 @@ PROMPT,
    * @return string
    *   The classified intent (may be same as current or improved).
    */
-  public function classifyIntent(string $userQuery, string $currentIntent = 'unknown'): string {
+  public function classifyIntent(string $userQuery, string $currentIntent = 'unknown', ?string $budgetIdentity = NULL): string {
     if (!$this->isEnabled()) {
       return $currentIntent;
     }
@@ -423,6 +400,9 @@ PROMPT,
       $prompt .= "\n\nUser query: " . $sanitizedQuery;
 
       $result = $this->callLlm($prompt, [
+        'budget_identity' => $budgetIdentity,
+        'cache_identity' => $userQuery,
+        'cache_profile' => 'intent_classification',
         'max_tokens' => 20,
         'temperature' => 0.1,
       ]);
@@ -632,6 +612,65 @@ PROMPT,
   }
 
   /**
+   * Returns the cache-policy version used to invalidate stored LLM responses.
+   */
+  protected function getPolicyVersion(): string {
+    return static::POLICY_VERSION;
+  }
+
+  /**
+   * Builds the cache key for an LLM request profile.
+   */
+  protected function buildCacheKey(string $prompt, string $model, array $options, float $temperature): string {
+    $cacheProfile = (string) ($options['cache_profile'] ?? 'default');
+    $fingerprint = $cacheProfile === 'intent_classification'
+      ? $this->buildIntentClassificationCacheFingerprint((string) ($options['cache_identity'] ?? ''))
+      : $prompt;
+
+    return 'llm:' . hash('sha256', implode('|', [
+      'profile=' . $cacheProfile,
+      'fingerprint=' . $fingerprint,
+      'model=' . $model,
+      'max_tokens=' . (string) ($options['max_tokens'] ?? 150),
+      'temperature=' . (string) $temperature,
+      'policy=' . $this->getPolicyVersion(),
+    ]));
+  }
+
+  /**
+   * Builds a normalized fingerprint for intent-classification cache reuse.
+   */
+  protected function buildIntentClassificationCacheFingerprint(string $userQuery): string {
+    $normalized = InputNormalizer::normalize($userQuery);
+    $normalized = mb_strtolower($normalized);
+    $normalized = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $normalized) ?? $normalized;
+    $normalized = preg_replace('/\s+/u', ' ', trim($normalized)) ?? trim($normalized);
+
+    if ($normalized === '') {
+      return 'intent:empty';
+    }
+
+    $stopWords = array_fill_keys(array_merge(
+      self::ENGLISH_CACHE_STOPWORDS,
+      self::SPANISH_CACHE_STOPWORDS,
+    ), TRUE);
+
+    $tokens = preg_split('/\s+/u', $normalized) ?: [];
+    $tokens = array_values(array_filter($tokens, static function (string $token) use ($stopWords): bool {
+      return $token !== '' && !isset($stopWords[$token]);
+    }));
+
+    if ($tokens === []) {
+      return 'intent:empty';
+    }
+
+    $tokens = array_values(array_unique($tokens));
+    sort($tokens, SORT_STRING);
+
+    return 'intent:' . implode('|', $tokens);
+  }
+
+  /**
    * Calls the LLM API.
    *
    * @param string $prompt
@@ -685,17 +724,12 @@ PROMPT,
     $model = $config->get('llm.model') ?? 'gemini-1.5-flash';
     $temperature = $options['temperature'] ?? 0.3;
     $cacheTtl = (int) ($config->get('llm.cache_ttl') ?? 3600);
+    $budgetIdentity = CostControlPolicy::normalizeBudgetIdentity($options['budget_identity'] ?? NULL);
 
     // Check cache (skip for high temperature to allow variation).
     // Key includes policy_version so bumping it invalidates all cached responses.
     if ($this->cache && $cacheTtl > 0 && $temperature <= 0.5) {
-      $cacheKey = 'llm:' . hash('sha256', implode('|', [
-        $prompt,
-        $model,
-        (string) ($options['max_tokens'] ?? 150),
-        (string) $temperature,
-        static::POLICY_VERSION,
-      ]));
+      $cacheKey = $this->buildCacheKey($prompt, $model, $options, (float) $temperature);
       $cached = $this->cache->get($cacheKey);
       if ($cached) {
         $this->lastUsage = NULL;
@@ -707,7 +741,7 @@ PROMPT,
     // Cost control policy check (after cache, before API call).
     $this->costControlPolicy?->recordCacheMiss();
     if ($this->costControlPolicy) {
-      $policyResult = $this->costControlPolicy->beginRequest();
+      $policyResult = $this->costControlPolicy->beginRequest($budgetIdentity);
       if (!$policyResult['allowed']) {
         if ($policyResult['reason'] === 'circuit_breaker_open') {
           throw new \RuntimeException('LLM circuit breaker is open, skipping API call.');
@@ -744,7 +778,7 @@ PROMPT,
 
     // Store in cache.
     if ($this->cache && $cacheTtl > 0 && $temperature <= 0.5 && isset($cacheKey)) {
-      $this->cache->set($cacheKey, $result, time() + $cacheTtl, ['ilas_site_assistant:llm']);
+      $this->cache->set($cacheKey, $result, $this->getCurrentTime() + $cacheTtl, ['ilas_site_assistant:llm']);
     }
 
     return $result;

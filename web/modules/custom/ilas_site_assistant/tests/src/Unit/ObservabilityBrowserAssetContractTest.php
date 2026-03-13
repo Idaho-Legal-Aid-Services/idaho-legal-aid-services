@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Contract tests for browser observability assets and theme wiring.
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class ObservabilityBrowserAssetContractTest extends TestCase {
 
   /**

@@ -4,6 +4,8 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -12,15 +14,13 @@ use Psr\Log\LoggerInterface;
  * Tests real database writes, metadata-only message persistence, request_id
  * storage, and cleanup behavior with actual SQL.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\ConversationLogger
  */
+#[CoversClass(ConversationLogger::class)]
+#[Group('ilas_site_assistant')]
 class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that logExchange writes both user and assistant rows.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeWritesBothRows(): void {
     $logger = $this->createConversationLogger();
@@ -56,8 +56,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that only metadata is stored for user and assistant messages.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeStoresMetadataOnly(): void {
     $logger = $this->createConversationLogger();
@@ -103,8 +101,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests Spanish/contextual PII redaction in stored metadata.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeStoresSpanishContextualMetadata(): void {
     $logger = $this->createConversationLogger();
@@ -134,8 +130,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that a valid request_id is stored in both rows.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeStoresValidRequestId(): void {
     $logger = $this->createConversationLogger();
@@ -164,8 +158,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that an invalid request_id is not stored.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeRejectsInvalidRequestId(): void {
     $logger = $this->createConversationLogger();
@@ -193,8 +185,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that an empty request_id results in NULL storage.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeEmptyRequestIdStoresNull(): void {
     $logger = $this->createConversationLogger();
@@ -220,8 +210,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that logExchange does nothing when logging is disabled.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeDisabledByConfig(): void {
     $logger = $this->createConversationLogger([
@@ -242,8 +230,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that cleanup removes expired rows.
-   *
-   * @covers ::cleanup
    */
   public function testCleanupRemovesExpiredRows(): void {
     $now = 1700000000;
@@ -289,8 +275,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that cleanup logs the deleted-row count through the injected logger.
-   *
-   * @covers ::cleanup
    */
   public function testCleanupLogsDeletedRowCount(): void {
     $now = 1700000000;
@@ -324,8 +308,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that batched cleanup deletes all expired rows across batches.
-   *
-   * @covers ::cleanup
    */
   public function testBatchedCleanupDeletesAllExpiredRows(): void {
     $now = 1700000000;
@@ -369,8 +351,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that cleanup preserves all rows within retention window.
-   *
-   * @covers ::cleanup
    */
   public function testCleanupPreservesRecentRows(): void {
     $now = 1700000000;
@@ -396,8 +376,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that long messages collapse into bucketed metadata.
-   *
-   * @covers ::logExchange
    */
   public function testLogExchangeBucketsLongMessages(): void {
     $logger = $this->createConversationLogger();
@@ -432,8 +410,6 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that multiple exchanges for the same conversation are grouped.
-   *
-   * @covers ::logExchange
    */
   public function testMultipleExchangesSameConversation(): void {
     $logger = $this->createConversationLogger();

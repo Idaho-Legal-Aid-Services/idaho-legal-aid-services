@@ -19,8 +19,6 @@ use Symfony\Component\Yaml\Yaml;
  * Validates that observability services degrade gracefully when disabled,
  * missing credentials, or zero sample rate, and that install defaults
  * ship with all feature flags off.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class StagedEnablementContractTest extends TestCase {

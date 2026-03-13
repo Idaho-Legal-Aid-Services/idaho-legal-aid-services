@@ -1,11 +1,10 @@
 name: 'ILAS Testing Suite'
 type: module
 description: 'Comprehensive testing suite for Idaho Legal Aid Services modules'
-package: ILAS
+package: 'Idaho Legal Aid - Development'
 core_version_requirement: ^10.3 || ^11
 dependencies:
   - drupal:simpletest
   - ilas_civicrm:ilas_civicrm
   - ilas_events:ilas_events
-  - ilas_donations:ilas_donations
   - ilas_reports:ilas_reports

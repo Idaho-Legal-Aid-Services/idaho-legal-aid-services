@@ -13,8 +13,6 @@ use Symfony\Component\Yaml\Yaml;
  *
  * Ensures that the review_loop config block exists in install config,
  * active config, and schema, with required fields populated.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class ReviewLoopOwnershipDocsTest extends TestCase {

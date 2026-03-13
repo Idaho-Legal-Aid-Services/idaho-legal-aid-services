@@ -2,7 +2,7 @@ name: ILAS Resources
 type: module
 description: Creates "Resource" content type, vocabularies, and Resources View.
 core_version_requirement: ^9 || ^10 || ^11
-package: ILAS
+package: 'Idaho Legal Aid - Site Features'
 dependencies:
   - drupal:taxonomy
   - drupal:file

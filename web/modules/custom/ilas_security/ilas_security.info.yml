@@ -1,5 +1,5 @@
 name: 'ILAS Security'
 type: module
 description: 'Security hardening and tests for Idaho Legal Aid Services.'
-package: ILAS
+package: 'Idaho Legal Aid - Development'
 core_version_requirement: ^10 || ^11

@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Site\Settings;
 use Drupal\Core\State\StateInterface;
 use Psr\Log\LoggerInterface;
 
@@ -19,6 +20,7 @@ class CostControlPolicy {
 
   const STATE_KEY_DAILY = 'ilas_site_assistant.cost_control.daily';
   const STATE_KEY_MONTHLY = 'ilas_site_assistant.cost_control.monthly';
+  const STATE_KEY_PER_IP = 'ilas_site_assistant.cost_control.per_ip';
   const STATE_KEY_CACHE_STATS = 'ilas_site_assistant.cost_control.cache_stats';
   const STATE_KEY_KILL_SWITCH = 'ilas_site_assistant.cost_control.kill_switch';
 
@@ -64,7 +66,7 @@ class CostControlPolicy {
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function isRequestAllowed(): array {
+  public function isRequestAllowed(?string $budgetIdentity = NULL): array {
     // 1. Manual kill switch.
     if ($this->state->get(self::STATE_KEY_KILL_SWITCH, FALSE)) {
       return ['allowed' => FALSE, 'reason' => 'manual_kill_switch'];
@@ -90,7 +92,12 @@ class CostControlPolicy {
       return ['allowed' => FALSE, 'reason' => 'monthly_budget_exhausted'];
     }
 
-    // 6. Sampling gate.
+    // 6. Per-IP budget.
+    if ($this->isPerIpBudgetExhausted($budgetIdentity)) {
+      return ['allowed' => FALSE, 'reason' => 'per_ip_budget_exceeded'];
+    }
+
+    // 7. Sampling gate.
     if (!$this->passesSamplingGate()) {
       return ['allowed' => FALSE, 'reason' => 'sampling_gate_rejected'];
     }
@@ -104,8 +111,8 @@ class CostControlPolicy {
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function beginRequest(): array {
-    return $this->admissionCoordinator->beginRequest();
+  public function beginRequest(?string $budgetIdentity = NULL): array {
+    return $this->admissionCoordinator->beginRequest($budgetIdentity);
   }
 
   /**
@@ -162,6 +169,30 @@ class CostControlPolicy {
 
     $data = $this->getMonthlyData();
     return $data['count'] >= $limit;
+  }
+
+  /**
+   * Checks if the per-IP call budget is exhausted for the supplied identity.
+   *
+   * @param string|null $budgetIdentity
+   *   The trusted client-identity string used for budgeting.
+   *
+   * @return bool
+   *   TRUE if the per-IP limit is reached.
+   */
+  public function isPerIpBudgetExhausted(?string $budgetIdentity): bool {
+    $normalizedIdentity = static::normalizeBudgetIdentity($budgetIdentity);
+    $limit = $this->getConfig('per_ip_hourly_call_limit');
+
+    if ($normalizedIdentity === NULL || $limit === 0) {
+      return FALSE;
+    }
+
+    $identityHash = static::hashBudgetIdentity($normalizedIdentity);
+    $data = $this->getPerIpBudgetState(time());
+    $bucket = $data[$identityHash] ?? ['count' => 0, 'window_start' => time()];
+
+    return (int) $bucket['count'] >= $limit;
   }
 
   /**
@@ -278,15 +309,23 @@ class CostControlPolicy {
   public function getSummary(): array {
     $daily = $this->getDailyData();
     $monthly = $this->getMonthlyData();
+    $cacheStats = $this->getCacheStats();
+    $cacheRequests = $cacheStats['hits'] + $cacheStats['misses'];
 
     return [
       'daily_calls' => $daily['count'],
       'daily_limit' => $this->getConfig('daily_call_limit'),
       'monthly_calls' => $monthly['count'],
       'monthly_limit' => $this->getConfig('monthly_call_limit'),
+      'cache_hits' => $cacheStats['hits'],
+      'cache_misses' => $cacheStats['misses'],
+      'cache_requests' => $cacheRequests,
       'cache_hit_rate' => $this->getCacheHitRate(),
+      'cache_hit_rate_target' => $this->getConfigFloat('cache_hit_rate_target'),
       'kill_switch_active' => (bool) $this->state->get(self::STATE_KEY_KILL_SWITCH, FALSE),
       'sample_rate' => $this->getConfigFloat('sample_rate'),
+      'per_ip_hourly_call_limit' => $this->getConfig('per_ip_hourly_call_limit'),
+      'per_ip_window_seconds' => $this->getConfig('per_ip_window_seconds'),
     ];
   }
 
@@ -345,6 +384,39 @@ class CostControlPolicy {
       return ['count' => 0, 'month' => $currentMonth];
     }
     return $data;
+  }
+
+  /**
+   * Returns normalized per-IP budget state with expired windows pruned.
+   *
+   * @return array<string, array{count:int, window_start:int}>
+   *   Active hashed per-IP budget buckets.
+   */
+  protected function getPerIpBudgetState(int $now): array {
+    $data = $this->state->get(self::STATE_KEY_PER_IP);
+    $windowSeconds = $this->getConfig('per_ip_window_seconds');
+    if (!is_array($data)) {
+      return [];
+    }
+
+    $normalized = [];
+    foreach ($data as $identityHash => $bucket) {
+      if (!is_string($identityHash) || !is_array($bucket) || !isset($bucket['count'])) {
+        continue;
+      }
+
+      $windowStart = (int) ($bucket['window_start'] ?? 0);
+      if ($windowSeconds > 0 && ($now - $windowStart) >= $windowSeconds) {
+        continue;
+      }
+
+      $normalized[$identityHash] = [
+        'count' => (int) $bucket['count'],
+        'window_start' => $windowStart > 0 ? $windowStart : $now,
+      ];
+    }
+
+    return $normalized;
   }
 
   /**
@@ -420,6 +492,8 @@ class CostControlPolicy {
     $defaults = [
       'daily_call_limit' => 5000,
       'monthly_call_limit' => 100000,
+      'per_ip_hourly_call_limit' => 10,
+      'per_ip_window_seconds' => 3600,
       'cache_stats_window_seconds' => 86400,
       'alert_cooldown_minutes' => 60,
     ];
@@ -439,6 +513,31 @@ class CostControlPolicy {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $value = $config->get('cost_control.' . $key);
     return (float) ($value ?? $defaults[$key] ?? 0.0);
+  }
+
+  /**
+   * Normalizes a request identity for budgeting.
+   */
+  public static function normalizeBudgetIdentity(?string $budgetIdentity): ?string {
+    $budgetIdentity = trim((string) $budgetIdentity);
+    return $budgetIdentity === '' ? NULL : $budgetIdentity;
+  }
+
+  /**
+   * Returns the HMAC-hashed state key suffix for a budget identity.
+   */
+  public static function hashBudgetIdentity(string $budgetIdentity): string {
+    try {
+      $hashSalt = (string) Settings::get('hash_salt', '');
+    }
+    catch (\Throwable) {
+      $hashSalt = '';
+    }
+    if ($hashSalt === '') {
+      $hashSalt = __CLASS__;
+    }
+
+    return hash_hmac('sha256', $budgetIdentity, $hashSalt);
   }
 
 }

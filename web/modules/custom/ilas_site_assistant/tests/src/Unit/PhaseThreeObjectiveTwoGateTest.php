@@ -42,6 +42,9 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('## Phase 3 (Sprint 6): UX polish + performance/cost optimization', $roadmap);
     $this->assertStringContainsString('### Phase 3 Objective #2 disposition (2026-03-05)', $roadmap);
     $this->assertStringContainsString('Objective #2 is closed as implemented: performance and cost guardrails are finalized', $roadmap);
+    $this->assertStringContainsString('global-only budget model is no longer accepted as closure evidence', $roadmap);
+    $this->assertStringContainsString('per-IP budget enforcement proof', $roadmap);
+    $this->assertStringContainsString('cache-effectiveness proof', $roadmap);
     $this->assertStringContainsString('phase3-obj2-performance-cost-guardrails.txt', $roadmap);
     $this->assertStringContainsString('PhaseThreeObjectiveTwoGateTest.php', $roadmap);
     $this->assertStringContainsString('CLAIM-147', $roadmap);
@@ -62,6 +65,9 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('`P3-OBJ-02`', $currentState);
     $this->assertStringContainsString('`CLAIM-077`', $currentState);
     $this->assertStringContainsString('`CLAIM-084`', $currentState);
+    $this->assertStringContainsString('global-only budget model', $currentState);
+    $this->assertStringContainsString('per-IP budget enforcement', $currentState);
+    $this->assertStringContainsString('cache-effectiveness proof', $currentState);
     $this->assertStringContainsString('LlmEnhancer', $currentState);
     $this->assertStringContainsString('LlmCircuitBreaker', $currentState);
     $this->assertStringContainsString('LlmRateLimiter', $currentState);
@@ -81,8 +87,12 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
       '### Phase 3 objective #2 performance + cost guardrails operational verification (`P3-OBJ-02`)',
       $runbook
     );
+    $this->assertStringContainsString('# VC-PURE', $runbook);
     $this->assertStringContainsString('# VC-UNIT', $runbook);
-    $this->assertStringContainsString('# VC-DRUPAL-UNIT', $runbook);
+    $this->assertStringContainsString('# VC-QUALITY-GATE', $runbook);
+    $this->assertStringContainsString('LlmControlConcurrencyTest.php', $runbook);
+    $this->assertStringContainsString('LlmEnhancerHardeningTest.php', $runbook);
+    $this->assertStringContainsString('AssistantApiControllerCostControlMetricsTest.php', $runbook);
     $this->assertStringContainsString('LlmEnhancer.php', $runbook);
     $this->assertStringContainsString('LlmCircuitBreaker.php', $runbook);
     $this->assertStringContainsString('LlmRateLimiter.php', $runbook);
@@ -110,6 +120,8 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('PhaseThreeObjectiveTwoGateTest.php', $evidenceIndex);
     $this->assertStringContainsString('IMP-COST-01', $evidenceIndex);
     $this->assertStringContainsString('R-PERF-01', $evidenceIndex);
+    $this->assertStringContainsString('per-IP budget enforcement proof', $evidenceIndex);
+    $this->assertStringContainsString('cache-effectiveness proof', $evidenceIndex);
   }
 
   /**
@@ -119,8 +131,9 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $artifact = self::readFile('docs/aila/runtime/phase3-obj2-performance-cost-guardrails.txt');
 
     $this->assertStringContainsString('# Phase 3 Objective #2 Runtime Evidence (P3-OBJ-02)', $artifact);
+    $this->assertStringContainsString('### VC-PURE', $artifact);
     $this->assertStringContainsString('### VC-UNIT', $artifact);
-    $this->assertStringContainsString('### VC-DRUPAL-UNIT', $artifact);
+    $this->assertStringContainsString('### VC-QUALITY-GATE', $artifact);
     $this->assertStringContainsString('p3-obj-02-status=closed', $artifact);
     $this->assertStringContainsString('guard-anchor-llm-enhancer=present', $artifact);
     $this->assertStringContainsString('guard-anchor-llm-circuit-breaker=present', $artifact);
@@ -128,6 +141,25 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $this->assertStringContainsString('guard-anchor-performance-monitor=present', $artifact);
     $this->assertStringContainsString('guard-anchor-slo-alert-service=present', $artifact);
     $this->assertStringContainsString('guard-anchor-cost-control-policy=present', $artifact);
+    $this->assertStringContainsString('cost-proof-per-ip-status=pass', $artifact);
+    $this->assertStringContainsString('cost-proof-status=pass', $artifact);
+
+    $limitMatches = [];
+    $this->assertSame(1, preg_match('/cost-proof-per-ip-limit=(\d+)/', $artifact, $limitMatches));
+    $this->assertGreaterThan(0, (int) $limitMatches[1]);
+
+    $sampleMatches = [];
+    $this->assertSame(1, preg_match('/cost-proof-cache-sample-count=(\d+)/', $artifact, $sampleMatches));
+    $this->assertGreaterThanOrEqual(10, (int) $sampleMatches[1]);
+
+    $hitRateMatches = [];
+    $targetMatches = [];
+    $reductionMatches = [];
+    $this->assertSame(1, preg_match('/cost-proof-cache-hit-rate=([0-9.]+)/', $artifact, $hitRateMatches));
+    $this->assertSame(1, preg_match('/cost-proof-cache-hit-target=([0-9.]+)/', $artifact, $targetMatches));
+    $this->assertSame(1, preg_match('/cost-proof-call-reduction-rate=([0-9.]+)/', $artifact, $reductionMatches));
+    $this->assertGreaterThanOrEqual((float) $targetMatches[1], (float) $hitRateMatches[1]);
+    $this->assertGreaterThanOrEqual((float) $targetMatches[1], (float) $reductionMatches[1]);
   }
 
   /**
@@ -138,9 +170,12 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $riskRegister = self::readFile('docs/aila/risk-register.md');
 
     $this->assertStringContainsString('Active mitigation (IMP-COST-01 / P3-OBJ-02, 2026-03-05)', $backlog);
+    $this->assertStringContainsString('per-IP budget proof', $backlog);
+    $this->assertStringContainsString('cache-effectiveness proof', $backlog);
     $this->assertStringContainsString('| R-PERF-01 |', $riskRegister);
     $this->assertStringContainsString('| Active mitigation |', $riskRegister);
     $this->assertStringContainsString('phase3-obj2-performance-cost-guardrails.txt', $riskRegister);
+    $this->assertStringContainsString('cost-proof-status', $riskRegister);
   }
 
   /**
@@ -185,9 +220,14 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
 
     $costPolicy = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php');
     $this->assertStringContainsString('class CostControlPolicy', $costPolicy);
-    $this->assertStringContainsString('public function isRequestAllowed(): array', $costPolicy);
+    $this->assertStringContainsString('public function isRequestAllowed(?string $budgetIdentity = NULL): array', $costPolicy);
+    $this->assertStringContainsString('public function beginRequest(?string $budgetIdentity = NULL): array', $costPolicy);
     $this->assertStringContainsString('public function evaluateKillSwitch(): array', $costPolicy);
     $this->assertStringContainsString('public function estimateCost(array $tokenUsage): float', $costPolicy);
+
+    $controller = self::readFile('web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php');
+    $this->assertStringContainsString("\$response['metrics']['cost_control']", $controller);
+    $this->assertStringContainsString("\$response['thresholds']['cost_control']", $controller);
   }
 
 }

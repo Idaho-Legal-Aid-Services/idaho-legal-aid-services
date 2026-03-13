@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Contract tests for runtime observability settings.
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class ObservabilityRuntimeContractTest extends TestCase {
 
   /**

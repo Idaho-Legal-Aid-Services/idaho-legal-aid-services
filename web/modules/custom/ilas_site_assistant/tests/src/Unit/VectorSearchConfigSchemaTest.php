@@ -2,14 +2,14 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
 /**
  * Validates retrieval/vector config schema contracts and ownership boundaries.
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class VectorSearchConfigSchemaTest extends TestCase {
 
   private const MODULE_PATH = 'web/modules/custom/ilas_site_assistant';

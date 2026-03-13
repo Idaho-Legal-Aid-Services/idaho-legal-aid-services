@@ -5,15 +5,16 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for SentryOptionsSubscriber.
- *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber
  */
+#[CoversClass(SentryOptionsSubscriber::class)]
+#[Group('ilas_site_assistant')]
 class SentryOptionsSubscriberTest extends TestCase {
 
   /**
@@ -36,8 +37,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that getSubscribedEvents includes OptionsAlter when Raven is present.
-   *
-   * @covers ::getSubscribedEvents
    */
   public function testSubscribedEventsIncludesOptionsAlter(): void {
     $this->requireRaven();
@@ -49,8 +48,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that send_default_pii is disabled after onOptionsAlter.
-   *
-   * @covers ::onOptionsAlter
    */
   public function testSendDefaultPiiDisabled(): void {
     $this->requireRaven();
@@ -67,8 +64,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that server_name is set after onOptionsAlter.
-   *
-   * @covers ::onOptionsAlter
    */
   public function testServerNameIsSet(): void {
     $this->requireRaven();
@@ -87,8 +82,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that tags are set after onOptionsAlter.
-   *
-   * @covers ::onOptionsAlter
    */
   public function testTagsAreSet(): void {
     $this->requireRaven();
@@ -128,8 +121,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that existing tags are preserved (merged, not overwritten).
-   *
-   * @covers ::onOptionsAlter
    */
   public function testExistingTagsArePreserved(): void {
     $this->requireRaven();
@@ -167,9 +158,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that before_send chains a previous callback.
-   *
-   * @covers ::onOptionsAlter
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendChainingCallsPrevious(): void {
     $this->requireRaven();
@@ -200,8 +188,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that chaining handles a previous callback that drops the event.
-   *
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendChainingRespectsNull(): void {
     $this->requireSentry();
@@ -220,8 +206,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that before_send scrubs PII from the event message.
-   *
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendScrubsEventMessage(): void {
     $this->requireSentry();
@@ -243,8 +227,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that before_send scrubs PII from exception values.
-   *
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendScrubsExceptionValues(): void {
     $this->requireSentry();
@@ -268,8 +250,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that before_send scrubs PII from extra context strings.
-   *
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendScrubsExtraData(): void {
     $this->requireSentry();
@@ -294,8 +274,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that before_send returns the event (does not drop it).
-   *
-   * @covers ::beforeSendCallback
    */
   public function testBeforeSendReturnsEvent(): void {
     $this->requireSentry();
@@ -312,8 +290,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that transaction callbacks scrub identifiers and query strings.
-   *
-   * @covers ::beforeSendTransactionCallback
    */
   public function testBeforeSendTransactionScrubsTransactionName(): void {
     $this->requireSentry();
@@ -330,8 +306,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests that log callbacks scrub body and structured attributes.
-   *
-   * @covers ::beforeSendLogCallback
    */
   public function testBeforeSendLogScrubsStructuredAttributes(): void {
     if (!class_exists('\Sentry\Logs\Log')) {
@@ -365,9 +339,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests environment normalization for core Pantheon envs and multidev.
-   *
-   * @covers ::normalizeEnvironment
-   * @covers ::multidevName
    */
   public function testNormalizeEnvironmentMapsPantheonEnvs(): void {
     $this->assertSame('local', SentryOptionsSubscriber::normalizeEnvironment(NULL));
@@ -380,8 +351,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests isDrushEvalNoise returns FALSE for non-CLI SAPI.
-   *
-   * @covers ::isDrushEvalNoise
    */
   public function testIsDrushEvalNoiseReturnsFalseForWeb(): void {
     // PHP_SAPI in PHPUnit is 'cli', so we can only test the method's
@@ -393,8 +362,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests isDrushEvalNoise respects SENTRY_CAPTURE_DRUSH_EVAL env var.
-   *
-   * @covers ::isDrushEvalNoise
    */
   public function testIsDrushEvalNoiseRespectsEnvOverride(): void {
     $original = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
@@ -426,8 +393,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests isDrushEvalNoise returns TRUE on Pantheon when running drush eval.
-   *
-   * @covers ::isDrushEvalNoise
    */
   public function testIsDrushEvalNoiseReturnsTrueOnPantheon(): void {
     $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
@@ -466,8 +431,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests isDrushEvalNoise respects opt-in capture override on Pantheon.
-   *
-   * @covers ::isDrushEvalNoise
    */
   public function testIsDrushEvalNoisePantheonCaptureOverride(): void {
     $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
@@ -531,8 +494,6 @@ class SentryOptionsSubscriberTest extends TestCase {
 
   /**
    * Tests resolveRuntimeContext via observabilityContext() with argv injection.
-   *
-   * @covers ::observabilityContext
    */
   #[DataProvider('runtimeContextProvider')]
   public function testResolveRuntimeContextBranches(array $argv, string $expected): void {

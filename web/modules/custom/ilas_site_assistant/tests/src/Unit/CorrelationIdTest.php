@@ -2,17 +2,15 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for correlation ID resolution logic.
  *
  * Tests the resolveCorrelationId() behavior via the controller's public API.
  * Since the method is private, we test it through reflection.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class CorrelationIdTest extends TestCase {
@@ -24,8 +22,6 @@ class CorrelationIdTest extends TestCase {
 
   /**
    * Tests that valid UUID4 headers are accepted.
-   *
-   * @dataProvider validUuid4Provider
    */
   #[DataProvider('validUuid4Provider')]
   public function testAcceptsValidUuid4(string $uuid): void {
@@ -49,8 +45,6 @@ class CorrelationIdTest extends TestCase {
 
   /**
    * Tests that invalid headers are rejected (would trigger fallback).
-   *
-   * @dataProvider invalidCorrelationIdProvider
    */
   #[DataProvider('invalidCorrelationIdProvider')]
   public function testRejectsInvalidCorrelationIds(string $value): void {

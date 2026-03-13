@@ -10,21 +10,21 @@ use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 use Drupal\Tests\UnitTestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for DEBUG mode functionality.
  *
  * Tests the debug metadata structure and PII redaction.
- *
- * @group ilas_site_assistant
  */
+#[Group('ilas_site_assistant')]
 class DebugModeTest extends UnitTestCase {
 
   /**
    * Tests keyword extraction for debug output.
-   *
-   * @dataProvider keywordExtractionProvider
    */
+  #[DataProvider('keywordExtractionProvider')]
   public function testKeywordExtraction(string $input, array $expectedKeywords): void {
     $keywords = $this->extractKeywords($input);
 
@@ -62,9 +62,8 @@ class DebugModeTest extends UnitTestCase {
 
   /**
    * Tests urgency-signal detection from the decision engine.
-   *
-   * @dataProvider safetyFlagProvider
    */
+  #[DataProvider('safetyFlagProvider')]
   public function testSafetyFlagDetection(string $message, array $expectedFlags): void {
     $flags = $this->evaluateUrgencySignals($message);
 
@@ -115,9 +114,8 @@ class DebugModeTest extends UnitTestCase {
 
   /**
    * Tests intent confidence calculation.
-   *
-   * @dataProvider confidenceProvider
    */
+  #[DataProvider('confidenceProvider')]
   public function testIntentConfidence(array $intent, string $message, float $minConfidence, float $maxConfidence): void {
     $confidence = $this->calculateIntentConfidence($intent, $message);
 
@@ -155,9 +153,8 @@ class DebugModeTest extends UnitTestCase {
 
   /**
    * Tests final action determination.
-   *
-   * @dataProvider finalActionProvider
    */
+  #[DataProvider('finalActionProvider')]
   public function testFinalActionDetermination(string $responseType, string $expectedAction): void {
     $action = $this->determineFinalAction($responseType);
     $this->assertEquals($expectedAction, $action);
@@ -179,9 +176,8 @@ class DebugModeTest extends UnitTestCase {
 
   /**
    * Tests reason code generation.
-   *
-   * @dataProvider reasonCodeProvider
    */
+  #[DataProvider('reasonCodeProvider')]
   public function testReasonCodeGeneration(array $intent, array $response, string $expectedCode): void {
     $code = $this->determineReasonCode($intent, $response);
     $this->assertEquals($expectedCode, $code);

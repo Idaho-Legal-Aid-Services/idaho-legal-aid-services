@@ -173,6 +173,9 @@ final class AssistantApiControllerDebugGuardTest extends TestCase {
       'passed' => FALSE,
       'violation' => TRUE,
       'type' => 'external_site',
+      'escalation_level' => 'standard',
+      'response' => 'I can only help with information on the ILAS website.',
+      'links' => [],
     ]);
 
     $analyticsLogger = $this->createStub(AnalyticsLogger::class);

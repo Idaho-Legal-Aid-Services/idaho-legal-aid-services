@@ -6,13 +6,16 @@ use Drupal\Tests\UnitTestCase;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * Unit tests for PolicyFilter service.
  *
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\PolicyFilter
- * @group ilas_site_assistant
  */
+#[CoversClass(PolicyFilter::class)]
+#[Group('ilas_site_assistant')]
 class PolicyFilterTest extends UnitTestCase {
 
   /**
@@ -30,10 +33,7 @@ class PolicyFilterTest extends UnitTestCase {
 
     // Create mock config.
     $config = $this->createMock(ImmutableConfig::class);
-    $config->method('get')
-      ->willReturnMap([
-        ['policy_keywords', []],
-      ]);
+    $config->method('get')->willReturn(NULL);
 
     $configFactory = $this->createMock(ConfigFactoryInterface::class);
     $configFactory->method('get')
@@ -46,10 +46,8 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests emergency detection for domestic violence.
-   *
-   * @covers ::check
-   * @dataProvider emergencyDvProvider
    */
+  #[DataProvider('emergencyDvProvider')]
   public function testEmergencyDvDetection(string $message, bool $expectViolation): void {
     $result = $this->policyFilter->check($message);
 
@@ -77,8 +75,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests suicide/crisis detection.
-   *
-   * @covers ::check
    */
   public function testCrisisDetection(): void {
     $result = $this->policyFilter->check('i want to kill myself');
@@ -90,10 +86,8 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests PII detection.
-   *
-   * @covers ::check
-   * @dataProvider piiProvider
    */
+  #[DataProvider('piiProvider')]
   public function testPiiDetection(string $message, bool $expectViolation): void {
     $result = $this->policyFilter->check($message);
 
@@ -118,10 +112,8 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests criminal matter detection.
-   *
-   * @covers ::check
-   * @dataProvider criminalProvider
    */
+  #[DataProvider('criminalProvider')]
   public function testCriminalMatterDetection(string $message, bool $expectViolation): void {
     $result = $this->policyFilter->check($message);
 
@@ -147,10 +139,8 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests legal advice request detection.
-   *
-   * @covers ::check
-   * @dataProvider legalAdviceProvider
    */
+  #[DataProvider('legalAdviceProvider')]
   public function testLegalAdviceDetection(string $message, bool $expectViolation): void {
     $result = $this->policyFilter->check($message);
 
@@ -175,9 +165,49 @@ class PolicyFilterTest extends UnitTestCase {
   }
 
   /**
+   * Tests code-owned fallback legal-advice keywords removed from config export.
+   */
+  #[DataProvider('codeOwnedLegalAdviceKeywordProvider')]
+  public function testCodeOwnedLegalAdviceKeywordFallback(string $message): void {
+    $result = $this->policyFilter->check($message);
+
+    $this->assertTrue($result['violation']);
+    $this->assertEquals('legal_advice', $result['type']);
+  }
+
+  /**
+   * Data provider for code-owned fallback legal-advice keywords.
+   */
+  public static function codeOwnedLegalAdviceKeywordProvider(): array {
+    return [
+      'law says substring' => ['tell me what the law says about eviction'],
+      'my rights substring' => ['what are my rights as a tenant'],
+    ];
+  }
+
+  /**
+   * Tests code-owned fallback PII indicators removed from config export.
+   */
+  #[DataProvider('codeOwnedPiiIndicatorProvider')]
+  public function testCodeOwnedPiiIndicatorFallback(string $message): void {
+    $result = $this->policyFilter->check($message);
+
+    $this->assertTrue($result['violation']);
+    $this->assertEquals('pii', $result['type']);
+  }
+
+  /**
+   * Data provider for code-owned fallback PII indicators.
+   */
+  public static function codeOwnedPiiIndicatorProvider(): array {
+    return [
+      'lowercase name' => ['my name is john'],
+      'address without house number' => ['my address is elm street'],
+    ];
+  }
+
+  /**
    * Tests document drafting detection.
-   *
-   * @covers ::check
    */
   public function testDocumentDraftingDetection(): void {
     $message = 'can you fill out this form for me';
@@ -189,8 +219,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests frustration detection.
-   *
-   * @covers ::check
    */
   public function testFrustrationDetection(): void {
     $message = 'you people are useless';
@@ -202,8 +230,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests PII sanitization.
-   *
-   * @covers ::sanitizeForStorage
    */
   public function testPiiSanitization(): void {
     $input = 'my email is john@example.com and phone is 208-555-1234';
@@ -217,8 +243,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests that clean messages pass through.
-   *
-   * @covers ::check
    */
   public function testCleanMessagePasses(): void {
     $cleanMessages = [
@@ -237,8 +261,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests isEmergency helper method.
-   *
-   * @covers ::isEmergency
    */
   public function testIsEmergencyHelper(): void {
     $this->assertTrue($this->policyFilter->isEmergency('the sheriff is coming tomorrow'));
@@ -247,8 +269,6 @@ class PolicyFilterTest extends UnitTestCase {
 
   /**
    * Tests isCriminalMatter helper method.
-   *
-   * @covers ::isCriminalMatter
    */
   public function testIsCriminalMatterHelper(): void {
     $this->assertTrue($this->policyFilter->isCriminalMatter('i was arrested'));

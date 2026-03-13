@@ -1,7 +1,7 @@
 name: 'ILAS Hotspot'
 type: module
 description: 'Custom module providing interactive hotspot functionality for ILAS impact graphics'
-package: ILAS Custom
+package: 'Idaho Legal Aid - Site Features'
 core_version_requirement: ^9 || ^10 || ^11
 dependencies:
   - drupal:block

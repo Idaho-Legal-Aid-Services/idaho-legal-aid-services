@@ -12,8 +12,6 @@ use PHPUnit\Framework\TestCase;
  *
  * Asserts that the report controller contains quality signals, user feedback,
  * and review-loop sections required by the PHARD-05 acceptance criteria.
- *
- * @group ilas_site_assistant
  */
 #[Group('ilas_site_assistant')]
 class SearchAnalyticsReportContractTest extends TestCase {

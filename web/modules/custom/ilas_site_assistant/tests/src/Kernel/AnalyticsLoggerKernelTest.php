@@ -4,6 +4,8 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -12,15 +14,13 @@ use Psr\Log\LoggerInterface;
  * Tests the count-upsert pattern, metadata-only no-answer storage, and
  * normalization of analytics event values against a real database.
  *
- * @group ilas_site_assistant
- * @coversDefaultClass \Drupal\ilas_site_assistant\Service\AnalyticsLogger
  */
+#[CoversClass(AnalyticsLogger::class)]
+#[Group('ilas_site_assistant')]
 class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that log() creates a new row for a new event.
-   *
-   * @covers ::log
    */
   public function testLogCreatesNewRow(): void {
     $logger = $this->createAnalyticsLogger();
@@ -42,8 +42,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that log() increments count for the same event_type+value+date.
-   *
-   * @covers ::log
    */
   public function testLogUpsertsExistingRow(): void {
     $logger = $this->createAnalyticsLogger();
@@ -73,8 +71,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that different normalized event values get separate rows.
-   *
-   * @covers ::log
    */
   public function testLogSeparatesEventValues(): void {
     $logger = $this->createAnalyticsLogger();
@@ -93,8 +89,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that click analytics store only the URL path.
-   *
-   * @covers ::log
    */
   public function testLogNormalizesClickEventValueToPath(): void {
     $logger = $this->createAnalyticsLogger();
@@ -111,8 +105,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that unexpected free-text values are blanked instead of persisted.
-   *
-   * @covers ::log
    */
   public function testLogDropsUnexpectedFreeTextEventValue(): void {
     $logger = $this->createAnalyticsLogger();
@@ -129,8 +121,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that clarify-loop analytics hash the conversation identifier.
-   *
-   * @covers ::log
    */
   public function testLogHashesClarifyLoopBreakIdentifier(): void {
     $logger = $this->createAnalyticsLogger();
@@ -152,8 +142,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that A/B assignment analytics serialize to stable tokens only.
-   *
-   * @covers ::log
    */
   public function testLogNormalizesAbAssignments(): void {
     $logger = $this->createAnalyticsLogger();
@@ -170,8 +158,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that log() does nothing when logging is disabled.
-   *
-   * @covers ::log
    */
   public function testLogDisabledByConfig(): void {
     $logger = $this->createAnalyticsLogger(['enable_logging' => FALSE]);
@@ -183,8 +169,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that logNoAnswer deduplicates via query hash.
-   *
-   * @covers ::logNoAnswer
    */
   public function testLogNoAnswerDeduplicates(): void {
     $logger = $this->createAnalyticsLogger();
@@ -209,8 +193,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that different no-answer queries get separate rows.
-   *
-   * @covers ::logNoAnswer
    */
   public function testLogNoAnswerSeparateQueries(): void {
     $logger = $this->createAnalyticsLogger();
@@ -224,8 +206,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that no-answer storage keeps metadata only and no text column.
-   *
-   * @covers ::logNoAnswer
    */
   public function testLogNoAnswerStoresMetadataOnly(): void {
     $logger = $this->createAnalyticsLogger();
@@ -248,8 +228,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that getStats returns aggregated data for a given event type.
-   *
-   * @covers ::getStats
    */
   public function testGetStatsReturnsAggregatedData(): void {
     $today = date('Y-m-d');
@@ -265,8 +243,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that disambiguation analytics only retain safe family metadata.
-   *
-   * @covers ::logDisambiguation
    */
   public function testLogDisambiguationStoresSafeFamilyMetadata(): void {
     $logger = $this->createAnalyticsLogger();
@@ -295,8 +271,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that pair-based disambiguation analytics retain only pair metadata.
-   *
-   * @covers ::logDisambiguation
    */
   public function testLogDisambiguationUsesStablePairMetadata(): void {
     $logger = $this->createAnalyticsLogger();
@@ -329,8 +303,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that event totals aggregate across dates by event value.
-   *
-   * @covers ::getEventTotals
    */
   public function testGetEventTotalsReturnsSummedRows(): void {
     $this->insertStatsRow('ambiguity_bucket', 'family=generic_help,lang=en,len=1-24,pair=none', 2, date('Y-m-d', strtotime('-1 day')));
@@ -347,8 +319,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that cleanupOldData removes rows older than retention.
-   *
-   * @covers ::cleanupOldData
    */
   public function testCleanupOldDataRemovesExpired(): void {
     $old_date = date('Y-m-d', strtotime('-100 days'));
@@ -381,8 +351,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that feedback_helpful events normalize the response type token.
-   *
-   * @covers ::log
    */
   public function testLogFeedbackHelpfulNormalizesResponseType(): void {
     $logger = $this->createAnalyticsLogger();
@@ -399,8 +367,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that feedback_not_helpful events normalize the response type token.
-   *
-   * @covers ::log
    */
   public function testLogFeedbackNotHelpfulNormalizesResponseType(): void {
     $logger = $this->createAnalyticsLogger();
@@ -417,8 +383,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that generic_answer events normalize the fallback level.
-   *
-   * @covers ::log
    */
   public function testLogGenericAnswerNormalizesFallbackLevel(): void {
     $logger = $this->createAnalyticsLogger();
@@ -435,8 +399,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that feedback events with free text are blanked.
-   *
-   * @covers ::log
    */
   public function testLogFeedbackRejectsUserText(): void {
     $logger = $this->createAnalyticsLogger();
@@ -453,8 +415,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests that batched cleanup deletes all expired rows across batches.
-   *
-   * @covers ::cleanupOldData
    */
   public function testBatchedCleanupDeletesAllExpiredRows(): void {
     $old_date = date('Y-m-d', strtotime('-100 days'));
@@ -475,8 +435,6 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
   /**
    * Tests cleanup respects MAX_RETENTION_DAYS cap even with high config value.
-   *
-   * @covers ::cleanupOldData
    */
   public function testCleanupRespectsMaxRetentionDaysCap(): void {
     // Set retention to 9999 days (far exceeds 365 cap).

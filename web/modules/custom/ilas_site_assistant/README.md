@@ -10,7 +10,7 @@ A site-scoped chatbot assistant for Idaho Legal Aid Services that helps users fi
 - **Policy Enforcement**: Automatically detects and refuses legal advice requests and PII collection
 - **Privacy-First Analytics**: Logs only aggregated, non-PII event metadata
 - **Accessible UI**: WCAG 2.1 compliant with keyboard navigation, focus management, and ARIA labels
-- **LLM Enhancement** (Optional): Uses Google Gemini/Vertex AI to enhance responses and improve intent classification
+- **LLM Enhancement** (Optional): Uses Google Gemini/Vertex AI for ambiguous intent classification and optional greeting variation
 
 ## Hard Constraints (Non-Negotiable)
 
@@ -84,13 +84,12 @@ Admin Menu:
 
 ## LLM Enhancement (Optional)
 
-The assistant can optionally use Google Gemini or Vertex AI to enhance responses. This is **disabled by default** and requires configuration.
+The assistant can optionally use Google Gemini or Vertex AI for ambiguous intent classification and optional greeting variation. This is **disabled by default** and requires configuration.
 
 ### Features
 
 When enabled, the LLM layer provides:
 
-- **Response Summarization**: Condenses FAQ answers and resource lists into concise, conversational responses
 - **Intent Classification**: Improves detection of ambiguous queries that rule-based routing misses
 - **Greeting Enhancement**: Optionally generates personalized welcome messages
 
@@ -151,24 +150,8 @@ blob.
 | `model` | `gemini-1.5-flash` | Model to use (flash is faster/cheaper) |
 | `max_tokens` | `150` | Maximum response length |
 | `temperature` | `0.3` | Lower = more focused, higher = more creative |
-| `enhance_faq` | `true` | Summarize FAQ search results |
-| `enhance_resources` | `true` | Summarize resource search results |
 | `enhance_greetings` | `false` | Generate personalized greetings |
 | `fallback_on_error` | `true` | Use rule-based response if LLM fails |
-
-### Response Format
-
-When LLM enhancement is active, responses include:
-
-```json
-{
-  "type": "faq",
-  "message": "I found some FAQs that might help:",
-  "results": [...],
-  "llm_enhanced": true,
-  "llm_summary": "Based on your question about eviction notices, you typically have 3 days to respond..."
-}
-```
 
 ### Testing LLM Integration
 
@@ -453,9 +436,10 @@ For production, consider:
 
 ### Policy Filter Too Aggressive
 
-Adjust keywords in configuration:
-- Admin > Config > ILAS > Site Assistant Settings
-- Modify `policy_keywords.legal_advice` array
+Fallback policy keywords are code-owned for governance review:
+- Update the governed keyword lists in `src/Service/PolicyFilter.php`
+- Add or adjust PHPUnit coverage that documents the intended change
+- Deploy the code change instead of editing runtime configuration
 
 ## Security Considerations
 

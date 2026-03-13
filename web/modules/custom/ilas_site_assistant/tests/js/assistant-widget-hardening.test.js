@@ -13,12 +13,13 @@
  *  1. sanitizeUrl — blocks javascript:/data:/vbscript:, allows safe schemes
  *  2. escapeAttr — escapes all 5 breakout characters
  *  3. escapeHtml — entity-encodes angle brackets and ampersands
- *  4. getErrorMessage — per-status user-facing messages
- *  5. isSending guard — prevents double-fire
- *  6. Focus trap lifecycle — no listener accumulation
- *  7. Typing indicator ARIA — role="status" + aria-label
- *  8. AbortController timeout — callApi rejects on timeout
- *  9. Bootstrap token fetch — preserves HTTP status + Retry-After
+ *  4. message rendering contract — visible assistant copy comes from message
+ *  5. getErrorMessage — per-status user-facing messages
+ *  6. isSending guard — prevents double-fire
+ *  7. Focus trap lifecycle — no listener accumulation
+ *  8. Typing indicator ARIA — role="status" + aria-label
+ *  9. AbortController timeout — callApi rejects on timeout
+ * 10. Bootstrap token fetch — preserves HTTP status + Retry-After
  */
 
 /* global SiteAssistant */
@@ -78,6 +79,14 @@ window._assistantWidgetTestDone = (async function () {
       var div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    },
+
+    buildVisibleAssistantHtml: function (response) {
+      var html = '';
+      if (response && response.message) {
+        html += '<p>' + SA.escapeHtml(response.message) + '</p>';
+      }
+      return html;
     },
 
     escapeAttr: function (text) {
@@ -422,6 +431,12 @@ window._assistantWidgetTestDone = (async function () {
     assert(SA.normalizeTrackValue('resource_click', 'https://example.org/legal-help/housing?x=1') === '/legal-help/housing', 'resource_click keeps pathname only');
     assert(SA.normalizeTrackValue('suggestion_click', 'forms') === 'forms', 'safe suggestion token is preserved');
     assert(SA.normalizeTrackValue('suggestion_click', 'Forms inventory') === '', 'free-form suggestion label is dropped');
+
+    // Direct normalizeTrackPath coverage (closes tautology gap in chip-render path assertions).
+    assert(SA.normalizeTrackPath('/legal-help') === '/legal-help', 'normalizeTrackPath preserves valid path');
+    assert(SA.normalizeTrackPath('') === '', 'normalizeTrackPath returns empty for empty input');
+    assert(SA.normalizeTrackPath('no-slash') === '/no-slash', 'normalizeTrackPath resolves bare string as relative path');
+    assert(SA.normalizeTrackPath('https://example.org/foo?x=1') === '/foo', 'normalizeTrackPath strips origin and query');
   });
 
   // ===================================================================
@@ -452,7 +467,27 @@ window._assistantWidgetTestDone = (async function () {
   });
 
   // ===================================================================
-  // 4. getErrorMessage — per-status
+  // 4. message rendering contract
+  // ===================================================================
+  suite('message rendering contract', function () {
+    var html = SA.buildVisibleAssistantHtml({
+      message: 'Deterministic assistant message.',
+      llm_summary: 'Unused summary field should not appear.',
+    });
+    var summaryOnlyHtml = SA.buildVisibleAssistantHtml({
+      llm_summary: 'Unused summary field should not appear.',
+    });
+
+    assert(html.indexOf('Deterministic assistant message.') !== -1,
+      'visible assistant text is sourced from response.message');
+    assert(html.indexOf('Unused summary field should not appear.') === -1,
+      'llm_summary is ignored by the visible message renderer');
+    assert(summaryOnlyHtml === '',
+      'llm_summary alone does not produce visible assistant copy');
+  });
+
+  // ===================================================================
+  // 5. getErrorMessage — per-status
   // ===================================================================
   suite('getErrorMessage', function () {
     var offlineMsg = SA.getErrorMessage({ type: 'offline' });
@@ -1015,7 +1050,7 @@ window._assistantWidgetTestDone = (async function () {
     assert(events[0].detail.feature === 'chip_render', 'error event preserves chip_render feature');
     assert(events[0].detail.responseType === 'forms_inventory', 'error event includes response type');
     assert(events[0].detail.fallbackMode === 'text_and_link', 'error event includes fallback mode');
-    assert(events[0].detail.path === '/assistant', 'error event includes minimized path');
+    assert(events[0].detail.path === SA.currentPagePath(), 'error event includes minimized path');
     assert(events[0].detail.renderedFallback === true, 'error event marks rendered fallback');
     assert(events[1].name === 'ilas:assistant:action', 'second event is assistant action');
     assert(events[1].detail.actionType === 'ui_fallback_used', 'action event uses ui_fallback_used token');
@@ -1041,7 +1076,7 @@ window._assistantWidgetTestDone = (async function () {
     assert(result.html.indexOf('did not load') !== -1, 'generic fallback text is rendered');
     assert(result.html.trim() !== '', 'generic fallback never leaves empty UI');
     assert(events[1].detail.fallbackMode === 'generic_text', 'action event records generic fallback mode');
-    assert(events[1].detail.path === '/assistant', 'action event keeps pathname only');
+    assert(events[1].detail.path === SA.currentPagePath(), 'action event keeps pathname only');
   });
 
   // -------------------------------------------------------------------

@@ -1,30 +1,38 @@
 # Phase 3 Cross-Phase Dependency Row #6 Runtime Evidence (`XDP-06`)
-Date: 2026-03-07
+Date: 2026-03-13
 
 ## Verification bundle summary
-- Validation aliases executed: `VC-UNIT`, `VC-RUNBOOK-PANTHEON`
-- Dependency prerequisites checked: cost-control config + fail-closed cost policy + SLO alert monitoring
-- Behavioral proof bundle: `CostControlPolicyTest.php`, `PerformanceMonitorTest.php`, `SloAlertServiceTest.php`, `CrossPhaseDependencyRowSixBehaviorTest.php`
+- Validation aliases executed: `VC-PURE`, `VC-UNIT`, `VC-PANTHEON-READONLY`
+- Dependency prerequisites checked: cost-control config + fail-closed cost policy + per-IP budget enforcement + cache-effectiveness proof + metrics cost-control exposure + SLO alert monitoring
+- Behavioral proof bundle: `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`, `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`, `PerformanceMonitorTest.php`, `SloAlertServiceTest.php`, `CrossPhaseDependencyRowSixBehaviorTest.php`
 - Docs continuity (non-blocking): `CrossPhaseDependencyRowSixGateTest.php`
 
 ## Command outcome summary
-### `VC-UNIT`
-command=ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+### `VC-PURE`
+command=vendor/bin/phpunit -c /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml --filter 'CostControlPolicyTest|LlmControlConcurrencyTest|LlmEnhancerHardeningTest|CrossPhaseDependencyRowSixBehaviorTest|AssistantApiControllerCostControlMetricsTest'
 status=passed
 exit_code=0
-note=Unit coverage includes cost-control config parity (`ConfigCompletenessDriftTest.php`), cost policy behavior (`CostControlPolicyTest.php`), performance and alert monitoring (`PerformanceMonitorTest.php`, `SloAlertServiceTest.php`), row #6 dependency closure behavior (`CrossPhaseDependencyRowSixBehaviorTest.php`), and non-blocking docs continuity (`CrossPhaseDependencyRowSixGateTest.php`).
 
-### `VC-RUNBOOK-PANTHEON`
-command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y; done
+### `VC-UNIT`
+command=vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --group ilas_site_assistant /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmControlConcurrencyTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/LlmEnhancerHardeningTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CrossPhaseDependencyRowSixBehaviorTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php
 status=passed
+exit_code=0
+
+### `VC-PANTHEON-READONLY`
+command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y; done
+status=blocked
 exit_code=0
 env.dev.config.read=ok
 env.test.config.read=ok
 env.live.config.read=ok
+note=Hosted config is still pre-remediation, but the repo dependency gate remains locally closed because the blocking prerequisites are executable in CI.
 
 ## Dependency prerequisite status
 dependency.cost-control-config=pass
 dependency.cost-policy-fail-closed=pass
+dependency.per-ip-budget=pass
+dependency.cache-effectiveness=pass
+dependency.metrics-cost-control=pass
 dependency.slo-monitoring=pass
 
 ## Unresolved dependency report
@@ -36,4 +44,4 @@ xdp-06-status=closed
 xdp-06-workstream=IMP-COST-01
 xdp-06-owner-role=Product + Platform
 xdp-06-consumed-in=Phase 3
-xdp-06-gate-enforcement=VC-UNIT+VC-RUNBOOK-PANTHEON+behavioral-proof+docs-continuity-nonblocking
+xdp-06-gate-enforcement=VC-PURE+VC-UNIT+VC-PANTHEON-READONLY+behavioral-proof+docs-continuity-nonblocking
