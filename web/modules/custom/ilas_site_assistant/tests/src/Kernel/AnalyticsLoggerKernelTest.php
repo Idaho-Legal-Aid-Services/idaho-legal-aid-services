@@ -264,6 +264,88 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests that disambiguation analytics only retain safe family metadata.
+   *
+   * @covers ::logDisambiguation
+   */
+  public function testLogDisambiguationStoresSafeFamilyMetadata(): void {
+    $logger = $this->createAnalyticsLogger();
+    $logger->logDisambiguation(
+      [
+        'type' => 'disambiguation',
+        'family' => 'generic_help',
+      ],
+      'Please help me with this'
+    );
+
+    $trigger = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'disambiguation_trigger')
+      ->execute()
+      ->fetchField();
+    $bucket = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'ambiguity_bucket')
+      ->execute()
+      ->fetchField();
+
+    $this->assertSame('kind=family,name=generic_help', $trigger);
+    $this->assertSame('family=generic_help,lang=en,len=1-24,pair=none', $bucket);
+  }
+
+  /**
+   * Tests that pair-based disambiguation analytics retain only pair metadata.
+   *
+   * @covers ::logDisambiguation
+   */
+  public function testLogDisambiguationUsesStablePairMetadata(): void {
+    $logger = $this->createAnalyticsLogger();
+    $logger->logDisambiguation(
+      [
+        'type' => 'disambiguation',
+        'family' => 'confusable_pair',
+        'competing_intents' => [
+          ['intent' => 'services_overview', 'confidence' => 0.61],
+          ['intent' => 'apply_for_help', 'confidence' => 0.60],
+        ],
+      ],
+      'What do you offer?'
+    );
+
+    $trigger = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'disambiguation_trigger')
+      ->execute()
+      ->fetchField();
+    $bucket = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', 'ambiguity_bucket')
+      ->execute()
+      ->fetchField();
+
+    $this->assertSame('kind=pair,name=apply_for_help:services_overview', $trigger);
+    $this->assertSame('family=confusable_pair,lang=en,len=1-24,pair=apply_for_help:services_overview', $bucket);
+  }
+
+  /**
+   * Tests that event totals aggregate across dates by event value.
+   *
+   * @covers ::getEventTotals
+   */
+  public function testGetEventTotalsReturnsSummedRows(): void {
+    $this->insertStatsRow('ambiguity_bucket', 'family=generic_help,lang=en,len=1-24,pair=none', 2, date('Y-m-d', strtotime('-1 day')));
+    $this->insertStatsRow('ambiguity_bucket', 'family=generic_help,lang=en,len=1-24,pair=none', 3, date('Y-m-d'));
+    $this->insertStatsRow('ambiguity_bucket', 'family=contact_method,lang=en,len=1-24,pair=none', 1, date('Y-m-d'));
+
+    $logger = $this->createAnalyticsLogger();
+    $totals = $logger->getEventTotals('ambiguity_bucket', 30, 10);
+
+    $this->assertCount(2, $totals);
+    $this->assertSame('family=generic_help,lang=en,len=1-24,pair=none', $totals[0]->event_value);
+    $this->assertSame('5', (string) $totals[0]->total);
+  }
+
+  /**
    * Tests that cleanupOldData removes rows older than retention.
    *
    * @covers ::cleanupOldData
@@ -389,6 +471,34 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
 
     $remaining = $this->countTableRows('ilas_site_assistant_stats');
     $this->assertEquals(2, $remaining);
+  }
+
+  /**
+   * Tests cleanup respects MAX_RETENTION_DAYS cap even with high config value.
+   *
+   * @covers ::cleanupOldData
+   */
+  public function testCleanupRespectsMaxRetentionDaysCap(): void {
+    // Set retention to 9999 days (far exceeds 365 cap).
+    // A row at 400 days old is within 9999 but beyond 365 cap.
+    $beyond_cap_date = date('Y-m-d', strtotime('-400 days'));
+    // A row at 100 days old is within both 9999 and 365.
+    $within_cap_date = date('Y-m-d', strtotime('-100 days'));
+
+    $this->insertStatsRow('test_event', 'old', 1, $beyond_cap_date);
+    $this->insertStatsRow('test_event', 'recent', 1, $within_cap_date);
+
+    $logger = $this->createAnalyticsLogger(['log_retention_days' => 9999]);
+    $logger->cleanupOldData();
+
+    $remaining = $this->countTableRows('ilas_site_assistant_stats');
+    $this->assertEquals(1, $remaining, 'Cleanup must enforce MAX_RETENTION_DAYS cap even when config exceeds it.');
+
+    $row = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->execute()
+      ->fetch();
+    $this->assertSame('recent', $row->event_value);
   }
 
   /**

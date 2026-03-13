@@ -69,7 +69,7 @@ read_endpoint_rate_limits:
     rate_limit_per_minute: 60
     rate_limit_per_hour: 600
 conversation_logging:
-  enabled: true
+  enabled: false
   retention_hours: 72
   redact_pii: true
   show_user_notice: true

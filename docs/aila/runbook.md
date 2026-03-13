@@ -3587,6 +3587,41 @@ Expected `RAUD-21` verification result:
   `updb`/`cim`/`cr`, reindex the lexical Search API indexes, and verify the
   Pantheon runtime secret before calling the finding `Fixed`.
 
+### RAUD-22 retrieval cold-start remediation verification
+
+Use this bundle to verify bounded request-path retrieval after `RAUD-22`.
+
+```bash
+# VC-PURE targeted proof
+vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php
+
+# VC-UNIT
+ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml \
+  --group ilas_site_assistant \
+  /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+```
+
+Expected `RAUD-22` verification result:
+- Resource sparse-result topic fill no longer routes through
+  `getAllResources()`; it loads only remaining-slot topic candidates through
+  `loadLegacyResourceCandidates()`.
+- Resource legacy retrieval (`findByTypeLegacy()`, `findByTopic()`,
+  `findByServiceArea()`) uses bounded entity queries capped at
+  `min(max(limit * 8, 20), 100)` with `accessCheck(TRUE)` and `changed DESC`.
+- FAQ legacy search no longer routes through `getAllFaqsLegacy()`;
+  `searchLegacy()` loads bounded `faq_item` and `accordion_item` paragraph
+  candidates before ranking.
+- `RetrievalColdStartGuardTest` passes and fails on any regression that
+  reintroduces `getAllResources()` or `getAllFaqsLegacy()` into default
+  request/search paths.
+- `getCategoriesLegacy()` may still use `getAllFaqsLegacy()` when the FAQ
+  lexical index is unavailable; treat that as an explicit browse-only residual
+  fallback, not a request-path verification failure.
+
 ## 7) Retrospective regression checklist (mandatory)
 
 Run this checklist for every future audit cycle that touches assistant routing, fallback, or endpoint hardening:

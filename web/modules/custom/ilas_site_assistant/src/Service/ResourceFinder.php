@@ -22,6 +22,21 @@ use Drupal\search_api\Entity\Index;
 class ResourceFinder {
 
   /**
+   * Multiplier used to size bounded legacy candidate loads.
+   */
+  const LEGACY_CANDIDATE_MULTIPLIER = 8;
+
+  /**
+   * Minimum candidate set size for bounded legacy retrieval.
+   */
+  const LEGACY_CANDIDATE_MIN = 20;
+
+  /**
+   * Maximum candidate set size for bounded legacy retrieval.
+   */
+  const LEGACY_CANDIDATE_MAX = 100;
+
+  /**
    * Cache TTL for per-query memoization (seconds).
    */
   const QUERY_CACHE_TTL = 300;
@@ -230,65 +245,72 @@ class ResourceFinder {
     $nodes = $node_storage->loadMultiple($nids);
 
     foreach ($nodes as $node) {
-      $resource = [
-        'id' => $node->id(),
-        'title' => $node->getTitle(),
-        'title_lower' => strtolower($node->getTitle()),
-        'url' => $node->toUrl()->toString(),
-        'source_url' => $node->toUrl()->toString(),
-        'updated_at' => method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : NULL,
-        'topics' => [],
-        'topic_names' => [],
-        'service_areas' => [],
-        'type' => $this->determineResourceType($node),
-        'has_file' => FALSE,
-        'has_link' => FALSE,
-        'description' => '',
-      ];
-
-      // Get topics.
-      if ($node->hasField('field_topics') && !$node->get('field_topics')->isEmpty()) {
-        foreach ($node->get('field_topics')->referencedEntities() as $topic) {
-          $resource['topics'][] = $topic->id();
-          $resource['topic_names'][] = strtolower($topic->getName());
-        }
-      }
-
-      // Get service areas.
-      if ($node->hasField('field_service_areas') && !$node->get('field_service_areas')->isEmpty()) {
-        foreach ($node->get('field_service_areas')->referencedEntities() as $area) {
-          $resource['service_areas'][] = [
-            'id' => $area->id(),
-            'name' => $area->getName(),
-          ];
-        }
-      }
-
-      // Check for file attachment.
-      if ($node->hasField('field_file') && !$node->get('field_file')->isEmpty()) {
-        $resource['has_file'] = TRUE;
-      }
-
-      // Check for external link.
-      if ($node->hasField('field_link') && !$node->get('field_link')->isEmpty()) {
-        $resource['has_link'] = TRUE;
-      }
-
-      // Get description/body if available.
-      if ($node->hasField('field_main_content') && !$node->get('field_main_content')->isEmpty()) {
-        $body = $node->get('field_main_content')->value;
-        $resource['description'] = $this->cleanDescription(strip_tags($body), $node->getTitle());
-      }
-
-      // Build search keywords.
-      $resource['keywords'] = $this->extractKeywords(
-        $node->getTitle() . ' ' . implode(' ', $resource['topic_names']) . ' ' . $resource['description']
-      );
-
-      $resources[$node->id()] = $resource;
+      $resources[$node->id()] = $this->buildIndexedResource($node);
     }
 
     return $resources;
+  }
+
+  /**
+   * Builds indexed resource data used by legacy retrieval.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node entity.
+   *
+   * @return array
+   *   Indexed resource metadata.
+   */
+  protected function buildIndexedResource($node): array {
+    $resource = [
+      'id' => $node->id(),
+      'title' => $node->getTitle(),
+      'title_lower' => strtolower($node->getTitle()),
+      'url' => $node->toUrl()->toString(),
+      'source_url' => $node->toUrl()->toString(),
+      'updated_at' => method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : NULL,
+      'topics' => [],
+      'topic_names' => [],
+      'service_areas' => [],
+      'type' => $this->determineResourceType($node),
+      'has_file' => FALSE,
+      'has_link' => FALSE,
+      'description' => '',
+    ];
+
+    if ($node->hasField('field_topics') && !$node->get('field_topics')->isEmpty()) {
+      foreach ($node->get('field_topics')->referencedEntities() as $topic) {
+        $resource['topics'][] = $topic->id();
+        $resource['topic_names'][] = strtolower($topic->getName());
+      }
+    }
+
+    if ($node->hasField('field_service_areas') && !$node->get('field_service_areas')->isEmpty()) {
+      foreach ($node->get('field_service_areas')->referencedEntities() as $area) {
+        $resource['service_areas'][] = [
+          'id' => $area->id(),
+          'name' => $area->getName(),
+        ];
+      }
+    }
+
+    if ($node->hasField('field_file') && !$node->get('field_file')->isEmpty()) {
+      $resource['has_file'] = TRUE;
+    }
+
+    if ($node->hasField('field_link') && !$node->get('field_link')->isEmpty()) {
+      $resource['has_link'] = TRUE;
+    }
+
+    if ($node->hasField('field_main_content') && !$node->get('field_main_content')->isEmpty()) {
+      $body = $node->get('field_main_content')->value;
+      $resource['description'] = $this->cleanDescription(strip_tags($body), $node->getTitle());
+    }
+
+    $resource['keywords'] = $this->extractKeywords(
+      $node->getTitle() . ' ' . implode(' ', $resource['topic_names']) . ' ' . $resource['description']
+    );
+
+    return $resource;
   }
 
   /**
@@ -538,7 +560,7 @@ class ResourceFinder {
       if (count($items) < $limit) {
         $topic = $this->topicResolver->resolveFromText($query);
         if ($topic) {
-          $topic_results = $this->findByTopic($topic['id'], $limit - count($items));
+          $topic_results = $this->findByTopic((int) $topic['id'], $limit - count($items));
           foreach ($topic_results as $topic_item) {
             // Avoid duplicates.
             $exists = FALSE;
@@ -1056,7 +1078,9 @@ class ResourceFinder {
    *   Array of matching resources.
    */
   protected function findByTypeLegacy(string $query, ?string $type, int $limit) {
-    $resources = $this->getAllResources();
+    $topic = $this->topicResolver->resolveFromText($query);
+    $topic_id = $topic ? (int) $topic['id'] : NULL;
+    $resources = $this->loadLegacyResourceCandidates($query, $limit, $topic_id);
 
     // Use enhanced ranking if available.
     if ($this->rankingEnhancer) {
@@ -1088,9 +1112,6 @@ class ResourceFinder {
     $query_keywords = $this->extractKeywords($query);
 
     // Also try to resolve topic from query.
-    $topic = $this->topicResolver->resolveFromText($query);
-    $topic_id = $topic ? $topic['id'] : NULL;
-
     $results = [];
 
     foreach ($resources as $resource) {
@@ -1164,7 +1185,11 @@ class ResourceFinder {
    *   Array of matching resources.
    */
   public function findByTopic(int $topic_id, int $limit = 5) {
-    $resources = $this->getAllResources();
+    if ($limit <= 0) {
+      return [];
+    }
+
+    $resources = $this->loadLegacyResourceCandidates('', $limit, $topic_id);
     $results = [];
 
     foreach ($resources as $resource) {
@@ -1203,7 +1228,11 @@ class ResourceFinder {
    *   Array of matching resources.
    */
   public function findByServiceArea(int $service_area_id, int $limit = 5) {
-    $resources = $this->getAllResources();
+    if ($limit <= 0) {
+      return [];
+    }
+
+    $resources = $this->loadLegacyResourceCandidates('', $limit, NULL, $service_area_id);
     $results = [];
 
     foreach ($resources as $resource) {
@@ -1229,6 +1258,92 @@ class ResourceFinder {
       $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical');
     }
     return $results;
+  }
+
+  /**
+   * Loads a bounded candidate set for legacy resource retrieval.
+   *
+   * @param string $query
+   *   The search query.
+   * @param int $limit
+   *   The requested result limit.
+   * @param int|null $topic_id
+   *   Optional topic constraint.
+   * @param int|null $service_area_id
+   *   Optional service-area constraint.
+   *
+   * @return array
+   *   Indexed resource candidates keyed by node ID.
+   */
+  protected function loadLegacyResourceCandidates(string $query, int $limit, ?int $topic_id = NULL, ?int $service_area_id = NULL): array {
+    if ($limit <= 0) {
+      return [];
+    }
+
+    $node_storage = $this->entityTypeManager->getStorage('node');
+    $candidate_limit = $this->getLegacyCandidateLimit($limit);
+    $entity_query = $node_storage->getQuery()
+      ->condition('type', 'resource')
+      ->condition('status', 1)
+      ->accessCheck(TRUE)
+      ->sort('changed', 'DESC')
+      ->range(0, $candidate_limit);
+
+    $match_group = $entity_query->orConditionGroup();
+    $has_match_conditions = FALSE;
+    $normalized_query = trim($query);
+    $keywords = array_values(array_unique($this->extractKeywords($query)));
+
+    if ($normalized_query !== '') {
+      $match_group->condition('title', $normalized_query, 'CONTAINS');
+      $match_group->condition('field_main_content.value', $normalized_query, 'CONTAINS');
+      $has_match_conditions = TRUE;
+    }
+
+    foreach (array_slice($keywords, 0, 5) as $keyword) {
+      $match_group->condition('title', $keyword, 'CONTAINS');
+      $match_group->condition('field_main_content.value', $keyword, 'CONTAINS');
+      $has_match_conditions = TRUE;
+    }
+
+    if ($topic_id !== NULL) {
+      $match_group->condition('field_topics.target_id', $topic_id);
+      $has_match_conditions = TRUE;
+    }
+
+    if ($service_area_id !== NULL) {
+      $match_group->condition('field_service_areas.target_id', $service_area_id);
+      $has_match_conditions = TRUE;
+    }
+
+    if ($has_match_conditions) {
+      $entity_query->condition($match_group);
+    }
+
+    $nids = $entity_query->execute();
+    if (empty($nids)) {
+      return [];
+    }
+
+    $nodes = $node_storage->loadMultiple($nids);
+    $resources = [];
+    foreach ($nids as $nid) {
+      if (isset($nodes[$nid])) {
+        $resources[$nid] = $this->buildIndexedResource($nodes[$nid]);
+      }
+    }
+
+    return $resources;
+  }
+
+  /**
+   * Returns the bounded candidate limit for legacy retrieval.
+   */
+  protected function getLegacyCandidateLimit(int $limit): int {
+    return min(
+      max($limit * self::LEGACY_CANDIDATE_MULTIPLIER, self::LEGACY_CANDIDATE_MIN),
+      self::LEGACY_CANDIDATE_MAX
+    );
   }
 
   /**

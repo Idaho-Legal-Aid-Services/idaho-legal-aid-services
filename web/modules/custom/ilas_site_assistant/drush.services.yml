@@ -13,3 +13,8 @@ services:
     arguments: ['@config.factory', '@queue', '@http_client']
     tags:
       - { name: drush.command }
+  ilas_site_assistant.disambiguation_review_commands:
+    class: \Drupal\ilas_site_assistant\Commands\DisambiguationReviewCommands
+    arguments: ['@ilas_site_assistant.analytics_logger']
+    tags:
+      - { name: drush.command }

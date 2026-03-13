@@ -510,8 +510,8 @@ Evidence precedence used in this audit:
 ### CLAIM-063
 - Claim: FAQ retrieval falls back to legacy entity-query search if Search API is unavailable/failing.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php:177-180`
-  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php:827-935`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php:178-209`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php:999-1171`
 
 - Addendum (2026-02-27): deterministic FAQ dependency degrade contract is now
   explicitly locked with unit coverage for Search API unavailable/query-failure
@@ -522,6 +522,17 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneDeterministicDegradeContractTest.php`
 
+- Addendum (2026-03-12): `RAUD-22` removes default FAQ cold-start
+  dependence on `getAllFaqsLegacy()` by bounding `searchLegacy()` candidate
+  loads while leaving `getCategoriesLegacy()` as an explicit browse-only
+  fallback when the lexical FAQ index is unavailable.
+- Addendum evidence:
+  - `docs/aila/current-state.md` (RAUD-22 retrieval cold-start addendum)
+  - `docs/aila/runbook.md` (RAUD-22 retrieval cold-start verification subsection in §4)
+  - `docs/aila/runtime/raud-22-retrieval-cold-start-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php:999-1222`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`
+
 ### CLAIM-064
 - Claim: Resource retrieval prefers dedicated index `assistant_resources` and falls back to `content` index.
 - Evidence:
@@ -531,11 +542,11 @@ Evidence precedence used in this audit:
 ### CLAIM-065
 - Claim: Resource retrieval applies lexical query filters, topic boost, vector supplement, and fallback legacy retrieval.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:454-555`
-  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:656-662`
-  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:722-774`
-  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:789-911`
-  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:914-1009`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:490-590`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:663-684`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:767-845`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:933-1064`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:1080-1350`
 
 - Addendum (2026-02-27): deterministic resource dependency degrade contract is
   formalized for Search API unavailable/query-failure fallback and vector
@@ -545,6 +556,18 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md` (Deterministic dependency degrade contract verification subsection in §2)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseOneDeterministicDegradeContractTest.php`
+
+- Addendum (2026-03-12): `RAUD-22` removes the default full-resource
+  cold-start dependency from sparse lexical topic fill and legacy resource
+  lookups by routing request-path retrieval through bounded resource candidate
+  queries.
+- Addendum evidence:
+  - `docs/aila/current-state.md` (RAUD-22 retrieval cold-start addendum)
+  - `docs/aila/runbook.md` (RAUD-22 retrieval cold-start verification subsection in §4)
+  - `docs/aila/runtime/raud-22-retrieval-cold-start-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:490-590`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php:1080-1350`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`
 
 - Addendum (2026-03-04): Phase 2 Exit #2 (`P2-EXT-02`) confirms citation
   coverage and low-confidence refusal metrics are within approved targets,

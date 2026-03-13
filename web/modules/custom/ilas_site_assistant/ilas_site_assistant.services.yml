@@ -122,11 +122,16 @@ services:
     class: Drupal\ilas_site_assistant\Service\TopIntentsPack
     arguments: ['@cache.default']
 
+  ilas_site_assistant.disambiguation_pack:
+    class: Drupal\ilas_site_assistant\Service\DisambiguationPack
+    arguments: ['@cache.default']
+
   ilas_site_assistant.turn_classifier:
     class: Drupal\ilas_site_assistant\Service\TurnClassifier
 
   ilas_site_assistant.disambiguator:
     class: Drupal\ilas_site_assistant\Service\Disambiguator
+    arguments: ['@ilas_site_assistant.disambiguation_pack']
 
   ilas_site_assistant.out_of_scope_classifier:
     class: Drupal\ilas_site_assistant\Service\OutOfScopeClassifier

@@ -1566,6 +1566,9 @@ class AssistantApiController extends ControllerBase {
 
     // Log the interaction.
     $this->analyticsLogger->log($intent['type'], $intent['value'] ?? '');
+    if (($intent['type'] ?? '') === 'disambiguation') {
+      $this->analyticsLogger->logDisambiguation($intent, $user_message);
+    }
 
     // Log history fallback usage for observability.
     if (($intent['source'] ?? '') === 'history_fallback') {
@@ -2422,7 +2425,8 @@ class AssistantApiController extends ControllerBase {
           // Office detail requests should return office-specific data.
           $resolver = new OfficeLocationResolver();
           $office = $this->resolveOfficeFromMessageOrHistory($message, $server_history, $resolver);
-          if ($office && $this->isOfficeDetailRequest($message)) {
+          $office_in_message = $resolver->resolve($message) !== null;
+          if ($office && ($office_in_message || $this->isOfficeDetailRequest($message))) {
             $response['type'] = 'office_location';
             $response['response_mode'] = 'navigate';
             $response['message'] = $this->buildOfficeDetailMessage($office);
@@ -2942,7 +2946,8 @@ class AssistantApiController extends ControllerBase {
 
         $resolver = new OfficeLocationResolver();
         $office = $this->resolveOfficeFromMessageOrHistory($message, $server_history, $resolver);
-        if ($office && $this->isOfficeDetailRequest($message)) {
+        $office_in_message = $resolver->resolve($message) !== null;
+        if ($office && ($office_in_message || $this->isOfficeDetailRequest($message))) {
           $response['type'] = 'office_location';
           $response['response_mode'] = 'navigate';
           $response['message'] = $this->buildOfficeDetailMessage($office);
@@ -3778,7 +3783,7 @@ class AssistantApiController extends ControllerBase {
    */
   protected function isOfficeDetailRequest(string $message): bool {
     $normalized = mb_strtolower(trim($message));
-    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt)\b/u', $normalized);
+    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt|where|office|closest|nearest|near\s*me|which\s*office|what\s*office|directions?|visit)\b/u', $normalized);
   }
 
   /**

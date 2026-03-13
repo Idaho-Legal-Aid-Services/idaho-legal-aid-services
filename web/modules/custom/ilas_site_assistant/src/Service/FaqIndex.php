@@ -22,6 +22,21 @@ use Drupal\search_api\Entity\Index;
 class FaqIndex {
 
   /**
+   * Multiplier used to size bounded legacy candidate loads.
+   */
+  const LEGACY_CANDIDATE_MULTIPLIER = 8;
+
+  /**
+   * Minimum candidate set size for bounded legacy retrieval.
+   */
+  const LEGACY_CANDIDATE_MIN = 20;
+
+  /**
+   * Maximum candidate set size for bounded legacy retrieval.
+   */
+  const LEGACY_CANDIDATE_MAX = 100;
+
+  /**
    * Cache TTL for per-query memoization (seconds).
    *
    * Short-lived to avoid serving stale content and keeps DB/cache footprint
@@ -982,7 +997,7 @@ class FaqIndex {
    *   Search results.
    */
   protected function searchLegacy(string $query, int $limit) {
-    $all_items = $this->getAllFaqsLegacy();
+    $all_items = $this->loadLegacySearchItems($query, $limit);
 
     // Use enhanced ranking if available.
     if ($this->rankingEnhancer) {
@@ -1042,6 +1057,117 @@ class FaqIndex {
       $results = $this->sourceGovernance->annotateBatch($results, 'faq_lexical');
     }
     return $results;
+  }
+
+  /**
+   * Loads a bounded set of FAQ/accordion candidates for legacy search.
+   *
+   * @param string $query
+   *   The search query.
+   * @param int $limit
+   *   The requested result limit.
+   *
+   * @return array
+   *   Candidate FAQ items keyed by item ID.
+   */
+  protected function loadLegacySearchItems(string $query, int $limit): array {
+    if ($limit <= 0) {
+      return [];
+    }
+
+    $candidate_limit = $this->getLegacyCandidateLimit($limit);
+    $candidate_ids = array_unique(array_merge(
+      $this->queryLegacyParagraphIdsByBundle('faq_item', $query, $candidate_limit, [
+        'field_faq_question',
+        'field_faq_answer',
+      ]),
+      $this->queryLegacyParagraphIdsByBundle('accordion_item', $query, $candidate_limit, [
+        'field_accordion_title',
+        'field_accordion_body',
+      ]),
+    ));
+
+    if ($candidate_ids === []) {
+      return [];
+    }
+
+    rsort($candidate_ids, SORT_NUMERIC);
+    $candidate_ids = array_slice($candidate_ids, 0, $candidate_limit);
+
+    $paragraph_storage = $this->entityTypeManager->getStorage('paragraph');
+    $paragraphs = $paragraph_storage->loadMultiple($candidate_ids);
+    $items = [];
+
+    foreach ($candidate_ids as $paragraph_id) {
+      if (!isset($paragraphs[$paragraph_id])) {
+        continue;
+      }
+      $item = $this->buildResultItemFromParagraph($paragraphs[$paragraph_id]);
+      if ($item) {
+        $items[$item['id']] = $item;
+      }
+    }
+
+    return $items;
+  }
+
+  /**
+   * Queries bounded paragraph candidate IDs for one legacy FAQ bundle.
+   *
+   * @param string $bundle
+   *   The paragraph bundle.
+   * @param string $query
+   *   The search query.
+   * @param int $candidate_limit
+   *   Maximum paragraph IDs to return.
+   * @param array $fields
+   *   Bundle-specific text fields used for matching.
+   *
+   * @return array
+   *   Candidate paragraph IDs.
+   */
+  protected function queryLegacyParagraphIdsByBundle(string $bundle, string $query, int $candidate_limit, array $fields): array {
+    $paragraph_storage = $this->entityTypeManager->getStorage('paragraph');
+    $entity_query = $paragraph_storage->getQuery()
+      ->condition('type', $bundle)
+      ->accessCheck(TRUE)
+      ->sort('id', 'DESC')
+      ->range(0, $candidate_limit);
+
+    $match_group = $entity_query->orConditionGroup();
+    $has_match_conditions = FALSE;
+    $normalized_query = trim($query);
+    $keywords = array_values(array_unique($this->extractKeywords($query)));
+
+    if ($normalized_query !== '') {
+      foreach ($fields as $field) {
+        $match_group->condition($field . '.value', $normalized_query, 'CONTAINS');
+      }
+      $has_match_conditions = TRUE;
+    }
+
+    foreach (array_slice($keywords, 0, 5) as $keyword) {
+      foreach ($fields as $field) {
+        $match_group->condition($field . '.value', $keyword, 'CONTAINS');
+      }
+      $has_match_conditions = TRUE;
+    }
+
+    if ($has_match_conditions) {
+      $entity_query->condition($match_group);
+    }
+
+    return array_values($entity_query->execute());
+  }
+
+  /**
+   * Returns the bounded candidate limit for legacy retrieval.
+   */
+  protected function getLegacyCandidateLimit(int $limit): int {
+    return min(
+      max($limit * self::LEGACY_CANDIDATE_MULTIPLIER, self::LEGACY_CANDIDATE_MIN),
+      self::LEGACY_CANDIDATE_MAX
+    );
   }
 
   /**

@@ -1,0 +1,91 @@
+RAUD-22 Retrieval Cold-Start Remediation
+Date: 2026-03-12
+Prompt ID: RAUD-22
+Finding IDs: M5, N-34
+
+Prior status
+- Not Fixed. The default resource retrieval path still had a cold-start full-load
+  branch:
+  `findByTypeSearchApi()` -> sparse lexical results ->
+  `TopicResolver::resolveFromText()` -> `findByTopic()` ->
+  `getAllResources()` -> `indexResources()` -> full `loadMultiple()`.
+- Resource legacy fallback also depended on full corpus materialization through
+  `findByTypeLegacy()` -> `getAllResources()`.
+- FAQ legacy search still cold-started through
+  `searchLegacy()` -> `getAllFaqsLegacy()` -> `loadByProperties()`.
+
+Post-change status
+- Fixed
+
+Verification level tag
+- VC-PURE + VC-UNIT
+
+Verification evidence
+- Implementation proof:
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+    now routes sparse topic fill, `findByTypeLegacy()`, `findByTopic()`, and
+    `findByServiceArea()` through bounded
+    `loadLegacyResourceCandidates()` queries capped at
+    `min(max(limit * 8, 20), 100)` with `accessCheck(TRUE)` and
+    `changed DESC`.
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php` now
+    routes `searchLegacy()` through bounded `loadLegacySearchItems()` queries
+    over `faq_item` and `accordion_item` paragraphs instead of
+    `getAllFaqsLegacy()`.
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`
+    adds executable guards that fail if request/search paths invoke
+    `getAllResources()` or `getAllFaqsLegacy()`, and also locks the bounded
+    candidate-limit contract.
+- Syntax checks:
+  - `php -l web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `php -l web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `php -l web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`
+  - Summary: all three files parsed successfully.
+- VC-PURE targeted proof:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+  - Summary: `39` tests, `185` assertions, passing. PHPUnit reported `8`
+    deprecations but no failures.
+- VC-UNIT:
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Summary: `2115` tests, `10473` assertions, passing. PHPUnit reported `2`
+    warnings, `1` deprecation, `205` PHPUnit deprecations, and `1` skipped
+    test, but the suite passed.
+
+Changed files
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/runtime/raud-22-retrieval-cold-start-remediation.txt`
+
+Residual risks / unknowns
+- `FaqIndex::getCategoriesLegacy()` still uses `getAllFaqsLegacy()` as a
+  browse-only fallback when the FAQ lexical index is unavailable. That path is
+  intentionally documented as residual and is outside the default retrieval
+  proof surface.
+- `ResourceFinder::getAllResources()` remains available for compatibility, but
+  the normal request/search paths covered by `RAUD-22` no longer depend on it.
+- No hosted cold-cache latency probe was run in Pantheon as part of this repo
+  remediation; the proof here is structural and executable at the code/test
+  level.
+
+Rollback notes
+- Roll back the `ResourceFinder` and `FaqIndex` bounded candidate loaders, the
+  cold-start guard test, and the related audit documentation as one code/docs
+  bundle so retrieval behavior and evidence stay aligned.
+- No schema migration or content rewrite was introduced by this remediation.
+- Highest-risk rollback surfaces are the request-path retrieval helpers in
+  `ResourceFinder` and `FaqIndex`, because reverting only one side could
+  restore hidden full-load behavior without restoring the original tests.
+
+Still-unverified surfaces
+- Pantheon cold-cache retrieval behavior after deployment
+- Browse-only FAQ category fallback behavior when the lexical FAQ index is
+  unavailable
+- Environment-specific memory/latency impact under real content volume outside
+  the local executable test suite

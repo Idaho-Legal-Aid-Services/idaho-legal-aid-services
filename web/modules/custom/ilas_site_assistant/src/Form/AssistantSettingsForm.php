@@ -646,6 +646,23 @@ class AssistantSettingsForm extends ConfigFormBase {
       );
     }
 
+    // Privacy coupling: if conversation logging is enabled,
+    // PII redaction and user notice must remain on.
+    if ((bool) $form_state->getValue('conversation_logging_enabled')) {
+      if (!(bool) $form_state->getValue('conversation_logging_redact_pii')) {
+        $form_state->setErrorByName(
+          'conversation_logging_redact_pii',
+          $this->t('PII redaction cannot be disabled while conversation logging is active.'),
+        );
+      }
+      if (!(bool) $form_state->getValue('conversation_logging_show_user_notice')) {
+        $form_state->setErrorByName(
+          'conversation_logging_show_user_notice',
+          $this->t('User notice cannot be hidden while conversation logging is active. Users must be informed.'),
+        );
+      }
+    }
+
     $machine_name_fields = [
       'retrieval_faq_index_id' => $this->t('FAQ Lexical Index ID'),
       'retrieval_resource_index_id' => $this->t('Resource Lexical Index ID'),

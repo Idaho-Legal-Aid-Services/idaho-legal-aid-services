@@ -291,3 +291,23 @@ transcripts:
         expected_intent: disambiguation
         expected_chips_present: true
         notes: "New topic with modifier, correctly disambiguated"
+
+  # 18. Low-literacy vague prompt should clarify via family matching.
+  - id: low_literacy_vague_prompt
+    label: "Low-literacy vague prompt"
+    turns:
+      - message: "i am confused"
+        expected_turn_type: NEW
+        expected_intent: disambiguation
+        expected_chips_present: true
+        notes: "Short under-specified query should clarify through uncertainty family."
+
+  # 19. Spanish vague prompt should clarify without exact-entry sprawl.
+  - id: spanish_vague_prompt
+    label: "Spanish vague prompt"
+    turns:
+      - message: "necesito un poco de ayuda"
+        expected_turn_type: NEW
+        expected_intent: disambiguation
+        expected_chips_present: true
+        notes: "Spanish short vague phrasing should clarify through generic_help family."

@@ -121,12 +121,25 @@ Planning defaults applied:
     lexical Search API indexes (`faq_accordion`, `assistant_resources`) plus
     `ilas_site_assistant_update_10009()` to recreate them automatically on
     existing environments before config import.
-27. `RAUD-21` remains `Partially Fixed` until Pantheon `dev`/`test`/`live`
-    deploy that patch, run `updb`/`cim`/`cr`, reindex the recreated lexical
-    indexes, and provision `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` as a
-    runtime secret. Live read-only verification on 2026-03-11 already proved
-    the drift guard is active and currently reporting those exact missing
-    hosted prerequisites.
+27. Pantheon closure for `RAUD-21` completed on 2026-03-12 after deployment,
+    lexical index recovery, runtime secret provisioning, and hosted
+    verification that `dev`/`test`/`live` all report
+    `checks.retrieval_configuration.status=healthy`.
+28. `RAUD-22` removes the default full-resource cold-start dependency behind
+    `M5` and `N-34`: sparse lexical resource retrieval no longer routes through
+    `getAllResources()` just to fill remaining topic slots.
+29. `RAUD-22` keeps the retrieval architecture unchanged while bounding the
+    resource legacy fallback surfaces: `findByTypeLegacy()`, `findByTopic()`,
+    and `findByServiceArea()` now query only `min(max(limit * 8, 20), 100)`
+    published resource candidates before ranking.
+30. FAQ legacy search is now bounded as well: `searchLegacy()` queries capped
+    `faq_item` and `accordion_item` paragraph candidates instead of
+    materializing the full FAQ corpus, with executable cold-start guard tests
+    preventing regression.
+31. Residual cold-cache tradeoff is explicit rather than hidden:
+    `getCategoriesLegacy()` may still trigger the legacy full FAQ preload when
+    the lexical FAQ index is unavailable, but that browse-only fallback is
+    outside the normal request-path proof surface.
 
 ## Phase-to-sprint mapping
 | Phase | Scope | Sprint mapping |

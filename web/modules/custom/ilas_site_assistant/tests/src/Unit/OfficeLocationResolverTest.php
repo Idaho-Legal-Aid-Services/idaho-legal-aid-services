@@ -80,6 +80,13 @@ class OfficeLocationResolverTest extends TestCase {
       'driggs' => ['driggs', 'Idaho Falls'],
       'salmon' => ['salmon', 'Idaho Falls'],
       'rigby' => ['rigby', 'Idaho Falls'],
+      // Full-sentence resolution (fuzzy city match inside longer messages).
+      'sentence_where_boise' => ['where is the boise office', 'Boise'],
+      'sentence_what_office_twin_falls' => ['what office helps me in twin falls', 'Twin Falls'],
+      'sentence_closest_nampa' => ['closest office to nampa', 'Boise'],
+      'sentence_directions_lewiston' => ['directions to the lewiston office', 'Lewiston'],
+      'sentence_visit_pocatello' => ['can i visit the pocatello office', 'Pocatello'],
+      'sentence_near_idaho_falls' => ['nearest office to idaho falls', 'Idaho Falls'],
     ];
   }
 

@@ -1069,14 +1069,14 @@ window._assistantWidgetTestDone = (async function () {
     helpfulBtn.type = 'button';
     helpfulBtn.className = 'feedback-btn feedback-btn--helpful';
     helpfulBtn.setAttribute('aria-label', Drupal.t('Helpful'));
-    helpfulBtn.textContent = '\uD83D\uDC4D';
+    helpfulBtn.innerHTML = '<i class="fas fa-thumbs-up" aria-hidden="true"></i>';
     controls.appendChild(helpfulBtn);
 
     var notHelpfulBtn = document.createElement('button');
     notHelpfulBtn.type = 'button';
     notHelpfulBtn.className = 'feedback-btn feedback-btn--not-helpful';
     notHelpfulBtn.setAttribute('aria-label', Drupal.t('Not helpful'));
-    notHelpfulBtn.textContent = '\uD83D\uDC4E';
+    notHelpfulBtn.innerHTML = '<i class="fas fa-thumbs-down" aria-hidden="true"></i>';
     controls.appendChild(notHelpfulBtn);
 
     container.appendChild(controls);

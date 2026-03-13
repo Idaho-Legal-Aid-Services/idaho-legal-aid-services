@@ -225,6 +225,7 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
       'conversation_logging.enabled' => TRUE,
       'conversation_logging.retention_hours' => 72,
       'conversation_logging.redact_pii' => TRUE,
+      'conversation_logging.show_user_notice' => TRUE,
       'safety_alerting.enabled' => FALSE,
       'safety_alerting.threshold' => 20,
       'safety_alerting.window_hours' => 1,

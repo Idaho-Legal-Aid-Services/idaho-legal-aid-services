@@ -1,5 +1,6 @@
 RAUD-21 Retrieval Config Governance and Drift Guard
 Date: 2026-03-11
+Updated: 2026-03-12
 Prompt ID: RAUD-21
 Finding IDs: F-18, M4, N-16
 
@@ -22,6 +23,7 @@ Prior status
     result: `retrieval_configuration_service=missing`, `legalserver_setting_present=false`
 
 Post-change status
+- Fixed
 - Added `RetrievalConfigurationService` as the single runtime resolver for:
   - effective retrieval IDs
   - canonical URLs
@@ -60,7 +62,7 @@ Post-change status
 - Added update hook `ilas_site_assistant_update_10008()` to migrate active config.
 
 Verification level tag
-- Partially Fixed
+- `VC-UNIT + VC-PANTHEON-READONLY`
 
 Verification evidence
 - Syntax check:
@@ -79,8 +81,28 @@ Verification evidence
     result: all five `retrieval.*` keys present on live
   - `terminus remote:drush idaho-legal-aid-services.live -- config:get ilas_site_assistant.settings canonical_urls --format=yaml`
     result: `online_application` absent from exported canonical URLs
-  - `terminus remote:drush idaho-legal-aid-services.live -- php:eval ...`
-    result: retrieval health service present, but `faq_accordion` and `assistant_resources` were still missing and `legalserver_setting_present=false`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- php:eval 'echo "settings=" . (((string) \Drupal\Core\Site\Settings::get("ilas_site_assistant_legalserver_online_application_url", "")) !== "" ? "present" : "absent") . PHP_EOL;'`
+    result: `settings=present`
+  - `terminus remote:drush idaho-legal-aid-services.test -- php:eval 'echo "settings=" . (((string) \Drupal\Core\Site\Settings::get("ilas_site_assistant_legalserver_online_application_url", "")) !== "" ? "present" : "absent") . PHP_EOL;'`
+    result: `settings=present`
+  - `terminus remote:drush idaho-legal-aid-services.live -- php:eval 'echo "settings=" . (((string) \Drupal\Core\Site\Settings::get("ilas_site_assistant_legalserver_online_application_url", "")) !== "" ? "present" : "absent") . PHP_EOL;'`
+    result: `settings=present`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- php:eval '$service = \Drupal::service("ilas_site_assistant.retrieval_configuration"); print json_encode($service->getHealthSnapshot(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'`
+    result: overall `status: healthy`; `legalserver_intake_url` healthy with `absolute=true`, `https=true`, `pid=true`, and `h=true`
+  - `terminus remote:drush idaho-legal-aid-services.test -- php:eval '$service = \Drupal::service("ilas_site_assistant.retrieval_configuration"); print json_encode($service->getHealthSnapshot(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'`
+    result: overall `status: healthy`; `legalserver_intake_url` healthy with `absolute=true`, `https=true`, `pid=true`, and `h=true`
+  - `terminus remote:drush idaho-legal-aid-services.live -- php:eval '$service = \Drupal::service("ilas_site_assistant.retrieval_configuration"); print json_encode($service->getHealthSnapshot(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'`
+    result: overall `status: healthy`; `legalserver_intake_url` healthy with `absolute=true`, `https=true`, `pid=true`, and `h=true`
+  - `terminus remote:drush idaho-legal-aid-services.dev -- search-api-status`
+    result: `faq_accordion` and `assistant_resources` both `100%` complete and enabled (`236/236`, `38/38`)
+  - `terminus remote:drush idaho-legal-aid-services.test -- search-api-status`
+    result: `faq_accordion` and `assistant_resources` both `100%` complete and enabled (`228/228`, `38/38`)
+  - `terminus remote:drush idaho-legal-aid-services.live -- search-api-status`
+    result: `faq_accordion` and `assistant_resources` both `100%` complete and enabled (`883/883`, `152/152`)
+  - `terminus remote:drush idaho-legal-aid-services.live -- search-api-search faq_accordion eviction`
+    result: lexical FAQ results returned as expected
+  - `terminus remote:drush idaho-legal-aid-services.live -- search-api-search assistant_resources custody`
+    result: lexical resource results returned as expected
 
 Changed files
 - Runtime/config:
@@ -121,12 +143,11 @@ Changed files
   - `docs/aila/risk-register.md`
 
 Residual risks / unknowns
-- Pantheon environments still need this lexical-index repair patch deployed and
-  `ilas_site_assistant_update_10009()` executed via `updb`.
-- `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` still has to be provisioned
-  manually as a Pantheon runtime secret on `dev`, `test`, and `live`.
 - No live LegalServer reachability probe was executed, so URL validation is
   still structural rather than end-to-end.
+- Runtime-secret drift remains possible operationally, but
+  `checks.retrieval_configuration` now detects it on `dev`, `test`, and
+  `live`.
 
 Rollback notes
 - If rollback is required before deployment, revert the module code/config changes together so runtime services, exported config, and test contracts stay aligned.
@@ -137,11 +158,5 @@ Rollback notes
   - pure-PHP helper constructor/signature changes used by response/routing paths
 
 Still-unverified surfaces
-- Pantheon `dev`, `test`, and `live` after deploying the lexical-index repair
-  patch and running `updb`/`cim`/`cr`
-- Hosted lexical Search API reindex results for `faq_accordion` and
-  `assistant_resources`
-- Hosted `/assistant/api/health` output after the LegalServer runtime secret is
-  provisioned
 - Optional live LegalServer probe / reachability assertion under approved
   operational conditions

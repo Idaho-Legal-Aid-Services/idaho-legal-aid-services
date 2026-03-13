@@ -1042,14 +1042,43 @@ This dated addendum records re-audit remediation `RAUD-21` for findings
    `ilas_site_assistant_update_10009()` to recreate those indexes on existing
    environments before config import.
 5. Local verification is captured in
-   `docs/aila/runtime/raud-21-retrieval-config-governance.txt`. The
-   remediation remains `Partially Fixed` until Pantheon `dev`/`test`/`live`
-   deploy the lexical-index repair, run `updb`/`cim`/`cr`, reindex
-   `faq_accordion` + `assistant_resources`, and provision
-   `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` as a runtime secret. Live
-   read-only checks on 2026-03-11 already showed the deployed drift guard is
-   catching the missing lexical indexes and absent LegalServer runtime
-   setting.
+   `docs/aila/runtime/raud-21-retrieval-config-governance.txt`. Pantheon
+   read-only checks on 2026-03-12 confirmed `dev`/`test`/`live` all report the
+   LegalServer runtime setting as present and
+   `checks.retrieval_configuration.status=healthy`, so the remediation is now
+   `Fixed`.
+
+### Re-Audit Remediation RAUD-22 Retrieval Cold-Start Bounded Lookup (2026-03-12)
+
+This dated addendum records re-audit remediation `RAUD-22` for findings `M5`
+and `N-34`.
+
+1. The pre-change default resource hot path was `findByTypeSearchApi()` ->
+   sparse lexical results -> `TopicResolver::resolveFromText()` ->
+   `findByTopic()` -> `getAllResources()` -> `indexResources()` -> full
+   `loadMultiple()`, so a cold request could materialize the entire resource
+   corpus before serving remaining slots.
+2. `ResourceFinder` now preserves the same lexical/vector/legacy architecture
+   but removes request-path full loads. Sparse topic fill,
+   `findByTypeLegacy()`, `findByTopic()`, and `findByServiceArea()` now route
+   through `loadLegacyResourceCandidates()` with bounded entity-query caps of
+   `min(max(limit * 8, 20), 100)`, `accessCheck(TRUE)`, and `changed DESC`
+   ordering.
+3. `FaqIndex::searchLegacy()` now routes through `loadLegacySearchItems()`
+   instead of `getAllFaqsLegacy()`. Legacy FAQ fallback queries only bounded
+   `faq_item` and `accordion_item` paragraph candidates before the existing
+   ranking and source-governance logic scores them.
+4. Executable proof now exists in
+   `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalColdStartGuardTest.php`:
+   request-path tests fail if resource retrieval calls `getAllResources()` or
+   FAQ legacy search calls `getAllFaqsLegacy()`, and the guard suite also
+   locks the bounded candidate-limit contract.
+5. Local verification is captured in
+   `docs/aila/runtime/raud-22-retrieval-cold-start-remediation.txt`.
+   Residual tradeoff: `FaqIndex::getCategoriesLegacy()` still uses the legacy
+   full FAQ preload as a browse-only fallback when the FAQ lexical index is
+   unavailable, but that path is no longer part of normal query retrieval
+   proof.
 
 ### Phase 1 Exit #1 Non-Live Alert + Dashboard Verification (2026-03-03)
 

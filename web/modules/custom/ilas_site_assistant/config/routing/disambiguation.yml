@@ -1,0 +1,507 @@
+version: '1.0'
+
+families:
+  generic_help:
+    stable_family: generic_help
+    reason: vague_query
+    question: 'How can I help you today?'
+    options:
+      - { label: 'Apply for legal help', intent: apply_for_help }
+      - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+      - { label: 'Find forms', intent: forms_finder }
+      - { label: 'Read a guide', intent: guides_finder }
+    exact_aliases:
+      - 'help'
+      - 'can you help'
+      - 'can you help me'
+      - 'i need help'
+      - 'i need some help'
+      - 'help me'
+      - 'please help'
+      - 'please help me'
+      - 'i need legal help'
+    any_tokens:
+      - 'help'
+    stop_tokens:
+      - 'i'
+      - 'need'
+      - 'some'
+      - 'please'
+      - 'can'
+      - 'you'
+      - 'me'
+      - 'legal'
+      - 'really'
+      - 'just'
+    negative_tokens:
+      - 'with'
+      - 'about'
+      - 'on'
+      - 'for'
+      - 'apply'
+      - 'application'
+      - 'office'
+      - 'location'
+      - 'address'
+      - 'hours'
+      - 'contact'
+      - 'phone'
+      - 'number'
+      - 'form'
+      - 'forms'
+      - 'guide'
+      - 'guides'
+      - 'faq'
+      - 'service'
+      - 'services'
+      - 'eligibility'
+      - 'qualify'
+      - 'where'
+      - 'how'
+    max_token_count: 6
+    disallow_topics: true
+
+  generic_help_es:
+    stable_family: generic_help
+    reason: vague_query
+    question: 'Como puedo ayudarle hoy?'
+    options:
+      - { label: 'Aplicar para ayuda legal', intent: apply_for_help }
+      - { label: 'Llamar a la linea de consejo legal', intent: legal_advice_line }
+      - { label: 'Encontrar formularios', intent: forms_finder }
+      - { label: 'Leer una guia', intent: guides_finder }
+    exact_aliases:
+      - 'ayuda'
+      - 'necesito ayuda'
+      - 'ayudame'
+      - 'ayudeme'
+    any_tokens:
+      - 'ayuda'
+      - 'ayudame'
+      - 'ayudeme'
+    stop_tokens:
+      - 'necesito'
+      - 'por'
+      - 'favor'
+      - 'un'
+      - 'una'
+      - 'poco'
+      - 'de'
+      - 'algo'
+    negative_tokens:
+      - 'con'
+      - 'sobre'
+      - 'para'
+      - 'aplicar'
+      - 'solicitud'
+      - 'oficina'
+      - 'ubicacion'
+      - 'direccion'
+      - 'horario'
+      - 'contacto'
+      - 'telefono'
+      - 'formulario'
+      - 'formularios'
+      - 'guia'
+      - 'guias'
+      - 'servicio'
+      - 'servicios'
+      - 'donde'
+      - 'como'
+    max_token_count: 6
+    disallow_topics: true
+
+  uncertain_start:
+    stable_family: uncertain_start
+    reason: vague_query
+    question: 'No worries. Here are some ways I can help.'
+    options:
+      - { label: 'Apply for legal help', intent: apply_for_help }
+      - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+      - { label: 'Find office location', intent: offices_contact }
+      - { label: 'Find forms', intent: forms_finder }
+    exact_aliases:
+      - 'i dont know what to do'
+      - "i don't know what to do"
+      - 'im lost'
+      - "i'm lost"
+      - 'no se que hacer'
+    any_tokens:
+      - 'lost'
+      - 'confused'
+      - 'unsure'
+    stop_tokens:
+      - 'i'
+      - 'am'
+      - 'im'
+      - 'm'
+      - 'really'
+      - 'so'
+      - 'very'
+    negative_tokens:
+      - 'with'
+      - 'about'
+      - 'on'
+      - 'for'
+      - 'apply'
+      - 'office'
+      - 'form'
+      - 'forms'
+      - 'guide'
+      - 'guides'
+      - 'service'
+      - 'services'
+      - 'contact'
+      - 'phone'
+      - 'where'
+      - 'how'
+    max_token_count: 6
+    disallow_topics: true
+
+  forms_browse:
+    stable_family: forms
+    reason: vague_query
+    question: 'What type of forms do you need?'
+    options:
+      - { label: 'Family/Divorce forms', intent: forms_finder, topic: family }
+      - { label: 'Housing/Eviction forms', intent: forms_finder, topic: housing }
+      - { label: 'Other forms', intent: forms_finder }
+    exact_aliases:
+      - 'forms'
+      - 'form'
+    any_tokens:
+      - 'forms'
+      - 'form'
+    stop_tokens:
+      - 'need'
+      - 'find'
+      - 'some'
+      - 'any'
+      - 'court'
+      - 'legal'
+    negative_tokens:
+      - 'guide'
+      - 'guides'
+      - 'office'
+      - 'contact'
+      - 'phone'
+      - 'apply'
+    max_token_count: 2
+    disallow_topics: true
+
+  forms_browse_es:
+    stable_family: forms
+    reason: vague_query
+    question: 'Que tipo de formularios necesita?'
+    options:
+      - { label: 'Formularios de familia/divorcio', intent: forms_finder, topic: family }
+      - { label: 'Formularios de vivienda/desalojo', intent: forms_finder, topic: housing }
+      - { label: 'Otros formularios', intent: forms_finder }
+    exact_aliases:
+      - 'formularios'
+      - 'formulario'
+    any_tokens:
+      - 'formularios'
+      - 'formulario'
+    stop_tokens:
+      - 'necesito'
+      - 'unos'
+      - 'unas'
+      - 'algunos'
+      - 'de'
+    negative_tokens:
+      - 'guia'
+      - 'guias'
+      - 'oficina'
+      - 'contacto'
+      - 'telefono'
+      - 'aplicar'
+    max_token_count: 3
+    disallow_topics: true
+
+  guides_browse:
+    stable_family: guides
+    reason: vague_query
+    question: 'What type of guide are you looking for?'
+    options:
+      - { label: 'Family/Divorce guides', intent: guides_finder, topic: family }
+      - { label: 'Housing/Eviction guides', intent: guides_finder, topic: housing }
+      - { label: 'Other guides', intent: guides_finder }
+    exact_aliases:
+      - 'guide'
+      - 'guides'
+    any_tokens:
+      - 'guide'
+      - 'guides'
+    stop_tokens:
+      - 'need'
+      - 'find'
+      - 'some'
+      - 'any'
+    negative_tokens:
+      - 'form'
+      - 'forms'
+      - 'office'
+      - 'contact'
+      - 'phone'
+      - 'apply'
+    max_token_count: 2
+    disallow_topics: true
+
+  guides_browse_es:
+    stable_family: guides
+    reason: vague_query
+    question: 'Que tipo de guias necesita?'
+    options:
+      - { label: 'Guias de familia/divorcio', intent: guides_finder, topic: family }
+      - { label: 'Guias de vivienda/desalojo', intent: guides_finder, topic: housing }
+      - { label: 'Otras guias', intent: guides_finder }
+    exact_aliases:
+      - 'guias'
+      - 'guia'
+    any_tokens:
+      - 'guias'
+      - 'guia'
+    stop_tokens:
+      - 'necesito'
+      - 'unas'
+      - 'unos'
+      - 'de'
+    negative_tokens:
+      - 'formulario'
+      - 'formularios'
+      - 'oficina'
+      - 'contacto'
+      - 'telefono'
+      - 'aplicar'
+    max_token_count: 3
+    disallow_topics: true
+
+  contact_method:
+    stable_family: contact_method
+    reason: vague_query
+    question: 'How would you like to contact us?'
+    options:
+      - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+      - { label: 'Find office location', intent: offices_contact }
+      - { label: 'Apply online', intent: apply_for_help }
+    exact_aliases:
+      - 'contact'
+      - 'contact information'
+      - 'phone'
+    any_tokens:
+      - 'contact'
+      - 'phone'
+      - 'telephone'
+    stop_tokens:
+      - 'information'
+      - 'info'
+      - 'number'
+    negative_tokens:
+      - 'office'
+      - 'location'
+      - 'address'
+      - 'hours'
+      - 'boise'
+      - 'pocatello'
+      - 'lewiston'
+      - 'nampa'
+      - 'twin'
+      - 'falls'
+      - 'idaho'
+      - 'where'
+    max_token_count: 3
+
+  services_overview:
+    stable_family: services_overview
+    reason: vague_query
+    question: 'What would you like to know?'
+    options:
+      - { label: 'What services we offer', intent: services_overview }
+      - { label: 'How to apply for help', intent: apply_for_help }
+      - { label: 'Frequently asked questions', intent: faq }
+    exact_aliases:
+      - 'information'
+      - 'what do you do'
+      - 'what can you do'
+      - 'what do you offer'
+    all_tokens:
+      - 'what'
+    any_tokens:
+      - 'services'
+      - 'offer'
+    stop_tokens:
+      - 'do'
+      - 'you'
+      - 'can'
+    negative_tokens:
+      - 'apply'
+      - 'eligibility'
+      - 'qualify'
+      - 'form'
+      - 'forms'
+      - 'guide'
+      - 'guides'
+      - 'office'
+      - 'contact'
+      - 'phone'
+      - 'where'
+      - 'how'
+    max_token_count: 5
+
+  apply_path:
+    stable_family: apply_path
+    reason: vague_query
+    question: 'What would you like to apply for?'
+    options:
+      - { label: 'Legal help from ILAS', intent: apply_for_help }
+      - { label: 'Learn about eligibility first', intent: eligibility }
+    exact_aliases:
+      - 'i want to apply'
+    all_tokens:
+      - 'want'
+    any_tokens:
+      - 'apply'
+    stop_tokens:
+      - 'i'
+      - 'to'
+    negative_tokens:
+      - 'how'
+      - 'where'
+      - 'can'
+      - 'do'
+      - 'form'
+      - 'forms'
+      - 'office'
+      - 'contact'
+    max_token_count: 4
+
+topic_lexicon:
+  modifiers:
+    - 'now'
+    - 'right'
+    - 'asap'
+    - 'please'
+    - 'urgent'
+    - 'quickly'
+    - 'immediately'
+    - 'today'
+    - 'soon'
+    - 'fast'
+    - 'ahora'
+    - 'urgente'
+    - 'rapido'
+    - 'hoy'
+    - 'pronto'
+    - 'por'
+    - 'favor'
+  filler_words:
+    - 'case'
+    - 'cases'
+    - 'issue'
+    - 'issues'
+    - 'problem'
+    - 'problems'
+    - 'matter'
+    - 'matters'
+    - 'tema'
+    - 'caso'
+    - 'casos'
+    - 'problema'
+    - 'problemas'
+    - 'asunto'
+    - 'asuntos'
+    - 'legal'
+    - 'information'
+    - 'informacion'
+    - 'info'
+  lead_patterns:
+    - '/^(?:i\s+need\s+(?:some\s+)?help\s+(?:with|about|on)\s+)/u'
+    - '/^(?:need\s+help\s+(?:with|about|on)\s+)/u'
+    - '/^(?:help\s+(?:with|about|on)\s+)/u'
+    - '/^(?:i\s+(?:need|want)\s+to\s+(?:file\s+for|file|get)\s+(?:a\s+)?)/u'
+    - '/^(?:how\s+(?:do|can)\s+i\s+(?:file\s+for|file|get|apply\s+for|apply)\s+(?:a\s+)?)/u'
+    - '/^(?:necesito\s+ayuda\s+(?:con|sobre|para)\s+)/u'
+    - '/^(?:quiero\s+ayuda\s+(?:con|sobre|para)\s+)/u'
+    - '/^(?:ayuda\s+(?:con|sobre|para)\s+)/u'
+  topics:
+    divorce: { area: family, label: divorce }
+    custody: { area: family, label: custody }
+    'child support': { area: family, label: 'child support' }
+    visitation: { area: family, label: visitation }
+    adoption: { area: family, label: adoption }
+    paternity: { area: family, label: paternity }
+    divorcio: { area: family, label: divorcio }
+    custodia: { area: family, label: custodia }
+    eviction: { area: housing, label: eviction }
+    landlord: { area: housing, label: 'landlord issues' }
+    tenant: { area: housing, label: 'tenant rights' }
+    rent: { area: housing, label: 'rent issues' }
+    foreclosure: { area: housing, label: foreclosure }
+    desalojo: { area: housing, label: desalojo }
+    debt: { area: consumer, label: debt }
+    bankruptcy: { area: consumer, label: bankruptcy }
+    scam: { area: consumer, label: scam }
+    fraud: { area: consumer, label: fraud }
+    collection: { area: consumer, label: 'debt collection' }
+    medicaid: { area: benefits, label: Medicaid }
+    medicare: { area: benefits, label: Medicare }
+    'food stamps': { area: benefits, label: 'food stamps' }
+    snap: { area: benefits, label: 'SNAP benefits' }
+    ssi: { area: benefits, label: SSI }
+    ssdi: { area: benefits, label: SSDI }
+    guardianship: { area: seniors, label: guardianship }
+    'elder abuse': { area: seniors, label: 'elder abuse' }
+
+confusable_pairs:
+  'apply_for_help:services_overview':
+    question: 'Are you looking for information about our services or ready to apply?'
+    options:
+      - { label: 'Apply for legal help', intent: apply_for_help }
+      - { label: 'Learn about services', intent: services_overview }
+  'apply_for_help:eligibility':
+    question: 'Would you like to check if you qualify or start an application?'
+    options:
+      - { label: 'Check eligibility', intent: eligibility }
+      - { label: 'Start application', intent: apply_for_help }
+  'forms_finder:guides_finder':
+    question: 'What type of resource do you need?'
+    options:
+      - { label: 'Court forms to fill out', intent: forms_finder }
+      - { label: 'Step-by-step guide', intent: guides_finder }
+      - { label: 'Apply for legal help', intent: apply_for_help }
+  'legal_advice_line:offices_contact':
+    question: 'How would you like to reach us?'
+    options:
+      - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+      - { label: 'Find office location', intent: offices_contact }
+  'donations:feedback':
+    question: 'What would you like to do?'
+    options:
+      - { label: 'Make a donation', intent: donations }
+      - { label: 'Volunteer or give feedback', intent: feedback }
+  'faq:guides_finder':
+    question: 'What would be most helpful?'
+    options:
+      - { label: 'Quick answer to a question', intent: faq }
+      - { label: 'Detailed how-to guide', intent: guides_finder }
+  'faq:services_overview':
+    question: 'What are you looking for?'
+    options:
+      - { label: 'Answers to common questions', intent: faq }
+      - { label: 'Overview of our services', intent: services_overview }
+  'apply_for_help:legal_advice_line':
+    question: 'How would you like to get help?'
+    options:
+      - { label: 'Apply online', intent: apply_for_help }
+      - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+  'apply_for_help:forms_finder':
+    question: 'What kind of help do you need?'
+    options:
+      - { label: 'Find court forms', intent: forms_finder }
+      - { label: 'Apply for a lawyer', intent: apply_for_help }
+  'apply_for_help:guides_finder':
+    question: 'Would you prefer self-help resources or legal representation?'
+    options:
+      - { label: 'Self-help guide', intent: guides_finder }
+      - { label: 'Apply for a lawyer', intent: apply_for_help }

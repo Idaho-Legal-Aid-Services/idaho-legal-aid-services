@@ -98,6 +98,39 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
   }
 
   /**
+   * Tests disambiguation-trigger analytics normalize to stable safe tokens.
+   *
+   * @covers ::normalizeAnalyticsValue
+   */
+  public function testNormalizeAnalyticsValueForDisambiguationTrigger(): void {
+    $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
+      'disambiguation_trigger',
+      json_encode(['name' => 'generic_help', 'kind' => 'family'])
+    );
+
+    $this->assertSame('kind=family,name=generic_help', $normalized);
+  }
+
+  /**
+   * Tests ambiguity buckets serialize to low-cardinality safe metadata.
+   *
+   * @covers ::normalizeAnalyticsValue
+   */
+  public function testNormalizeAnalyticsValueForAmbiguityBucket(): void {
+    $normalized = ObservabilityPayloadMinimizer::normalizeAnalyticsValue(
+      'ambiguity_bucket',
+      json_encode([
+        'family' => 'generic_help',
+        'lang' => 'en',
+        'len' => '1-24',
+        'pair' => 'none',
+      ])
+    );
+
+    $this->assertSame('family=generic_help,lang=en,len=1-24,pair=none', $normalized);
+  }
+
+  /**
    * Tests assignment serialization produces stable, token-only output.
    *
    * @covers ::serializeAssignments

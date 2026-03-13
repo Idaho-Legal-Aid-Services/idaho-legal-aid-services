@@ -17,6 +17,11 @@ use Psr\Log\LoggerInterface;
 class ConversationLogger {
 
   /**
+   * Maximum allowed retention for conversation logs (30 days in hours).
+   */
+  const MAX_RETENTION_HOURS = 720;
+
+  /**
    * The database connection.
    *
    * @var \Drupal\Core\Database\Connection
@@ -66,9 +71,49 @@ class ConversationLogger {
    *   TRUE if conversation logging is enabled.
    */
   public function isEnabled(): bool {
-    return (bool) $this->configFactory
-      ->get('ilas_site_assistant.settings')
-      ->get('conversation_logging.enabled');
+    return $this->resolveConfig()['enabled'];
+  }
+
+  /**
+   * Returns TRUE when user notice must be displayed (logging is active).
+   *
+   * @return bool
+   *   TRUE if logging is enabled and user notice is required.
+   */
+  public function isUserNoticeRequired(): bool {
+    $config = $this->resolveConfig();
+    return $config['enabled'] && $config['show_user_notice'];
+  }
+
+  /**
+   * Returns resolved conversation_logging config with privacy invariants.
+   *
+   * When logging is enabled, PII redaction and user notice are forced on.
+   * Retention hours are always capped at MAX_RETENTION_HOURS.
+   *
+   * @return array{enabled: bool, retention_hours: int, redact_pii: bool, show_user_notice: bool}
+   */
+  private function resolveConfig(): array {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+
+    $enabled = (bool) $config->get('conversation_logging.enabled');
+    $retention_hours = (int) ($config->get('conversation_logging.retention_hours') ?? 72);
+    $redact_pii = (bool) ($config->get('conversation_logging.redact_pii') ?? TRUE);
+    $show_user_notice = (bool) ($config->get('conversation_logging.show_user_notice') ?? TRUE);
+
+    if ($enabled) {
+      $redact_pii = TRUE;
+      $show_user_notice = TRUE;
+    }
+
+    $retention_hours = min($retention_hours, self::MAX_RETENTION_HOURS);
+
+    return [
+      'enabled' => $enabled,
+      'retention_hours' => $retention_hours,
+      'redact_pii' => $redact_pii,
+      'show_user_notice' => $show_user_notice,
+    ];
   }
 
   /**
@@ -172,8 +217,8 @@ class ConversationLogger {
       return;
     }
 
-    $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $retention_hours = (int) ($config->get('conversation_logging.retention_hours') ?? 72);
+    $resolved = $this->resolveConfig();
+    $retention_hours = $resolved['retention_hours'];
     $cutoff = $this->time->getRequestTime() - ($retention_hours * 3600);
 
     $batch_size = 500;

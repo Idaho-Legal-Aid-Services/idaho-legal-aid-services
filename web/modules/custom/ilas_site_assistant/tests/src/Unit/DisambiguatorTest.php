@@ -120,6 +120,7 @@ class DisambiguatorTest extends TestCase {
     $this->assertNotNull($result, "Expected disambiguation for '$input'");
     $this->assertEquals('disambiguation', $result['type']);
     $this->assertEquals('vague_query', $result['reason']);
+    $this->assertNotSame('', (string) ($result['family'] ?? ''), 'Vague disambiguation must expose a stable family');
     $this->assertNotEmpty($result['options']);
   }
 
@@ -135,6 +136,38 @@ class DisambiguatorTest extends TestCase {
       ['guide'],
       ['guides'],
       ['guias'],
+      ['help me'],
+      ['please help'],
+      ['please help me'],
+      ['i need legal help'],
+      ["i dont know what to do"],
+      ['im lost'],
+      ['necesito ayuda'],
+      ['ayudame'],
+      ['ayudeme'],
+    ];
+  }
+
+  /**
+   * Tests that generalized family matching catches new short variants.
+   */
+  #[DataProvider('generalizedVagueQueryProvider')]
+  public function testGeneralizedVagueQueryFamilies(string $input, string $expectedFamily): void {
+    $result = $this->disambiguator->check($input, []);
+    $this->assertNotNull($result, "Expected disambiguation for '$input'");
+    $this->assertSame('disambiguation', $result['type']);
+    $this->assertSame('vague_query', $result['reason']);
+    $this->assertSame($expectedFamily, $result['family']);
+  }
+
+  public static function generalizedVagueQueryProvider(): array {
+    return [
+      ['could you please help me', 'generic_help'],
+      ['i really need some help', 'generic_help'],
+      ['necesito un poco de ayuda', 'generic_help'],
+      ['i am confused', 'uncertain_start'],
+      ['phone number', 'contact_method'],
+      ['what services do you offer', 'services_overview'],
     ];
   }
 
@@ -209,6 +242,27 @@ class DisambiguatorTest extends TestCase {
   }
 
   /**
+   * Tests that specific routable queries bypass vague families.
+   */
+  #[DataProvider('specificQueryProvider')]
+  public function testSpecificQueriesBypassVagueFamilies(string $input): void {
+    $result = $this->disambiguator->check($input, []);
+    $this->assertTrue(
+      $result === NULL || ($result['reason'] ?? '') !== 'vague_query',
+      "Specific query '$input' must not be intercepted by vague-query families"
+    );
+  }
+
+  public static function specificQueryProvider(): array {
+    return [
+      ['custody forms'],
+      ['where is the Boise office'],
+      ['how do i apply'],
+      ['contact boise office'],
+    ];
+  }
+
+  /**
    * Tests that topic trigger and vague query lists are accessible.
    */
   public function testListAccessors(): void {
@@ -223,6 +277,10 @@ class DisambiguatorTest extends TestCase {
 
     $pairs = $this->disambiguator->getConfusablePairs();
     $this->assertNotEmpty($pairs);
+
+    $families = $this->disambiguator->getFamilies();
+    $this->assertContains('generic_help', $families);
+    $this->assertContains('contact_method', $families);
   }
 
 }

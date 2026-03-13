@@ -787,7 +787,8 @@
   .quick-action-btn,
   .suggestion-btn,
   .resource-link,
-  .escalation-btn {
+  .escalation-btn,
+  .feedback-btn {
     animation: none;
     transition: none;
   }
@@ -814,6 +815,10 @@
   .chat-message--assistant .message-content {
     border-width: 2px;
   }
+
+  .feedback-btn {
+    border: 2px solid #000;
+  }
 }
 
 /* ==========================================================================
@@ -834,14 +839,19 @@
 }
 
 .feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: 1px solid var(--assistant-border);
   border-radius: var(--assistant-radius-sm);
-  padding: 2px 6px;
+  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
   cursor: pointer;
   font-size: 0.85rem;
   color: var(--assistant-text-light);
-  transition: var(--assistant-transition);
+  transition: all var(--assistant-transition);
   line-height: 1;
   text-decoration: none;
 }
@@ -862,8 +872,19 @@
   cursor: default;
 }
 
+.feedback-btn--selected {
+  background: var(--assistant-primary-light);
+  border-color: var(--assistant-primary);
+  color: var(--assistant-primary);
+}
+
 .feedback-controls--submitted .feedback-btn {
   display: none;
+}
+
+.feedback-controls--submitted .feedback-btn--selected {
+  display: inline-flex;
+  pointer-events: none;
 }
 
 .feedback-controls--submitted .feedback-label {

@@ -100,6 +100,8 @@ final class ObservabilityPayloadMinimizer {
       'topic_selected' => self::normalizeTopicValue($value, $options['topic_lookup'] ?? []),
       'office_location_followup_miss' => 'unresolved',
       'clarify_loop_break' => $value === '' ? '' : self::hashIdentifier($value),
+      'disambiguation_trigger',
+      'ambiguity_bucket' => self::normalizeAssignments($value),
       'post_gen_safety_review_flag',
       'post_gen_safety_legal_advice' => self::normalizeUuidLikeValue($value),
       'ab_assignment' => self::normalizeAssignments($value),

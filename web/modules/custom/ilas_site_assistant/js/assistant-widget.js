@@ -1386,29 +1386,30 @@
       helpfulBtn.type = 'button';
       helpfulBtn.className = 'feedback-btn feedback-btn--helpful';
       helpfulBtn.setAttribute('aria-label', Drupal.t('Helpful'));
-      helpfulBtn.textContent = '\uD83D\uDC4D';
+      helpfulBtn.innerHTML = '<i class="fas fa-thumbs-up" aria-hidden="true"></i>';
       controls.appendChild(helpfulBtn);
 
       var notHelpfulBtn = document.createElement('button');
       notHelpfulBtn.type = 'button';
       notHelpfulBtn.className = 'feedback-btn feedback-btn--not-helpful';
       notHelpfulBtn.setAttribute('aria-label', Drupal.t('Not helpful'));
-      notHelpfulBtn.textContent = '\uD83D\uDC4E';
+      notHelpfulBtn.innerHTML = '<i class="fas fa-thumbs-down" aria-hidden="true"></i>';
       controls.appendChild(notHelpfulBtn);
 
-      function handleFeedback(eventType) {
+      function handleFeedback(eventType, clickedBtn) {
         self.trackEvent(eventType, responseType);
         helpfulBtn.disabled = true;
         notHelpfulBtn.disabled = true;
+        clickedBtn.classList.add('feedback-btn--selected');
         label.textContent = Drupal.t('Thanks for your feedback');
         controls.classList.add('feedback-controls--submitted');
       }
 
       helpfulBtn.addEventListener('click', function () {
-        handleFeedback('feedback_helpful');
+        handleFeedback('feedback_helpful', helpfulBtn);
       });
       notHelpfulBtn.addEventListener('click', function () {
-        handleFeedback('feedback_not_helpful');
+        handleFeedback('feedback_not_helpful', notHelpfulBtn);
       });
 
       messageEl.appendChild(controls);

@@ -13,6 +13,11 @@ use Psr\Log\LoggerInterface;
 class AnalyticsLogger {
 
   /**
+   * Maximum allowed retention for analytics data (days).
+   */
+  const MAX_RETENTION_DAYS = 365;
+
+  /**
    * The database connection.
    *
    * @var \Drupal\Core\Database\Connection
@@ -106,6 +111,34 @@ class AnalyticsLogger {
   }
 
   /**
+   * Logs privacy-safe ambiguity analytics for a disambiguation response.
+   *
+   * @param array $intent
+   *   The disambiguation intent payload.
+   * @param string $message
+   *   The raw user message. Only minimized metadata is retained.
+   */
+  public function logDisambiguation(array $intent, string $message): void {
+    $stableFamily = (string) ($intent['family'] ?? $intent['reason'] ?? 'unknown');
+    $pairKey = (string) ($intent['pair_key'] ?? $this->buildPairKeyFromCompetingIntents($intent['competing_intents'] ?? []));
+
+    $triggerPayload = [
+      'kind' => $pairKey !== '' ? 'pair' : 'family',
+      'name' => $pairKey !== '' ? $pairKey : $stableFamily,
+    ];
+    $this->log('disambiguation_trigger', json_encode($triggerPayload));
+
+    $metadata = ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage($message);
+    $bucketPayload = [
+      'family' => $stableFamily,
+      'lang' => $metadata['language_hint'],
+      'len' => $metadata['length_bucket'],
+      'pair' => $pairKey !== '' ? $pairKey : 'none',
+    ];
+    $this->log('ambiguity_bucket', json_encode($bucketPayload));
+  }
+
+  /**
    * Logs a "no answer" query for content gap analysis.
    *
    * @param string $query
@@ -170,7 +203,10 @@ class AnalyticsLogger {
    */
   public function cleanupOldData() {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $retention_days = $config->get('log_retention_days') ?? 90;
+    $retention_days = min(
+      (int) ($config->get('log_retention_days') ?? 90),
+      self::MAX_RETENTION_DAYS,
+    );
 
     $cutoff_date = date('Y-m-d', strtotime("-{$retention_days} days"));
     $cutoff_timestamp = strtotime("-{$retention_days} days");
@@ -255,6 +291,59 @@ class AnalyticsLogger {
     $query->groupBy('date');
 
     return $query->execute()->fetchAll();
+  }
+
+  /**
+   * Gets aggregated totals for an event type over the given window.
+   *
+   * @param string $event_type
+   *   The event type to query.
+   * @param int $days
+   *   Number of days to look back.
+   * @param int $limit
+   *   Maximum rows to return.
+   *
+   * @return array
+   *   Array of totals keyed by event_value.
+   */
+  public function getEventTotals(string $event_type, int $days = 30, int $limit = 10): array {
+    $start_date = date('Y-m-d', strtotime("-{$days} days"));
+
+    $query = $this->database->select('ilas_site_assistant_stats', 's')
+      ->fields('s', ['event_value'])
+      ->condition('event_type', $event_type)
+      ->condition('date', $start_date, '>=')
+      ->orderBy('total', 'DESC')
+      ->range(0, max(1, $limit));
+    $query->addExpression('SUM(count)', 'total');
+    $query->groupBy('event_value');
+
+    return $query->execute()->fetchAll();
+  }
+
+  /**
+   * Builds a stable pair key from competing intents.
+   *
+   * @param array $competing_intents
+   *   Competing intent rows.
+   *
+   * @return string
+   *   Sorted pair key or empty string.
+   */
+  protected function buildPairKeyFromCompetingIntents(array $competing_intents): string {
+    if (count($competing_intents) < 2) {
+      return '';
+    }
+
+    $intentOne = (string) ($competing_intents[0]['intent'] ?? '');
+    $intentTwo = (string) ($competing_intents[1]['intent'] ?? '');
+    if ($intentOne === '' || $intentTwo === '') {
+      return '';
+    }
+
+    $pair = [$intentOne, $intentTwo];
+    sort($pair);
+    return implode(':', $pair);
   }
 
 }
