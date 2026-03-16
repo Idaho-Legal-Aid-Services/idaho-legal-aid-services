@@ -568,6 +568,10 @@ if ($sentry_dsn) {
     'debug' => FALSE,
   ];
   $config['raven.settings']['logs_log_levels'] = $config['raven.settings']['log_levels'];
+  // Route browser CSP violation reports directly to Sentry's native CSP
+  // endpoint so violated directives and blocked URIs are properly structured
+  // instead of lost in Drupal's @placeholder parameterization (PHP-12).
+  $config['raven.settings']['seckit_set_report_uri'] = TRUE;
 }
 
 $sentry_cron_monitor_id = _ilas_get_secret('SENTRY_CRON_MONITOR_ID');

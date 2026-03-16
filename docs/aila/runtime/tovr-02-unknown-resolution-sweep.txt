@@ -1,0 +1,236 @@
+# TOVR-02 Unknown Resolution Sweep
+
+Date: 2026-03-16
+Audit timestamp (UTC): 2026-03-16T16:55:34Z
+Branch: master
+Commit: 6bc13fdd0d390930ed6c3572d4d3e4c7ecfe38d9
+Worktree note: Dirty worktree at capture; evidence refresh only, no runtime code changes.
+Sanitization note: no secret values were captured in this artifact; secret proof is presence-only.
+
+## Prior unknown list from TOVR-01
+
+1. Sentry operational usefulness beyond runtime wiring.
+2. Langfuse ingestion and queue-export success.
+3. New Relic entity activity and browser-snippet value.
+4. Promptfoo deploy-bound gate fidelity.
+5. Long-run cron cadence and queue drain timing under load.
+6. Secret and override source-of-truth across local and Pantheon.
+
+## Resolved-or-blocked matrix
+
+| Unknown | Status | Verification level tag | Current evidence | Exact blocker / next evidence step |
+|---|---|---|---|---|
+| Sentry operational usefulness beyond runtime wiring | `unproven` | `repo+current-runtime+historical-account-side-artifact` | Fresh `ilas:sentry-probe` runs emitted event IDs in `local`, `dev`, `test`, and `live`. Historical PHARD-01 still proves 2026-03-10 event capture/redaction, but current account-side proof was not re-executed. | Current shell has no `SENTRY_AUTH_TOKEN`, PHARD-01 sections 4-6 still contain `<FILL>` placeholders for alerting/ownership, and `observability-release.yml` still has no recorded runs. Next step: re-run probe verification with Sentry API/UI access and record alert-rule plus release/source-map proof. |
+| Langfuse ingestion and queue-export success | `partial` | `repo+current-runtime` | Direct `ilas:langfuse-probe --direct` returned HTTP `207` in `local`, `dev`, `test`, and `live`, which is current ingestion proof. | Queued probe path is currently broken: `ilas:langfuse-probe` enqueues `payload`, but the worker expects top-level `batch`, so the worker logs `Langfuse export: invalid queue item, discarding.` Next step: align the queued probe payload with the worker contract or validate queue export through the normal terminate subscriber path plus trace lookup. |
+| New Relic entity activity and browser-snippet value | `unproven` | `repo+current-runtime+pantheon-read-only` | Pantheon presence-only secret checks show New Relic secret names present on `dev`, `test`, and `live`, but sampled rendered pages still expose `newRelic.browserEnabled=false` everywhere. `terminus new-relic:info` returned empty fields. Recent `test` and `live` deploy workflows logged `scripts/quicksilver/new-relic-change-tracking.php is not a valid path.` | Need either current browser-snippet activation proof or an explicit retirement decision, plus a working change-tracking execution path and entity-side proof in New Relic. |
+| Promptfoo deploy-bound gate fidelity | `resolved` | `repo+workflow-history+job-log-proof` | Representative 2026-03-13 PR run `23073828461` logged `Running real promptfoo eval against ILAS_ASSISTANT_URL` and `Promptfoo gate ran in ADVISORY mode for branch 12/merge`. Representative protected-branch push run `23074118125` logged `Running post-merge promptfoo config parity gate against ILAS_ASSISTANT_URL` and `Promptfoo gate ran in BLOCKING mode for branch master`. | None for the behavior question. Remaining policy question is whether protected-branch pushes should keep simulated config-parity mode or switch to a true deploy-bound live eval. |
+| Long-run cron cadence and queue drain timing under load | `unproven` | `point-in-time-runtime-only` | Current snapshots captured `system.cron_last` and `ilas_langfuse_export` queue depth for `dev`, `test`, and `live`, and all sampled queue depths were `0`. | No sustained observation window and no non-zero backlog were captured on 2026-03-16. Next step: collect time-series cron and queue metrics over a longer interval or under controlled load. |
+| Secret and override source-of-truth across local and Pantheon | `resolved` | `repo+current-runtime` | `_ilas_get_secret()` in `settings.php` prefers `pantheon_get_secret()` and falls back to `getenv()`. Local include order remains `settings.ddev.php` first, `settings.local.php` last. Presence-only checks showed `LANGFUSE_*`, `SENTRY_DSN`, and `ILAS_PINECONE_API_KEY` present locally, while New Relic-related values were absent locally and present on Pantheon `dev`/`test`/`live`. | None for the current proof baseline. |
+
+## Verification level tag
+
+- `verified-current-runtime-plus-github-history-plus-pantheon-read-only`
+
+## Command summaries
+
+### VC-GHA-QUALITY-HISTORY
+
+- Command: `gh run list --workflow quality-gate.yml -L 12 --json databaseId,displayTitle,event,headBranch,status,conclusion,createdAt,updatedAt,url`
+- Result: the most recent visible `Quality Gate` runs are still on 2026-03-13.
+- Representative PR run inspected: `23073828461`
+  - event: `pull_request`
+  - outcome: completed/success
+  - key notices:
+    - `Running real promptfoo eval against ILAS_ASSISTANT_URL`
+    - `Promptfoo gate ran in ADVISORY mode for branch 12/merge`
+- Representative protected-branch push run inspected: `23074118125`
+  - event: `push`
+  - branch: `master`
+  - outcome: completed/success
+  - key notices:
+    - `Running post-merge promptfoo config parity gate against ILAS_ASSISTANT_URL`
+    - `Promptfoo gate ran in BLOCKING mode for branch master`
+
+### VC-GHA-OBS-RELEASE-HISTORY
+
+- Command: `gh run list --workflow observability-release.yml -L 12 --json databaseId,displayTitle,event,headBranch,status,conclusion,createdAt,updatedAt,url`
+- Result: `[]`
+- Interpretation: `observability-release.yml` exists in repo, but no recorded execution history was visible on 2026-03-16.
+
+### VC-RUNTIME-LOCAL-SAFE
+
+- Local Drupal bootstrap succeeded: `drupal-version=11.3.3`, `db-status=Connected`.
+- Effective booleans:
+  - `llm_enabled=false`
+  - `vector_search.enabled=false`
+  - `langfuse_enabled=true`
+  - `langfuse_public_key_present=true`
+  - `langfuse_secret_key_present=true`
+  - `sentry_client_key_present=true`
+  - `pinecone_key_present=true`
+- Rendered `/assistant` HTML exposed:
+  - `environment="local"`
+  - `sentry.browserEnabled=true`
+  - `newRelic.browserEnabled=false`
+
+### VC-RUNTIME-PANTHEON-SAFE
+
+- Pantheon `dev`, `test`, and `live` all bootstrapped successfully with Drupal `11.3.3`.
+- Effective booleans matched across `dev`, `test`, and `live`:
+  - `llm_enabled=false`
+  - `vector_search.enabled=false`
+  - `langfuse_enabled=true`
+  - `langfuse_public_key_present=true`
+  - `langfuse_secret_key_present=true`
+  - `sentry_client_key_present=true`
+  - `pinecone_key_present=true`
+- Rendered `/assistant` HTML exposed:
+  - `dev`: `environment="pantheon-dev"`, `release="6bc13fd"`, `sentry.browserEnabled=true`, `newRelic.browserEnabled=false`
+  - `test`: `environment="pantheon-test"`, `release="test_154"`, `sentry.browserEnabled=true`, `newRelic.browserEnabled=false`
+  - `live`: `environment="pantheon-live"`, `release="live_144"`, `sentry.browserEnabled=true`, `showReportDialog=false`, `newRelic.browserEnabled=false`
+
+### VC-SENTRY-PROBE
+
+- Local probe command: `ddev drush ilas:sentry-probe`
+  - event ID: `6c07fd44d6e045aea98720a756224d67`
+  - environment: `local`
+  - release: `none`
+- Pantheon `dev` probe:
+  - event ID: `f56b807676104d0695c1f65e78a6d04a`
+  - environment: `pantheon-dev`
+  - release: `6bc13fd`
+- Pantheon `test` probe:
+  - event ID: `0daa1fe4e1234823a017aa9934a2ba91`
+  - environment: `pantheon-test`
+  - release: `test_154`
+- Pantheon `live` probe:
+  - event ID: `591fb62d7ef447dbbcf3077a64d90dd7`
+  - environment: `pantheon-live`
+  - release: `live_144`
+- Current blocker: no `SENTRY_AUTH_TOKEN` was present in shell, so current Sentry API/UI confirmation could not be re-executed from this session.
+
+### VC-LANGFUSE-PROBE-DIRECT
+
+- Local direct probe: `ddev drush ilas:langfuse-probe --direct`
+  - trace ID: `7d45541e-2fd4-46dd-8459-38a3b09fd80e`
+  - HTTP status: `207`
+  - URL: `https://us.cloud.langfuse.com`
+- Pantheon `dev` direct probe:
+  - trace ID: `98a441e7-e961-4b35-892e-af4effc6591a`
+  - HTTP status: `207`
+- Pantheon `test` direct probe:
+  - trace ID: `193d12cb-2a8b-42c3-b095-8204682dc66e`
+  - HTTP status: `207`
+- Pantheon `live` direct probe:
+  - trace ID: `acdce4e8-c24e-4dbc-b9a2-20714d7af07a`
+  - HTTP status: `207`
+- Interpretation: direct ingestion is currently proven on all sampled environments.
+
+### VC-LANGFUSE-PROBE-QUEUED
+
+- Local queued probe command:
+  - enqueue trace ID: `3c3d21fe-c012-4bdc-af12-8857b95f9550`
+  - queue depth moved `0 -> 1`
+  - queue worker then logged: `Langfuse export: invalid queue item, discarding.`
+  - queue depth returned to `0`
+- Code-level explanation:
+  - `LangfuseProbeCommands::enqueuePayload()` creates a queue item with top-level keys `payload` and `enqueued_at`.
+  - `LangfuseExportWorker::processItem()` expects top-level `batch` and `metadata`.
+  - The normal `LangfuseTerminateSubscriber` path still enqueues the correct top-level `batch` structure and stamps `enqueued_at`, so the current failure is specific to the queued probe command.
+
+### Secret and override source-of-truth checks
+
+- Repo behavior:
+  - `_ilas_get_secret()` in `settings.php` prefers `pantheon_get_secret()` and falls back to `getenv()`.
+  - `settings.ddev.php` is included before `settings.local.php`, and `settings.local.php` remains last-in override locally.
+- Local file-presence check:
+  - `.ddev/.env=present`
+  - `.ddev/.env.local=absent`
+  - `web/sites/default/settings.local.php=present`
+  - `web/sites/default/settings.ddev.php=present`
+- Local presence-only secret check:
+  - `pantheon_get_secret_available=false`
+  - present: `SENTRY_DSN`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `ILAS_PINECONE_API_KEY`
+  - missing: `SENTRY_BROWSER_DSN`, `NEW_RELIC_BROWSER_SNIPPET`, `NEW_RELIC_API_KEY`, `NEW_RELIC_ENTITY_GUID_APM`, `NEW_RELIC_ENTITY_GUID_BROWSER`
+- Pantheon presence-only secret check on `dev`, `test`, and `live`:
+  - `pantheon_get_secret_available=true`
+  - present in all three sampled environments:
+    - `SENTRY_DSN`
+    - `SENTRY_BROWSER_DSN`
+    - `LANGFUSE_PUBLIC_KEY`
+    - `LANGFUSE_SECRET_KEY`
+    - `NEW_RELIC_BROWSER_SNIPPET`
+    - `NEW_RELIC_API_KEY`
+    - `NEW_RELIC_ENTITY_GUID_APM`
+    - `NEW_RELIC_ENTITY_GUID_BROWSER`
+    - `ILAS_PINECONE_API_KEY`
+
+### Pantheon read-only New Relic inspection
+
+- Command: `terminus new-relic:info idaho-legal-aid-services --format=json`
+- Result:
+  - `name=""`
+  - `status=""`
+  - `subscribed=""`
+  - `state=""`
+- Recent deployment workflow inspection:
+  - `test` deploy workflow `6321c1ca-1f32-11f1-b76b-d2a9b1f8b372`
+  - `live` deploy workflow `8c3e87be-1f32-11f1-898f-dac2d058debd`
+  - both logs included:
+    - `Operation: Send New Relic change-tracking deployment marker finished in 1s`
+    - `Error: scripts/quicksilver/new-relic-change-tracking.php is not a valid path.`
+
+### Point-in-time cron and queue snapshots
+
+- `dev`
+  - `system.cron_last=1773448497`
+  - `ilas_langfuse_export=0`
+- `test`
+  - `system.cron_last=1773448696`
+  - `ilas_langfuse_export=0`
+- `live`
+  - `system.cron_last=1773679527`
+  - `ilas_langfuse_export=0`
+- Interpretation: these are useful spot checks, not a sustained proof of cadence or queue drain under load.
+
+## Repo inspection summary
+
+- `.github/workflows/quality-gate.yml` explicitly branches promptfoo behavior by event and branch.
+- `web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php` emits deterministic PII-free probe events and prints event IDs.
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php` supports direct and queued probe modes, but its queued item shape no longer matches the worker contract.
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php` still enqueues the correct queue item structure and is not implicated by the queued probe mismatch.
+- `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php` expects top-level `batch` plus `enqueued_at`.
+- `web/sites/default/settings.php` remains the source of truth for runtime secret resolution and observability override wiring.
+- `scripts/quicksilver/new-relic-change-tracking.php` still exists in repo, but Pantheon deploy logs show the current hook path is not resolving.
+
+## Workflow summaries
+
+- `Quality Gate`: active on 2026-03-13 and behavior-resolved after job-log inspection.
+- `Observability Release`: still configured but unexecuted in visible workflow history.
+
+## Changed files list
+
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/risk-register.md`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt`
+
+## Residual risks / unknowns
+
+- Sentry alerting, named ownership, and source-map usefulness remain blocked until current account-side evidence is gathered.
+- Langfuse direct ingestion is live, but queued probe validation is currently blocked by the probe-command payload mismatch.
+- New Relic remains dormant or broken in sampled environments despite Pantheon secret presence.
+- Long-run cron and queue drain behavior is still not proven under sustained observation or load.
+
+## Rollback notes
+
+- None. TOVR-02 is an evidence-only refresh with no runtime code changes.
+
+## Still-unverified surfaces
+
+- Current Sentry alert-rule, ownership, delivery, and source-map/release evidence.
+- Langfuse trace lookup in the SaaS UI/API after the 2026-03-16 direct probe traces.
+- A working Pantheon New Relic change-tracking execution path.
+- A sampled environment where the New Relic browser snippet is actually enabled.
+- Sustained cron and queue time-series evidence.

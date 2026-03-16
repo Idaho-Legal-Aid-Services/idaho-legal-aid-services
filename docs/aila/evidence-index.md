@@ -722,9 +722,10 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CostControlPolicyTest.php`
 - Addendum (2026-03-06): Phase 3 Exit #2 (`P3-EXT-02`) closes
   cost/performance exit-criterion continuity by requiring section-3
-  `VC-RUNBOOK-LOCAL` + `VC-RUNBOOK-PANTHEON` verification, service guard-anchor
-  continuity checks, role-based product/platform owner acceptance markers, and
-  non-blocking docs continuity.
+  `VC-PURE`, `VC-QUALITY-GATE`, and `VC-PANTHEON-READONLY` verification,
+  service guard-anchor continuity checks, role-based product/platform owner
+  acceptance markers, and March 13, 2026 Pantheon read-only pass-state
+  continuity.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 Exit #2 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-EXT-02 cost/performance owner-acceptance addendum)
@@ -762,7 +763,7 @@ Evidence precedence used in this audit:
 - Claim: Langfuse enablement requires config flag + credentials and applies sampling.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php:116-155`
-- Addendum (2026-02-27): IMP-OBS-01 adds `TelemetrySchema::normalize()` to all 5 controller `endTrace()` exit points, ensuring consistent field names across Langfuse metadata. Acceptance tests in `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php` prove full lifecycle event-type coverage and install config policy-cap lock (sample_rate=1.0 install, 0.10 live).
+- Addendum (2026-02-27; updated 2026-03-16): IMP-OBS-01 adds `TelemetrySchema::normalize()` to the controller `endTrace()` exit points, ensuring consistent field names across Langfuse metadata. The current trace contract buffers request state until `endTrace()` and emits a single finalized `trace-create` with privacy-safe input/output summaries. Acceptance tests in `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php` prove full lifecycle event-type coverage and install config policy-cap lock (sample_rate=1.0 install, 0.10 live).
 
 ### CLAIM-080
 - Claim: Langfuse traces include spans, generations, events, and serialized batch payloads.
@@ -837,8 +838,8 @@ Evidence precedence used in this audit:
   performance/SLO monitoring continuity from objective-level closure into
   exit-criterion closure by requiring reproducible health/metrics verification
   (`/assistant/api/health`, `/assistant/api/metrics`), Pantheon/local alias
-  continuity checks, role-based owner acceptance markers, and non-blocking
-  docs continuity without scope-boundary expansion.
+  continuity checks, role-based owner acceptance markers, and March 13, 2026
+  Pantheon read-only pass-state continuity without scope-boundary expansion.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 Exit #2 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-EXT-02 cost/performance owner-acceptance addendum)
@@ -847,6 +848,28 @@ Evidence precedence used in this audit:
   - `docs/aila/backlog.md` (`IMP-COST-01` active-mitigation continuity with P3-EXT-02 linkage)
   - `docs/aila/risk-register.md` (`R-PERF-01` active-mitigation continuity with P3-EXT-02 linkage)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaTwoGateTest.php`
+- Addendum (2026-03-13): Re-audit remediation `RAUD-27` closes the main
+  performance-monitor observability gaps by classifying final outcomes exactly
+  once per response for `/assistant/api/message`, `/assistant/api/track`,
+  `/assistant/api/suggest`, and `/assistant/api/faq`, plus route-level
+  `/assistant/api/message` CSRF `403` JSON denials. Top-level health/SLO
+  semantics remain pinned to `/assistant/api/message`, while additive
+  `all_endpoints`, `by_endpoint`, and `by_outcome` breakdowns expose denied and
+  degraded user-visible behavior without double counting.
+- Addendum evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/PerformanceMonitor.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/AssistantApiResponseMonitorSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/CsrfDenialResponseSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfDenialResponseSubscriberTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php`
+  - `docs/aila/current-state.md` (runtime monitoring addendum)
+  - `docs/aila/runbook.md` (`RAUD-27` verification subsection)
+  - `docs/aila/runtime/raud-27-performance-monitor-coverage.txt`
 
 ### CLAIM-085
 - Claim: Analytics logger normalizes event values to an approved minimized
@@ -2176,13 +2199,14 @@ Evidence precedence used in this audit:
   acceptance markers in a runtime proof artifact, behavioral monitoring proof,
   and non-blocking docs continuity without net-new assistant channels,
   third-party model-provider expansion, or unrelated platform refactors.
-  Residual boundary `B-04` remains open, and Pantheon read-only deployment
-  check remains an explicit closure dependency.
+  Pantheon read-only verification passed on 2026-03-13 across `dev`/`test`/`live`,
+  confirming the deployed `cost_control` keys and `metrics.cost_control` /
+  `thresholds.cost_control` surface. Residual boundary `B-04` remains open.
 - Evidence:
   - `docs/aila/roadmap.md` (Phase 3 Exit #2 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-EXT-02 cost/performance owner-acceptance disposition addendum)
   - `docs/aila/runbook.md` (P3-EXT-02 verification subsection in section 3)
-  - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt` (sanitized VC alias output + monitoring + owner-acceptance markers + Pantheon read-only deployment check)
+  - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt` (sanitized VC alias output + monitoring + owner-acceptance markers + Pantheon read-only verification pass state)
   - `docs/aila/backlog.md` (`IMP-COST-01` row includes P3-EXT-02 owner-acceptance traceability)
   - `docs/aila/risk-register.md` (`R-PERF-01` row includes P3-EXT-02 runtime-marker continuity)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaTwoGateTest.php` (non-blocking exit-criterion docs continuity lock)
@@ -2658,7 +2682,7 @@ Evidence precedence used in this audit:
 ### CLAIM-180
 - Claim: Approved Langfuse payload shape locked by `LangfusePayloadContract`
   constants and validated by contract tests proving full lifecycle trace
-  produces all 5 approved event types with no PII.
+  produces the approved emitted event types with no PII.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php` (constants class)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php` (payload format tests)
@@ -2777,3 +2801,237 @@ Evidence precedence used in this audit:
   - `docs/aila/runbook.md`
   - `docs/aila/runtime/raud-25-crawler-policy-controls.txt`
 - Status: Implemented — hosted primary-domain recheck still pending.
+
+---
+
+## TOVR-01 Tooling Truth Baseline (2026-03-13)
+
+These claims supersede using older point-in-time workflow/runtime interpretations
+such as `CLAIM-120`, historical backlog rows, or earlier February and early-
+March audit prose as the current tooling truth baseline.
+
+### CLAIM-187
+- Claim: TOVR-01 refreshed the authoritative tooling baseline on 2026-03-13
+  from current repo state plus fresh safe checks, capturing timestamp, branch,
+  commit, dirty-worktree note, and docs-only evidence-refresh scope.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:1-26`
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:137-139`
+
+### CLAIM-188
+- Claim: The repo-owned `Quality Gate` workflow is currently active, with recent
+  completed runs on 2026-03-13, while `Observability Release` has no recorded
+  runs in the sampled GitHub Actions history as of 2026-03-13.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:30-41`
+  - `.github/workflows/quality-gate.yml:1-143`
+  - `.github/workflows/observability-release.yml:1-33`
+
+### CLAIM-189
+- Claim: Safe local DDEV runtime verification on 2026-03-13 showed
+  `llm.enabled=false`, `vector_search.enabled=false`, `langfuse.enabled=true`,
+  Langfuse keys present, Sentry client key present, Pinecone key present, and a
+  rendered `/assistant` page with Sentry browser config enabled while
+  `newRelic.browserEnabled=false`.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:43-60`
+  - `web/sites/default/settings.php:475-591`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module:98-141`
+  - `web/modules/custom/ilas_site_assistant/js/observability.js:1-243`
+
+### CLAIM-190
+- Claim: Safe Pantheon runtime verification on 2026-03-13 showed the same
+  effective LLM/vector/Langfuse/Sentry/Pinecone booleans on `dev`, `test`, and
+  `live`; rendered `/assistant` pages exposed Sentry browser config in all
+  three sampled environments while `newRelic.browserEnabled=false` everywhere;
+  GA4 loader and `dataLayer` markers appeared only on `live`.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:62-79`
+  - `web/sites/default/settings.php:343-355`
+  - `web/sites/default/settings.php:475-591`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module:98-141`
+  - `web/themes/custom/b5subtheme/templates/page/html.html.twig:44-53`
+  - `web/themes/custom/b5subtheme/templates/page/html.html.twig:193-219`
+
+### CLAIM-191
+- Claim: Current promptfoo gate behavior is branch-aware and mixed by event:
+  the first-party workflow is active, but protected-branch post-merge pushes
+  run `scripts/ci/run-promptfoo-gate.sh --skip-eval --simulate-pass-rate 100`,
+  proving config-parity mode rather than a guaranteed deploy-bound live eval.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:81-86`
+  - `.github/workflows/quality-gate.yml:3-18`
+  - `.github/workflows/quality-gate.yml:61-143`
+  - `scripts/ci/run-promptfoo-gate.sh:178-185`
+  - `scripts/ci/run-promptfoo-gate.sh:774-890`
+
+### CLAIM-192
+- Claim: Repo wiring for Sentry release/source-map automation exists, but TOVR-01
+  found no recorded execution history for that manual workflow path.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:37-41`
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:85-86`
+  - `.github/workflows/observability-release.yml:1-33`
+  - `scripts/observability/sentry-release.sh:1-99`
+
+### CLAIM-193
+- Claim: New Relic remains a runtime-secret-driven but currently unproven path:
+  browser snippet injection and browser action/error hooks exist in repo, and a
+  Pantheon deploy hook exists for change tracking, but sampled local and
+  Pantheon rendered pages all showed `newRelic.browserEnabled=false`.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:55-60`
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:74-79`
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:87-91`
+  - `web/sites/default/settings.php:518-591`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module:98-141`
+  - `web/modules/custom/ilas_site_assistant/js/observability.js:187-243`
+  - `web/themes/custom/b5subtheme/templates/page/html.html.twig:44-48`
+  - `pantheon.yml:4-9`
+  - `scripts/quicksilver/new-relic-change-tracking.php:12-24`
+  - `scripts/quicksilver/new-relic-change-tracking.php:47-94`
+
+### CLAIM-194
+- Claim: The DDEV New Relic local path is scaffolded as example-only and is not
+  active by default; engineers must copy the example files, provide local-only
+  env vars, and rebuild the web container before it can affect local runtime.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:91-92`
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:109-109`
+  - `.ddev/config.yaml:1-15`
+  - `.ddev/config.newrelic.yaml.example:1-15`
+  - `.ddev/newrelic/Dockerfile.newrelic.example:1-25`
+
+### CLAIM-195
+- Claim: TOVR-01 normalized the documented `VC-RUNTIME-LOCAL-SAFE` and
+  `VC-RUNTIME-PANTHEON-SAFE` examples to the exact plain
+  `Drupal::config(...)` plus `curl -skL` forms that were re-executed during the
+  refresh, so later prompts cite the same verified command contract.
+- Evidence:
+  - `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt:43-79`
+  - `docs/aila/tooling-observability-vector-remediation-prompt-pack.md:56-57`
+  - `docs/aila/runbook.md:345-348`
+
+### CLAIM-196
+- Claim: RAUD-28 closure sweep on 2026-03-14 executed VC-AUDIT-FULL-SWEEP across
+  all verification classes (VC-PURE 2170/2170, VC-DRUPAL-UNIT 581/581,
+  VC-QUALITY-GATE all phases, VC-WIDGET-HARDENING 164/164,
+  VC-PROMPTFOO-PACED 408/409 99.75%, VC-PANTHEON-READONLY dev/test/live healthy)
+  with 18/27 RAUDs executed with evidence files and 6/9 un-executed RAUDs
+  independently mitigated. Final disposition (after 2026-03-13 reverification):
+  60 Fixed, 1 Partially Fixed, 0 Unverified, 1 Open, 13 N/A (75 total).
+- Evidence:
+  - `docs/aila/runtime/raud-28-audit-closure-memo.md`
+
+### CLAIM-197
+- Claim: Both P0 stop-ship findings are fixed: F-01 (exception boundary leaking
+  internal details in API responses) and F-02 (prompt truncation silently
+  dropping user context). Remediation code is deployed in repo with
+  corresponding test coverage.
+- Evidence:
+  - `docs/aila/runtime/raud-28-audit-closure-memo.md`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+
+### CLAIM-198
+- Claim: All 4 CRITICAL findings (C1: safety classifier bypass, C2: credential
+  exposure in config export, C3: unbounded LLM retry, C4: missing token cache
+  TTL buffer) are fixed with repo-level evidence and test coverage.
+- Evidence:
+  - `docs/aila/runtime/raud-28-audit-closure-memo.md`
+  - `docs/aila/runtime/raud-05-llm-transport-hardening.txt`
+  - `docs/aila/runtime/raud-03-vertex-runtime-secret-remediation.txt`
+  - `docs/aila/runtime/raud-16-safety-bypass-corpus-hardening.txt`
+
+---
+
+## TOVR-02 Unknown Resolution Sweep (2026-03-16)
+
+These claims extend the TOVR-01 baseline with current runtime probes, GitHub
+job-log inspection, and Pantheon read-only checks focused only on the unknowns
+that remained open after 2026-03-13.
+
+### CLAIM-199
+- Claim: TOVR-02 refreshed the open-unknown matrix on 2026-03-16 from current
+  runtime, GitHub workflow history, and Pantheon read-only inspection without
+  changing runtime code.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:1-32`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:211-228`
+
+### CLAIM-200
+- Claim: Promptfoo deploy-bound gate fidelity is now directly resolved from
+  current job logs: representative PR runs execute real promptfoo evals in
+  advisory mode, while representative protected-branch pushes execute simulated
+  config-parity mode in blocking status.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:36-58`
+  - `.github/workflows/quality-gate.yml:87-135`
+
+### CLAIM-201
+- Claim: Fresh 2026-03-16 Sentry probes emitted event IDs in `local`, `dev`,
+  `test`, and `live`, but current account-side alert-routing and
+  source-map/release proof remain blocked because no `SENTRY_AUTH_TOKEN` was
+  available in this shell and the historical PHARD-01 artifact still has manual
+  placeholder sections for alerting/ownership.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:21-23`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:92-110`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:206-209`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:219-236`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php:14-61`
+  - `docs/aila/runtime/phard-01-sentry-operationalization.txt:110-163`
+
+### CLAIM-202
+- Claim: Langfuse direct ingestion is currently proven by fresh HTTP `207`
+  direct probe responses in `local`, `dev`, `test`, and `live`, but queued
+  probe validation is currently broken because the Drush probe enqueues a
+  top-level `payload` key while the queue worker expects top-level `batch` plus
+  `metadata`. The normal terminate-subscriber path still uses the correct queue
+  contract.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:24`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:112-139`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:198-202`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php:83-91`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php:157-169`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php:206-220`
+  - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php:81-139`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php:96-115`
+
+### CLAIM-203
+- Claim: New Relic remains unproven and partially broken on 2026-03-16:
+  Pantheon presence-only checks showed New Relic secret names present on
+  `dev`/`test`/`live`, but sampled rendered pages still exposed
+  `newRelic.browserEnabled=false`, `terminus new-relic:info` returned empty
+  fields, and recent `test`/`live` deploy logs reported
+  `scripts/quicksilver/new-relic-change-tracking.php is not a valid path.`
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:25`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:141-181`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:203-204`
+  - `web/sites/default/settings.php:582-591`
+  - `scripts/quicksilver/new-relic-change-tracking.php:1-94`
+
+### CLAIM-204
+- Claim: Secret and override source-of-truth is now directly resolved:
+  `settings.php` uses `_ilas_get_secret()` to prefer `pantheon_get_secret()` on
+  Pantheon and fall back to `getenv()` locally, `settings.ddev.php` is included
+  before `settings.local.php`, and presence-only checks on 2026-03-16 proved
+  the effective local versus Pantheon secret backing stores without printing any
+  values.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:28`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:141-166`
+  - `web/sites/default/settings.php:371-394`
+  - `web/sites/default/settings.php:597-611`
+  - `web/sites/default/settings.ddev.php:1-47`
+  - `web/sites/default/settings.local.php:1-36`
+
+### CLAIM-205
+- Claim: Long-run cron cadence and queue drain timing under load remain
+  unproven after TOVR-02 because only point-in-time `system.cron_last` and
+  zero-depth queue snapshots were captured on 2026-03-16.
+- Evidence:
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:27`
+  - `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt:183-194`

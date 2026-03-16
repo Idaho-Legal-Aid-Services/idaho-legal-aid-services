@@ -122,7 +122,6 @@ class LangfuseProbeCommandTest extends TestCase {
     $this->assertContains('trace-create', $eventTypes);
     $this->assertContains('span-create', $eventTypes);
     $this->assertContains('event-create', $eventTypes);
-    $this->assertContains('trace-update', $eventTypes);
 
     // Validate trace-create body has required keys.
     $traceCreate = $this->findBatchEvent($payload['batch'], 'trace-create');
@@ -133,6 +132,10 @@ class LangfuseProbeCommandTest extends TestCase {
         "trace-create body must contain key: {$key}",
       );
     }
+    $this->assertArrayHasKey('input', $traceCreate['body']);
+    $this->assertArrayHasKey('output', $traceCreate['body']);
+    $this->assertNotSame('', $traceCreate['body']['input']);
+    $this->assertNotSame('', $traceCreate['body']['output']);
 
     // Validate span-create body has required keys.
     $spanCreate = $this->findBatchEvent($payload['batch'], 'span-create');

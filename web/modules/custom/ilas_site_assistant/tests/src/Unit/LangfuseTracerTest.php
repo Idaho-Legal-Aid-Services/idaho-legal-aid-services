@@ -79,21 +79,22 @@ class LangfuseTracerTest extends TestCase {
 
   /**
    * Tests that a full trace lifecycle emits the correct event type sequence.
-   *
-   * Regression test for OBS-1: endTrace() previously emitted 'trace-create'
-   * instead of 'trace-update', causing duplicate traces in Langfuse.
    */
   public function testFullLifecycleEventTypeSequence(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('trace-001', 'assistant.message', ['env' => 'test']);
+    $tracer->startTrace('trace-001', 'assistant.message', ['env' => 'test'], 'hash=abc len=1-24 redact=none');
     $tracer->startSpan('safety.classify');
-    $tracer->endSpan('safe');
+    $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('retrieval');
-    $tracer->startGeneration('llm.summarize', 'gemini-1.5-flash', ['temperature' => 0.3], 'prompt text');
-    $tracer->endGeneration('summary response', ['input' => 10, 'output' => 20, 'total' => 30]);
+    $tracer->startGeneration('llm.summarize', 'gemini-1.5-flash', ['temperature' => 0.3], [
+      'input_hash' => 'abc',
+      'input_length_bucket' => '1-24',
+      'input_redaction_profile' => 'none',
+    ]);
+    $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['results' => 3]);
-    $tracer->endTrace('final output', ['total_ms' => 450]);
+    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['total_ms' => 450]);
 
     $payload = $tracer->getTracePayload();
 
@@ -102,60 +103,87 @@ class LangfuseTracerTest extends TestCase {
     $types = $this->extractEventTypes($payload);
 
     $expected = [
-      'trace-create',       // startTrace
-      'span-create',        // endSpan (safety.classify)
-      'generation-create',  // endGeneration (llm.summarize)
-      'span-create',        // endSpan (retrieval)
-      'trace-update',       // endTrace — NOT trace-create
+      'trace-create',
+      'span-create',
+      'generation-create',
+      'span-create',
     ];
 
-    $this->assertSame($expected, $types,
-      'Event type sequence must be: trace-create, spans, generations, then trace-update');
+    $this->assertSame($expected, $types);
+    $this->assertNotContains('trace-update', $types);
   }
 
   /**
-   * Tests that endTrace emits 'trace-update', not 'trace-create'.
-   *
-   * Minimal regression test for OBS-1.
+   * Tests that the finalized trace-create carries visible trace I/O.
    */
-  public function testEndTraceEmitsTraceUpdate(): void {
+  public function testTraceCreateCarriesInputOutputAndMetadata(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('trace-002', 'assistant.message');
-    $tracer->endTrace('done');
+    $tracer->startTrace('trace-002', 'assistant.message', [
+      'env' => 'test',
+      'input_hash' => str_repeat('a', 64),
+      'input_length_bucket' => '1-24',
+      'input_redaction_profile' => 'none',
+    ], 'hash=aaaaaaaaaaaa len=1-24 redact=none');
+    $tracer->endTrace('type=faq reason=none hash=bbbbbbbbbbbb len=1-24', [
+      'output_hash' => str_repeat('b', 64),
+      'output_length_bucket' => '1-24',
+      'output_redaction_profile' => 'none',
+      'response_type' => 'faq',
+      'reason_code' => NULL,
+    ]);
 
     $payload = $tracer->getTracePayload();
-    $types = $this->extractEventTypes($payload);
+    $this->assertNotNull($payload);
 
-    $this->assertSame(['trace-create', 'trace-update'], $types,
-      'Minimal lifecycle must emit exactly trace-create then trace-update');
+    $traceCreate = $payload['batch'][0];
+    $this->assertSame('trace-create', $traceCreate['type']);
+    $this->assertSame('trace-002', $traceCreate['body']['id']);
+    $this->assertSame('assistant.message', $traceCreate['body']['name']);
+    $this->assertSame('hash=aaaaaaaaaaaa len=1-24 redact=none', $traceCreate['body']['input']);
+    $this->assertSame('type=faq reason=none hash=bbbbbbbbbbbb len=1-24', $traceCreate['body']['output']);
+    $this->assertSame('test', $traceCreate['body']['metadata']['env']);
+    $this->assertSame('faq', $traceCreate['body']['metadata']['response_type']);
+    $this->assertArrayHasKey('timestamp', $traceCreate['body']);
   }
 
   /**
-   * Tests that trace-update body carries the trace ID, not a new UUID.
-   *
-   * The trace-update event must reference the same trace ID so Langfuse
-   * merges it with the original trace rather than creating a new one.
+   * Tests that array inputs and outputs move to metadata-only fields.
    */
-  public function testTraceUpdateBodyUsesOriginalTraceId(): void {
+  public function testArrayInputsAndOutputsMoveToMetadataWhileUiGetsSummary(): void {
     $tracer = $this->buildTracer();
 
     $tracer->startTrace('trace-003', 'assistant.message');
-    $tracer->endTrace('output', ['key' => 'value']);
+    $tracer->startSpan('gate.evaluate', ['decision_kind' => 'fallback'], [
+      'input_hash' => 'abc',
+      'input_length_bucket' => '1-24',
+      'input_redaction_profile' => 'none',
+    ]);
+    $tracer->endSpan([
+      'decision' => 'answer',
+      'confidence' => 0.8,
+      'reason_code' => NULL,
+    ]);
+    $tracer->endTrace([
+      'type' => 'faq',
+      'reason_code' => NULL,
+    ], ['success' => TRUE]);
 
     $payload = $tracer->getTracePayload();
-    $batch = $payload['batch'];
+    $this->assertNotNull($payload);
 
-    // First event: trace-create.
-    $createEvent = $batch[0];
-    $this->assertSame('trace-create', $createEvent['type']);
-    $this->assertSame('trace-003', $createEvent['body']['id']);
+    $span = $payload['batch'][1];
+    $this->assertSame('confidence=0.8,decision=answer,reason_code=none', $span['body']['output']);
+    $this->assertSame(
+      'input_hash=abc,input_length_bucket=1-24,input_redaction_profile=none',
+      $span['body']['input']
+    );
+    $this->assertSame('answer', $span['body']['metadata']['output_fields']['decision']);
+    $this->assertSame('abc', $span['body']['metadata']['input_fields']['input_hash']);
 
-    // Second event: trace-update.
-    $updateEvent = $batch[1];
-    $this->assertSame('trace-update', $updateEvent['type']);
-    $this->assertSame('trace-003', $updateEvent['body']['id'],
-      'trace-update body.id must match the original trace ID');
+    $trace = $payload['batch'][0];
+    $this->assertSame('reason_code=none,type=faq', $trace['body']['output']);
+    $this->assertSame('faq', $trace['body']['metadata']['output_fields']['type']);
   }
 
   /**
@@ -166,14 +194,12 @@ class LangfuseTracerTest extends TestCase {
 
     $tracer->startTrace('trace-004', 'test');
     $tracer->startSpan('unclosed.span');
-    // Do NOT call endSpan — endTrace should close it.
     $tracer->endTrace();
 
     $payload = $tracer->getTracePayload();
     $types = $this->extractEventTypes($payload);
 
-    $this->assertSame(['trace-create', 'span-create', 'trace-update'], $types,
-      'endTrace must auto-close dangling spans before emitting trace-update');
+    $this->assertSame(['trace-create', 'span-create'], $types);
   }
 
   /**
@@ -184,14 +210,12 @@ class LangfuseTracerTest extends TestCase {
 
     $tracer->startTrace('trace-005', 'test');
     $tracer->startGeneration('llm.call', 'gemini-1.5-flash');
-    // Do NOT call endGeneration — endTrace should close it.
     $tracer->endTrace();
 
     $payload = $tracer->getTracePayload();
     $types = $this->extractEventTypes($payload);
 
-    $this->assertSame(['trace-create', 'generation-create', 'trace-update'], $types,
-      'endTrace must auto-close dangling generation before emitting trace-update');
+    $this->assertSame(['trace-create', 'generation-create'], $types);
   }
 
   /**
@@ -205,10 +229,8 @@ class LangfuseTracerTest extends TestCase {
     $tracer->endSpan();
     $tracer->endTrace();
 
-    $this->assertNull($tracer->getTracePayload(),
-      'Disabled tracer must return NULL payload');
-    $this->assertFalse($tracer->isActive(),
-      'Disabled tracer must not be active');
+    $this->assertNull($tracer->getTracePayload());
+    $this->assertFalse($tracer->isActive());
   }
 
   /**
@@ -223,7 +245,7 @@ class LangfuseTracerTest extends TestCase {
     $payload = $tracer->getTracePayload();
 
     $this->assertArrayHasKey('metadata', $payload);
-    $this->assertSame(2, $payload['metadata']['batch_size']);
+    $this->assertSame(1, $payload['metadata']['batch_size']);
     $this->assertSame('ilas-langfuse-tracer', $payload['metadata']['sdk_name']);
   }
 
@@ -240,7 +262,7 @@ class LangfuseTracerTest extends TestCase {
     $payload = $tracer->getTracePayload();
     $types = $this->extractEventTypes($payload);
 
-    $this->assertSame(['trace-create', 'event-create', 'trace-update'], $types);
+    $this->assertSame(['trace-create', 'event-create'], $types);
   }
 
   /**
@@ -259,21 +281,13 @@ class LangfuseTracerTest extends TestCase {
     $payload = $tracer->getTracePayload();
     $batch = $payload['batch'];
 
-    // batch[0] = trace-create
-    // batch[1] = inner span-create (closed first due to stack)
-    // batch[2] = outer span-create
-    // batch[3] = trace-update
     $innerSpan = $batch[1];
     $outerSpan = $batch[2];
 
     $this->assertSame('span-create', $innerSpan['type']);
     $this->assertSame('span-create', $outerSpan['type']);
-
-    // Inner span's parent should be the outer span's ID.
     $this->assertArrayHasKey('parentObservationId', $innerSpan['body']);
-    // Outer span should have no parent observation (directly on trace).
-    $this->assertArrayNotHasKey('parentObservationId', $outerSpan['body'],
-      'Top-level span should not have a parentObservationId');
+    $this->assertArrayNotHasKey('parentObservationId', $outerSpan['body']);
   }
 
 }

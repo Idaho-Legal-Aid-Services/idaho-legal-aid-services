@@ -9,7 +9,7 @@ namespace Drupal\ilas_site_assistant\Service;
  *
  * Documents and locks the ingestion API event types, required body keys,
  * and SDK metadata that the ilas-langfuse-tracer emits. Contract tests
- * validate that LangfuseTracer output matches these constants.
+ * validate that finalized payloads match these constants.
  */
 final class LangfusePayloadContract {
 
@@ -21,7 +21,6 @@ final class LangfusePayloadContract {
     'span-create',
     'generation-create',
     'event-create',
-    'trace-update',
   ];
 
   /**

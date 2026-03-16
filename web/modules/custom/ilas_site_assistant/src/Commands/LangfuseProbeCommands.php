@@ -113,10 +113,21 @@ class LangfuseProbeCommands extends DrushCommands {
         'timestamp' => $timestamp,
         'body' => [
           'id' => $traceId,
+          'timestamp' => $timestamp,
           'name' => 'phard-02.synthetic_probe',
+          'input' => 'hash=synthetic0001 len=1-24 redact=none',
+          'output' => 'type=probe_complete reason=none hash=synthetic9999 len=1-24',
           'metadata' => [
             'environment' => $environment,
             'probe_timestamp' => $timestamp,
+            'input_hash' => str_repeat('1', 64),
+            'input_length_bucket' => '1-24',
+            'input_redaction_profile' => 'none',
+            'output_hash' => str_repeat('9', 64),
+            'output_length_bucket' => '1-24',
+            'output_redaction_profile' => 'none',
+            'response_type' => 'probe_complete',
+            'reason_code' => 'none',
           ],
         ],
       ],
@@ -141,15 +152,6 @@ class LangfuseProbeCommands extends DrushCommands {
           'traceId' => $traceId,
           'name' => 'probe.verification_marker',
           'startTime' => $timestamp,
-        ],
-      ],
-      [
-        'id' => $uuidGenerator->generate(),
-        'type' => 'trace-update',
-        'timestamp' => $timestamp,
-        'body' => [
-          'id' => $traceId,
-          'output' => 'PHARD-02 synthetic probe complete',
         ],
       ],
     ];

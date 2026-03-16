@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant')]
 final class PhaseThreeExitCriteriaOneGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -137,11 +139,7 @@ final class PhaseThreeExitCriteriaOneGateTest extends TestCase {
   public function testSystemMapRetainsDiagramAAnchors(): void {
     $systemMap = self::readFile('docs/aila/system-map.mmd');
 
-    $this->assertStringContainsString('flowchart LR', $systemMap);
-    $this->assertStringContainsString('Drupal 11 / ilas_site_assistant', $systemMap);
-    $this->assertStringContainsString('External Integrations', $systemMap);
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
-    $this->assertStringContainsString('PF[Promptfoo harness]', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap);
   }
 
 }

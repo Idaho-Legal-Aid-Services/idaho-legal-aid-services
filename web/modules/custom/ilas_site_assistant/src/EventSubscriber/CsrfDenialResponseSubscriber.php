@@ -2,6 +2,7 @@
 
 namespace Drupal\ilas_site_assistant\EventSubscriber;
 
+use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -83,6 +84,16 @@ class CsrfDenialResponseSubscriber implements EventSubscriberInterface {
 
     $response->headers->set('Cache-Control', 'no-store');
     $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+    if ($request->getPathInfo() === '/assistant/api/message') {
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_ENDPOINT, PerformanceMonitor::ENDPOINT_MESSAGE);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_SUCCESS, FALSE);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_STATUS_CODE, 403);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_OUTCOME, 'message.' . $errorCode);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_DENIED, TRUE);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_DEGRADED, FALSE);
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_SCENARIO, 'unknown');
+    }
 
     $event->setResponse($response);
   }

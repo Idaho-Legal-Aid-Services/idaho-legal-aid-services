@@ -392,28 +392,21 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
-   * Tests isDrushEvalNoise returns TRUE on Pantheon when running drush eval.
+   * Tests isDrushEvalNoise returns FALSE on Pantheon (eval errors captured).
    */
-  public function testIsDrushEvalNoiseReturnsTrueOnPantheon(): void {
-    $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
+  public function testIsDrushEvalNoiseReturnsFalseOnPantheon(): void {
     $originalCapture = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
     $originalArgv = $_SERVER['argv'] ?? NULL;
 
     try {
-      putenv('PANTHEON_ENVIRONMENT=live');
+      new Settings(['ilas_observability' => ['environment' => 'pantheon-live']]);
       putenv('SENTRY_CAPTURE_DRUSH_EVAL');
       $_SERVER['argv'] = ['/code/vendor/bin/drush', 'php:eval', 'echo 1;'];
 
       $result = SentryOptionsSubscriber::isDrushEvalNoise();
-      $this->assertTrue($result, 'isDrushEvalNoise should filter drush eval on Pantheon too');
+      $this->assertFalse($result, 'isDrushEvalNoise should NOT filter drush eval on Pantheon — eval errors are operational signals');
     }
     finally {
-      if ($originalPantheon !== FALSE) {
-        putenv("PANTHEON_ENVIRONMENT=$originalPantheon");
-      }
-      else {
-        putenv('PANTHEON_ENVIRONMENT');
-      }
       if ($originalCapture !== FALSE) {
         putenv("SENTRY_CAPTURE_DRUSH_EVAL=$originalCapture");
       }
@@ -430,28 +423,52 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
-   * Tests isDrushEvalNoise respects opt-in capture override on Pantheon.
+   * Tests isDrushEvalNoise returns TRUE in local development.
    */
-  public function testIsDrushEvalNoisePantheonCaptureOverride(): void {
-    $originalPantheon = getenv('PANTHEON_ENVIRONMENT');
+  public function testIsDrushEvalNoiseReturnsTrueLocally(): void {
     $originalCapture = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
     $originalArgv = $_SERVER['argv'] ?? NULL;
 
     try {
-      putenv('PANTHEON_ENVIRONMENT=live');
+      new Settings(['ilas_observability' => ['environment' => 'local']]);
+      putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'php:eval', 'echo 1;'];
+
+      $result = SentryOptionsSubscriber::isDrushEvalNoise();
+      $this->assertTrue($result, 'isDrushEvalNoise should filter drush eval in local development');
+    }
+    finally {
+      if ($originalCapture !== FALSE) {
+        putenv("SENTRY_CAPTURE_DRUSH_EVAL=$originalCapture");
+      }
+      else {
+        putenv('SENTRY_CAPTURE_DRUSH_EVAL');
+      }
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests SENTRY_CAPTURE_DRUSH_EVAL=1 overrides local filtering.
+   */
+  public function testIsDrushEvalNoiseLocalCaptureOverride(): void {
+    $originalCapture = getenv('SENTRY_CAPTURE_DRUSH_EVAL');
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      new Settings(['ilas_observability' => ['environment' => 'local']]);
       putenv('SENTRY_CAPTURE_DRUSH_EVAL=1');
       $_SERVER['argv'] = ['/code/vendor/bin/drush', 'php:eval', 'echo 1;'];
 
       $result = SentryOptionsSubscriber::isDrushEvalNoise();
-      $this->assertFalse($result, 'SENTRY_CAPTURE_DRUSH_EVAL=1 should override filtering on Pantheon');
+      $this->assertFalse($result, 'SENTRY_CAPTURE_DRUSH_EVAL=1 should override local filtering');
     }
     finally {
-      if ($originalPantheon !== FALSE) {
-        putenv("PANTHEON_ENVIRONMENT=$originalPantheon");
-      }
-      else {
-        putenv('PANTHEON_ENVIRONMENT');
-      }
       if ($originalCapture !== FALSE) {
         putenv("SENTRY_CAPTURE_DRUSH_EVAL=$originalCapture");
       }

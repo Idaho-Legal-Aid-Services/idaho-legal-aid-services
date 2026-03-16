@@ -3,7 +3,7 @@ Date: 2026-03-13
 
 ## Verification bundle summary
 - Validation aliases executed: `VC-PURE`, `VC-QUALITY-GATE`, `VC-PANTHEON-READONLY`
-- Monitoring checks executed: `/assistant/api/health`, `/assistant/api/metrics` plus repo-local metrics contract proof for `metrics.cost_control` / `thresholds.cost_control`
+- Monitoring checks executed: `/assistant/api/health`, `/assistant/api/metrics`, repo-local metrics contract proof for `metrics.cost_control` / `thresholds.cost_control`, and Pantheon Drush-bootstrap metrics proof on `dev`/`test`/`live`
 - Guardrail continuity checks executed for CLAIM-077 (`LlmEnhancer`/`CostControlPolicy`) and CLAIM-084 (`PerformanceMonitor`/`SloAlertService`)
 - Closure guard tests executed: `PhaseThreeExitCriteriaTwoGateTest.php`, `PhaseThreeObjectiveTwoGateTest.php`
 
@@ -23,23 +23,68 @@ golden_tests=7
 promptfoo_runtime_tests=13
 
 ### `VC-PANTHEON-READONLY`
-command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y; done
-status=blocked
+config_command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y; done
+metrics_command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$controller = \Drupal::service("class_resolver")->getInstanceFromDefinition(\Drupal\ilas_site_assistant\Controller\AssistantApiController::class); $response = $controller->metrics(); $data = json_decode($response->getContent(), true); echo json_encode(["has_metrics_cost_control" => isset($data["metrics"]["cost_control"]), "has_thresholds_cost_control" => isset($data["thresholds"]["cost_control"]), "metrics_cost_control" => $data["metrics"]["cost_control"] ?? null, "thresholds_cost_control" => $data["thresholds"]["cost_control"] ?? null], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;'; done
+status=passed
 exit_code=0
-env.dev.per_ip_hourly_call_limit=missing
-env.dev.per_ip_window_seconds=missing
-env.test.per_ip_hourly_call_limit=missing
-env.test.per_ip_window_seconds=missing
-env.live.per_ip_hourly_call_limit=missing
-env.live.per_ip_window_seconds=missing
-vc-pantheon-readonly-status=blocked
-vc-pantheon-readonly-reason=deployed_cost_control_block_missing_per_ip_keys
+env.dev.daily_call_limit=5000
+env.dev.monthly_call_limit=100000
+env.dev.per_ip_hourly_call_limit=10
+env.dev.per_ip_window_seconds=3600
+env.dev.sample_rate=1.0
+env.dev.cache_hit_rate_target=0.3
+env.dev.cache_stats_window_seconds=86400
+env.dev.manual_kill_switch=false
+env.dev.pricing.model=gemini-1.5-flash
+env.dev.pricing.input_per_1m_tokens=0.075
+env.dev.pricing.output_per_1m_tokens=0.3
+env.dev.alert_cooldown_minutes=60
+env.test.daily_call_limit=5000
+env.test.monthly_call_limit=100000
+env.test.per_ip_hourly_call_limit=10
+env.test.per_ip_window_seconds=3600
+env.test.sample_rate=1.0
+env.test.cache_hit_rate_target=0.3
+env.test.cache_stats_window_seconds=86400
+env.test.manual_kill_switch=false
+env.test.pricing.model=gemini-1.5-flash
+env.test.pricing.input_per_1m_tokens=0.075
+env.test.pricing.output_per_1m_tokens=0.3
+env.test.alert_cooldown_minutes=60
+env.live.daily_call_limit=5000
+env.live.monthly_call_limit=100000
+env.live.per_ip_hourly_call_limit=10
+env.live.per_ip_window_seconds=3600
+env.live.sample_rate=1.0
+env.live.cache_hit_rate_target=0.3
+env.live.cache_stats_window_seconds=86400
+env.live.manual_kill_switch=false
+env.live.pricing.model=gemini-1.5-flash
+env.live.pricing.input_per_1m_tokens=0.075
+env.live.pricing.output_per_1m_tokens=0.3
+env.live.alert_cooldown_minutes=60
+vc-pantheon-readonly-status=pass
+vc-pantheon-readonly-reason=deployed_cost_control_and_metrics_surface_verified
 
 ### Monitoring continuity
 metrics-cost-control=present
 thresholds-cost-control=present
 local.metrics.contract_source=AssistantApiControllerCostControlMetricsTest.php
-deployed_metrics_cost_control=unverified
+deployed_metrics_cost_control=present
+deployed_thresholds_cost_control=present
+deployed.metrics.cost_control.daily_calls=0
+deployed.metrics.cost_control.monthly_calls=0
+deployed.metrics.cost_control.cache_hits=0
+deployed.metrics.cost_control.cache_misses=0
+deployed.metrics.cost_control.cache_requests=0
+deployed.metrics.cost_control.cache_hit_rate=null
+deployed.metrics.cost_control.kill_switch_active=false
+deployed.metrics.cost_control.sample_rate=1
+deployed.thresholds.cost_control.daily_call_limit=5000
+deployed.thresholds.cost_control.monthly_call_limit=100000
+deployed.thresholds.cost_control.cache_hit_rate_target=0.3
+deployed.thresholds.cost_control.per_ip_hourly_call_limit=10
+deployed.thresholds.cost_control.per_ip_window_seconds=3600
 
 ### Owner acceptance record (role-based)
 owner-acceptance-product-role=accepted
@@ -54,7 +99,7 @@ p3-ext-02-monitoring=verified
 cost-proof-status=pass
 
 ## Scope continuity markers
-deployment pending until Pantheon reflects per_ip_hourly_call_limit, per_ip_window_seconds, and metrics.cost_control.
+Pantheon read-only verification passed on 2026-03-13 across dev/test/live; deployed per-IP keys and metrics.cost_control / thresholds.cost_control continuity are present.
 no-net-new-assistant-channels=true
 no-third-party-model-expansion=true
 no-unrelated-drupal-platform-refactor=true

@@ -214,6 +214,12 @@ services:
       - '@ilas_site_assistant.cron_health_tracker'
       - '@ilas_site_assistant.queue_health_monitor'
 
+  ilas_site_assistant.response_monitor_subscriber:
+    class: Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber
+    arguments: ['@ilas_site_assistant.performance_monitor']
+    tags:
+      - { name: event_subscriber }
+
   ilas_site_assistant.csrf_denial_response_subscriber:
     class: Drupal\ilas_site_assistant\EventSubscriber\CsrfDenialResponseSubscriber
     tags:

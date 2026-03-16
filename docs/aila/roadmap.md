@@ -468,7 +468,7 @@ Explicit mapping:
 1. Exit criterion #2 is closed as implemented: cost/performance controls are documented, monitored, and accepted by product/platform owners. Closure continuity is anchored to existing LLM call guardrails (`CLAIM-077`) and SLO/performance monitoring guardrails (`CLAIM-084`) without runtime architecture expansion. Re-audit hardening now requires explicit per-IP budget and cache-effectiveness proof markers in the runtime artifact. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; system-map Diagram A; runbook §3)
 2. Verification is codified in runbook section-3 command bundles with required `VC-PURE`, `VC-QUALITY-GATE`, and `VC-PANTHEON-READONLY` aliases, dashboard monitoring checks (`/assistant/api/health`, `/assistant/api/metrics`), behavioral proof from the monitored services, and non-blocking docs continuity via `PhaseThreeExitCriteriaTwoGateTest.php`. Runtime proof is captured in `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`. (Refs: evidence-index CLAIM-154; runbook §3)
 3. Product/platform owner acceptance is recorded as role-based closure evidence (`owner-acceptance-product-role=accepted`, `owner-acceptance-platform-role=accepted`, dated 2026-03-06) in the runtime artifact and linked documentation. (Refs: current-state §7; evidence-index CLAIM-154; runbook §3)
-4. Performance/cost governance linkage remains active and now includes explicit exit-criterion continuity in backlog/risk artifacts (`IMP-COST-01`, `R-PERF-01`) tied to `P3-EXT-02` runtime markers. Deployed closure remains pending until Pantheon read-only checks reflect the per-IP keys and metrics payload. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; runbook §3)
+4. Performance/cost governance linkage remains active and now includes explicit exit-criterion continuity in backlog/risk artifacts (`IMP-COST-01`, `R-PERF-01`) tied to `P3-EXT-02` runtime markers. Pantheon read-only verification passed on 2026-03-13 across `dev`/`test`/`live`, confirming the deployed per-IP keys plus `metrics.cost_control` / `thresholds.cost_control` continuity. (Refs: current-state §4E, §4F, §7; evidence-index CLAIM-077, CLAIM-084, CLAIM-154; runbook §3)
 5. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-154; system-map Diagram A; runbook §3, §4)
 6. Residual risk posture remains unchanged: B-04 (sustained cron/queue load behavior under non-zero backlog) remains open and outside this closure item. (Refs: current-state §8; evidence-index CLAIM-118, CLAIM-121, CLAIM-154; runbook §3)
 
@@ -654,3 +654,21 @@ This addendum captures regression classes observed in production transcript revi
 | Disambiguation schema + mixed-intent contract (`IMP-REL-03`) | Intent-router/disambiguator option normalization and response contract guard tests | Phase 1 -> prerequisite for transcript replay gate (`IMP-TST-02`) | Drupal Lead + QA/Automation Engineer |
 | Empty-query + loop-breaker safeguards (`IMP-REL-04`) | Conversation-state metadata extension and controller pre-routing guards | Phase 1 -> prerequisite for transcript replay gate (`IMP-TST-02`) | Drupal Lead + QA/Automation Engineer |
 | Transcript replay gate expansion (`IMP-TST-02`) | CI owner/platform decision (`IMP-TST-01`) + deep suite harness wiring | Phase 1 -> prerequisite for Phase 2/3 release confidence | QA/Automation Engineer + TPM |
+
+### RAUD-28 Closure Addendum (2026-03-14)
+
+**RAUD completion summary:**
+- 18/27 RAUDs executed with evidence files (RAUD-03, -05, -08, -09, -10, -11, -12, -13, -16, -17, -18, -19, -20, -21, -22, -25, -26, -27)
+- 6/9 un-executed RAUDs independently mitigated (covered by overlapping RAUD scopes, quality-gate enforcement, or verified N/A status)
+- After 2026-03-13 reverification: 60 Fixed, 1 Partially Fixed, 0 Unverified, 1 Open, 13 N/A (75 total)
+
+**Remaining backlog (only 2 non-Fixed findings):**
+1. **Medium:** OBS-3 queue item TTL auto-purge (partially fixed — monitoring exists, auto-drop missing)
+2. **Low:** NF-03 doc-anchor gate tests (open — replace with behavioral assertions)
+
+**Operational follow-ups:**
+- RAUD-11 update_10007 backfill for legacy observability rows
+- Sentry account-side capture/alert/source-map proof (TOVR-02/TOVR-03)
+- New Relic browser snippet enablement proof
+
+Full closure memo: [`docs/aila/runtime/raud-28-audit-closure-memo.md`](aila/runtime/raud-28-audit-closure-memo.md)

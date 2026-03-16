@@ -137,20 +137,20 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
   // ─── Payload contract assertions ──────────────────────────────────
 
   /**
-   * Full lifecycle trace produces all 5 approved event types.
+   * Full lifecycle trace produces all approved emitted event types.
    */
   public function testFullLifecycleTraceProducesAllApprovedEventTypes(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-phard02', 'assistant.message');
+    $tracer->startTrace('req-phard02', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('intent.route');
     $tracer->startGeneration('llm.enhance', 'gemini-1.5-flash', ['temperature' => 0.3]);
-    $tracer->endGeneration('Enhanced response', ['input' => 10, 'output' => 20, 'total' => 30]);
+    $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['intent' => 'faq']);
     $tracer->addEvent('request.complete', ['response_type' => 'faq']);
-    $tracer->endTrace(['type' => 'faq'], ['duration_ms' => 150]);
+    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['duration_ms' => 150]);
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);
@@ -172,13 +172,13 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
   public function testNoBatchEventBodyContainsPii(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-phard02-pii', 'assistant.message');
+    $tracer->startTrace('req-phard02-pii', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['result' => 'safe']);
     $tracer->startGeneration('llm.enhance', 'gemini-1.5-flash');
-    $tracer->endGeneration('Response text');
+    $tracer->endGeneration('intent=faq');
     $tracer->addEvent('request.complete');
-    $tracer->endTrace(['type' => 'faq']);
+    $tracer->endTrace('type=faq reason=none hash=def len=1-24');
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);

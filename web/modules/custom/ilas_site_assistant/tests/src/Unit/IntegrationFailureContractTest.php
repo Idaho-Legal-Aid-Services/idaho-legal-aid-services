@@ -12,6 +12,7 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
+use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
@@ -19,6 +20,7 @@ use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
+use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,6 +30,10 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
  * IMP-REL-01: Consolidated failure-mode contract tests.
@@ -206,6 +212,25 @@ class IntegrationFailureContractTest extends TestCase {
       [],
       ['CONTENT_TYPE' => 'application/json'],
       $content
+    );
+    foreach ($extraHeaders as $key => $value) {
+      $request->headers->set($key, $value);
+    }
+    return $request;
+  }
+
+  /**
+   * Builds a JSON POST request for the tracking endpoint.
+   */
+  private function buildTrackRequest(array $payload = ['event_type' => 'chat_open'], array $extraHeaders = []): Request {
+    $request = Request::create(
+      '/assistant/api/track',
+      'POST',
+      [],
+      [],
+      [],
+      ['CONTENT_TYPE' => 'application/json'],
+      json_encode($payload),
     );
     foreach ($extraHeaders as $key => $value) {
       $request->headers->set($key, $value);
@@ -579,6 +604,147 @@ class IntegrationFailureContractTest extends TestCase {
     $this->addToAssertionCount(1);
   }
 
+  /**
+   * Message validation failures record exactly one denied monitor outcome.
+   */
+  public function testMessageInvalidRequestRecordsDeniedOutcomeOnce(): void {
+    $controller = $this->buildController();
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        'message.invalid_request',
+        400,
+        TRUE,
+        FALSE,
+        'unknown',
+      );
+
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create(
+      '/assistant/api/message',
+      'POST',
+      [],
+      [],
+      [],
+      ['CONTENT_TYPE' => 'application/json'],
+      '{"message":',
+    );
+
+    $response = $controller->message($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(400, $response->getStatusCode());
+  }
+
+  /**
+   * Message shortcut-success paths record exactly one successful outcome.
+   */
+  public function testMessageRepeatedEscalationRecordsShortcutSuccessOnce(): void {
+    $cache = $this->createStub(CacheBackendInterface::class);
+    $cache->method('get')->willReturn((object) [
+      'data' => [
+        ['text' => 'test message'],
+        ['text' => 'test message'],
+        ['text' => 'test message'],
+      ],
+    ]);
+
+    $controller = $this->buildController(cache: $cache);
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        TRUE,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        'message.repeated_message_escalation',
+        200,
+        FALSE,
+        FALSE,
+        'unknown',
+      );
+
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = $this->buildJsonRequest('test message', [], [
+      'conversation_id' => '11111111-1111-4111-8111-111111111111',
+    ]);
+
+    $response = $controller->message($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode((string) $response->getContent(), TRUE);
+    $this->assertSame('repeated', $body['escalation_type']);
+  }
+
+  /**
+   * Track proof denials record exactly one denied monitor outcome.
+   */
+  public function testTrackDenialRecordsDeniedOutcomeOnce(): void {
+    $controller = $this->buildController();
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        'track.track_origin_mismatch',
+        403,
+        TRUE,
+        FALSE,
+        'unknown',
+      );
+
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = $this->buildTrackRequest(
+      ['event_type' => 'chat_open'],
+      ['Origin' => 'https://evil.example'],
+    );
+
+    $response = $controller->track($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(403, $response->getStatusCode());
+  }
+
+  /**
+   * Track success paths record exactly one successful monitor outcome.
+   */
+  public function testTrackSuccessRecordsSuccessfulOutcomeOnce(): void {
+    $controller = $this->buildController();
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        TRUE,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        'track.success',
+        200,
+        FALSE,
+        FALSE,
+        'unknown',
+      );
+
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = $this->buildTrackRequest(
+      ['event_type' => 'chat_open'],
+      ['Origin' => 'http://localhost'],
+    );
+
+    $response = $controller->track($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode((string) $response->getContent(), TRUE);
+    $this->assertTrue($body['ok']);
+  }
+
   // ─── Test 12: LangfuseTracer internal catch swallows exception ────────
 
   /**
@@ -614,6 +780,19 @@ class IntegrationFailureContractTest extends TestCase {
 
     // Verify trace completed without exception.
     $this->addToAssertionCount(1);
+  }
+
+  /**
+   * Runs the response-monitor subscriber around a finalized response.
+   */
+  private function dispatchMonitoredResponse(
+    AssistantApiResponseMonitorSubscriber $subscriber,
+    Request $request,
+    Response $response,
+  ): void {
+    $kernel = $this->createMock(HttpKernelInterface::class);
+    $subscriber->onRequest(new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
+    $subscriber->onResponse(new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $response));
   }
 
 }

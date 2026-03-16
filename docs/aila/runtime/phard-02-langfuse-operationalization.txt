@@ -68,7 +68,10 @@ Required event types (LangfusePayloadContract::APPROVED_EVENT_TYPES):
   - span-create
   - generation-create
   - event-create
-  - trace-update
+
+Trace contract note:
+  - final request traces emit one trace-create with visible non-null input/output
+    summaries; the payload no longer relies on trace-update
 
 Required payload metadata (LangfusePayloadContract::REQUIRED_METADATA_KEYS):
   - batch_size

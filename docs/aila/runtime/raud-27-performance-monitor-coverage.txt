@@ -1,0 +1,107 @@
+# RAUD-27 Performance Monitor Coverage Remediation Report
+
+- Date: 2026-03-13
+- Prompt ID: `RAUD-27`
+- Finding IDs: `F-20`, `F-21`, `F-22`, `N-18` unresolved observability portion
+- Prior status: Open / verified gap. Early `/assistant/api/message` returns,
+  `/assistant/api/track` denials, `/assistant/api/suggest` + `/assistant/api/faq`
+  throttled/degraded responses, cached read responses, and `/assistant/api/message`
+  CSRF `403` JSON denials were not consistently reflected in
+  `PerformanceMonitor`.
+- Post-change status: Fixed
+- Verification level tag: `Verified by execution (targeted); bundle drift noted`
+
+## Evidence
+
+- Monitoring contract implementation:
+  - `web/modules/custom/ilas_site_assistant/src/Service/PerformanceMonitor.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/AssistantApiResponseMonitorSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/CsrfDenialResponseSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- Targeted executable coverage:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfDenialResponseSubscriberTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php`
+- Operator documentation:
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/evidence-index.md`
+
+## Command summaries
+
+- Targeted suites:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php`
+  - Result: passed (`11` tests, `69` assertions).
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php`
+  - Result: passed (`15` tests, `97` assertions).
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - Result: passed (`27` tests, `105` assertions).
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfDenialResponseSubscriberTest.php`
+  - Result: passed (`10` tests, `55` assertions).
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php`
+  - Result: passed (`1` test, `6` assertions).
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php`
+  - Result: passed (`7` tests, `81` assertions).
+- `VC-UNIT`:
+  - Command: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --group ilas_site_assistant /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: failed after the RAUD-27-targeted suites passed. Final bundle state:
+    `2170` tests, `10909` assertions, `18` failures, `1` skipped.
+  - Visible failures were unrelated current-state / CI-doc contract tests,
+    including `AuditBaselineAcceptanceTest::testCurrentStateDocumentsKnownUnknowns`,
+    `AuditBaselineAcceptanceTest::testKnownUnknownsContainExpectedTopics`, and
+    `QualityGateEnforcementContractTest` current-state assertions.
+- `VC-PURE`:
+  - Command: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml`
+  - Result: failed with the same non-RAUD-27 documentation-contract drift:
+    `2170` tests, `10909` assertions, `18` failures, `1` skipped.
+- `VC-QUALITY-GATE`:
+  - Command: `bash /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh`
+  - Result: failed in Phase 1 unit-suite execution because the same
+    `VC-UNIT` bundle stayed red (`18` failures, `1` skipped). Later quality-gate
+    phases did not execute.
+
+## Changed files
+
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/raud-27-performance-monitor-coverage.txt`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/AssistantApiResponseMonitorSubscriber.php`
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/CsrfDenialResponseSubscriber.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/PerformanceMonitor.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfDenialResponseSubscriberTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php`
+
+## Residual risks / unknowns
+
+- Cached read-response classification is still inferential at final response
+  time; the degraded-vs-normal distinction depends on the configured short cache
+  TTL heuristic rather than a cache-generated explicit marker.
+- Repo-wide `VC-UNIT` / `VC-PURE` / `VC-QUALITY-GATE` remain red on unrelated
+  current-state / quality-gate documentation contract drift outside the
+  RAUD-27 scope, so bundle-level closure for the broader repo is not restored by
+  this remediation alone.
+
+## Rollback notes
+
+- Revert the controller, subscriber, service, test, and doc updates listed
+  above.
+- No schema or data migrations were introduced for RAUD-27.
+
+## Still-unverified surfaces
+
+- Deployed cache-hit behavior on a real served read response path
+  (`/assistant/api/suggest` or `/assistant/api/faq`) was not exercised against a
+  hosted runtime in this remediation.
+- The unrelated repo-wide doc-contract failures in `VC-UNIT`, `VC-PURE`, and
+  `VC-QUALITY-GATE` were observed but not remediated here.

@@ -60,6 +60,41 @@ class LangfuseTracer {
   protected string $traceId = '';
 
   /**
+   * The current trace name.
+   *
+   * @var string
+   */
+  protected string $traceName = '';
+
+  /**
+   * Trace start timestamp captured when tracing begins.
+   *
+   * @var string
+   */
+  protected string $traceTimestamp = '';
+
+  /**
+   * Buffered trace metadata until final serialization.
+   *
+   * @var array
+   */
+  protected array $traceMetadata = [];
+
+  /**
+   * Optional trace input summary.
+   *
+   * @var mixed
+   */
+  protected mixed $traceInput = NULL;
+
+  /**
+   * Whether the current trace has been finalized.
+   *
+   * @var bool
+   */
+  protected bool $traceFinalized = FALSE;
+
+  /**
    * Accumulated batch events for Langfuse ingestion API.
    *
    * @var array
@@ -174,8 +209,10 @@ class LangfuseTracer {
    *   The trace name (e.g., 'assistant.message').
    * @param array $metadata
    *   Trace-level metadata.
+   * @param mixed $input
+   *   Optional trace-level input summary.
    */
-  public function startTrace(string $traceId, string $name, array $metadata = []): void {
+  public function startTrace(string $traceId, string $name, array $metadata = [], mixed $input = NULL): void {
     if (!$this->isEnabled()) {
       return;
     }
@@ -183,22 +220,14 @@ class LangfuseTracer {
     try {
       $this->active = TRUE;
       $this->traceId = $traceId;
+      $this->traceName = $name;
+      $this->traceTimestamp = $this->isoNow();
+      $this->traceMetadata = $metadata;
+      $this->traceInput = $input;
+      $this->traceFinalized = FALSE;
       $this->batch = [];
       $this->spanStack = [];
       $this->activeGeneration = NULL;
-
-      $body = [
-        'id' => $traceId,
-        'name' => $name,
-        'metadata' => $metadata ?: NULL,
-      ];
-
-      $this->batch[] = [
-        'id' => $this->uuidGenerator->generate(),
-        'type' => 'trace-create',
-        'timestamp' => $this->isoNow(),
-        'body' => array_filter($body, fn($v) => $v !== NULL),
-      ];
     }
     catch (\Throwable $e) {
       $this->logger->error('Langfuse: startTrace failed: @class @error_signature', [
@@ -261,8 +290,15 @@ class LangfuseTracer {
     try {
       $span = array_pop($this->spanStack);
       $parentId = !empty($this->spanStack) ? end($this->spanStack)['id'] : NULL;
+      $normalizedInput = $this->normalizeObservationValue($span['input'], 'input');
+      $normalizedOutput = $this->normalizeObservationValue($output, 'output');
 
-      $mergedMetadata = array_merge($span['metadata'] ?? [], $metadata);
+      $mergedMetadata = array_merge(
+        $span['metadata'] ?? [],
+        $metadata,
+        $normalizedInput['metadata'],
+        $normalizedOutput['metadata'],
+      );
 
       $body = [
         'id' => $span['id'],
@@ -272,8 +308,8 @@ class LangfuseTracer {
         'startTime' => $span['startTime'],
         'endTime' => $this->isoNow(),
         'metadata' => $mergedMetadata ?: NULL,
-        'input' => $span['input'],
-        'output' => $output,
+        'input' => $normalizedInput['display'],
+        'output' => $normalizedOutput['display'],
       ];
 
       $this->batch[] = [
@@ -349,6 +385,12 @@ class LangfuseTracer {
     try {
       $gen = $this->activeGeneration;
       $this->activeGeneration = NULL;
+      $normalizedInput = $this->normalizeObservationValue($gen['input'], 'input');
+      $normalizedOutput = $this->normalizeObservationValue($output, 'output');
+      $mergedMetadata = array_merge(
+        $normalizedInput['metadata'],
+        $normalizedOutput['metadata'],
+      );
 
       $body = [
         'id' => $gen['id'],
@@ -357,8 +399,9 @@ class LangfuseTracer {
         'name' => $gen['name'],
         'model' => $gen['model'],
         'modelParameters' => $gen['modelParameters'] ?: NULL,
-        'input' => $gen['input'],
-        'output' => $output,
+        'input' => $normalizedInput['display'],
+        'output' => $normalizedOutput['display'],
+        'metadata' => $mergedMetadata ?: NULL,
         'usage' => $usage ?: NULL,
         'startTime' => $gen['startTime'],
         'endTime' => $this->isoNow(),
@@ -435,7 +478,7 @@ class LangfuseTracer {
    *   Final trace metadata (merged with trace-create metadata).
    */
   public function endTrace(mixed $output = NULL, array $metadata = []): void {
-    if (!$this->active) {
+    if (!$this->active || $this->traceFinalized) {
       return;
     }
 
@@ -450,19 +493,32 @@ class LangfuseTracer {
         $this->endSpan();
       }
 
-      // Add trace-update event with output and final metadata.
+      $normalizedInput = $this->normalizeObservationValue($this->traceInput, 'input');
+      $normalizedOutput = $this->normalizeObservationValue($output, 'output');
+      $mergedMetadata = array_merge(
+        $this->traceMetadata,
+        $metadata,
+        $normalizedInput['metadata'],
+        $normalizedOutput['metadata'],
+      );
+
+      // Finalize a single trace-create event after all request details are known.
       $body = [
         'id' => $this->traceId,
-        'output' => $output,
-        'metadata' => $metadata ?: NULL,
+        'timestamp' => $this->traceTimestamp,
+        'name' => $this->traceName,
+        'input' => $normalizedInput['display'],
+        'output' => $normalizedOutput['display'],
+        'metadata' => $mergedMetadata ?: NULL,
       ];
 
-      $this->batch[] = [
+      array_unshift($this->batch, [
         'id' => $this->uuidGenerator->generate(),
-        'type' => 'trace-update',
-        'timestamp' => $this->isoNow(),
+        'type' => 'trace-create',
+        'timestamp' => $this->traceTimestamp,
         'body' => array_filter($body, fn($v) => $v !== NULL),
-      ];
+      ]);
+      $this->traceFinalized = TRUE;
     }
     catch (\Throwable $e) {
       $this->logger->error('Langfuse: endTrace failed: @class @error_signature', [
@@ -479,7 +535,7 @@ class LangfuseTracer {
    *   The batch payload for the Langfuse ingestion API, or NULL if no data.
    */
   public function getTracePayload(): ?array {
-    if (empty($this->batch)) {
+    if (!$this->traceFinalized || empty($this->batch)) {
       return NULL;
     }
 
@@ -502,6 +558,30 @@ class LangfuseTracer {
   protected function isoNow(): string {
     return (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
       ->format('Y-m-d\TH:i:s.u\Z');
+  }
+
+  /**
+   * Converts scalar-safe fields into a visible Langfuse summary string.
+   *
+   * Structured values stay in metadata to avoid null-only UI displays while
+   * preserving deterministic machine-readable details.
+   *
+   * @return array{display:mixed,metadata:array}
+   *   A display-safe value plus metadata-only structured fields.
+   */
+  protected function normalizeObservationValue(mixed $value, string $fieldName): array {
+    if ($value === NULL) {
+      return ['display' => NULL, 'metadata' => []];
+    }
+
+    if (is_array($value)) {
+      return [
+        'display' => ObservabilityPayloadMinimizer::summarizeScalarMap($value),
+        'metadata' => [$fieldName . '_fields' => $value],
+      ];
+    }
+
+    return ['display' => $value, 'metadata' => []];
   }
 
 }

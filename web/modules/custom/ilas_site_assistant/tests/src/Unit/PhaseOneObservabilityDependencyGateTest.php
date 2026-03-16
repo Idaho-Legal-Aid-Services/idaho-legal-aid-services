@@ -99,10 +99,10 @@ class PhaseOneObservabilityDependencyGateTest extends TestCase {
   public function testCurrentStateRetainsKnownUnknownsAndAddsDatedDisposition(): void {
     $currentState = self::readFile('docs/aila/current-state.md');
 
-    // Preserve historical baseline in section 8 table.
+    // Preserve the current TOVR-01 unresolved baseline in section 8.
     $this->assertStringContainsString('## 8) Known unknowns', $currentState);
     $this->assertStringContainsString('Long-run cron cadence and queue drain timing under load', $currentState);
-    $this->assertStringContainsString('Promptfoo CI ownership outside this repository', $currentState);
+    $this->assertStringContainsString('Promptfoo deploy-bound gate fidelity', $currentState);
 
     // Addendum-style P0-EXT-03 resolution entry.
     $this->assertStringContainsString(

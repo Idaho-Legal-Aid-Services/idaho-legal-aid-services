@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\CacheableJsonResponse;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
+use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantReadEndpointGuard;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
+use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,6 +25,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
  * Covers read-endpoint controller contracts for ordinary, throttled, and
@@ -177,6 +184,75 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
   }
 
   /**
+   * Suggest throttles record exactly one denied monitor outcome.
+   */
+  public function testSuggestThrottleRecordsDeniedOutcomeOnce(): void {
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_SUGGEST,
+        'suggest.rate_limit',
+        429,
+        TRUE,
+        FALSE,
+        'unknown',
+      );
+
+    $controller = $this->buildController(
+      readEndpointGuard: $this->buildReadGuard(
+        ['suggest' => ['rate_limit_per_minute' => 1, 'rate_limit_per_hour' => 10]],
+        $this->denyingFlood(FALSE),
+      ),
+    );
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create('/assistant/api/suggest?q=housing&type=all', 'GET');
+
+    $response = $controller->suggest($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(429, $response->getStatusCode());
+  }
+
+  /**
+   * Suggest degraded fallbacks record exactly one failed monitor outcome.
+   */
+  public function testSuggestDegradedFallbackRecordsFailedOutcomeOnce(): void {
+    $intentRouter = $this->createMock(IntentRouter::class);
+    $intentRouter->expects($this->once())
+      ->method('suggestTopics')
+      ->willThrowException(new \RuntimeException('Simulated topic failure'));
+
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_SUGGEST,
+        'suggest.degraded_empty',
+        200,
+        FALSE,
+        TRUE,
+        'unknown',
+      );
+
+    $controller = $this->buildController(
+      intentRouter: $intentRouter,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create('/assistant/api/suggest?q=housing&type=topics', 'GET');
+
+    $response = $controller->suggest($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(200, $response->getStatusCode());
+  }
+
+  /**
    * FAQ ID exceptions still degrade to the existing 404 not-found response.
    */
   public function testFaqIdExceptionFallsBackToNotFound(): void {
@@ -237,6 +313,105 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame(['categories' => []], json_decode($response->getContent(), TRUE));
+  }
+
+  /**
+   * FAQ throttles record exactly one denied monitor outcome.
+   */
+  public function testFaqThrottleRecordsDeniedOutcomeOnce(): void {
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_FAQ,
+        'faq.rate_limit',
+        429,
+        TRUE,
+        FALSE,
+        'unknown',
+      );
+
+    $controller = $this->buildController(
+      readEndpointGuard: $this->buildReadGuard(
+        ['faq' => ['rate_limit_per_minute' => 1, 'rate_limit_per_hour' => 10]],
+        $this->denyingFlood(FALSE),
+      ),
+    );
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create('/assistant/api/faq?q=eviction', 'GET');
+
+    $response = $controller->faq($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(429, $response->getStatusCode());
+  }
+
+  /**
+   * FAQ degraded fallbacks record exactly one failed monitor outcome.
+   */
+  public function testFaqDegradedFallbackRecordsFailedOutcomeOnce(): void {
+    $faqIndex = $this->createMock(FaqIndex::class);
+    $faqIndex->expects($this->once())
+      ->method('search')
+      ->willThrowException(new \RuntimeException('Simulated FAQ search failure'));
+
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_FAQ,
+        'faq.degraded_empty_results',
+        200,
+        FALSE,
+        TRUE,
+        'unknown',
+      );
+
+    $controller = $this->buildController(
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create('/assistant/api/faq?q=eviction', 'GET');
+
+    $response = $controller->faq($request);
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
+
+    $this->assertSame(200, $response->getStatusCode());
+  }
+
+  /**
+   * Cached read responses are backfilled when controller instrumentation is bypassed.
+   */
+  public function testCachedSuggestResponseIsBackfilledWhenControllerBypassed(): void {
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        TRUE,
+        PerformanceMonitor::ENDPOINT_SUGGEST,
+        'suggest.success',
+        200,
+        FALSE,
+        FALSE,
+        'unknown',
+      );
+
+    $subscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $request = Request::create('/assistant/api/suggest?q=housing&type=all', 'GET');
+    $response = new CacheableJsonResponse([
+      'suggestions' => [
+        ['type' => 'topic', 'label' => 'Housing', 'id' => '75'],
+      ],
+    ], 200);
+    $response->setMaxAge(300);
+
+    $this->dispatchMonitoredResponse($subscriber, $request, $response);
   }
 
   /**
@@ -337,6 +512,19 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
       });
     $flood->expects($this->never())->method('register');
     return $flood;
+  }
+
+  /**
+   * Runs the response-monitor subscriber around a controller response.
+   */
+  private function dispatchMonitoredResponse(
+    AssistantApiResponseMonitorSubscriber $subscriber,
+    Request $request,
+    Response $response,
+  ): void {
+    $kernel = $this->createMock(HttpKernelInterface::class);
+    $subscriber->onRequest(new RequestEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST));
+    $subscriber->onResponse(new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $response));
   }
 
 }

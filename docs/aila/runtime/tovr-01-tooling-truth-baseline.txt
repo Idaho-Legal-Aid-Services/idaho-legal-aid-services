@@ -1,0 +1,147 @@
+# TOVR-01 Tooling Truth Baseline
+
+Date: 2026-03-13
+Audit timestamp (UTC): 2026-03-13T23:33:07Z
+Branch: master
+Commit: 6bc13fdd0d390930ed6c3572d4d3e4c7ecfe38d9
+Worktree note: Dirty worktree at capture; TOVR-01 merged with pre-existing doc/runtime edits in place.
+Sanitization note: no secret values were captured in this artifact.
+
+## Prior status
+
+- Historical living docs and backlog items mixed older repo-only assumptions with newer runtime reality.
+- The main contradictions were around Sentry/Langfuse presence, New Relic usefulness, and whether the repo-owned workflow set was active versus merely configured.
+
+## Post-investigation status
+
+- A current-state tooling inventory now exists and is grounded in fresh March 13, 2026 GitHub Actions history, local DDEV runtime checks, Pantheon `dev`/`test`/`live` safe runtime checks, rendered `/assistant` HTML, and direct source inspection.
+- Quality Gate is confirmed active.
+- Observability Release is configured but not proven active because no recorded workflow runs were found.
+- Sentry and Langfuse are runtime-enabled in sampled environments, but both remain only partially proven until SaaS-side capture/ingestion evidence exists.
+- New Relic browser RUM is present as a repo/runtime-secret path but inactive in sampled rendered pages.
+- Pinecone secret wiring is present in sampled environments while vector retrieval remains disabled.
+
+## Verification level tag
+
+- `verified-current-runtime-plus-code-inspection`
+
+## Command summaries
+
+### VC-GHA-QUALITY-HISTORY
+
+- Command: `gh run list --workflow quality-gate.yml -L 5 --json databaseId,displayTitle,event,headBranch,status,conclusion,createdAt,updatedAt,url`
+- Result: five recent completed runs were returned.
+- Latest runs were created on 2026-03-13 at 23:08:16Z, 22:57:37Z, 22:46:15Z, 15:36:16Z, and 15:23:13Z.
+- Conclusions in that sample were four `success` and one `failure`.
+
+### VC-GHA-OBS-RELEASE-HISTORY
+
+- Command: `gh run list --workflow observability-release.yml -L 5 --json databaseId,displayTitle,event,headBranch,status,conclusion,createdAt,updatedAt,url`
+- Result: `[]`
+- Interpretation: the workflow exists in repo, but no recorded runs were visible as of 2026-03-13.
+
+### VC-RUNTIME-LOCAL-SAFE
+
+- Command set: `ddev drush status`, `ddev drush php:eval ...`, and `curl -skL https://ilas-pantheon.ddev.site/assistant`
+- Local Drupal bootstrap succeeded: `uri=http://localhost`, `drupal-version=11.3.3`, `db-status=Connected`.
+- Effective runtime booleans were:
+  - `llm_enabled=false`
+  - `vector_search.enabled=false`
+  - `langfuse_enabled=true`
+  - `langfuse_public_key_present=true`
+  - `langfuse_secret_key_present=true`
+  - `sentry_client_key_present=true`
+  - `pinecone_key_present=true`
+- Rendered `/assistant` HTML exposed:
+  - `environment="local"`
+  - `sentry.browserEnabled=true`
+  - `sentry.showReportDialog=true`
+  - `newRelic.browserEnabled=false`
+- No GA loader or `dataLayer` bootstrap was detected in the local sample.
+
+### VC-RUNTIME-PANTHEON-SAFE
+
+- Command set: `terminus remote:drush ... status`, `terminus remote:drush ... php:eval ...`, and `curl -skL "$BASE_URL/assistant"` for `dev`, `test`, and `live`
+- All three sampled Pantheon environments bootstrapped successfully with Drupal 11.3.3 and connected databases.
+- Effective runtime booleans matched across `dev`, `test`, and `live`:
+  - `llm_enabled=false`
+  - `vector_search.enabled=false`
+  - `langfuse_enabled=true`
+  - `langfuse_public_key_present=true`
+  - `langfuse_secret_key_present=true`
+  - `sentry_client_key_present=true`
+  - `pinecone_key_present=true`
+- Rendered `/assistant` HTML showed:
+  - `dev`: `environment="pantheon-dev"`, `release="6bc13fd"`, `sentry.browserEnabled=true`, `showReportDialog=true`, `newRelic.browserEnabled=false`
+  - `test`: `environment="pantheon-test"`, `release="test_154"`, `sentry.browserEnabled=true`, `showReportDialog=true`, `newRelic.browserEnabled=false`
+  - `live`: `environment="pantheon-live"`, `release="live_144"`, `sentry.browserEnabled=true`, `showReportDialog=false`, `replaySessionSampleRate=0.01`, `replayOnErrorSampleRate=0.25`, `newRelic.browserEnabled=false`
+- GA4 markers were absent from sampled `dev` and `test` HTML.
+- `live` rendered `googletagmanager`, `window.dataLayer`, and `gtag(` markers.
+
+## Direct code inspection summary
+
+- `.github/workflows/quality-gate.yml` wires a repo-owned `Quality Gate` workflow for `push`, `pull_request`, and `workflow_dispatch`, with `PHPUnit Quality Gate` and `Promptfoo Gate` jobs.
+- Protected-branch pushes in that workflow require `ILAS_ASSISTANT_URL` and run `scripts/ci/run-promptfoo-gate.sh --skip-eval --simulate-pass-rate 100`, which proves config-parity mode but not a guaranteed deploy-bound live eval.
+- `.github/workflows/observability-release.yml` is manual-only (`workflow_dispatch`) and runs `scripts/observability/sentry-release.sh`.
+- `scripts/observability/sentry-release.sh` prepares a Sentry release and uploads theme sourcemaps when auth, org/project settings, a release name, and `.map` files are available.
+- `web/sites/default/settings.php` injects runtime Langfuse keys, Sentry DSNs, Pinecone key wiring, GA4 live-only settings, and the runtime-secret-gated New Relic browser snippet.
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.module` attaches browser observability settings only when Sentry browser mode or New Relic browser mode is enabled.
+- `web/modules/custom/ilas_site_assistant/js/observability.js` emits browser errors/actions to Sentry and New Relic when those providers are enabled in `drupalSettings`.
+- `web/themes/custom/b5subtheme/templates/page/html.html.twig` prints the New Relic browser snippet only when a runtime value is provided.
+- `pantheon.yml` wires the Quicksilver hook `scripts/quicksilver/new-relic-change-tracking.php`.
+- `.ddev/config.newrelic.yaml.example` and `.ddev/newrelic/Dockerfile.newrelic.example` are opt-in examples, not active local overlays.
+
+## Master inventory
+
+| tool | category | status | purpose | environments | evidence | confidence | missing proof |
+|---|---|---|---|---|---|---|---|
+| Quality Gate workflow | CI/CD | confirmed active | Run required PHPUnit, widget-hardening, and promptfoo gate jobs | GitHub Actions | Workflow file and 2026-03-13 run history | high | None for workflow activity baseline |
+| Promptfoo gate behavior | Evaluation / release gating | confirmed partial | Synthetic assistant eval gate and policy enforcement | GitHub Actions plus operator-run local/Pantheon targeting | Workflow logic and gate script prove branch-aware behavior; workflow history proves job activity | medium | Job-log proof of real eval execution on PRs with `ILAS_ASSISTANT_URL`; deploy-bound real eval on protected-branch pushes |
+| Observability Release workflow | CI/CD observability | configured but not proven active | Manual Sentry release/source-map preparation | GitHub Actions `workflow_dispatch` | Workflow file exists; run history was empty on 2026-03-13 | high | Successful run or release/source-map artifact |
+| Sentry runtime capture | Observability | confirmed partial | Browser/PHP error capture with runtime tags and redaction | local, dev, test, live | Runtime booleans plus rendered `/assistant` config | high | Probe event in Sentry, alert-route proof, source-map usefulness proof |
+| Sentry release/source-map automation | Observability release | configured but not proven active | Publish release metadata and theme source maps | GitHub Actions manual path | Workflow and script exist in repo | high | Successful workflow run and Sentry-side release evidence |
+| Langfuse runtime export | Observability | confirmed partial | Queue-backed trace/span/event export | local, dev, test, live | Runtime booleans plus tracer/subscriber/worker/probe code paths | high | Direct or queued trace visible in Langfuse |
+| New Relic browser snippet | Observability | stale/dead/incomplete | Optional browser RUM snippet injection | local, dev, test, live sampled inactive | Runtime-secret path exists, but sampled pages rendered `newRelic.browserEnabled=false` everywhere | high | Sampled runtime with snippet active or explicit retirement decision |
+| New Relic change tracking | Observability release | configured but not proven active | Send deploy markers from Pantheon Quicksilver | Pantheon deploy path | `pantheon.yml` hook and GraphQL script exist | medium | New Relic deployment marker or entity-side proof |
+| GA4 / dataLayer | Analytics | confirmed active | Live analytics bootstrap and widget event pushes | live active; sampled local/dev/test inactive | Live HTML rendered loader plus `dataLayer`/`gtag`; widget JS pushes events | high | None for live-only activation baseline |
+| Pinecone secret wiring | Retrieval infrastructure | confirmed active | Inject Pinecone API key into effective runtime config | local, dev, test, live | Safe runtime checks showed `pinecone_key_present=true` | high | None for secret-presence baseline |
+| Search API vector indexes | Retrieval infrastructure | installed but not used | Provide optional Pinecone-backed vector indexes | Repo config present; sampled runtime disabled | Vector configs exist while `vector_search.enabled=false` in sampled runtime | high | Search API status/query proof if enablement becomes in-scope |
+| DDEV New Relic local scaffold | Local-only tooling | stale/dead/incomplete | Optional local PHP agent overlay | Example-only local path | Example overlay and Dockerfile require manual copy and rebuild | high | Actual local overlay plus rebuilt container |
+| Internal Drupal telemetry surfaces | Internal observability | confirmed partial | Health/metrics/admin reporting, queue, cron, and SLO telemetry | Drupal runtime; some surfaces auth-gated | Routes and services exist, but TOVR-01 did not execute authenticated health/metrics/admin-report flows | medium | Authenticated runtime checks and operator-use evidence |
+
+## Narrative summary
+
+- Mature or clearly active: Quality Gate workflow, GA4 on live, Pinecone secret presence, and repo-owned internal telemetry code surfaces.
+- Partial but real: Sentry runtime capture, Langfuse runtime export, and promptfoo gate behavior each have live code/runtime evidence but still need SaaS-side or event-log proof for their critical last mile.
+- Configured but unproven: Observability Release, Sentry release/source-map automation, and New Relic change tracking all exist in repo wiring without current execution proof.
+- Stale or dormant: New Relic browser RUM is not active in sampled rendered pages, and the DDEV New Relic scaffold remains example-only.
+
+## Changed files list
+
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/runbook.md`
+- `docs/aila/system-map.mmd`
+- `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt`
+
+## Residual risks and unknowns
+
+- Sentry runtime wiring is proven, but alert routing, event capture, and source-map usefulness remain unverified.
+- Langfuse enablement is proven, but direct or queued ingestion remains unverified account-side.
+- New Relic change tracking and browser RUM paths exist, but entity-side activity is still unknown.
+- Protected-branch post-merge promptfoo runs are active, but they currently prove config parity rather than guaranteed live eval fidelity.
+
+## Rollback notes
+
+- None. TOVR-01 was a docs-and-evidence refresh using read-only runtime checks.
+
+## Still-unverified surfaces
+
+- `ilas:sentry-probe` execution plus Sentry-side event confirmation
+- `ilas:langfuse-probe --direct` and queued probe confirmation in Langfuse
+- Observability Release workflow execution history
+- New Relic entity dashboard, deployment marker, or browser RUM proof
+- Authenticated `/assistant/api/health`, `/assistant/api/metrics`, and admin-report runtime checks

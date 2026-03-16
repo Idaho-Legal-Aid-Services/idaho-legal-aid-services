@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant')]
 final class PhaseTwoEntryCriteriaOneGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -119,10 +121,7 @@ final class PhaseTwoEntryCriteriaOneGateTest extends TestCase {
     $systemMap = self::readFile('docs/aila/system-map.mmd');
     $workflow = self::readFile('.github/workflows/quality-gate.yml');
 
-    $this->assertStringContainsString('OBS[Observability', $systemMap);
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
-    $this->assertStringContainsString('PF[Promptfoo harness]', $systemMap);
-    $this->assertStringContainsString('CI -->|drives scripted quality gates| PF', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap, requireObservability: TRUE);
 
     $this->assertStringContainsString('name: Quality Gate', $workflow);
     $this->assertStringContainsString("'release/**'", $workflow);

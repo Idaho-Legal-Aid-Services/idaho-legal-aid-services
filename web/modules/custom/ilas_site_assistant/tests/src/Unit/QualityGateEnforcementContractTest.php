@@ -171,7 +171,12 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $currentState = self::readFile('docs/aila/current-state.md');
 
     $this->assertStringContainsString(
-      'CI quality gate is mandatory for merge/release path',
+      '### Phase 1 Exit #2 Mandatory Gate Disposition (2026-03-03)',
+      $currentState,
+      'current-state.md must retain the mandatory gate disposition section'
+    );
+    $this->assertStringContainsString(
+      'mandatory for merge/release path',
       $currentState,
       'current-state.md must declare CI quality gate mandatory'
     );

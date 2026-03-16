@@ -45,6 +45,22 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       'p99_response_time_ms' => 400.0,
       'error_rate' => 0.01,
       'requests_per_minute' => 3.0,
+      'all_endpoints' => [
+        'sample_size' => 84,
+        'error_count' => 5,
+        'denied_count' => 2,
+        'degraded_count' => 1,
+      ],
+      'by_endpoint' => [
+        'message' => ['sample_size' => 42],
+        'track' => ['sample_size' => 12],
+        'suggest' => ['sample_size' => 20],
+        'faq' => ['sample_size' => 10],
+      ],
+      'by_outcome' => [
+        'message.success' => ['sample_size' => 40],
+        'message.invalid_request' => ['sample_size' => 2],
+      ],
     ]);
 
     $llmEnhancer = $this->createStub(LlmEnhancer::class);
@@ -87,6 +103,9 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       'per_ip_hourly_call_limit' => 10,
       'per_ip_window_seconds' => 3600,
     ], $body['thresholds']['cost_control']);
+    $this->assertSame(84, $body['metrics']['all_endpoints']['sample_size']);
+    $this->assertSame(42, $body['metrics']['by_endpoint']['message']['sample_size']);
+    $this->assertSame(2, $body['metrics']['by_outcome']['message.invalid_request']['sample_size']);
   }
 
   private function buildController(

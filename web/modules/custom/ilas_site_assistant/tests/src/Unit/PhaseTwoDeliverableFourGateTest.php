@@ -73,7 +73,9 @@ final class PhaseTwoDeliverableFourGateTest extends TestCase {
     $this->assertStringContainsString('weak_grounding', $currentState);
     $this->assertStringContainsString('escalation', $currentState);
     $this->assertStringContainsString('safety_boundary', $currentState);
-    $this->assertStringContainsString('p2del04-safety-boundary-routing', $currentState);
+    $this->assertStringContainsString('escalation routing/actionability', $currentState);
+    $this->assertStringContainsString('safety-boundary', $currentState);
+    $this->assertStringContainsString('dampening/refusal transitions', $currentState);
     $this->assertStringContainsString('[^CLAIM-137]', $currentState);
   }
 

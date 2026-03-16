@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant')]
 final class PhaseTwoObjectiveTwoGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -59,8 +61,10 @@ final class PhaseTwoObjectiveTwoGateTest extends TestCase {
     $currentState = self::readFile('docs/aila/current-state.md');
 
     $this->assertStringContainsString('Promptfoo + quality gate harness', $currentState);
-    $this->assertStringContainsString('Blocking mode retains deep multi-turn coverage', $currentState);
-    $this->assertStringContainsString('RAG/response-correctness families', $currentState);
+    $this->assertStringContainsString('branch-aware and reproducible', $currentState);
+    $this->assertStringContainsString('retain deep multi-turn Promptfoo coverage', $currentState);
+    $this->assertStringContainsString('Deterministic correctness confidence remains enforced through `VC-UNIT` and', $currentState);
+    $this->assertStringContainsString('`VC-DRUPAL-UNIT` suites', $currentState);
     $this->assertStringContainsString(
       '### Phase 2 Objective #2 Evaluation Coverage + Release Confidence Disposition (2026-03-03)',
       $currentState
@@ -106,11 +110,7 @@ final class PhaseTwoObjectiveTwoGateTest extends TestCase {
   public function testSystemMapRetainsDiagramAPromptfooCiAnchors(): void {
     $systemMap = self::readFile('docs/aila/system-map.mmd');
 
-    $this->assertStringContainsString('flowchart LR', $systemMap);
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
-    $this->assertStringContainsString('PF[Promptfoo harness]', $systemMap);
-    $this->assertStringContainsString('CI -->|drives scripted quality gates| PF', $systemMap);
-    $this->assertStringContainsString('PF -->|synthetic eval calls| R', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap, requireSyntheticEvalEdge: TRUE);
   }
 
   /**

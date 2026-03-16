@@ -18,7 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @QueueWorker(
  *   id = "ilas_langfuse_export",
  *   title = @Translation("Langfuse trace export"),
- *   cron = {"time" = 30}
+ *   cron = {"time" = 60}
  * )
  */
 class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPluginInterface {

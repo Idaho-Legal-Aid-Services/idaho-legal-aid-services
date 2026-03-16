@@ -19,13 +19,26 @@ status=passed
 exit_code=0
 
 ### `VC-PANTHEON-READONLY`
-command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y; done
-status=blocked
+config_command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y; done
+metrics_command=for ENV in dev test live; do terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$controller = \Drupal::service("class_resolver")->getInstanceFromDefinition(\Drupal\ilas_site_assistant\Controller\AssistantApiController::class); $response = $controller->metrics(); $data = json_decode($response->getContent(), true); echo json_encode(["has_metrics_cost_control" => isset($data["metrics"]["cost_control"]), "has_thresholds_cost_control" => isset($data["thresholds"]["cost_control"])], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;'; done
+status=passed
 exit_code=0
 env.dev.config.read=ok
 env.test.config.read=ok
 env.live.config.read=ok
-note=Hosted config is still pre-remediation, but the repo dependency gate remains locally closed because the blocking prerequisites are executable in CI.
+env.dev.per_ip_hourly_call_limit=10
+env.test.per_ip_hourly_call_limit=10
+env.live.per_ip_hourly_call_limit=10
+env.dev.per_ip_window_seconds=3600
+env.test.per_ip_window_seconds=3600
+env.live.per_ip_window_seconds=3600
+env.dev.metrics_cost_control=present
+env.test.metrics_cost_control=present
+env.live.metrics_cost_control=present
+env.dev.thresholds_cost_control=present
+env.test.thresholds_cost_control=present
+env.live.thresholds_cost_control=present
+note=Hosted config and metrics continuity are present on dev/test/live, so the dependency gate is backed by deployed proof as well as CI execution.
 
 ## Dependency prerequisite status
 dependency.cost-control-config=pass

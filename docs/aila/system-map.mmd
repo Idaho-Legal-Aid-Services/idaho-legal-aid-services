@@ -30,7 +30,9 @@ flowchart LR
     VX[Vertex AI]
     LF[Langfuse]
     SN[Sentry / Raven]
-    CI[External CI runner\nscripts/ci/run-external-quality-gate.sh]
+    NR[New Relic\nbrowser snippet + deploy markers\nsampled runtime inactive]
+    CI[GitHub Actions\nQuality Gate]
+    OR[GitHub Actions\nObservability Release\nworkflow_dispatch]
     PF[Promptfoo harness]
     GA[GA4/Google Tag]
   end
@@ -65,12 +67,14 @@ flowchart LR
   ALT --> STO
   OBS --> LF
   OBS --> SN
+  OBS -. runtime-secret gated .-> NR
   R --> STO
   PL --> STO
   RET --> STO
   GEN --> STO
 
-  CI -->|drives scripted quality gates| PF
+  CI -->|runs repo-owned gate policy| PF
+  OR -->|manual Sentry release + sourcemaps| SN
   PF -->|synthetic eval calls| R
 
 

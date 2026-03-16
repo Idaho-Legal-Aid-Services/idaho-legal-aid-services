@@ -2,11 +2,14 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
 use Drupal\ilas_site_assistant\EventSubscriber\CsrfDenialResponseSubscriber;
+use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -59,6 +62,11 @@ class CsrfDenialResponseSubscriberTest extends TestCase {
     $this->assertEquals('CSRF token required', $data['message']);
 
     $this->assertSecurityHeaders($response);
+    $request = $event->getRequest();
+    $this->assertSame(PerformanceMonitor::ENDPOINT_MESSAGE, $request->attributes->get(PerformanceMonitor::ATTRIBUTE_ENDPOINT));
+    $this->assertSame('message.csrf_missing', $request->attributes->get(PerformanceMonitor::ATTRIBUTE_OUTCOME));
+    $this->assertFalse((bool) $request->attributes->get(PerformanceMonitor::ATTRIBUTE_SUCCESS));
+    $this->assertTrue((bool) $request->attributes->get(PerformanceMonitor::ATTRIBUTE_DENIED));
   }
 
   /**
@@ -168,6 +176,60 @@ class CsrfDenialResponseSubscriberTest extends TestCase {
     $this->subscriber->onException($event);
 
     $this->assertNull($event->getResponse(), 'Response should NOT be set for non-403 exceptions');
+  }
+
+  /**
+   * Message CSRF denials are recorded as failed monitor outcomes.
+   */
+  public function testMessageCsrfDenialRecordsFailedOutcomeViaResponseSubscriber(): void {
+    $event = $this->createExceptionEvent('csrf_invalid');
+    $this->subscriber->onException($event);
+
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordObservedRequest')
+      ->with(
+        $this->greaterThanOrEqual(0.0),
+        FALSE,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        'message.csrf_invalid',
+        403,
+        TRUE,
+        FALSE,
+        'unknown',
+      );
+
+    $responseSubscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $kernel = $this->createMock(HttpKernelInterface::class);
+    $responseSubscriber->onResponse(new ResponseEvent(
+      $kernel,
+      $event->getRequest(),
+      HttpKernelInterface::MAIN_REQUEST,
+      $event->getResponse(),
+    ));
+  }
+
+  /**
+   * Non-message assistant 403 responses are not misclassified as message failures.
+   */
+  public function testNonMessageAssistant403DoesNotRecordPerformanceOutcome(): void {
+    $request = Request::create('/assistant/api/metrics', 'GET');
+    $exception = new AccessDeniedHttpException('Access denied');
+    $kernel = $this->createMock(HttpKernelInterface::class);
+    $event = new ExceptionEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $exception);
+
+    $this->subscriber->onException($event);
+
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->expects($this->never())->method('recordObservedRequest');
+
+    $responseSubscriber = new AssistantApiResponseMonitorSubscriber($monitor);
+    $responseSubscriber->onResponse(new ResponseEvent(
+      $kernel,
+      $request,
+      HttpKernelInterface::MAIN_REQUEST,
+      $event->getResponse(),
+    ));
   }
 
   /**

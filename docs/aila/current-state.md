@@ -10,20 +10,21 @@ Related files:
 
 ## 1) Executive snapshot
 
-Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant/api/*`. The backend pipeline is deterministic first (flood controls, validation, a shared pre-routing decision engine over safety/out-of-scope/policy checks, intent routing, retrieval), with optional LLM enhancement (Gemini or Vertex) behind config gates, and observability hooks for Drupal logs, analytics tables, Langfuse queue export, and optional Sentry capture.[^CLAIM-010][^CLAIM-011][^CLAIM-033][^CLAIM-038][^CLAIM-045][^CLAIM-069][^CLAIM-079][^CLAIM-083]
+Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant/api/*`. The backend pipeline is deterministic first (flood controls, validation, a shared pre-routing decision engine over safety/out-of-scope/policy checks, intent routing, retrieval), with optional LLM enhancement (Gemini or Vertex) behind config gates, and observability hooks for Drupal logs, analytics tables, internal health/metrics surfaces, Langfuse queue export, effective Sentry browser/PHP wiring, dormant New Relic paths, and repo-owned promptfoo/GitHub Actions quality gating.[^CLAIM-010][^CLAIM-011][^CLAIM-033][^CLAIM-038][^CLAIM-045][^CLAIM-069][^CLAIM-188][^CLAIM-189][^CLAIM-190][^CLAIM-191][^CLAIM-193]
 
 ### Audit metadata and context
 
 | Field | Current value | Evidence |
 |---|---|---|
-| Audit timestamp (UTC) | `2026-03-11T18:08:57Z` | [^CLAIM-001] |
-| Runtime addendum capture window (UTC) | `2026-02-26T19:19:30Z` to `2026-02-27T20:15:50Z` | [^CLAIM-108][^CLAIM-122][^CLAIM-123] |
-| Git branch | `master` | [^CLAIM-001] |
-| Git commit | `002acff8c2a5908bf99db199eb2358f2bc85cb90` | [^CLAIM-001] |
-| Worktree note | `Clean worktree at capture` | [^CLAIM-002] |
-| Local runtime status | Verified in DDEV: stack started, Drupal bootstrap succeeded, drush/runtime endpoint checks captured | [^CLAIM-108][^CLAIM-109][^CLAIM-111][^CLAIM-112] |
-| Environment context used | Local = code/config + runtime verification; Pantheon = direct Terminus `remote:drush` verification on dev/test/live + code/config | [^CLAIM-109][^CLAIM-115][^CLAIM-116][^CLAIM-117] |
-| Audit generation method | `rg`/file inspection + sanitized runtime artifacts under `docs/aila/runtime/` and `docs/aila/artifacts/`; no secret values captured | [^CLAIM-001][^CLAIM-108][^CLAIM-115][^CLAIM-122] |
+| Audit timestamp (UTC) | `2026-03-13T23:33:07Z` | [^CLAIM-187] |
+| Runtime addendum capture window (UTC) | `2026-03-13T22:46:15Z` to `2026-03-13T23:33:07Z` | [^CLAIM-188][^CLAIM-189][^CLAIM-190] |
+| TOVR-02 addendum timestamp (UTC) | `2026-03-16T16:55:34Z` | [^CLAIM-199] |
+| Git branch | `master` | [^CLAIM-187] |
+| Git commit | `6bc13fdd0d390930ed6c3572d4d3e4c7ecfe38d9` | [^CLAIM-187] |
+| Worktree note | `Dirty worktree at capture; TOVR-01 merged with pre-existing doc/runtime edits in place` | [^CLAIM-187] |
+| Local runtime status | Verified in DDEV on 2026-03-13: Drupal bootstrap succeeded, safe runtime booleans were rechecked, and `/assistant` rendered effective browser observability settings | [^CLAIM-189] |
+| Environment context used | Local = DDEV runtime + rendered `/assistant`; Pantheon = direct Terminus `remote:drush` verification on `dev`/`test`/`live` + rendered `/assistant`; GitHub = `gh run list` workflow history | [^CLAIM-188][^CLAIM-189][^CLAIM-190] |
+| Audit generation method | Current code/config inspection + sanitized runtime artifact `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt`; no secret values captured | [^CLAIM-187] |
 
 ### Enablement summary (local export vs Pantheon behavior)
 
@@ -33,12 +34,35 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 | Write-endpoint protection (`/assistant/api/message`, `/assistant/api/track`) | `/assistant/api/message` requires `_csrf_request_header_token` + `_ilas_strict_csrf_token` via `StrictCsrfRequestHeaderAccessCheck`; `/assistant/api/track` uses same-origin `Origin`/`Referer` as primary browser proof, recovery-only bootstrap-token fallback when both headers are missing, plus flood limits | Route and controller contracts match current code; message CSRF matrix and track hybrid-mitigation behavior are covered by functional tests | Message endpoint enforces strict CSRF. Track endpoint uses approved hybrid mitigation for low-impact telemetry writes. | [^CLAIM-012][^CLAIM-123] |
 | LLM enhancement | Disabled in exported active config (`llm.enabled: false`) | Verified disabled in dev/test/live active config (`llm.enabled: false`); live runtime override hard-disables `llm.enabled` in `settings.php` | Provider wiring supports Gemini/Vertex | [^CLAIM-069][^CLAIM-094][^CLAIM-099][^CLAIM-119] |
 | Vector retrieval supplement | Present in install defaults, disabled by default | Present in active config (`enabled=false`) with schema + export parity checks enforced | Admin form persists values; schema/export parity is enforced by contract tests | [^CLAIM-093][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
-| Langfuse tracing/export | Present but disabled by default | `langfuse.settings` config not present in dev/test/live; `ilas_langfuse_export` queue exists with `0` items in sampled runtime | Queue-based export on terminate/cron when enabled/configured | [^CLAIM-079][^CLAIM-082][^CLAIM-118][^CLAIM-120] |
-| Sentry integration | Conditional on secret injection | `raven.settings` config not present in dev/test/live sampled runtime | PII send disabled and payload redaction subscriber active when integration is configured | [^CLAIM-083][^CLAIM-120] |
-| GA4 tag and live rate-limit override | Not applied outside `live` env branch | Applied in `PANTHEON_ENVIRONMENT=live` branch | Sets `google_tag_id` and per-IP limits | [^CLAIM-099] |
-| Promptfoo harness | Repo-local npm scripts + provider | Pantheon target can be used via URL env var | Enforced external CI gate scripts remain in-repo (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) and first-party workflow (`.github/workflows/quality-gate.yml`) is now the canonical mandatory gate path for blocking branches | [^CLAIM-086][^CLAIM-122] |
+| Langfuse tracing/export | Install/export defaults remain disabled, but the 2026-03-16 safe runtime check still showed `langfuse.enabled=true` plus both keys present | Safe runtime check still showed `langfuse.enabled=true` and Langfuse keys present in `dev`/`test`/`live` effective config | Direct 2026-03-16 probes returned HTTP `207` in `local`/`dev`/`test`/`live`; queued probe validation is currently blocked by a probe-command payload mismatch, not by missing runtime enablement | [^CLAIM-079][^CLAIM-082][^CLAIM-189][^CLAIM-190][^CLAIM-202] |
+| Sentry integration | Effective runtime config showed `raven.settings.client_key` present and `/assistant` rendered browser Sentry config with `browserEnabled=true` | Same runtime/browser result in `dev`/`test`/`live`; live hides the report dialog while keeping browser tracing/replay config | Fresh 2026-03-16 probes emitted event IDs in all sampled environments; current alert-routing and source-map usefulness proof remains blocked by missing Sentry account-side access and absent release-workflow history | [^CLAIM-083][^CLAIM-189][^CLAIM-190][^CLAIM-192][^CLAIM-201] |
+| New Relic browser/change-tracking | Runtime-secret path exists, but sampled local runtime still rendered `newRelic.browserEnabled=false` and no browser snippet | Sampled `dev`/`test`/`live` pages also rendered `newRelic.browserEnabled=false`; Pantheon secret presence is proven, but recent `test`/`live` deploy logs show the change-tracking path is invalid | Browser RUM is dormant in sampled runtimes; change tracking is currently unproven and partially broken | [^CLAIM-193][^CLAIM-194][^CLAIM-203] |
+| GA4 tag and live rate-limit override | No GA loader or `dataLayer` bootstrap rendered in sampled local HTML | No GA loader detected in sampled `dev`/`test`; `live` rendered `googletagmanager`, `window.dataLayer`, and `gtag()` bootstrap | `settings.php` still scopes `google_tag_id` to `live` | [^CLAIM-099][^CLAIM-190] |
+| Promptfoo harness | Repo-local npm scripts + provider remain in use, and the first-party `Quality Gate` workflow had recent completed runs on 2026-03-13 | Pantheon target can be used via URL env var; representative job logs now resolve the event split | PRs currently run real promptfoo evals in advisory mode, while protected-branch pushes run simulated config-parity mode in blocking status | [^CLAIM-188][^CLAIM-191][^CLAIM-200] |
+| Observability Release automation | Workflow and Sentry CLI script exist in repo | `gh run list` still returned no recorded `observability-release.yml` runs as of 2026-03-16 | Manual-only (`workflow_dispatch`) and still unproven in execution history | [^CLAIM-188][^CLAIM-192][^CLAIM-199] |
+| Pinecone secret wiring | Safe runtime check showed Pinecone key present in local effective config | Safe runtime check showed Pinecone key present in `dev`/`test`/`live` effective config while `vector_search.enabled=false` | Secret wiring is active even though vector retrieval remains disabled | [^CLAIM-068][^CLAIM-189][^CLAIM-190] |
 
 Pantheon `config:status` sample results: `dev` and `test` reported no DB/sync differences; `live` reported one `core.entity_view_display.node.adept_lesson.teaser` difference.[^CLAIM-116]
+
+### Tooling truth baseline inventory (TOVR-01, 2026-03-13)
+
+| Tool | Category | Status | Purpose | Environments | Evidence | Confidence | Missing proof |
+|---|---|---|---|---|---|---|---|
+| Quality Gate workflow | CI/CD | `confirmed active` | Run required PHPUnit, widget-hardening, and promptfoo gate jobs | GitHub Actions (`pull_request`, `push`, `workflow_dispatch`) | Workflow file plus completed runs on 2026-03-13 | `high` | None for workflow activity baseline | [^CLAIM-188][^CLAIM-191] |
+| Promptfoo gate behavior | Evaluation / release gating | `confirmed partial` | Synthetic assistant eval gate and policy enforcement | GitHub Actions + operator-run local/Pantheon targeting | Workflow and script prove branch-aware behavior; recent workflow runs prove the job is active | `medium` | Job-log proof of real eval execution on PRs with `ILAS_ASSISTANT_URL`; deploy-bound real eval on protected-branch pushes | [^CLAIM-188][^CLAIM-191] |
+| Observability Release workflow | CI/CD observability | `configured but not proven active` | Manual Sentry release/source-map preparation | GitHub Actions `workflow_dispatch` | Workflow exists, but `gh run list` returned zero recorded runs on 2026-03-13 | `high` | Successful workflow run or Sentry release/source-map artifact | [^CLAIM-188][^CLAIM-192] |
+| Sentry runtime capture | Observability | `confirmed partial` | Browser/PHP error capture with runtime tags and redaction | `local`, `dev`, `test`, `live` | Safe runtime checks plus rendered `/assistant` page show effective Sentry config and browser enablement | `high` | Probe event visible in Sentry, alert-route proof, source-map usefulness proof | [^CLAIM-189][^CLAIM-190][^CLAIM-192] |
+| Sentry release/source-map automation | Observability release | `configured but not proven active` | Publish release metadata and theme source maps | GitHub Actions manual path | `observability-release.yml` and `sentry-release.sh` exist | `high` | Successful release preparation run and Sentry-side release/source-map evidence | [^CLAIM-192] |
+| Langfuse runtime export | Observability | `confirmed partial` | Queue-backed trace/span/event export | `local`, `dev`, `test`, `live` | Safe runtime booleans show enabled effective config; queue worker, terminate subscriber, and probe paths exist | `high` | Direct or queued trace visible in Langfuse UI/API | [^CLAIM-189][^CLAIM-190] |
+| New Relic browser snippet | Observability | `stale/dead/incomplete` | Optional browser RUM snippet injection | `local`, `dev`, `test`, `live` sampled inactive | Runtime-secret path exists, but sampled pages rendered `newRelic.browserEnabled=false` everywhere | `high` | Sampled runtime with snippet active or explicit retirement decision | [^CLAIM-189][^CLAIM-190][^CLAIM-193] |
+| New Relic change tracking | Observability release | `configured but not proven active` | Send deploy markers from Pantheon Quicksilver | Pantheon deploy path | `pantheon.yml` hook and GraphQL script exist | `medium` | New Relic deployment marker or entity-side proof | [^CLAIM-193] |
+| GA4 / `dataLayer` | Analytics | `confirmed active` | Live analytics bootstrap and widget event pushes | `live` active; sampled `local`/`dev`/`test` inactive | Live HTML rendered `googletagmanager`, `window.dataLayer`, and `gtag()`; widget JS pushes events | `high` | None for live-only activation baseline | [^CLAIM-027][^CLAIM-190] |
+| Pinecone secret wiring | Retrieval infrastructure | `confirmed active` | Inject Pinecone API key into effective runtime config | `local`, `dev`, `test`, `live` | Safe runtime checks showed `pinecone_key_present=true` in all sampled environments | `high` | None for secret-presence baseline | [^CLAIM-068][^CLAIM-189][^CLAIM-190] |
+| Search API vector indexes | Retrieval infrastructure | `installed but not used` | Provide optional Pinecone-backed FAQ/resource vector indexes | Repo config present; runtime `vector_search.enabled=false` | Vector server/index configs exist, but runtime checks still show vector retrieval disabled | `high` | Search API status/query proof if enablement becomes in-scope | [^CLAIM-066][^CLAIM-067][^CLAIM-189][^CLAIM-190] |
+| DDEV New Relic local scaffold | Local-only tooling | `stale/dead/incomplete` | Optional local PHP agent overlay | Local example only | Example overlay and Dockerfile require manual copy/opt-in before use | `high` | Actual `.ddev/config.newrelic.yaml` overlay plus rebuilt local container | [^CLAIM-194] |
+| Internal Drupal telemetry surfaces | Internal observability | `confirmed partial` | Health/metrics/admin reporting, queue, cron, and SLO telemetry | Drupal runtime; some surfaces are auth-gated | Routes/services are implemented, but TOVR-01 did not execute authenticated health/metrics or admin report flows | `medium` | Authenticated runtime checks and operator-use evidence | [^CLAIM-011][^CLAIM-020][^CLAIM-084] |
+
+TOVR-02 (2026-03-16) resolved the promptfoo mode split and the secret/override source-of-truth question, proved direct Langfuse ingestion, refreshed Sentry probe evidence, and narrowed the remaining blocked surfaces to Sentry account-side alert/source-map proof, the Langfuse queued probe contract, New Relic execution proof, and long-run cron/queue observation.[^CLAIM-199][^CLAIM-200][^CLAIM-201][^CLAIM-202][^CLAIM-203][^CLAIM-204][^CLAIM-205]
 
 Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043][^CLAIM-045]
 
@@ -227,11 +251,12 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Spec item | Current state |
 |---|---|
 | Logging channels | Module-specific logger channel plus analytics logging service for event/no-answer records.[^CLAIM-020][^CLAIM-085] |
-| Sentry status | Sentry integration is conditional; options subscriber enforces `send_default_pii=false` and payload redaction before send.[^CLAIM-083][^CLAIM-098] |
-| Langfuse status | Langfuse requires config + credentials; traces capture spans/events/generations and export via terminate subscriber + queue worker.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082] |
-| Runtime monitoring | `PerformanceMonitor` records rolling latency/error metrics and exposes p95/p99/error/availability values with SLO-backed thresholds via `/assistant/api/health` and `/assistant/api/metrics`.[^CLAIM-084][^CLAIM-051] |
+| Sentry status | Effective runtime Sentry wiring is present in sampled `local`/`dev`/`test`/`live`: safe runtime checks showed a client key, rendered `/assistant` pages exposed browser Sentry config with environment/release tags, and fresh 2026-03-16 probe runs emitted event IDs in all four sampled environments. Operational usefulness remains unproven overall because current Sentry API/UI access, alert routing, and release/source-map evidence are still missing.[^CLAIM-083][^CLAIM-189][^CLAIM-190][^CLAIM-192][^CLAIM-201] |
+| Langfuse status | Effective runtime Langfuse enablement is present in sampled `local`/`dev`/`test`/`live`; direct 2026-03-16 probes returned HTTP `207` in all sampled environments, which is current ingestion proof. The remaining gap is queued-export validation: the queued probe command currently enqueues the wrong shape, while the normal terminate subscriber path still uses the worker's expected queue contract.[^CLAIM-079][^CLAIM-080][^CLAIM-081][^CLAIM-082][^CLAIM-189][^CLAIM-190][^CLAIM-202] |
+| Runtime monitoring | `PerformanceMonitor` now records one classified final-response outcome for `/assistant/api/message`, `/assistant/api/track`, `/assistant/api/suggest`, and `/assistant/api/faq`, including `/assistant/api/message` CSRF `403` denials; `/assistant/api/health` and the top-level `/assistant/api/metrics` rollup remain pinned to `/assistant/api/message`, while additive `all_endpoints`, `by_endpoint`, and `by_outcome` breakdowns expose denied/degraded behavior without diluting chat SLOs.[^CLAIM-084][^CLAIM-051] |
 | SLO policy + alerts | `SloDefinitions` + `SloAlertService` define/enforce availability, latency, error-rate, cron freshness, and queue depth/age SLOs with cooldowned structured warning alerts from cron.[^CLAIM-084][^CLAIM-121] |
-| Promptfoo + quality gate harness | Existing test assets are enforced via repo scripts: `tests/run-quality-gate.sh` (unit + deterministic classifier Drupal-unit + golden transcript) and external runner gates (`scripts/ci/run-external-quality-gate.sh`, `scripts/ci/run-promptfoo-gate.sh`) with branch-aware blocking for `master`/`main`/`release/*` and advisory behavior elsewhere. Blocking mode retains deep multi-turn coverage (`promptfooconfig.deep.yaml`) and advisory mode retains abuse/safety coverage (`promptfooconfig.abuse.yaml`), while dataset assertions cover RAG/response-correctness families including topical coherence, caveat/escalation behavior, injection-resistance checks, retrieval confidence/refusal threshold metrics (`rag-contract-meta-present`, `rag-citation-coverage`, `rag-low-confidence-refusal`), calibrated weak-grounding/escalation/safety-boundary scenario coverage (`p2del04-contract-meta-present`, `p2del04-weak-grounding-handling`, `p2del04-escalation-routing`, `p2del04-escalation-actionability`, `p2del04-safety-boundary-routing`, `p2del04-boundary-dampening`, `p2del04-boundary-urgent-routing`) across 60 Sprint 5 scenarios (20 per family), and a focused multilingual live routing slice in the deep suite. Offline multilingual routing/helpfulness proof is now authoritative through `MultilingualRoutingEvalRunner` + `MultilingualRoutingEvalTest`, so promptfoo complements rather than replaces deterministic coverage. Harness integrity controls now additionally enforce multiline JS assertion return linting, deterministic per-run eval conversation salting via `ILAS_EVAL_RUN_ID`, and failure adjudication artifact generation without relaxing the 90% blocking threshold. [^CLAIM-086][^CLAIM-105][^CLAIM-122][^CLAIM-132][^CLAIM-135][^CLAIM-137][^CLAIM-144][^CLAIM-150] |
+| Promptfoo + quality gate harness | The repo now has an active first-party `Quality Gate` workflow, and TOVR-02 resolved the exact branch/event behavior from job logs: representative PRs run real promptfoo evals in advisory mode, while representative protected-branch pushes run simulated config-parity mode in blocking status. The remaining decision is policy, not behavior uncertainty.[^CLAIM-086][^CLAIM-188][^CLAIM-191][^CLAIM-200] |
+| New Relic status | Browser-snippet and deploy-marker paths remain in the repo, and Pantheon secret presence is proven, but sampled `local`/`dev`/`test`/`live` pages still did not enable the browser snippet, `terminus new-relic:info` returned empty fields, and recent `test`/`live` deploy logs showed the change-tracking path is invalid.[^CLAIM-193][^CLAIM-194][^CLAIM-203] |
 | Redaction posture | Sentry subscriber and analytics/conversation log codepaths apply redaction/truncation before persistence/export.[^CLAIM-053][^CLAIM-083][^CLAIM-085] |
 
 ### G) Cron/queues/background processes
@@ -281,10 +306,19 @@ Values below are taken from install defaults, exported active config, and settin
 | Vector supplement | `vector_search.*` | Present, `enabled=false` | Present, `enabled=false` (synced) | Matches install defaults | Schema coverage complete; form persists keys | [^CLAIM-061][^CLAIM-093][^CLAIM-094][^CLAIM-095][^CLAIM-096][^CLAIM-124] |
 | History fallback | `history_fallback.*` | Present, `enabled=true` | Present, `enabled=true` (synced) | Matches install defaults | Supports multi-turn routing continuity | [^CLAIM-042][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
 | Safety alerting | `safety_alerting.*` | Present, `enabled=false` | Present, `enabled=false` (synced) | Matches install defaults | Cron checks threshold/cooldown; sends email | [^CLAIM-090][^CLAIM-093][^CLAIM-094][^CLAIM-124] |
-| Langfuse enablement | `langfuse.enabled` | `false` | `false` (synced) | Requires active config + `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` | Queue depth/age/timeout keys in config path | [^CLAIM-079][^CLAIM-082][^CLAIM-093][^CLAIM-094][^CLAIM-098][^CLAIM-124] |
-| Sentry enablement | `SENTRY_DSN` -> `raven.settings.*` | N/A | N/A | `raven.settings` config not present on sampled dev/test/live runtime | Subscriber redacts payload and suppresses default PII when integration is configured | [^CLAIM-083][^CLAIM-098][^CLAIM-120] |
-| GA4 tag | `google_tag_id` | N/A | N/A | Set only when `PANTHEON_ENVIRONMENT=live` | Also see client `dataLayer` push behavior | [^CLAIM-027][^CLAIM-099] |
+| Langfuse enablement | `langfuse.enabled` | `false` | `false` (synced) | Effective runtime was `true` in sampled `local`/`dev`/`test`/`live` because `settings.php` injected keys/enablement | Queue depth/age/timeout keys remain in config path; account-side ingestion still unproven | [^CLAIM-079][^CLAIM-082][^CLAIM-098][^CLAIM-189][^CLAIM-190] |
+| Sentry enablement | `SENTRY_DSN` / `SENTRY_BROWSER_DSN` -> `raven.settings.*` | N/A | N/A | Effective runtime client key was present in sampled `local`/`dev`/`test`/`live`, and `/assistant` rendered browser Sentry config in all four environments | `config:get raven.settings` may still look absent because runtime overrides are the real source of truth | [^CLAIM-083][^CLAIM-098][^CLAIM-189][^CLAIM-190] |
+| New Relic browser snippet | `NEW_RELIC_BROWSER_SNIPPET` | N/A | N/A | Sampled `local`/`dev`/`test`/`live` pages all rendered `newRelic.browserEnabled=false` | Theme injection stays runtime-secret-driven and dormant until a real snippet is supplied | [^CLAIM-193][^CLAIM-194] |
+| GA4 tag | `google_tag_id` | N/A | N/A | No GA loader was detected in sampled `local`/`dev`/`test`; `live` rendered the GA loader plus `window.dataLayer` and `gtag()` bootstrap | Still scoped to `PANTHEON_ENVIRONMENT=live` | [^CLAIM-027][^CLAIM-099][^CLAIM-190] |
 | Promptfoo target URL | `ILAS_ASSISTANT_URL` | N/A | N/A | Can point to Pantheon URL for eval runs | Repo scripts provide live/manual execution | [^CLAIM-086][^CLAIM-107] |
+
+### TOVR-02 secret and override source-of-truth (2026-03-16)
+
+| Surface | Local source of truth | Pantheon source of truth | Current observed state | Evidence |
+|---|---|---|---|---|
+| Secret resolution helper | `_ilas_get_secret()` falls back to `getenv()` | `_ilas_get_secret()` prefers `pantheon_get_secret()` | Same helper, different backing store by environment | [^CLAIM-204] |
+| Include order | `settings.ddev.php` is included before `settings.local.php`, and `settings.local.php` remains last-in override locally | Pantheon uses `settings.php` runtime secret path; the local-only include chain does not apply | Local override precedence is explicit and repo-proven | [^CLAIM-204] |
+| Observability secret presence | Presence-only checks showed `SENTRY_DSN`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `ILAS_PINECONE_API_KEY` present locally, while New Relic-related values were absent locally | Presence-only checks showed Sentry, Langfuse, New Relic, and Pinecone secret names present on `dev`/`test`/`live` | Secret values were not printed; proof is presence-only | [^CLAIM-204] |
 
 ## 6) Security & privacy posture (current state)
 
@@ -330,12 +364,16 @@ Critical command groups documented there:
 - Safe log/trace capture with secret/PII redaction rules and synthetic examples only.[^CLAIM-053][^CLAIM-083][^CLAIM-122]
 - Owner-role assignments for Phase 0 entry criterion #2 are documented in runbook §1 and mirrored in the roadmap owner matrix for CSRF hardening and policy governance workstreams.[^CLAIM-013]
 
-## 8) Known unknowns
+## 8) Known unknowns and TOVR-02 disposition
 
-| Unknown | Why unknown now | Evidence needed to resolve |
-|---|---|---|
-| Long-run cron cadence and queue drain timing under load | Cron samples and `system.cron_last` snapshots were captured, but no continuous observation window or non-zero queue backlog was captured in this addendum | Time-series cron observations + queue depth/throughput metrics over a sustained interval | [^CLAIM-114][^CLAIM-117][^CLAIM-118][^CLAIM-121] |
-| ~~Promptfoo CI ownership outside this repository~~ **RESOLVED** | First-party GitHub Actions workflow (`.github/workflows/quality-gate.yml`) now exists with branch protection required status checks (`PHPUnit Quality Gate` + `Promptfoo Gate`) on `master`. `enforce_admins: true` prevents bypass. Concurrency control prevents stale-run races. CI quality gate is mandatory for merge/release path. | [^CLAIM-122] |
+| Unknown | TOVR-02 status | Current evidence | Exact blocker / next step | Evidence |
+|---|---|---|---|---|
+| Sentry operational usefulness beyond runtime wiring | `unproven` | Fresh 2026-03-16 `ilas:sentry-probe` runs emitted event IDs in `local`, `dev`, `test`, and `live`; historical PHARD-01 still proves earlier event capture/redaction. | Current shell has no `SENTRY_AUTH_TOKEN`, PHARD-01 alert/ownership sections still contain placeholders, and `observability-release.yml` still has no recorded run history. Next step: re-run with Sentry API/UI access and record alert-rule plus source-map proof. | [^CLAIM-201] |
+| Langfuse ingestion and queue-export success | `partial` | Direct 2026-03-16 probes returned HTTP `207` in `local`, `dev`, `test`, and `live`, which is current direct ingestion proof. | Queued probe validation is currently blocked because the Drush probe enqueues `payload` while the worker expects top-level `batch`; either fix the probe contract or validate queue export via the normal terminate subscriber path plus trace lookup. | [^CLAIM-202] |
+| New Relic entity activity and browser-snippet value | `unproven` | Pantheon secret presence is proven, but sampled `local`/`dev`/`test`/`live` pages still rendered `newRelic.browserEnabled=false`, `terminus new-relic:info` returned empty fields, and recent `test`/`live` deploy logs showed `scripts/quicksilver/new-relic-change-tracking.php is not a valid path.` | Need an actually enabled browser snippet or explicit retirement decision, plus a working change-tracking execution path and entity-side proof in New Relic. | [^CLAIM-203] |
+| Promptfoo deploy-bound gate fidelity | `resolved` | Representative PR run `23073828461` logged a real promptfoo eval in advisory mode; representative protected-branch push run `23074118125` logged simulated config-parity mode in blocking status. | None for the behavior question. Remaining work is a policy choice on whether protected-branch pushes should keep simulated mode or require live evals. | [^CLAIM-200] |
+| Secret and override source-of-truth across local and Pantheon | `resolved` | `settings.php` resolves secrets through `_ilas_get_secret()`, local include order remains `settings.ddev.php` then `settings.local.php`, and presence-only checks proved different local vs Pantheon backing stores without exposing values. | None for the current proof baseline. | [^CLAIM-204] |
+| Long-run cron cadence and queue drain timing under load | `unproven` | 2026-03-16 spot checks captured `system.cron_last` and `ilas_langfuse_export` queue depth across `dev`/`test`/`live`, and each sampled queue depth was `0`. | No sustained observation window or non-zero backlog was captured. Next step: collect time-series cron/queue metrics over a longer interval or controlled load run. | [^CLAIM-205] |
 
 ### Phase 2 Objective #3 Source Freshness + Provenance Governance Disposition (2026-03-03)
 
@@ -881,10 +919,10 @@ This dated addendum records re-audit remediation `RAUD-11` for findings
    `message_length_bucket`, and `redaction_profile` per turn instead of any
    message body.
 3. Telemetry and watchdog surfaces no longer emit free-text snippets:
-   Langfuse generation input/output now uses hash/bucket payloads,
-   controller/finder/vector logs use query hashes plus keyword counts, and
-   exception telemetry uses `error_signature` instead of raw exception
-   messages.
+   Langfuse trace/generation input and trace output now use hash/bucket or
+   safe scalar summary payloads, controller/finder/vector logs use query hashes
+   plus keyword counts, and exception telemetry uses `error_signature` instead
+   of raw exception messages.
 4. Local verification is captured in
    `docs/aila/runtime/raud-11-log-surface-minimization.txt`. Targeted unit and
    quality-gate runs passed on March 10, 2026, and targeted kernel verification
@@ -1563,9 +1601,10 @@ product/platform owners."
    `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`.[^CLAIM-154]
 4. Governance linkage remains active for `IMP-COST-01` and `R-PERF-01`, now
    carrying explicit `P3-EXT-02` owner-acceptance/runtime-marker continuity in
-   backlog/risk artifacts with no change to risk posture. Deployment remains pending
-   until Pantheon read-only checks reflect the new per-IP keys and
-   `metrics.cost_control` payload.[^CLAIM-154]
+   backlog/risk artifacts with no change to risk posture. Pantheon read-only
+   verification passed on 2026-03-13 across `dev`/`test`/`live`, confirming the
+   deployed per-IP keys and `metrics.cost_control` / `thresholds.cost_control`
+   payload.[^CLAIM-154]
 5. Scope boundaries remain unchanged: no net-new assistant channels or
    third-party model expansion beyond audited providers, and no platform-wide
    refactor of unrelated Drupal subsystems. Residual `B-04` remains open and
@@ -1705,10 +1744,12 @@ operationalization proof infrastructure.
 
 1. `ilas:langfuse-probe` Drush command implemented with both `--direct` POST
    and queue-enqueue modes, producing deterministic PII-free synthetic traces
-   matching the `LangfuseTracer::getTracePayload()` format.[^CLAIM-178]
+   matching the `LangfuseTracer::getTracePayload()` format, including visible
+   non-null trace-level input/output summaries.[^CLAIM-178]
 2. `LangfusePayloadContract` constants class locks the approved Langfuse
-   payload shape: 5 approved event types, required body keys per event type,
-   SDK name/version, and required metadata keys.[^CLAIM-180]
+   payload shape: finalized `trace-create` plus emitted span/generation/event
+   creates, required body keys per event type, SDK name/version, and required
+   metadata keys.[^CLAIM-180]
 3. Evidence artifact created at
    `docs/aila/runtime/phard-02-langfuse-operationalization.txt` with all 10
    required sections (pre-edit state, synthetic probe, payload shape,
@@ -1722,9 +1763,51 @@ operationalization proof infrastructure.
    sampling policy, queue SLO alert route, and Drush registration.[^CLAIM-179][^CLAIM-180][^CLAIM-181][^CLAIM-182]
 6. Runbook PHARD-02 verification section added with VC-LANGFUSE-LIVE commands,
    probe commands, and contract test execution instructions.
-7. Scope boundaries remain unchanged: no changes to core LangfuseTracer,
-   LangfuseTerminateSubscriber, or LangfuseExportWorker; live sampling stays
-   at 0.1; `llm.enabled=false` on all environments.
+7. Trace serialization now buffers request state until `endTrace()` and emits a
+   single final `trace-create` event with privacy-safe input/output summaries
+   instead of relying on `trace-update`; live sampling stays at 0.1; and
+   `llm.enabled=false` on all environments.
+
+---
+
+## RAUD-28 Audit Closure Addendum (2026-03-14)
+
+**Date:** 2026-03-14
+**Branch:** `master`
+**Closure memo:** [`docs/aila/runtime/raud-28-audit-closure-memo.md`](runtime/raud-28-audit-closure-memo.md)
+
+### Sweep results (VC-AUDIT-FULL-SWEEP)
+
+| Verification class | Result |
+|---|---|
+| VC-PURE | 2170/2170 PASS |
+| VC-DRUPAL-UNIT | 581/581 PASS |
+| VC-QUALITY-GATE | All phases PASS |
+| VC-WIDGET-HARDENING | 164/164 PASS |
+| VC-PROMPTFOO-PACED | 408/409 (99.75%) PASS |
+| VC-PANTHEON-READONLY | dev/test/live healthy |
+
+### Findings disposition
+
+| Status | Count |
+|---|---|
+| Fixed | 60 |
+| Partially Fixed | 1 |
+| Unverified (deploy pending) | 0 |
+| Open | 1 |
+| N/A | 13 |
+| **Total** | **75** |
+
+- Both P0 stop-ships fixed: F-01 (exception boundary), F-02 (prompt truncation).
+- All 4 CRITICAL findings (C1-C4) fixed.
+- 18/27 RAUDs executed with evidence files; 6 of the 9 un-executed RAUDs were independently mitigated by other work.
+- Reverification on 2026-03-13 promoted 8 findings to Fixed, 1 to N/A; only OBS-3 (Partially Fixed) and NF-03 (Open) remain.
+
+### Remaining backlog
+
+Only 2 findings remain non-Fixed:
+- **OBS-3** (Partially Fixed): Queue item TTL auto-purge missing; age monitoring exists but stale items not auto-dropped.
+- **NF-03** (Open): Doc-anchor gate tests assert string presence in docs, not code behavior.
 
 ---
 
@@ -1893,3 +1976,22 @@ operationalization proof infrastructure.
 [^CLAIM-183]: [CLAIM-183](evidence-index.md#claim-183)
 [^CLAIM-185]: [CLAIM-185](evidence-index.md#claim-185)
 [^CLAIM-186]: [CLAIM-186](evidence-index.md#claim-186)
+[^CLAIM-187]: [CLAIM-187](evidence-index.md#claim-187)
+[^CLAIM-188]: [CLAIM-188](evidence-index.md#claim-188)
+[^CLAIM-189]: [CLAIM-189](evidence-index.md#claim-189)
+[^CLAIM-190]: [CLAIM-190](evidence-index.md#claim-190)
+[^CLAIM-191]: [CLAIM-191](evidence-index.md#claim-191)
+[^CLAIM-192]: [CLAIM-192](evidence-index.md#claim-192)
+[^CLAIM-193]: [CLAIM-193](evidence-index.md#claim-193)
+[^CLAIM-194]: [CLAIM-194](evidence-index.md#claim-194)
+[^CLAIM-195]: [CLAIM-195](evidence-index.md#claim-195)
+[^CLAIM-196]: [CLAIM-196](evidence-index.md#claim-196)
+[^CLAIM-197]: [CLAIM-197](evidence-index.md#claim-197)
+[^CLAIM-198]: [CLAIM-198](evidence-index.md#claim-198)
+[^CLAIM-199]: [CLAIM-199](evidence-index.md#claim-199)
+[^CLAIM-200]: [CLAIM-200](evidence-index.md#claim-200)
+[^CLAIM-201]: [CLAIM-201](evidence-index.md#claim-201)
+[^CLAIM-202]: [CLAIM-202](evidence-index.md#claim-202)
+[^CLAIM-203]: [CLAIM-203](evidence-index.md#claim-203)
+[^CLAIM-204]: [CLAIM-204](evidence-index.md#claim-204)
+[^CLAIM-205]: [CLAIM-205](evidence-index.md#claim-205)

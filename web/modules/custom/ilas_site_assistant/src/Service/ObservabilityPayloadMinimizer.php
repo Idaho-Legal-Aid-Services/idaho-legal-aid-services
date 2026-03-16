@@ -75,6 +75,32 @@ final class ObservabilityPayloadMinimizer {
   }
 
   /**
+   * Serializes safe scalar fields into a deterministic summary string.
+   */
+  public static function summarizeScalarMap(array $values): string {
+    if ($values === []) {
+      return '';
+    }
+
+    $pairs = [];
+    ksort($values);
+    foreach ($values as $key => $value) {
+      if (!is_string($key) || $key === '') {
+        continue;
+      }
+
+      $normalized = self::normalizeSummaryValue($value);
+      if ($normalized === NULL) {
+        continue;
+      }
+
+      $pairs[] = $key . '=' . $normalized;
+    }
+
+    return implode(',', $pairs);
+  }
+
+  /**
    * Normalizes analytics event values to a minimized contract.
    *
    * @param string $eventType
@@ -254,6 +280,34 @@ final class ObservabilityPayloadMinimizer {
     }
 
     return self::normalizeControlledToken($trimmed);
+  }
+
+  /**
+   * Normalizes safe scalar display values for Langfuse summaries.
+   */
+  private static function normalizeSummaryValue(mixed $value): ?string {
+    if ($value === NULL) {
+      return 'none';
+    }
+
+    if (is_bool($value)) {
+      return $value ? 'true' : 'false';
+    }
+
+    if (is_int($value) || is_float($value)) {
+      return (string) $value;
+    }
+
+    if (!is_string($value)) {
+      return NULL;
+    }
+
+    $normalized = preg_replace('/\s+/', '_', trim($value));
+    if (!is_string($normalized) || $normalized === '') {
+      return 'none';
+    }
+
+    return mb_substr($normalized, 0, 255);
   }
 
   /**

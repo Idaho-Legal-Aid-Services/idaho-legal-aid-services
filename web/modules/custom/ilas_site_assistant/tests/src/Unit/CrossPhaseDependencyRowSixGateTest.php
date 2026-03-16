@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant_docs')]
 final class CrossPhaseDependencyRowSixGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -187,8 +189,7 @@ final class CrossPhaseDependencyRowSixGateTest extends TestCase {
     $this->assertStringContainsString('testRuntimeArtifactContainsObjectiveTwoProofMarkers', $phaseThreeObjectiveTwoGate);
     $this->assertStringContainsString('testRuntimeArtifactContainsPhaseThreeExitTwoProofMarkers', $phaseThreeExitTwoGate);
 
-    $this->assertStringContainsString('OBS[Observability', $systemMap);
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap, requireObservability: TRUE);
   }
 
 }

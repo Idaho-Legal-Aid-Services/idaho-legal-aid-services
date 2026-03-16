@@ -126,6 +126,23 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
   }
 
   /**
+   * Tests deterministic scalar-map summaries for Langfuse-safe displays.
+   */
+  public function testSummarizeScalarMapSortsAndNormalizesValues(): void {
+    $summary = ObservabilityPayloadMinimizer::summarizeScalarMap([
+      'decision' => 'needs review',
+      'confidence' => 0.8,
+      'reason_code' => NULL,
+      'allowed' => TRUE,
+    ]);
+
+    $this->assertSame(
+      'allowed=true,confidence=0.8,decision=needs_review,reason_code=none',
+      $summary,
+    );
+  }
+
+  /**
    * Tests keyword counting across strings and arrays.
    */
   public function testKeywordCountHandlesStringsAndArrays(): void {

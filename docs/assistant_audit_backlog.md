@@ -10,10 +10,12 @@
 
 | Ticket | Audit ID | Verified? | Summary | Evidence | Constraints | Target |
 |--------|----------|-----------|---------|----------|-------------|--------|
-| OBS-1 | L-1 | **YES** | `endTrace()` emits `trace-create` instead of `trace-update`, creating duplicate traces | `LangfuseTracer.php:455` — `'type' => 'trace-create'` but `startTrace()` at line 197 already emits `trace-create`. Comment at line 446 says "trace-update". | None | dev |
-| OBS-2 | L-2 / F-3 | **YES** | Langfuse queue has no size cap — unbounded growth during outage | `LangfuseTerminateSubscriber.php:69` — `$queue->createItem($payload)` with no `numberOfItems()` check. `LangfuseExportWorker.php:163` — `SuspendQueueException` retries indefinitely. | None | dev |
-| OBS-3 | L-3 | **YES** | No queue item TTL — stale traces exported after outage recovery | Payload in `LangfuseTerminateSubscriber.php:63-69` has no `enqueued_at` timestamp. Worker at `LangfuseExportWorker.php:80-171` has no age check. | None | stage |
-| OBS-4 | — | **YES (new)** | Sentry not integrated — no error tracking or performance monitoring | No `sentry` references in `composer.json` or `settings.php`. | Sentry free tier: 5k errors/month. | stage |
+| OBS-1 | L-1 | **SUPERSEDED** | Older audit expected a split `trace-create` / `trace-update` contract. Current Langfuse trace serialization now buffers request state and emits one finalized `trace-create` with privacy-safe input/output summaries, matching the published ingestion shape used by this repo. | `LangfuseTracer.php`, `AssistantApiController.php`, `LangfusePayloadContract.php` | Historical audit note only; do not reintroduce `trace-update` without re-verifying the published Langfuse ingestion contract. | dev |
+| OBS-2 | L-2 / F-3 | **NO — DISPROVED (runtime changed)** | Normal Langfuse queue enqueue now enforces a max-depth guard before creating queue items. | `LangfuseTerminateSubscriber.php:98-109` — reads `langfuse.max_queue_depth`, checks `numberOfItems()`, and drops when full. | The current open Langfuse issue is the queued probe command's payload-shape mismatch, not missing max-depth enforcement in the normal runtime path. | N/A |
+| OBS-3 | L-3 | **NO — DISPROVED (runtime changed)** | Normal Langfuse queue items now carry `enqueued_at`, and the worker discards stale items by age. | `LangfuseTerminateSubscriber.php:111-115` — stamps `enqueued_at`. `LangfuseExportWorker.php:91-109` — discards items older than `langfuse.max_item_age_seconds`. | The current open Langfuse issue is queued probe validation, not missing TTL handling in the normal runtime path. | N/A |
+| OBS-4 | — | **SUPERSEDED (runtime changed 2026-03-13, refreshed 2026-03-16)** | Historical 2026-02-19 audit said Sentry was not integrated. Current repo/runtime evidence now shows `drupal/raven` in `composer.json`, runtime Sentry overrides in `settings.php`, effective Sentry browser/PHP config in sampled `local`/`dev`/`test`/`live`, and fresh 2026-03-16 probe event IDs in all four sampled environments. | Historical claim: `PRODUCTION_AUDIT_2026.md`. Superseding evidence: `composer.json`, `web/sites/default/settings.php`, `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt`, `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt`, `docs/aila/current-state.md`, `docs/aila/evidence-index.md`. | Account-side capture, alerting, and source-map proof still remain open because current shell access lacked `SENTRY_AUTH_TOKEN` and the manual release workflow still has no recorded runs. | TOVR-03 |
+| OBS-5 | TOVR-02 | **YES** | Langfuse direct ingestion is live, but the queued probe path is broken because the Drush probe enqueues `payload` while the worker expects a top-level `batch`. | `LangfuseProbeCommands.php:209-220`, `LangfuseExportWorker.php:81-139`, `LangfuseTerminateSubscriber.php:96-115`, `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt`. | The normal terminate-subscriber path still uses the correct queue shape; the broken evidence path is the queued probe command, so queue-health proof remains incomplete until probe or alternate validation is fixed. | TOVR-03 |
+| OBS-6 | TOVR-02 | **YES** | New Relic browser and change-tracking remain unproven; Pantheon deploy workflows currently log `scripts/quicksilver/new-relic-change-tracking.php is not a valid path`, `terminus new-relic:info` returns empty fields, and sampled pages keep `newRelic.browserEnabled=false`. | `docs/aila/runtime/tovr-02-unknown-resolution-sweep.txt`, `web/sites/default/settings.php`, `scripts/quicksilver/new-relic-change-tracking.php`. | Pantheon runtime secrets are present, so the gap is activation/execution proof, not secret absence. | TOVR-03 |
 
 ## 2. LLM Resilience
 
@@ -80,7 +82,30 @@
 | RAUD-21 | F-18 / M4 / N-16 | **YES (repo + Pantheon verified)** | Retrieval identifiers now live in `retrieval.*`, runtime code resolves canonical URLs through `RetrievalConfigurationService`, LegalServer intake URL is runtime-only via `settings.php`, lexical Search API indexes are tracked in active sync, and hosted verification on 2026-03-12 confirmed `dev`/`test`/`live` all report `settings=present` plus healthy `checks.retrieval_configuration` snapshots. | `RetrievalConfigurationService.php`, `AssistantSettingsForm.php`, `AssistantApiController.php`, `FaqIndex.php`, `ResourceFinder.php`, `TopicResolver.php`, `VectorIndexHygieneService.php`, `settings.php`, `search_api.index.faq_accordion.yml`, `search_api.index.assistant_resources.yml`, `RetrievalConfigurationServiceTest.php`, `RetrievalIndexUpdateHookKernelTest.php`, `LegalServerRuntimeUrlGuardTest.php`, `raud-21-retrieval-config-governance.txt` | Runtime validation is structural and healthy on Pantheon `dev`/`test`/`live`; no live LegalServer reachability probe was executed. | N/A |
 | RAUD-22 | M5 / N-34 | **YES (implemented in repo)** | Default retrieval no longer depends on full-corpus preload: resource sparse topic fill, resource legacy lookup, and FAQ legacy search now use bounded candidate queries capped at `min(max(limit * 8, 20), 100)`, and `RetrievalColdStartGuardTest` fails if request paths regress back to `getAllResources()` or `getAllFaqsLegacy()`. | `ResourceFinder.php`, `FaqIndex.php`, `RetrievalColdStartGuardTest.php`, `raud-22-retrieval-cold-start-remediation.txt` | `getCategoriesLegacy()` still uses `getAllFaqsLegacy()` as a browse-only fallback when the FAQ lexical index is unavailable; the runtime artifact documents that residual cold-cache tradeoff explicitly. | next deploy |
 | RAUD-25 | L2 / N-29 | **PARTIAL (implemented in repo)** | Assistant API crawler policy is now explicit at the served static-file source of truth: `web/robots.txt` plus mirrored `robotstxt` exports disallow `/assistant/api/` and `/index.php/assistant/api/`, and runtime verification now requires direct hosted `robots.txt` fetches instead of config-only closure claims. | `web/robots.txt`, `config/robotstxt.settings.yml`, `robotstxt.settings.yml`, `RobotsTxtCrawlerPolicyContractTest.php`, `raud-25-crawler-policy-controls.txt` | Repo/local proof passed on 2026-03-13, but `https://idaholegalaid.org/robots.txt` still served the pre-remediation rule set during this session; primary-domain deploy + recheck remains required before the finding can move to `Fixed`. | next deploy |
-| RAUD-26 | F-16 / H5 / M1 / M3 / N-14 | **PARTIAL (implemented in repo)** | LLM cost guardrails now enforce per-IP budgets in addition to the earlier global/hourly + daily/monthly controls, intent-classification cache reuse is fingerprinted from normalized user queries instead of the full prompt, `/assistant/api/metrics` now exposes aggregate `metrics.cost_control` / `thresholds.cost_control`, and closure artifacts require explicit cost-proof markers (`cost-proof-per-ip-status`, `cost-proof-cache-hit-rate`, `cost-proof-call-reduction-rate`, `cost-proof-status`) rather than document anchors alone. | `CostControlPolicy.php`, `LlmAdmissionCoordinator.php`, `LlmEnhancer.php`, `AssistantApiController.php`, `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`, `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`, `phase3-obj2-performance-cost-guardrails.txt`, `phase3-exit2-cost-performance-owner-acceptance.txt`, `phase3-xdp06-cost-guardrails-dependency-gate.txt` | Local proof passed on 2026-03-13 (`VC-PURE`, `VC-UNIT`, `VC-QUALITY-GATE`), but Pantheon read-only checks on `dev`/`test`/`live` still returned the pre-remediation `cost_control` block without `per_ip_hourly_call_limit` / `per_ip_window_seconds`; deployed closure remains pending until the new config/runtime is live. | next deploy |
+| RAUD-26 | F-16 / H5 / M1 / M3 / N-14 | **YES (repo + Pantheon verified)** | LLM cost guardrails now enforce per-IP budgets in addition to the earlier global/hourly + daily/monthly controls, intent-classification cache reuse is fingerprinted from normalized user queries instead of the full prompt, `/assistant/api/metrics` now exposes aggregate `metrics.cost_control` / `thresholds.cost_control`, and closure artifacts require explicit cost-proof markers (`cost-proof-per-ip-status`, `cost-proof-cache-hit-rate`, `cost-proof-call-reduction-rate`, `cost-proof-status`) rather than document anchors alone. | `CostControlPolicy.php`, `LlmAdmissionCoordinator.php`, `LlmEnhancer.php`, `AssistantApiController.php`, `CostControlPolicyTest.php`, `LlmControlConcurrencyTest.php`, `LlmEnhancerHardeningTest.php`, `AssistantApiControllerCostControlMetricsTest.php`, `phase3-obj2-performance-cost-guardrails.txt`, `phase3-exit2-cost-performance-owner-acceptance.txt`, `phase3-xdp06-cost-guardrails-dependency-gate.txt` | Local proof passed on 2026-03-13 (`VC-PURE`, `VC-UNIT`, `VC-QUALITY-GATE`), and Pantheon read-only verification on 2026-03-13 confirmed `dev`/`test`/`live` all expose `daily_call_limit=5000`, `monthly_call_limit=100000`, `per_ip_hourly_call_limit=10`, `per_ip_window_seconds=3600`, `cache_hit_rate_target=0.3`, and deployed `metrics.cost_control` / `thresholds.cost_control` continuity. | N/A |
+| RAUD-17 | F-09 / N-09 | **YES (implemented in repo)** | Informational dampener hardening: dampener thresholds are config-governed and tested to prevent informational-only responses from consuming LLM budget or bypassing safety gates. | `AssistantApiController.php`, `LlmEnhancer.php`, `raud-17-informational-dampener-hardening.txt` | Deployed runtime closure depends on shipping updated module code. | next deploy |
+| RAUD-18 | F-10 / N-10 | **YES (implemented in repo)** | Controller post-generation enforcement: safety and policy filters now run after LLM response generation, catching any policy violations introduced by the model itself. | `AssistantApiController.php`, `LlmEnhancer.php`, `raud-18-controller-post-generation-enforcement.txt` | Deployed runtime closure depends on shipping updated module code. | next deploy |
+| RAUD-27 | N-27 | **YES (implemented in repo)** | Performance monitor coverage: `PerformanceMonitor` now has comprehensive unit test coverage validating timing, memory, threshold, and reporting paths. | `PerformanceMonitor.php`, `PerformanceMonitorTest.php`, `raud-27-performance-monitor-coverage.txt` | None. | next deploy |
+| RAUD-28 | — | **YES (closure sweep)** | Full audit closure sweep executed 2026-03-14 on `master`. VC-AUDIT-FULL-SWEEP: VC-PURE 2170/2170, VC-DRUPAL-UNIT 581/581, VC-QUALITY-GATE all phases, VC-WIDGET-HARDENING 164/164, VC-PROMPTFOO-PACED 408/409 (99.75%), VC-PANTHEON-READONLY dev/test/live healthy. After 2026-03-13 reverification: 60 Fixed, 1 Partially Fixed, 0 Unverified, 1 Open, 13 N/A (75 total). | `docs/aila/runtime/raud-28-audit-closure-memo.md` | Historical memo residuals are now partially superseded by TOVR-02: the old Langfuse queue-cap/TTL wording is no longer current, but queued probe validation and New Relic execution proof remain open follow-ups. | next deploy |
+
+### Un-executed RAUDs disposition (RAUD-28 closure)
+
+9 RAUDs were not executed as standalone audit items. Of those, 6 were independently
+mitigated by overlapping RAUD scopes, quality-gate enforcement, or verified N/A status:
+
+| RAUD | Original scope | Mitigation path |
+|------|---------------|-----------------|
+| RAUD-01 | Initial triage | Superseded by RAUD-03 through RAUD-27 execution |
+| RAUD-02 | Audit framework setup | Superseded by quality-gate infrastructure |
+| RAUD-04 | C1 safety classifier | Covered by RAUD-16 safety bypass corpus hardening |
+| RAUD-06 | F-04 cache eviction | Covered by RAUD-22 retrieval cold-start + RET-3 documented tradeoff |
+| RAUD-07 | F-06 LLM cache key | Verified N/A (LLM-3 SHA-256 collision negligible) |
+| RAUD-23 | N-30 config drift | Covered by RAUD-21 retrieval config governance + quality-gate enforcement |
+
+Remaining 3 un-executed:
+- RAUD-14: Indirect prompt injection content fence (SAF-1) — partially mitigated, open backlog
+- RAUD-15: Content fence eval coverage — blocked on RAUD-14
+- RAUD-24: Historical Langfuse queue cap + TTL scope is now implemented in the normal terminate-subscriber/worker path; TOVR-02 replaced the remaining observability follow-up with queued probe contract validation (`OBS-5`), not missing cap/TTL logic.
 
 ---
 
@@ -90,8 +115,8 @@
 
 | Ticket | Fix | File(s) |
 |--------|-----|---------|
-| **OBS-1** | Change `'type' => 'trace-create'` to `'type' => 'trace-update'` at line 455 | `LangfuseTracer.php` |
-| **OBS-2** | Add `$queue->numberOfItems() < 10000` check before `createItem()` | `LangfuseTerminateSubscriber.php` |
+| **OBS-1** | Superseded: keep a single finalized `trace-create`; do not reintroduce `trace-update` unless the Langfuse ingestion contract is re-verified and the payload model is redesigned accordingly. | `LangfuseTracer.php` |
+| **OBS-5** | Align `ilas:langfuse-probe` queued mode with the worker contract by enqueuing top-level `batch`/`metadata` plus `enqueued_at`, or replace it with an alternate queued-path validation method. | `LangfuseProbeCommands.php`, `LangfuseExportWorker.php` |
 | **LLM-1** | Add circuit breaker: track consecutive failures in Drupal State, skip LLM for 5min cooldown after 3 failures in 60s | `LlmEnhancer.php` |
 | **LLM-2** | Add global LLM rate limit (500/hr) via Drupal Flood or State | `LlmEnhancer.php` |
 
@@ -100,7 +125,7 @@
 | Ticket | Fix | File(s) |
 |--------|-----|---------|
 | **SAF-1** | Wrap retrieved content in `<retrieved_content>` delimiters + add system prompt guard | `LlmEnhancer.php` |
-| **OBS-3** | Add `enqueued_at` to queue payload, discard items >1hr in worker | `LangfuseTerminateSubscriber.php`, `LangfuseExportWorker.php` |
+| **OBS-6** | Repair the Pantheon New Relic change-tracking execution path and either prove browser-snippet activation in a sampled environment or explicitly retire the dormant browser path. | `pantheon.yml`, `scripts/quicksilver/new-relic-change-tracking.php`, `web/sites/default/settings.php` |
 
 ### P2 — Privacy + observability (Week 5-8)
 
@@ -108,7 +133,7 @@
 |--------|-----|---------|
 | **PII-1** | Add contextual name patterns (after "client"/"tenant"/"applicant") | `PiiRedactor.php` |
 | **PII-2** | Add Idaho DL pattern `[A-Z]{2}\d{6}[A-Z]` | `PiiRedactor.php` |
-| **OBS-4** | Install `sentry/sentry-php`, configure in `settings.php` with PII scrubbing | `composer.json`, `settings.php` |
+| **OBS-4** | Historical remediation placeholder only; superseded by the 2026-03-13 TOVR-01 runtime baseline showing repo/runtime Sentry wiring already present. Remaining gap is account-side capture/alert/source-map proof, not package installation. | `composer.json`, `web/sites/default/settings.php`, `docs/aila/runtime/tovr-01-tooling-truth-baseline.txt` |
 
 ### P3 — Retrieval + multilingual + eval (Week 9-12)
 
@@ -129,6 +154,8 @@
 | **SAF-4** | XSS headers properly implemented |
 | **SAF-5** | Debug mode server-side only |
 | **SAF-6** | UUID4 not guessable |
+| **OBS-2** | **DISPROVED / IMPLEMENTED** — normal Langfuse enqueue now has a max-depth guard |
+| **OBS-3** | **DISPROVED / IMPLEMENTED** — normal Langfuse queue items now carry `enqueued_at` and stale-item discard logic |
 | **PII-3** | **DISPROVED** — PII already redacted before cache write |
 | **PII-4** | Conversation logging already properly redacted |
 | **RET-1** | Search API fallback already works |

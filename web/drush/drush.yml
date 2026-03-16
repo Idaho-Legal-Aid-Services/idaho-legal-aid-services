@@ -1,3 +1,4 @@
-options:
-  uri: 'http://localhost'
-  root: '/home/evancurry/ilas/web'
+# Drush configuration.
+# URI and root are set automatically by DDEV (local) and Pantheon (deployed).
+# Override locally in web/drush/drush.local.yml if needed (gitignored).
+options: {}

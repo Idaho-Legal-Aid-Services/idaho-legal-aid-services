@@ -342,6 +342,11 @@ for ENV in dev test live; do
 done
 ```
 
+When you document a Drupal config probe for `drush php:eval`, prefer the plain
+`Drupal::config(...)` form shown in the validation bundles so the runbook stays
+aligned with the exact commands re-executed during the 2026-03-13 TOVR-01
+tooling-truth refresh.[^CLAIM-195]
+
 Store sanitized outputs in:
 - `docs/aila/runtime/pantheon-dev.txt`
 - `docs/aila/runtime/pantheon-test.txt`
@@ -494,6 +499,10 @@ for ENV in dev test live; do
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings cost_control -y
 done
 
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$controller = \Drupal::service("class_resolver")->getInstanceFromDefinition(\Drupal\ilas_site_assistant\Controller\AssistantApiController::class); $response = $controller->metrics(); $data = json_decode($response->getContent(), true); echo json_encode(["has_metrics_cost_control" => isset($data["metrics"]["cost_control"]), "has_thresholds_cost_control" => isset($data["thresholds"]["cost_control"]), "metrics_cost_control" => $data["metrics"]["cost_control"] ?? null, "thresholds_cost_control" => $data["thresholds"]["cost_control"] ?? null], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), PHP_EOL;'
+done
+
 # 2) Monitoring checks (local + Pantheon continuity).
 LOCAL_BASE_URL="https://ilas-pantheon.ddev.site"
 curl -k -sS "${LOCAL_BASE_URL}/assistant/api/health"
@@ -535,9 +544,10 @@ cd /home/evancurry/idaho-legal-aid-services && \
 Expected `P3-EXT-02` verification result:
 - `VC-PURE` and `VC-QUALITY-GATE` confirm local behavioral proof and quality-gate continuity.
 - `VC-PANTHEON-READONLY` confirms target-environment continuity on
-  `dev`/`test`/`live`, or records deployment pending state when the hosted
-  `cost_control` block still omits `per_ip_hourly_call_limit` /
-  `per_ip_window_seconds`.
+  `dev`/`test`/`live`; the March 13, 2026 hosted verification showed
+  `per_ip_hourly_call_limit=10`, `per_ip_window_seconds=3600`, and deployed
+  `metrics.cost_control` / `thresholds.cost_control` continuity on all three
+  environments.
 - `/assistant/api/health` and `/assistant/api/metrics` monitoring checks return
   deterministic JSON payloads in local and Pantheon contexts (operational
   payloads or controlled `access_denied` payloads, depending on route
@@ -554,10 +564,10 @@ Expected `P3-EXT-02` verification result:
 - Scope boundaries remain unchanged: no net-new assistant channels or
   third-party model expansion beyond audited providers, and no platform-wide
   refactor of unrelated Drupal subsystems. Residual `B-04` remains open.
-- If `VC-PANTHEON-READONLY` shows the deployed config missing `per_ip_hourly_call_limit`
-  or `per_ip_window_seconds`, or hosted metrics continuity is unavailable,
-  treat deployment closure as pending until authenticated Pantheon continuity
-  output is captured.
+- If `VC-PANTHEON-READONLY` later shows the deployed config missing
+  `per_ip_hourly_call_limit` or `per_ip_window_seconds`, or hosted metrics
+  continuity becomes unavailable, treat the finding as regressed until
+  authenticated Pantheon continuity output is captured again.
 
 Store sanitized output in:
 - `docs/aila/runtime/phase3-exit2-cost-performance-owner-acceptance.txt`[^CLAIM-154]
@@ -3706,6 +3716,52 @@ Expected `RAUD-22` verification result:
     the finding as `Partially Fixed` or `Unverified`, never `Fixed`.
 - Archive the executed command summaries and final classification in
   `docs/aila/runtime/raud-25-crawler-policy-controls.txt`.
+
+### RAUD-27 performance monitor coverage verification
+
+- Baseline before the remediation:
+  - `/assistant/api/message` recorded only the main post-routing success/error
+    path; validation failures, rate-limit exits, repeated-message escalation,
+    safety/policy/out-of-scope exits, and office follow-up shortcuts could
+    return without a monitor record.
+  - `/assistant/api/track`, `/assistant/api/suggest`, and `/assistant/api/faq`
+    did not consistently produce performance-monitor entries for denied,
+    throttled, or degraded responses.
+  - Route-level `/assistant/api/message` CSRF `403` JSON denials were
+    observable in logs but were invisible to `PerformanceMonitor`.
+  - Cached read responses for `/assistant/api/suggest` and `/assistant/api/faq`
+    could be served without controller execution, creating an observability
+    blind spot unless the final response was classified separately.
+- Required verification commands for the remediation report:
+  - `VC-UNIT`
+  - `VC-PURE`
+  - `VC-QUALITY-GATE`
+- Targeted repo/local checks:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/PerformanceMonitorTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/IntegrationFailureContractTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/CsrfDenialResponseSubscriberTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerCostControlMetricsTest.php`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/ImpObs01AcceptanceTest.php`
+- Expected contract after the remediation:
+  - Exactly one classified performance outcome is recorded for each final
+    response on `/assistant/api/message`, `/assistant/api/track`,
+    `/assistant/api/suggest`, and `/assistant/api/faq`, plus route-level
+    `/assistant/api/message` CSRF `403` JSON denials.
+  - `PerformanceMonitor` preserves `/assistant/api/message` as the top-level
+    SLO/health rollup while `/assistant/api/metrics` adds additive
+    `all_endpoints`, `by_endpoint`, and `by_outcome` breakdowns for operator
+    analysis.
+  - User-visible denied and degraded responses count as failures in the monitor;
+    intentional safety, policy, out-of-scope, escalation, and office-follow-up
+    responses remain successful classified outcomes.
+  - Cached read responses are backfilled at `kernel.response` using final
+    response inspection so degraded fallback paths do not disappear from
+    observability.
+  - If any public assistant endpoint still bypasses classification at final
+    response time, classify the finding as `Partially Fixed`, not `Fixed`.
+- Archive the executed command summaries, final classification, and residual
+  blind spots in `docs/aila/runtime/raud-27-performance-monitor-coverage.txt`.
 
 ## 7) Retrospective regression checklist (mandatory)
 

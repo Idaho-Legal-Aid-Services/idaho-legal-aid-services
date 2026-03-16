@@ -43,6 +43,10 @@ class ObservabilitySurfaceContractTest extends TestCase {
 
     $this->assertStringContainsString('buildLangfuseInputPayload', $source);
     $this->assertStringContainsString('buildLangfuseOutputPayload', $source);
+    $this->assertStringContainsString("\$langfuse_input['display']", $source);
+    $this->assertStringContainsString("\$langfuse_input['metadata']", $source);
+    $this->assertGreaterThanOrEqual(5, substr_count($source, 'buildLangfuseOutputPayload('));
+    $this->assertStringNotContainsString('trace-update', $source);
     $this->assertStringContainsString("'error_signature'", $source);
     $this->assertStringContainsString('query_hash=@query_hash', $source);
     $this->assertStringContainsString('keyword_count=@keyword_count', $source);

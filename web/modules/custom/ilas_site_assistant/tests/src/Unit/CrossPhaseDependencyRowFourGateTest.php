@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant')]
 final class CrossPhaseDependencyRowFourGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -174,9 +176,7 @@ final class CrossPhaseDependencyRowFourGateTest extends TestCase {
     $this->assertStringContainsString('name: PHPUnit Quality Gate', $phaseTwoEntryOneRuntime);
     $this->assertStringContainsString('name: Promptfoo Gate', $phaseTwoEntryOneRuntime);
 
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
-    $this->assertStringContainsString('PF[Promptfoo harness]', $systemMap);
-    $this->assertStringContainsString('CI -->|drives scripted quality gates| PF', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap);
   }
 
 }

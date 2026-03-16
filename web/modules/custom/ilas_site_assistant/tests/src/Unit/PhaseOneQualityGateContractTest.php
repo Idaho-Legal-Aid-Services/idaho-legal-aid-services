@@ -46,8 +46,10 @@ class PhaseOneQualityGateContractTest extends TestCase {
     $this->assertStringContainsString('scripts/ci/run-promptfoo-gate.sh', $currentState);
     $this->assertStringContainsString('`master`/`main`/`release/*`', $currentState);
     $this->assertStringContainsString('## 8) Known unknowns', $currentState);
-    $this->assertStringContainsString('Promptfoo CI ownership outside this repository', $currentState);
-    $this->assertStringContainsString('### Phase 1 Objective #3 Quality Gate Disposition (2026-02-27)', $currentState);
+    $this->assertStringContainsString('Promptfoo deploy-bound gate fidelity', $currentState);
+    $this->assertStringContainsString('### Phase 1 Exit #2 Mandatory Gate Disposition (2026-03-03)', $currentState);
+    $this->assertStringContainsString('mandatory for merge/release path', $currentState);
+    $this->assertStringContainsString('branch protection requires', $currentState);
   }
 
   /**

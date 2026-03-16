@@ -13,6 +13,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant_docs')]
 final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
 
+  use DiagramAQualityGateAssertionsTrait;
+
   /**
    * Returns the repository root path.
    */
@@ -44,7 +46,7 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
       'Exit criterion #2 is closed as implemented: cost/performance controls are documented, monitored, and accepted by product/platform owners.',
       $roadmap
     );
-    $this->assertStringContainsString('Deployed closure remains pending until Pantheon read-only checks reflect the per-IP keys and metrics payload', $roadmap);
+    $this->assertStringContainsString('Pantheon read-only verification passed on 2026-03-13 across `dev`/`test`/`live`', $roadmap);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $roadmap);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $roadmap);
     $this->assertStringContainsString('CLAIM-154', $roadmap);
@@ -70,7 +72,8 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('owner-acceptance-product-role=accepted', $currentState);
     $this->assertStringContainsString('owner-acceptance-platform-role=accepted', $currentState);
     $this->assertStringContainsString('metrics.cost_control', $currentState);
-    $this->assertStringContainsString('Deployment remains pending', $currentState);
+    $this->assertStringContainsString('Pantheon read-only', $currentState);
+    $this->assertStringContainsString('2026-03-13 across `dev`/`test`/`live`', $currentState);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $currentState);
     $this->assertStringContainsString('[^CLAIM-154]', $currentState);
   }
@@ -94,7 +97,9 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('thresholds.cost_control', $runbook);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $runbook);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $runbook);
-    $this->assertStringContainsString('If `VC-PANTHEON-READONLY` shows the deployed config missing `per_ip_hourly_call_limit`', $runbook);
+    $this->assertStringContainsString('March 13, 2026 hosted verification showed', $runbook);
+    $this->assertStringContainsString('If `VC-PANTHEON-READONLY` later shows the deployed config missing', $runbook);
+    $this->assertStringContainsString('`per_ip_hourly_call_limit` or `per_ip_window_seconds`', $runbook);
     $this->assertStringContainsString('[^CLAIM-154]', $runbook);
   }
 
@@ -113,7 +118,7 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     );
     $this->assertStringContainsString('### CLAIM-154', $evidenceIndex);
     $this->assertStringContainsString('PhaseThreeExitCriteriaTwoGateTest.php', $evidenceIndex);
-    $this->assertStringContainsString('Pantheon read-only deployment check', $evidenceIndex);
+    $this->assertStringContainsString('Pantheon read-only verification passed on 2026-03-13', $evidenceIndex);
   }
 
   /**
@@ -134,8 +139,12 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('owner-acceptance-date=2026-03-06', $artifact);
     $this->assertStringContainsString('metrics-cost-control=present', $artifact);
     $this->assertStringContainsString('thresholds-cost-control=present', $artifact);
+    $this->assertStringContainsString('env.dev.per_ip_hourly_call_limit=10', $artifact);
+    $this->assertStringContainsString('env.test.per_ip_hourly_call_limit=10', $artifact);
+    $this->assertStringContainsString('env.live.per_ip_hourly_call_limit=10', $artifact);
+    $this->assertStringContainsString('deployed_metrics_cost_control=present', $artifact);
     $this->assertStringContainsString('cost-proof-status=pass', $artifact);
-    $this->assertStringContainsString('vc-pantheon-readonly-status=blocked', $artifact);
+    $this->assertStringContainsString('vc-pantheon-readonly-status=pass', $artifact);
     $this->assertStringContainsString('b04-status=open', $artifact);
   }
 
@@ -149,13 +158,14 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
     $this->assertStringContainsString('Active mitigation (IMP-COST-01 / P3-OBJ-02, 2026-03-05)', $backlog);
     $this->assertStringContainsString('P3-EXT-02', $backlog);
     $this->assertStringContainsString('phase3-exit2-cost-performance-owner-acceptance.txt', $backlog);
-    $this->assertStringContainsString('deployment pending', $backlog);
+    $this->assertStringContainsString('Pantheon read-only verification passed on 2026-03-13', $backlog);
 
     $this->assertStringContainsString('| R-PERF-01 |', $riskRegister);
     $this->assertStringContainsString('P3-EXT-02', $riskRegister);
     $this->assertStringContainsString('owner-acceptance-product-role', $riskRegister);
     $this->assertStringContainsString('owner-acceptance-platform-role', $riskRegister);
     $this->assertStringContainsString('vc-pantheon-readonly-status', $riskRegister);
+    $this->assertStringContainsString('Pantheon read-only verification passed on 2026-03-13', $riskRegister);
   }
 
   /**
@@ -164,11 +174,7 @@ final class PhaseThreeExitCriteriaTwoGateTest extends TestCase {
   public function testSystemMapRetainsDiagramAAnchors(): void {
     $systemMap = self::readFile('docs/aila/system-map.mmd');
 
-    $this->assertStringContainsString('flowchart LR', $systemMap);
-    $this->assertStringContainsString('Drupal 11 / ilas_site_assistant', $systemMap);
-    $this->assertStringContainsString('External Integrations', $systemMap);
-    $this->assertStringContainsString('OBS[Observability', $systemMap);
-    $this->assertStringContainsString('CI[External CI runner', $systemMap);
+    $this->assertCurrentDiagramAQualityGateAnchors($systemMap, requireObservability: TRUE);
   }
 
 }

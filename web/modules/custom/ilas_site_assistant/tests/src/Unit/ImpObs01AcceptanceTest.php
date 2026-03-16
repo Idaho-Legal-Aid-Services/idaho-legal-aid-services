@@ -194,20 +194,20 @@ class ImpObs01AcceptanceTest extends TestCase {
   // ─── Langfuse Story acceptance ──────────────────────────────────────
 
   /**
-   * Langfuse AC-4: Full lifecycle produces all 5 expected event types.
+   * Langfuse AC-4: Full lifecycle produces all expected emitted event types.
    */
   public function testLangfuseFullLifecycleProducesAllEventTypes(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-001', 'assistant.message');
+    $tracer->startTrace('req-001', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('intent.route');
     $tracer->startGeneration('llm.enhance', 'gemini-1.5-flash', ['temperature' => 0.3]);
-    $tracer->endGeneration('Enhanced response', ['input' => 10, 'output' => 20, 'total' => 30]);
+    $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['intent' => 'faq']);
     $tracer->addEvent('request.complete', ['response_type' => 'faq']);
-    $tracer->endTrace(['type' => 'faq'], ['duration_ms' => 150, 'success' => TRUE]);
+    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['duration_ms' => 150, 'success' => TRUE]);
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);
@@ -219,7 +219,6 @@ class ImpObs01AcceptanceTest extends TestCase {
       'span-create',
       'generation-create',
       'event-create',
-      'trace-update',
     ];
 
     foreach ($requiredTypes as $type) {
@@ -283,6 +282,39 @@ class ImpObs01AcceptanceTest extends TestCase {
       $gatesFile,
       'Runtime gates must document live sample rate of 0.1',
     );
+  }
+
+  /**
+   * RAUD-27 doc lock: denied/degraded monitor coverage is documented end to end.
+   */
+  public function testRaud27ObservabilityDocsLockDeniedAndDegradedMonitoring(): void {
+    $runbook = self::readFile('docs/aila/runbook.md');
+    $this->assertStringContainsString(
+      '### RAUD-27 performance monitor coverage verification',
+      $runbook,
+    );
+    $this->assertStringContainsString('all_endpoints', $runbook);
+    $this->assertStringContainsString('by_endpoint', $runbook);
+    $this->assertStringContainsString('by_outcome', $runbook);
+    $this->assertStringContainsString('denied', $runbook);
+    $this->assertStringContainsString('degraded', $runbook);
+
+    $currentState = self::readFile('docs/aila/current-state.md');
+    $this->assertStringContainsString('all_endpoints', $currentState);
+    $this->assertStringContainsString('by_endpoint', $currentState);
+    $this->assertStringContainsString('by_outcome', $currentState);
+
+    $evidenceIndex = self::readFile('docs/aila/evidence-index.md');
+    $this->assertStringContainsString('RAUD-27', $evidenceIndex);
+    $this->assertStringContainsString('AssistantApiResponseMonitorSubscriber.php', $evidenceIndex);
+
+    $artifact = self::readFile('docs/aila/runtime/raud-27-performance-monitor-coverage.txt');
+    $this->assertStringContainsString('Prior status', $artifact);
+    $this->assertStringContainsString('Post-change status', $artifact);
+    $this->assertStringContainsString('Verification level tag', $artifact);
+    $this->assertStringContainsString('VC-UNIT', $artifact);
+    $this->assertStringContainsString('VC-PURE', $artifact);
+    $this->assertStringContainsString('VC-QUALITY-GATE', $artifact);
   }
 
 }

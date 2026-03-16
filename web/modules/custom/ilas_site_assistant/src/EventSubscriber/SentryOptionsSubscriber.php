@@ -147,9 +147,18 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         }
       }
 
-      // Drop noise from ad-hoc drush php:eval / php:script sessions in local,
-      // unless SENTRY_CAPTURE_DRUSH_EVAL=1 is set to force capture.
+      // Drop noise from ad-hoc drush php:eval / php:script sessions in local
+      // development only. On deployed environments (Pantheon), eval errors are
+      // real operational signals that reach Sentry normally.
+      // Override with SENTRY_CAPTURE_DRUSH_EVAL=1 to force capture locally.
       if (static::isDrushEvalNoise()) {
+        return NULL;
+      }
+
+      // Drop simple_sitemap warnings about omitted custom paths on non-live
+      // environments. These paths resolve on live (content nodes exist) but
+      // not on dev/test where the database doesn't have those nodes (PHP-X/W/V).
+      if (static::isSitemapCustomPathNoise($sentryEvent)) {
         return NULL;
       }
 
@@ -223,8 +232,10 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   /**
    * Checks if the current CLI context is a drush php:eval/php:script session.
    *
-   * Used to suppress Sentry noise from ad-hoc debugging commands in local dev.
-   * Override with SENTRY_CAPTURE_DRUSH_EVAL=1 to force capture.
+   * Suppresses Sentry noise from ad-hoc debugging commands in local
+   * development only. On deployed environments (Pantheon), eval errors are
+   * real operational signals that should reach Sentry.
+   * Override with SENTRY_CAPTURE_DRUSH_EVAL=1 to force capture locally.
    *
    * @return bool
    *   TRUE if the event should be dropped as eval noise.
@@ -234,13 +245,19 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
       return FALSE;
     }
 
-    // Allow explicit opt-in to capture eval errors.
+    // Allow explicit opt-in to capture eval errors even locally.
     if (getenv('SENTRY_CAPTURE_DRUSH_EVAL') === '1') {
       return FALSE;
     }
 
-    // Filter drush eval noise on all environments.
-    // Use SENTRY_CAPTURE_DRUSH_EVAL=1 to force capture when needed.
+    // Only filter eval noise in local development. On deployed environments
+    // (Pantheon), eval errors are real operational signals that should reach
+    // Sentry — e.g. runbook verification commands via terminus.
+    $settings = Settings::get('ilas_observability', []);
+    $env = $settings['environment'] ?? '';
+    if ($env !== '' && $env !== 'local') {
+      return FALSE;
+    }
 
     $argv = $_SERVER['argv'] ?? [];
     foreach ($argv as $arg) {
@@ -256,6 +273,34 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
     }
 
     return FALSE;
+  }
+
+  /**
+   * Checks if the event is a simple_sitemap custom path warning on non-live.
+   *
+   * Custom sitemap paths like /events, /press-room, /what-we-do/resources
+   * resolve on live (where the content nodes exist) but not on dev/test
+   * where the database lacks those nodes. These warnings are expected
+   * non-live noise and should not consume Sentry quota.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as sitemap custom path noise.
+   */
+  public static function isSitemapCustomPathNoise(\Sentry\Event $sentryEvent): bool {
+    if ($sentryEvent->getLogger() !== 'simple_sitemap') {
+      return FALSE;
+    }
+
+    $env = getenv('PANTHEON_ENVIRONMENT') ?: '';
+    if ($env === 'live' || $env === '') {
+      return FALSE;
+    }
+
+    $message = $sentryEvent->getMessage() ?? '';
+    return str_contains($message, 'has been omitted from the XML sitemaps');
   }
 
   /**

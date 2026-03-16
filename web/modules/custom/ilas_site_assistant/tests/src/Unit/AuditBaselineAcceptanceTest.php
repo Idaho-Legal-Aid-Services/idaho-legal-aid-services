@@ -233,7 +233,7 @@ class AuditBaselineAcceptanceTest extends TestCase {
   }
 
   /**
-   * Known unknowns section must exist with exactly 3 documented unknowns.
+   * Known unknowns section must exist with the current TOVR-01 inventory.
    */
   public function testCurrentStateDocumentsKnownUnknowns(): void {
     $path = self::repoRoot() . '/' . self::DOCS_PATH . '/current-state.md';
@@ -258,23 +258,26 @@ class AuditBaselineAcceptanceTest extends TestCase {
     // Count table data rows (skip header row and separator row).
     preg_match_all('/^\| (?!Unknown|---)/m', $section, $rows);
 
-    $this->assertCount(
-      2,
-      $rows[0],
-      'Known unknowns section must document exactly 2 unknowns (found ' . count($rows[0]) . ')',
+    $this->assertGreaterThanOrEqual(
+      5,
+      count($rows[0]),
+      'Known unknowns section must document at least 5 unresolved items (found ' . count($rows[0]) . ')',
     );
   }
 
   /**
-   * Known unknowns must cover the 3 expected topics.
+   * Known unknowns must cover the current TOVR-01 unresolved topics.
    */
   public function testKnownUnknownsContainExpectedTopics(): void {
     $path = self::repoRoot() . '/' . self::DOCS_PATH . '/current-state.md';
     $content = file_get_contents($path);
 
     $expectedTopics = [
-      'cron cadence' => 'cron cadence',
-      'Promptfoo CI ownership' => 'Promptfoo CI ownership',
+      'Sentry operational usefulness' => 'Sentry operational usefulness beyond runtime wiring',
+      'Langfuse ingestion' => 'Langfuse ingestion and queue-export success',
+      'New Relic entity activity' => 'New Relic entity activity and browser-snippet value',
+      'Promptfoo deploy-bound gate fidelity' => 'Promptfoo deploy-bound gate fidelity',
+      'cron cadence' => 'Long-run cron cadence and queue drain timing under load',
     ];
 
     foreach ($expectedTopics as $label => $needle) {

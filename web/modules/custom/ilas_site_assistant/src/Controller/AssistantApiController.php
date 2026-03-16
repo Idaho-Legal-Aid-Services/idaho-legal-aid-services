@@ -449,6 +449,95 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Primes a monitored request so response-time recording can finalize later.
+   */
+  private function primePerformanceMonitoring(Request $request, string $endpoint): void {
+    if (!$request->attributes->has(PerformanceMonitor::ATTRIBUTE_START_TIME)) {
+      $request->attributes->set(PerformanceMonitor::ATTRIBUTE_START_TIME, microtime(TRUE));
+    }
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_ENDPOINT, $endpoint);
+  }
+
+  /**
+   * Annotates the request with its final monitoring classification.
+   */
+  private function annotatePerformanceOutcome(
+    Request $request,
+    string $endpoint,
+    bool $success,
+    int $status_code,
+    string $outcome,
+    bool $denied = FALSE,
+    bool $degraded = FALSE,
+    string $scenario = 'unknown',
+  ): void {
+    $this->primePerformanceMonitoring($request, $endpoint);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_SUCCESS, $success);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_STATUS_CODE, $status_code);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_OUTCOME, $outcome);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_DENIED, $denied);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_DEGRADED, $degraded);
+    $request->attributes->set(PerformanceMonitor::ATTRIBUTE_SCENARIO, $scenario);
+  }
+
+  /**
+   * Builds an annotated JSON response for response-subscriber monitoring.
+   */
+  private function monitoredJsonResponse(
+    Request $request,
+    string $endpoint,
+    array $data,
+    int $status,
+    array $extra_headers,
+    string $request_id,
+    bool $success,
+    string $outcome,
+    bool $denied = FALSE,
+    bool $degraded = FALSE,
+    string $scenario = 'unknown',
+  ): JsonResponse {
+    $this->annotatePerformanceOutcome(
+      $request,
+      $endpoint,
+      $success,
+      $status,
+      $outcome,
+      $denied,
+      $degraded,
+      $scenario,
+    );
+
+    return $this->jsonResponse($data, $status, $extra_headers, $request_id);
+  }
+
+  /**
+   * Annotates a cacheable response for response-subscriber monitoring.
+   */
+  private function monitoredCacheableResponse(
+    Request $request,
+    string $endpoint,
+    CacheableJsonResponse $response,
+    bool $success,
+    string $outcome,
+    bool $denied = FALSE,
+    bool $degraded = FALSE,
+    string $scenario = 'unknown',
+  ): CacheableJsonResponse {
+    $this->annotatePerformanceOutcome(
+      $request,
+      $endpoint,
+      $success,
+      $response->getStatusCode(),
+      $outcome,
+      $denied,
+      $degraded,
+      $scenario,
+    );
+
+    return $response;
+  }
+
+  /**
    * Resolves a correlation ID from the request or generates one.
    *
    * Accepts an inbound X-Correlation-ID header if it passes UUID4 validation.
@@ -682,6 +771,7 @@ class AssistantApiController extends ControllerBase {
   public function message(Request $request) {
     // Resolve correlation ID: accept inbound header or generate new UUID.
     $request_id = $this->resolveCorrelationId($request);
+    $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_MESSAGE);
 
     // Rate limiting — keyed by client IP.
     $config = $this->configFactory->get('ilas_site_assistant.settings');
@@ -692,18 +782,18 @@ class AssistantApiController extends ControllerBase {
     $per_hr = (int) ($config->get('rate_limit_per_hour') ?? 120);
 
     if (!$this->flood->isAllowed('ilas_assistant_min', $per_min, 60, $flood_id)) {
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_MESSAGE, [
         'error' => 'Too many requests. Please wait a moment before trying again.',
         'type' => 'rate_limit',
         'request_id' => $request_id,
-      ], 429, ['Retry-After' => '60'], $request_id);
+      ], 429, ['Retry-After' => '60'], $request_id, FALSE, 'message.rate_limit_minute', TRUE);
     }
     if (!$this->flood->isAllowed('ilas_assistant_hr', $per_hr, 3600, $flood_id)) {
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_MESSAGE, [
         'error' => 'You have reached the hourly limit. Please try again later.',
         'type' => 'rate_limit',
         'request_id' => $request_id,
-      ], 429, ['Retry-After' => '3600'], $request_id);
+      ], 429, ['Retry-After' => '3600'], $request_id, FALSE, 'message.rate_limit_hour', TRUE);
     }
     $this->flood->register('ilas_assistant_min', 60, $flood_id);
     $this->flood->register('ilas_assistant_hr', 3600, $flood_id);
@@ -711,55 +801,94 @@ class AssistantApiController extends ControllerBase {
     // Validate content type.
     $content_type = (string) $request->headers->get('Content-Type', '');
     if (strpos($content_type, 'application/json') === FALSE) {
-      return $this->jsonResponse(['error' => 'Invalid content type', 'request_id' => $request_id], 400, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        ['error' => 'Invalid content type', 'request_id' => $request_id],
+        400,
+        [],
+        $request_id,
+        FALSE,
+        'message.invalid_content_type',
+        TRUE,
+      );
     }
 
     // Parse request body.
     $content = $request->getContent();
     if (strlen($content) > 2000) {
-      return $this->jsonResponse(['error' => 'Request too large', 'request_id' => $request_id], 413, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        ['error' => 'Request too large', 'request_id' => $request_id],
+        413,
+        [],
+        $request_id,
+        FALSE,
+        'message.request_too_large',
+        TRUE,
+      );
     }
 
     $data = json_decode($content, TRUE);
     if (json_last_error() !== JSON_ERROR_NONE || empty($data['message'])) {
-      return $this->jsonResponse(['error' => 'Invalid request', 'request_id' => $request_id], 400, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        ['error' => 'Invalid request', 'request_id' => $request_id],
+        400,
+        [],
+        $request_id,
+        FALSE,
+        'message.invalid_request',
+        TRUE,
+      );
     }
 
     try {
       $context = $this->normalizeRequestContext($data['context'] ?? NULL);
     }
     catch (\InvalidArgumentException $e) {
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_MESSAGE, [
         'error' => 'Invalid request',
         'error_code' => 'invalid_context',
         'message' => 'Context must be a JSON object when provided.',
         'request_id' => $request_id,
-      ], 400, [], $request_id);
+      ], 400, [], $request_id, FALSE, 'message.invalid_context', TRUE);
     }
 
     // Start performance tracking.
     $start_time = microtime(TRUE);
 
-    // Start Langfuse trace (if enabled and sampled).
-    $this->langfuseTracer?->startTrace($request_id, 'assistant.message', [
-      'environment' => $config->get('langfuse.environment') ?? 'production',
-    ]);
-
     try {
 
     $user_message = $this->sanitizeInput($data['message']);
     if ($user_message === '') {
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_MESSAGE, [
         'error' => 'Invalid request',
         'error_code' => 'invalid_message',
         'message' => 'Message is empty after sanitization.',
         'request_id' => $request_id,
-      ], 400, [], $request_id);
+      ], 400, [], $request_id, FALSE, 'message.invalid_message', TRUE);
     }
     // Normalize for classifier checks: strips evasion techniques
     // (interstitial punctuation, Unicode tricks, spaced-out letters).
     // $user_message is kept intact for display, intent routing, and retrieval.
     $normalized_message = InputNormalizer::normalize($user_message);
+    $langfuse_input = $this->buildLangfuseInputPayload($user_message);
+
+    // Start Langfuse trace (if enabled and sampled) after sanitization.
+    $this->langfuseTracer?->startTrace(
+      $request_id,
+      'assistant.message',
+      array_merge(
+        [
+          'environment' => $config->get('langfuse.environment') ?? 'production',
+        ],
+        $langfuse_input['metadata'],
+      ),
+      $langfuse_input['display'],
+    );
 
     // Check for DEBUG mode (server-side env var only).
     $debug_mode = $this->isDebugMode($request);
@@ -813,8 +942,34 @@ class AssistantApiController extends ControllerBase {
             'actions' => $this->getEscalationActions(),
             'request_id' => $request_id,
           ];
+          $langfuse_output = $this->buildLangfuseOutputPayload(
+            (string) ($response_data['message'] ?? ''),
+            (string) ($response_data['type'] ?? 'unknown'),
+            'repeated_message_escalation',
+          );
+          $this->langfuseTracer?->endTrace(
+            output: $langfuse_output['display'],
+            metadata: array_merge(
+              [
+                'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+                'success' => TRUE,
+                'response_type' => $response_data['type'] ?? 'unknown',
+                'reason_code' => 'repeated_message_escalation',
+              ],
+              $langfuse_output['metadata'],
+            ),
+          );
           $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
-          return $this->jsonResponse($response_data, 200, [], $request_id);
+          return $this->monitoredJsonResponse(
+            $request,
+            PerformanceMonitor::ENDPOINT_MESSAGE,
+            $response_data,
+            200,
+            [],
+            $request_id,
+            TRUE,
+            'message.repeated_message_escalation',
+          );
         }
       }
     }
@@ -945,16 +1100,34 @@ class AssistantApiController extends ControllerBase {
         'winner_source' => $pre_routing_decision['winner_source'],
         'reason_code' => $pre_routing_decision['reason_code'],
       ]);
+      $langfuse_output = $this->buildLangfuseOutputPayload(
+        (string) ($response_data['message'] ?? ''),
+        (string) ($response_data['type'] ?? 'unknown'),
+        $response_data['reason_code'] ?? NULL,
+      );
       $this->langfuseTracer?->endTrace(
-        output: ['type' => 'safety_exit', 'reason_code' => $safety_classification['reason_code']],
+        output: $langfuse_output['display'],
         metadata: array_merge(
-          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          [
+            'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+            'success' => TRUE,
+          ],
           $safety_telemetry,
+          $langfuse_output['metadata'],
         )
       );
 
       $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
-      return $this->jsonResponse($response_data, 200, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        $response_data,
+        200,
+        [],
+        $request_id,
+        TRUE,
+        'message.safety_exit',
+      );
     }
 
     if ($pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_OOS_EXIT) {
@@ -1018,16 +1191,34 @@ class AssistantApiController extends ControllerBase {
         'winner_source' => $pre_routing_decision['winner_source'],
         'reason_code' => $pre_routing_decision['reason_code'],
       ]);
+      $langfuse_output = $this->buildLangfuseOutputPayload(
+        (string) ($response_data['message'] ?? ''),
+        (string) ($response_data['type'] ?? 'unknown'),
+        $response_data['reason_code'] ?? NULL,
+      );
       $this->langfuseTracer?->endTrace(
-        output: ['type' => 'oos_exit', 'reason_code' => $oos_classification['reason_code']],
+        output: $langfuse_output['display'],
         metadata: array_merge(
-          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          [
+            'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+            'success' => TRUE,
+          ],
           $oos_telemetry,
+          $langfuse_output['metadata'],
         )
       );
 
       $response_data = $this->assembleContractFields($response_data, NULL, 'oos');
-      return $this->jsonResponse($response_data, 200, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        $response_data,
+        200,
+        [],
+        $request_id,
+        TRUE,
+        'message.out_of_scope_exit',
+      );
     }
 
     if ($pre_routing_decision['decision_type'] === PreRoutingDecisionEngine::DECISION_POLICY_EXIT) {
@@ -1076,16 +1267,34 @@ class AssistantApiController extends ControllerBase {
         'winner_source' => $pre_routing_decision['winner_source'],
         'reason_code' => $pre_routing_decision['reason_code'],
       ]);
+      $langfuse_output = $this->buildLangfuseOutputPayload(
+        (string) ($response_data['message'] ?? ''),
+        (string) ($response_data['type'] ?? 'unknown'),
+        $response_data['reason_code'] ?? NULL,
+      );
       $this->langfuseTracer?->endTrace(
-        output: ['type' => 'policy_violation', 'reason_code' => 'policy_' . $policy_result['type']],
+        output: $langfuse_output['display'],
         metadata: array_merge(
-          ['duration_ms' => (microtime(TRUE) - $start_time) * 1000, 'success' => TRUE],
+          [
+            'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+            'success' => TRUE,
+          ],
           $policy_telemetry,
+          $langfuse_output['metadata'],
         )
       );
 
       $response_data = $this->assembleContractFields($response_data, NULL, 'policy');
-      return $this->jsonResponse($response_data, 200, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        $response_data,
+        200,
+        [],
+        $request_id,
+        TRUE,
+        'message.policy_exit',
+      );
     }
 
     $this->langfuseTracer?->endSpan([
@@ -1107,12 +1316,12 @@ class AssistantApiController extends ControllerBase {
 
         if ($office) {
           $this->clearOfficeFollowupState($conversation_id);
-          return $this->handleOfficeFollowUp($office, $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
+          return $this->handleOfficeFollowUp($request, $office, $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
         }
 
         if ($is_location_like || $is_explicit_office_followup) {
           $this->clearOfficeFollowupState($conversation_id);
-          return $this->handleOfficeFollowUpClarify($resolver->getAllOffices(), $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta);
+          return $this->handleOfficeFollowUpClarify($request, $resolver->getAllOffices(), $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
         }
 
         $followup_state['remaining_turns'] = max(0, ((int) ($followup_state['remaining_turns'] ?? 1)) - 1);
@@ -1444,9 +1653,12 @@ class AssistantApiController extends ControllerBase {
       $this->langfuseTracer?->startGeneration('llm.classify', $llm_model, [
         'temperature' => $config->get('llm.temperature') ?? 0.3,
         'max_tokens' => $config->get('llm.max_tokens') ?? 150,
-      ], $this->buildLangfuseInputPayload($user_message));
+      ], $langfuse_input['metadata']);
       $llm_intent = $this->llmEnhancer->classifyIntent($user_message, $intent['type'], $ip);
-      $this->langfuseTracer?->endGeneration($llm_intent, $this->llmEnhancer->getLastUsage() ?? []);
+      $this->langfuseTracer?->endGeneration(
+        'intent=' . ($llm_intent !== '' ? $llm_intent : 'unknown'),
+        $this->llmEnhancer->getLastUsage() ?? []
+      );
       if ($llm_intent !== 'unknown' && $llm_intent !== $intent['type']) {
         $intent = ['type' => $llm_intent, 'source' => 'llm', 'extraction' => $intent['extraction'] ?? []];
 
@@ -1649,13 +1861,6 @@ class AssistantApiController extends ControllerBase {
       $response['ab_variants'] = $ab_assignments;
     }
 
-    // Record performance metrics.
-    if ($this->performanceMonitor) {
-      $duration_ms = (microtime(TRUE) - $start_time) * 1000;
-      $scenario = $this->classifyScenario($intent['type'] ?? 'unknown');
-      $this->performanceMonitor->recordRequest($duration_ms, TRUE, $scenario, $request_id);
-    }
-
     $success_telemetry = TelemetrySchema::normalize(
       intent: $intent['type'] ?? 'unknown',
       safety_class: $safety_classification ? $safety_classification['class'] : 'safe',
@@ -1670,30 +1875,7 @@ class AssistantApiController extends ControllerBase {
       ]
     ));
 
-    // End Langfuse trace on successful completion.
     $duration_ms = (microtime(TRUE) - $start_time) * 1000;
-    $this->langfuseTracer?->addEvent('request.complete', [
-      'intent_type' => $intent['type'] ?? 'unknown',
-      'response_type' => $response['type'] ?? 'unknown',
-      'is_quick_action' => $is_quick_action,
-    ]);
-    $this->langfuseTracer?->endTrace(
-      output: ['type' => $response['type'] ?? 'unknown', 'reason_code' => $response['reason_code'] ?? NULL],
-      metadata: array_merge(
-        [
-          'duration_ms' => $duration_ms,
-          'success' => TRUE,
-          'intent_type' => $intent['type'] ?? 'unknown',
-          'response_type' => $response['type'] ?? 'unknown',
-          'is_quick_action' => $is_quick_action,
-          'conversation_hash' => $conversation_id ? hash('sha256', $conversation_id) : NULL,
-          'turn_type' => $turn_type,
-          'fallback_level' => $response['fallback_level'] ?? NULL,
-        ],
-        $success_telemetry,
-      )
-    );
-
     $response['request_id'] = $request_id;
     // Include turn_type in response metadata when not a default NEW turn.
     if ($turn_type !== TurnClassifier::TURN_NEW) {
@@ -1711,7 +1893,47 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('grounding_refusal', $request_id ?? '');
     }
 
-    return $this->jsonResponse($response, 200, [], $request_id);
+    $this->langfuseTracer?->addEvent('request.complete', [
+      'intent_type' => $intent['type'] ?? 'unknown',
+      'response_type' => $response['type'] ?? 'unknown',
+      'is_quick_action' => $is_quick_action,
+    ]);
+    $langfuse_output = $this->buildLangfuseOutputPayload(
+      (string) ($response['message'] ?? ''),
+      (string) ($response['type'] ?? 'unknown'),
+      $response['reason_code'] ?? NULL,
+    );
+    $this->langfuseTracer?->endTrace(
+      output: $langfuse_output['display'],
+      metadata: array_merge(
+        [
+          'duration_ms' => $duration_ms,
+          'success' => TRUE,
+          'intent_type' => $intent['type'] ?? 'unknown',
+          'response_type' => $response['type'] ?? 'unknown',
+          'is_quick_action' => $is_quick_action,
+          'conversation_hash' => $conversation_id ? hash('sha256', $conversation_id) : NULL,
+          'turn_type' => $turn_type,
+          'fallback_level' => $response['fallback_level'] ?? NULL,
+        ],
+        $success_telemetry,
+        $langfuse_output['metadata'],
+      )
+    );
+
+    return $this->monitoredJsonResponse(
+      $request,
+      PerformanceMonitor::ENDPOINT_MESSAGE,
+      $response,
+      200,
+      [],
+      $request_id,
+      TRUE,
+      'message.success',
+      FALSE,
+      FALSE,
+      $this->classifyScenario($intent['type'] ?? 'unknown'),
+    );
 
     }
     catch (\Throwable $e) {
@@ -1748,25 +1970,31 @@ class AssistantApiController extends ControllerBase {
         'class' => get_class($e),
         'error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ], 'ERROR');
+      $langfuse_output = $this->buildLangfuseOutputPayload(
+        'Something went wrong. Please try again or contact us directly.',
+        'internal_error',
+        'internal_error',
+      );
       $this->langfuseTracer?->endTrace(
-        output: NULL,
+        output: $langfuse_output['display'],
         metadata: array_merge(
-          ['success' => FALSE, 'error' => get_class($e), 'duration_ms' => (microtime(TRUE) - $start_time) * 1000],
+          [
+            'success' => FALSE,
+            'error' => get_class($e),
+            'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+          ],
           $error_telemetry,
+          $langfuse_output['metadata'],
         )
       );
 
-      if ($this->performanceMonitor) {
-        $duration_ms = (microtime(TRUE) - $start_time) * 1000;
-        $this->performanceMonitor->recordRequest($duration_ms, FALSE, 'error', $request_id);
-      }
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_MESSAGE, [
         'error' => [
           'code' => 'internal_error',
           'message' => 'Something went wrong. Please try again or contact us directly.',
         ],
         'request_id' => $request_id,
-      ], 500, [], $request_id);
+      ], 500, [], $request_id, FALSE, 'message.internal_error', FALSE, FALSE, 'error');
     }
   }
 
@@ -1783,6 +2011,7 @@ class AssistantApiController extends ControllerBase {
    */
   public function track(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
+    $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_TRACK);
 
     // Hybrid browser proof: same-origin Origin/Referer first, then recovery-
     // only bootstrap token fallback when browser headers are missing.
@@ -1802,12 +2031,12 @@ class AssistantApiController extends ControllerBase {
           'path' => $request->getPathInfo(),
         ],
       );
-      return $this->jsonResponse([
+      return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_TRACK, [
         'error' => 'Forbidden',
         'error_code' => $track_proof['code'],
         'message' => $track_proof['message'],
         'request_id' => $request_id,
-      ], 403, [], $request_id);
+      ], 403, [], $request_id, FALSE, 'track.' . $track_proof['code'], TRUE);
     }
 
     // Rate limit tracking events per resolved client IP.
@@ -1815,30 +2044,80 @@ class AssistantApiController extends ControllerBase {
     $ip = (string) ($trust_context['effective_client_ip'] ?? '');
     $track_flood_id = 'ilas_assistant_track:' . $ip;
     if (!$this->flood->isAllowed('ilas_assistant_track', 60, 60, $track_flood_id)) {
-      return $this->jsonResponse(['error' => 'Too many requests', 'request_id' => $request_id], 429, ['Retry-After' => '60'], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['error' => 'Too many requests', 'request_id' => $request_id],
+        429,
+        ['Retry-After' => '60'],
+        $request_id,
+        FALSE,
+        'track.rate_limit',
+        TRUE,
+      );
     }
     $this->flood->register('ilas_assistant_track', 60, $track_flood_id);
 
     $content_type = (string) $request->headers->get('Content-Type', '');
     if (strpos($content_type, 'application/json') === FALSE) {
-      return $this->jsonResponse(['error' => 'Invalid content type', 'request_id' => $request_id], 400, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['error' => 'Invalid content type', 'request_id' => $request_id],
+        400,
+        [],
+        $request_id,
+        FALSE,
+        'track.invalid_content_type',
+        TRUE,
+      );
     }
 
     $content = $request->getContent();
     if (strlen($content) > 1000) {
-      return $this->jsonResponse(['error' => 'Request too large', 'request_id' => $request_id], 413, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['error' => 'Request too large', 'request_id' => $request_id],
+        413,
+        [],
+        $request_id,
+        FALSE,
+        'track.request_too_large',
+        TRUE,
+      );
     }
 
     $data = json_decode($content, TRUE);
     if (json_last_error() !== JSON_ERROR_NONE) {
-      return $this->jsonResponse(['error' => 'Invalid request', 'request_id' => $request_id], 400, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['error' => 'Invalid request', 'request_id' => $request_id],
+        400,
+        [],
+        $request_id,
+        FALSE,
+        'track.invalid_request',
+        TRUE,
+      );
     }
 
     $event_type = $this->sanitizeInput($data['event_type'] ?? '');
     $event_value = $this->sanitizeInput($data['event_value'] ?? '');
 
     if (empty($event_type)) {
-      return $this->jsonResponse(['error' => 'Missing event_type', 'request_id' => $request_id], 400, [], $request_id);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['error' => 'Missing event_type', 'request_id' => $request_id],
+        400,
+        [],
+        $request_id,
+        FALSE,
+        'track.missing_event_type',
+        TRUE,
+      );
     }
 
     // Only allow known event types.
@@ -1852,9 +2131,28 @@ class AssistantApiController extends ControllerBase {
 
     if (in_array($event_type, $allowed_types)) {
       $this->analyticsLogger->log($event_type, $event_value);
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_TRACK,
+        ['ok' => TRUE, 'request_id' => $request_id],
+        200,
+        [],
+        $request_id,
+        TRUE,
+        'track.success',
+      );
     }
 
-    return $this->jsonResponse(['ok' => TRUE, 'request_id' => $request_id], 200, [], $request_id);
+    return $this->monitoredJsonResponse(
+      $request,
+      PerformanceMonitor::ENDPOINT_TRACK,
+      ['ok' => TRUE, 'request_id' => $request_id],
+      200,
+      [],
+      $request_id,
+      TRUE,
+      'track.ignored_event_type',
+    );
   }
 
   /**
@@ -2120,6 +2418,7 @@ class AssistantApiController extends ControllerBase {
    */
   public function suggest(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
+    $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_SUGGEST);
     $query = (string) $request->query->get('q', '');
     $type = (string) $request->query->get('type', 'all');
     $cache_meta = new CacheableMetadata();
@@ -2133,7 +2432,7 @@ class AssistantApiController extends ControllerBase {
         if ($this->readEndpointGuard) {
           $decision = $this->readEndpointGuard->evaluate($request, 'suggest');
           if (!$decision['allowed']) {
-            return $this->suggestRateLimitResponse($request_id, (int) ($decision['retry_after'] ?? 60));
+            return $this->suggestRateLimitResponse($request, $request_id, (int) ($decision['retry_after'] ?? 60));
           }
         }
 
@@ -2167,7 +2466,13 @@ class AssistantApiController extends ControllerBase {
       ], 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(300);
       $response->addCacheableDependency($cache_meta);
-      return $response;
+      return $this->monitoredCacheableResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_SUGGEST,
+        $response,
+        TRUE,
+        strlen($query) < 2 ? 'suggest.short_query_empty' : 'suggest.success',
+      );
     }
     catch (\Throwable $e) {
       // Deterministic fallback: read endpoint should degrade to an empty set.
@@ -2179,7 +2484,15 @@ class AssistantApiController extends ControllerBase {
       ], 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(60);
       $response->addCacheableDependency($cache_meta);
-      return $response;
+      return $this->monitoredCacheableResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_SUGGEST,
+        $response,
+        FALSE,
+        'suggest.degraded_empty',
+        FALSE,
+        TRUE,
+      );
     }
   }
 
@@ -2194,6 +2507,7 @@ class AssistantApiController extends ControllerBase {
    */
   public function faq(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
+    $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_FAQ);
     $query = (string) $request->query->get('q', '');
     $id = $request->query->get('id');
     $faq_mode = $this->determineFaqReadMode($id, $query);
@@ -2206,7 +2520,7 @@ class AssistantApiController extends ControllerBase {
       if ($this->readEndpointGuard) {
         $decision = $this->readEndpointGuard->evaluate($request, 'faq');
         if (!$decision['allowed']) {
-          return $this->faqRateLimitResponse($faq_mode, $request_id, (int) ($decision['retry_after'] ?? 60));
+          return $this->faqRateLimitResponse($request, $faq_mode, $request_id, (int) ($decision['retry_after'] ?? 60));
         }
       }
 
@@ -2216,12 +2530,24 @@ class AssistantApiController extends ControllerBase {
           $response = new CacheableJsonResponse(['faq' => $faq], 200, self::SECURITY_HEADERS);
           $cache_meta->setCacheMaxAge(300);
           $response->addCacheableDependency($cache_meta);
-          return $response;
+          return $this->monitoredCacheableResponse(
+            $request,
+            PerformanceMonitor::ENDPOINT_FAQ,
+            $response,
+            TRUE,
+            'faq.id_success',
+          );
         }
         $response = new CacheableJsonResponse(['error' => 'FAQ not found'], 404, self::SECURITY_HEADERS);
         $cache_meta->setCacheMaxAge(300);
         $response->addCacheableDependency($cache_meta);
-        return $response;
+        return $this->monitoredCacheableResponse(
+          $request,
+          PerformanceMonitor::ENDPOINT_FAQ,
+          $response,
+          FALSE,
+          'faq.id_not_found',
+        );
       }
 
       if (strlen($query) >= 2) {
@@ -2233,14 +2559,26 @@ class AssistantApiController extends ControllerBase {
         ], 200, self::SECURITY_HEADERS);
         $cache_meta->setCacheMaxAge(300);
         $response->addCacheableDependency($cache_meta);
-        return $response;
+        return $this->monitoredCacheableResponse(
+          $request,
+          PerformanceMonitor::ENDPOINT_FAQ,
+          $response,
+          TRUE,
+          'faq.search_success',
+        );
       }
 
       $categories = $this->faqIndex->getCategories();
       $response = new CacheableJsonResponse(['categories' => $categories], 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(300);
       $response->addCacheableDependency($cache_meta);
-      return $response;
+      return $this->monitoredCacheableResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_FAQ,
+        $response,
+        TRUE,
+        'faq.categories_success',
+      );
     }
     catch (\Throwable $e) {
       // Deterministic fallback for FAQ read path failures.
@@ -2252,7 +2590,15 @@ class AssistantApiController extends ControllerBase {
         $response = new CacheableJsonResponse(['error' => 'FAQ not found'], 404, self::SECURITY_HEADERS);
         $cache_meta->setCacheMaxAge(60);
         $response->addCacheableDependency($cache_meta);
-        return $response;
+        return $this->monitoredCacheableResponse(
+          $request,
+          PerformanceMonitor::ENDPOINT_FAQ,
+          $response,
+          FALSE,
+          'faq.degraded_id_not_found',
+          FALSE,
+          TRUE,
+        );
       }
 
       if (strlen($query) >= 2) {
@@ -2262,13 +2608,29 @@ class AssistantApiController extends ControllerBase {
         ], 200, self::SECURITY_HEADERS);
         $cache_meta->setCacheMaxAge(60);
         $response->addCacheableDependency($cache_meta);
-        return $response;
+        return $this->monitoredCacheableResponse(
+          $request,
+          PerformanceMonitor::ENDPOINT_FAQ,
+          $response,
+          FALSE,
+          'faq.degraded_empty_results',
+          FALSE,
+          TRUE,
+        );
       }
 
       $response = new CacheableJsonResponse(['categories' => []], 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(60);
       $response->addCacheableDependency($cache_meta);
-      return $response;
+      return $this->monitoredCacheableResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_FAQ,
+        $response,
+        FALSE,
+        'faq.degraded_categories',
+        FALSE,
+        TRUE,
+      );
     }
   }
 
@@ -2290,21 +2652,21 @@ class AssistantApiController extends ControllerBase {
   /**
    * Builds the suggest rate-limit response.
    */
-  private function suggestRateLimitResponse(string $request_id, int $retry_after): JsonResponse {
-    return $this->jsonResponse([
+  private function suggestRateLimitResponse(Request $request, string $request_id, int $retry_after): JsonResponse {
+    return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_SUGGEST, [
       'suggestions' => [],
       'error' => 'Too many suggestion requests. Please wait a moment before trying again.',
       'type' => 'rate_limit',
       'request_id' => $request_id,
     ], 429, [
       'Retry-After' => (string) $retry_after,
-    ], $request_id);
+    ], $request_id, FALSE, 'suggest.rate_limit', TRUE);
   }
 
   /**
    * Builds the FAQ rate-limit response for the active mode.
    */
-  private function faqRateLimitResponse(string $mode, string $request_id, int $retry_after): JsonResponse {
+  private function faqRateLimitResponse(Request $request, string $mode, string $request_id, int $retry_after): JsonResponse {
     $response = [
       'error' => 'Too many FAQ requests. Please wait a moment before trying again.',
       'type' => 'rate_limit',
@@ -2326,9 +2688,9 @@ class AssistantApiController extends ControllerBase {
         break;
     }
 
-    return $this->jsonResponse($response, 429, [
+    return $this->monitoredJsonResponse($request, PerformanceMonitor::ENDPOINT_FAQ, $response, 429, [
       'Retry-After' => (string) $retry_after,
-    ], $request_id);
+    ], $request_id, FALSE, 'faq.rate_limit', TRUE);
   }
 
   /**
@@ -3798,25 +4160,47 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
-   * Builds metadata-only Langfuse input payload fields for user text.
+   * Builds visible-plus-metadata Langfuse input payload fields for user text.
    */
   protected function buildLangfuseInputPayload(string $text): array {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadata($text);
     return [
-      'input_hash' => $metadata['text_hash'],
-      'length_bucket' => $metadata['length_bucket'],
-      'redaction_profile' => $metadata['redaction_profile'],
+      'display' => sprintf(
+        'hash=%s len=%s redact=%s',
+        ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
+        $metadata['length_bucket'],
+        $metadata['redaction_profile'],
+      ),
+      'metadata' => [
+        'input_hash' => $metadata['text_hash'],
+        'input_length_bucket' => $metadata['length_bucket'],
+        'input_redaction_profile' => $metadata['redaction_profile'],
+      ],
     ];
   }
 
   /**
-   * Builds metadata-only Langfuse output payload fields for assistant text.
+   * Builds visible-plus-metadata Langfuse output payload fields.
    */
-  protected function buildLangfuseOutputPayload(string $text): array {
+  protected function buildLangfuseOutputPayload(string $text, string $response_type, ?string $reason_code = NULL): array {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadata($text);
+    $reason = $reason_code !== NULL && $reason_code !== '' ? $reason_code : 'none';
+
     return [
-      'output_hash' => $metadata['text_hash'],
-      'output_length_bucket' => $metadata['length_bucket'],
+      'display' => sprintf(
+        'type=%s reason=%s hash=%s len=%s',
+        $response_type,
+        $reason,
+        ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
+        $metadata['length_bucket'],
+      ),
+      'metadata' => [
+        'response_type' => $response_type,
+        'reason_code' => $reason_code,
+        'output_hash' => $metadata['text_hash'],
+        'output_length_bucket' => $metadata['length_bucket'],
+        'output_redaction_profile' => $metadata['redaction_profile'],
+      ],
     ];
   }
 
@@ -3959,7 +4343,7 @@ class AssistantApiController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    *   JSON response with office details.
    */
-  protected function handleOfficeFollowUp(array $office, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta): JsonResponse {
+  protected function handleOfficeFollowUp(Request $request, array $office, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta, float $start_time): JsonResponse {
     $response = [
       'type' => 'office_location',
       'response_mode' => 'navigate',
@@ -4027,7 +4411,35 @@ class AssistantApiController extends ControllerBase {
       );
     }
 
-    return $this->jsonResponse($response, 200, [], $request_id);
+    $langfuse_output = $this->buildLangfuseOutputPayload(
+      (string) ($response['message'] ?? ''),
+      (string) ($response['type'] ?? 'unknown'),
+      $response['reason_code'] ?? NULL,
+    );
+    $this->langfuseTracer?->endTrace(
+      output: $langfuse_output['display'],
+      metadata: array_merge(
+        [
+          'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+          'success' => TRUE,
+          'response_type' => $response['type'] ?? 'unknown',
+          'reason_code' => $response['reason_code'] ?? NULL,
+          'followup_type' => 'office_location',
+        ],
+        $langfuse_output['metadata'],
+      ),
+    );
+
+    return $this->monitoredJsonResponse(
+      $request,
+      PerformanceMonitor::ENDPOINT_MESSAGE,
+      $response,
+      200,
+      [],
+      $request_id,
+      TRUE,
+      'message.office_followup_resolved',
+    );
   }
 
   /**
@@ -4051,7 +4463,7 @@ class AssistantApiController extends ControllerBase {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    *   JSON response with all offices for clarification.
    */
-  protected function handleOfficeFollowUpClarify(array $all_offices, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta): JsonResponse {
+  protected function handleOfficeFollowUpClarify(Request $request, array $all_offices, string $user_message, string $conversation_id, array $server_history, string $request_id, bool $debug_mode, ?array $debug_meta, float $start_time): JsonResponse {
     $offices_list = [];
     foreach ($all_offices as $office) {
       $offices_list[] = [
@@ -4114,7 +4526,35 @@ class AssistantApiController extends ControllerBase {
       );
     }
 
-    return $this->jsonResponse($response, 200, [], $request_id);
+    $langfuse_output = $this->buildLangfuseOutputPayload(
+      (string) ($response['message'] ?? ''),
+      (string) ($response['type'] ?? 'unknown'),
+      $response['reason_code'] ?? NULL,
+    );
+    $this->langfuseTracer?->endTrace(
+      output: $langfuse_output['display'],
+      metadata: array_merge(
+        [
+          'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+          'success' => TRUE,
+          'response_type' => $response['type'] ?? 'unknown',
+          'reason_code' => $response['reason_code'] ?? NULL,
+          'followup_type' => 'office_location_clarify',
+        ],
+        $langfuse_output['metadata'],
+      ),
+    );
+
+    return $this->monitoredJsonResponse(
+      $request,
+      PerformanceMonitor::ENDPOINT_MESSAGE,
+      $response,
+      200,
+      [],
+      $request_id,
+      TRUE,
+      'message.office_followup_clarify',
+    );
   }
 
   /**

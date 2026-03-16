@@ -174,6 +174,9 @@ if (!function_exists('ilas_site_assistant_get_canonical_urls')) {
 function ilas_site_assistant_cron() {
   $start = microtime(TRUE);
   $success = TRUE;
+  // Budget guard: skip non-critical tasks if cron is running long to avoid
+  // Sentry Cron Monitor timeouts and lock contention (PHP-S/R, PHP-Q).
+  $maxSeconds = 120;
 
   try {
     // Clean up expired analytics data.
@@ -195,12 +198,23 @@ function ilas_site_assistant_cron() {
     }
 
     // Run scheduled vector-index hygiene refresh and monitoring snapshots.
-    if (\Drupal::hasService('ilas_site_assistant.vector_index_hygiene')) {
+    // This is the heaviest cron task — guard with time budget.
+    $elapsed = microtime(TRUE) - $start;
+    if ($elapsed > $maxSeconds) {
+      \Drupal::logger('ilas_site_assistant')->warning('Cron task budget exhausted (@elapsed s), skipping vector hygiene refresh', [
+        '@elapsed' => round($elapsed, 2),
+      ]);
+    }
+    elseif (\Drupal::hasService('ilas_site_assistant.vector_index_hygiene')) {
       try {
         \Drupal::service('ilas_site_assistant.vector_index_hygiene')->runScheduledRefresh();
       }
       catch (\Throwable $e) {
-        \Drupal::logger('ilas_site_assistant')->error('Vector index hygiene refresh failed: @message', [
+        // On non-live environments, missing Pinecone backends are expected —
+        // log as warning instead of error to reduce Sentry noise (PHP-15).
+        $env = getenv('PANTHEON_ENVIRONMENT') ?: '';
+        $logMethod = ($env === 'live' || $env === 'test') ? 'error' : 'warning';
+        \Drupal::logger('ilas_site_assistant')->{$logMethod}('Vector index hygiene refresh failed: @message', [
           '@message' => $e->getMessage(),
         ]);
       }
