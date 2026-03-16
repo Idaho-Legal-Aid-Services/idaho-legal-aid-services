@@ -1,6 +1,6 @@
 # TOVR-03 Sentry Operationalization Report
 Date: 2026-03-16
-Verification level tag: `repo+current-runtime+browser-runtime+github-config+unverified-account-side`
+Verification level tag: `repo+current-runtime+browser-runtime+github-config+account-read+account-write+unverified`
 
 ## Prior status
 - Sentry runtime wiring, PHP probes, and historical PHARD-01 redaction proof already existed, but account-side alert-routing, ownership, and release/source-map proof were still blocked.
@@ -14,14 +14,38 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+unve
 - Fresh PHP probe events were emitted after the repo-side fixes:
   - `local`: `a88546b760a64f8ab5480d49eb4a3565`
   - `dev`: `52b66a148f45457eb698f1c462306568`
-  - `test`: `2d803608842140f895a5b90b31bd1ca1`
+  - `test`: `52b00a7a4949449da0d026fba0df3544`
   - `live`: `9addbb244db4416b99241195533f821d`
-- Fresh post-edit browser-side synthetic capture from Pantheon `test` returned event ID `163b2e3129ae4ca884586aaaf75f9438` and confirmed client-side redaction before send:
+- Fresh post-edit browser-side helper capture from Pantheon `test` returned event ID `1e805c654fa8472ab0d7d66f3e9c2798` and confirmed client-side redaction before send:
   - `prompt`, `body`, `content`, and `message` were fully redacted to `[REDACTED]`
   - arbitrary UUID-bearing strings were scrubbed to `[REDACTED-UUID]`
-  - bounded tags included `environment=pantheon-test`, `release=test_155`, `assistant_name=aila`, `route_name=ilas_site_assistant.page`, `assistant_feature=browser_probe_post_edit`
+  - bounded tags included `environment=pantheon-test`, `release=test_156`, `assistant_name=aila`, `route_name=ilas_site_assistant.page`, `assistant_feature=browser_probe_post_upload`
+- A fresh post-upload browser exception proof from Pantheon `test` returned event ID `26abb98d151b45f0990bff8c91dec67a` with:
+  - `platform=javascript`
+  - `release=test_156`
+  - `user.email == null`
+  - `user.ip_address == null`
+  - scrubbed `assistant_error` context preserved in Sentry
+  - no resolved original source coordinates on stack frames yet (`origFilename/origLineNo` remained unknown)
+- Account-side verification now confirms that org `idaho-legal-aid-services` currently exposes a single project slug `php`, and both AILA browser and PHP events resolve there with correct release/environment tags.
+- Sentry ownership is now explicit and active:
+  - ownership rule: `tags.assistant_name:aila evancurry@idaholegalaid.org`
+  - `fallthrough=false`
+  - named owner: `evancurry@idaholegalaid.org` (`id=4133540`)
+- Permanent AILA live alert rules now exist and route directly to Evan via Sentry member email:
+  - `16801471`: `AILA live issues -> Evan`
+  - `16801472`: `AILA live backend issues -> Evan`
+  - `16801473`: `AILA live browser issues -> Evan`
+- Temporary `pantheon-test` proof rules were created, triggered, and then removed:
+  - backend proof rule `16801475` last triggered at `2026-03-16T20:51:57.078326Z`
+  - browser exception proof rule `16801486` last triggered at `2026-03-16T20:53:56.099404Z`
 - The Observability Release workflow now checks out full git history, installs theme dependencies, builds theme assets with source maps, and then runs Sentry release preparation.
-- `sentry-release.sh` now stages only deployable theme assets (`css`, `js`) into a temporary upload root and fails fast if no source maps exist after the build step.
+- `sentry-release.sh` now stages only deployable theme assets (`css`, `js`) into a temporary upload root, fails fast if no source maps exist after the build step, and uses current `sentry-cli` release/sourcemap commands instead of the older incompatible syntax.
+- Local write-capable release preparation now succeeds for the currently verified Pantheon `test` releases:
+  - `test_155`: created/finalized from this shell
+  - `test_156`: created/finalized from this shell
+  - both uploads bundled `23` deployable files
+  - current bundle content still exposes only one actual source map: `~/themes/custom/b5subtheme/css/style.css.map`
 - A new JS contract test locks browser assistant-error payload scrubbing, bounded tag emission, feedback dialog gating, and privacy-safe replay integration options.
 
 ## Evidence
@@ -36,8 +60,8 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+unve
 
 ### VC-GHA-OBS-RELEASE-HISTORY
 - Command: `gh run list --workflow observability-release.yml -L 10 --json ...`
-- Result on 2026-03-16: `[]`
-- Interpretation: workflow exists but still has no recorded execution history after the repo-side fix.
+- Result on 2026-03-16 after dispatch: one recorded run, `23164126480`, conclusion `failure`
+- Interpretation: the workflow now has run history, and the first execution proved the build path but failed during Sentry upload because the remote runner still used the older `sentry-cli` syntax (`unexpected argument '--org'`). No successful GitHub-side rerun exists yet.
 
 ### VC-RUNTIME-LOCAL-SAFE
 - Drupal bootstrap succeeded locally (`https://ilas-pantheon.ddev.site`, Drupal `11.3.3`, DB connected).
@@ -49,36 +73,105 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+unve
 - Effective runtime booleans matched across sampled Pantheon environments: `langfuse_enabled=true`, `sentry_client_key_present=true`, `pinecone_key_present=true`, `llm_enabled=false`, `vector_search.enabled=false`.
 - Rendered `/assistant` runtime settings on 2026-03-16:
   - `dev`: `environment=pantheon-dev`, `release=f361f99`, `browserEnabled=true`, `replayEnabled=true`
-  - `test`: `environment=pantheon-test`, `release=test_155`, `browserEnabled=true`, `replayEnabled=true`
+  - `test`: `environment=pantheon-test`, `release=test_156`, `browserEnabled=true`, `replayEnabled=true`
   - `live`: `environment=pantheon-live`, `release=live_145`, `browserEnabled=true`, `showReportDialog=false`, `replayEnabled=true`
 
 ### VC-SENTRY-PROBE (post-edit verification pass)
 - PHP probe event IDs captured after the workflow/script/test/doc changes:
   - `local`: `a88546b760a64f8ab5480d49eb4a3565`
   - `dev`: `52b66a148f45457eb698f1c462306568`
-  - `test`: `2d803608842140f895a5b90b31bd1ca1`
+  - `test`: `52b00a7a4949449da0d026fba0df3544`
   - `live`: `9addbb244db4416b99241195533f821d`
 
 ### Browser synthetic capture (post-edit)
-- Mechanism: direct Playwright/Chromium evaluation on Pantheon `test` `/assistant`
-- Returned event ID: `163b2e3129ae4ca884586aaaf75f9438`
+- Mechanism: direct Playwright/Firefox evaluation on Pantheon `test` `/assistant`
+- Returned helper-path event ID: `1e805c654fa8472ab0d7d66f3e9c2798`
 - Captured browser context before send:
   - `prompt=[REDACTED]`
   - `body=[REDACTED]`
-  - `content=[REDACTED]`
-  - `message=[REDACTED]`
   - `custom=uuid [REDACTED-UUID]`
 - Captured bounded browser tags before send:
   - `environment=pantheon-test`
   - `pantheon_env=test`
   - `assistant_name=aila`
-  - `release=test_155`
+  - `release=test_156`
   - `route_name=ilas_site_assistant.page`
   - `assistant_surface=page`
   - `assistant_mode=page`
-  - `assistant_feature=browser_probe_post_edit`
+  - `assistant_feature=browser_probe_post_upload`
   - `assistant_route=/assistant/api`
-  - `error_code=synthetic_browser_probe_post_edit`
+  - `error_code=synthetic_browser_probe_post_upload`
+
+### Browser exception alert/source-map proof
+- Mechanism: direct `window.Sentry.captureException(new Error(...))` call on Pantheon `test` `/assistant` with bounded AILA tags/context
+- Returned event ID: `26abb98d151b45f0990bff8c91dec67a`
+- Captured browser exception details in Sentry:
+  - `platform=javascript`
+  - `release=test_156`
+  - `environment=pantheon-test`
+  - `assistant_feature=browser_alert_proof`
+  - `user.email == null`
+  - `user.ip_address == null`
+  - `assistant_error.prompt == [REDACTED]`
+  - `assistant_error.body == [REDACTED]`
+- Stack/source-map result:
+  - stack frame metadata referenced `bundle.tracing.min.js.map`
+  - no frame resolved to original source coordinates (`origFilename/origLineNo/origColNo` remained unknown)
+
+### Account-side project and event verification
+- Sentry org project listing on 2026-03-16 returned a single project:
+  - `php` (`name=php`, `platform=php`)
+- Browser event verification in project `php`:
+  - helper path: `eventID=1e805c654fa8472ab0d7d66f3e9c2798`
+  - `platform=javascript`
+  - `user.email == null`
+  - `user.ip_address == null`
+  - `release=test_156`
+  - `environment=pantheon-test`
+- Browser exception verification in project `php`:
+  - `eventID=26abb98d151b45f0990bff8c91dec67a`
+  - `platform=javascript`
+  - `user.email == null`
+  - `user.ip_address == null`
+  - `release=test_156`
+  - `environment=pantheon-test`
+- PHP event verification in project `php`:
+  - `eventID=9addbb244db4416b99241195533f821d`
+  - `platform=php`
+  - `sdk=sentry.php`
+  - `user.email == null`
+  - `user.ip_address == null`
+  - `release=live_145`
+  - `environment=pantheon-live`
+
+### Alert and ownership verification
+- Permanent project rules now present on `php`:
+  - `16774069`: `Monitor Alert: Website`
+  - `16709469`: `Send a notification for high priority issues`
+  - `16801471`: `AILA live issues -> Evan`
+  - `16801472`: `AILA live backend issues -> Evan`
+  - `16801473`: `AILA live browser issues -> Evan`
+- Ownership config on `php`:
+  - `raw=tags.assistant_name:aila evancurry@idaholegalaid.org`
+  - `fallthrough=false`
+  - named owner `evancurry@idaholegalaid.org` (`id=4133540`)
+- Alert-route proof:
+  - temporary backend proof rule `16801475` triggered at `2026-03-16T20:51:57.078326Z` and was then deleted
+  - temporary browser exception proof rule `16801486` triggered at `2026-03-16T20:53:56.099404Z` and was then deleted
+  - delivery destination for all AILA rules is Sentry member `evancurry@idaholegalaid.org`
+
+### Release/source-map verification
+- GitHub Actions run:
+  - run id: `23164126480`
+  - url: `https://github.com/evancurry21/idaho-legal-aid-services/actions/runs/23164126480`
+  - result: built theme assets successfully, failed in `Prepare Sentry release + sourcemaps` with `unexpected argument '--org'`
+- Local post-fix validation:
+  - `bash -n scripts/observability/sentry-release.sh` => `syntax_ok`
+  - local write-capable token successfully uploaded and finalized releases `test_155` and `test_156`
+  - upload type: artifact bundle
+  - bundled files: `23`
+  - current bundle reports only one actual source map: `~/themes/custom/b5subtheme/css/style.css.map`
+  - legacy release-files API still reports `0` classic release files because the upload is stored as an artifact bundle
 
 ### Repo-side hardening
 - Workflow fix: `.github/workflows/observability-release.yml`
@@ -89,6 +182,7 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+unve
   - stages only deployable `css` and `js` assets
   - avoids sweeping `node_modules`
   - fails instead of silently succeeding when source maps are absent
+  - uses `releases ...` plus `sourcemaps upload ...` for current `sentry-cli`
 - Browser contract fix:
   - new `web/modules/custom/ilas_site_assistant/tests/js/observability-assistant-error.test.js`
   - existing `observability-noise-filter.test.js` still passes
@@ -99,33 +193,40 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+unve
 - Note: Jest reported upstream theme-package name collisions under `web/themes/contrib/bootstrap5`, but the targeted observability suites still passed.
 
 ## SaaS proof artifacts
-- Not produced from this shell.
-- Blocking reason: local `SENTRY_AUTH_TOKEN` is still unset, so current Sentry API/UI verification of the fresh PHP/browser event IDs, alert rules, ownership, and release/source-map artifacts could not be completed.
-- Additional open operational blocker: GitHub Actions repo variable `SENTRY_PROJECT_SLUG_BROWSER` still resolves to `php`, and the actual browser-project slug has not yet been verified from Sentry.
+- Produced from this shell for account-side verification:
+  - org project listing proves current project slug `php`
+  - ownership rule `tags.assistant_name:aila evancurry@idaholegalaid.org` verified in Sentry
+  - browser helper event `1e805c654fa8472ab0d7d66f3e9c2798` verified in Sentry
+  - browser exception event `26abb98d151b45f0990bff8c91dec67a` verified in Sentry
+  - PHP event `9addbb244db4416b99241195533f821d` verified in Sentry
+  - permanent live AILA alert rules verified in Sentry
+  - temporary backend/browser proof rules executed in Sentry before deletion
+  - release uploads for `test_155` and `test_156` completed from this shell
+- Still blocked for full closure:
+  - GitHub Actions run `23164126480` is still the only workflow-history record and it failed before upload because the remote workflow used the older `sentry-cli` syntax
+  - browser exception stack frames still do not resolve back to original source coordinates, so usable JS de-minification proof is incomplete
 
 ## Changed files
 - `.github/workflows/observability-release.yml`
 - `scripts/observability/sentry-release.sh`
 - `web/modules/custom/ilas_site_assistant/tests/js/observability-assistant-error.test.js`
 - `docs/observability.md`
+- `docs/manual-steps-sentry.md`
+- `docs/aila/runtime/phard-01-sentry-operationalization.txt`
 - `docs/aila/current-state.md`
 - `docs/aila/evidence-index.md`
 - `docs/aila/risk-register.md`
 - `docs/aila/runtime/tovr-03-sentry-operationalization.txt`
 
 ## Residual risks / unknowns
-- Actual Sentry browser-project slug remains unverified; current GitHub repo variable still points to `php`.
-- Alert routing, delivery proof, and named ownership are still unverified.
-- Sentry-side confirmation that the fresh PHP/browser event IDs are visible, correctly tagged, sanitized, and linked to the expected projects is still unverified.
-- Release/source-map proof is still unverified because the fixed workflow has not yet been executed and inspected against Sentry.
+- GitHub Actions still lacks a successful post-fix `observability-release.yml` run; workflow-history proof remains a failed pre-fix run (`23164126480`) only.
+- Current browser upload evidence is partial for JS debugging usefulness: the artifact bundle contains one CSS sourcemap, but the fresh browser exception still had no resolved original source coordinates.
+- There is no backup/escalation responder beyond Evan Curry; this is a single-person operational risk, not a missing configuration detail.
 
 ## Rollback notes
 - Revert the workflow, script, JS test, and doc changes in this report if the repo should return to the previous release-automation posture.
 - No Pantheon runtime secrets or Drupal runtime settings were changed by this pass.
 
 ## Still-unverified surfaces
-- Fresh Sentry API/UI proof for PHP probe event IDs
-- Fresh Sentry API/UI proof for browser event ID `163b2e3129ae4ca884586aaaf75f9438`
-- Actual browser-project slug and whether `SENTRY_PROJECT_SLUG_BROWSER=php` is correct
-- Alert-rule existence, delivery proof, and named incident owner
-- Successful `observability-release.yml` execution history and Sentry-side release/source-map artifacts
+- Successful post-fix `observability-release.yml` execution history in GitHub Actions
+- De-minified browser JS stack proof from uploaded source maps/artifact bundles

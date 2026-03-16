@@ -39,12 +39,12 @@ These labels are produced at runtime in `settings.php` and reused across Sentry 
 - Backend assistant failures continue to flow through `AssistantApiController`, Langfuse, Drupal logs, and Sentry with the same `request_id`.
 
 ## Operational Ownership
-- TOVR-03 status on 2026-03-16: this section remains `Unverified` until a local `SENTRY_AUTH_TOKEN` is available to confirm the real Sentry owner, alert destination, and browser-project slug from Sentry itself.
-- **Project owner:** `<NAME — fill after assignment>`
+- TOVR-03 status on 2026-03-16: account-side Sentry verification now confirms that project slug `php` currently receives both AILA PHP and browser events, ownership is mapped via `tags.assistant_name:aila -> evancurry@idaholegalaid.org`, permanent live AILA issue rules exist, and local release uploads for `test_155` and `test_156` succeeded. This section remains `Unverified` only because GitHub Actions still has no successful post-fix `Observability Release` run and fresh browser JS stack frames still do not resolve back to original source coordinates.
+- **Project owner:** `Evan Curry <evancurry@idaholegalaid.org>`
 - **Triage cadence:** Weekly review of Sentry issue stream, alert noise ratio, and unresolved incidents.
 - **Review artifact location:** `docs/aila/runtime/phard-01-sentry-operationalization.txt`
-- **Alert routing:** Sentry alerts route to the project owner via email and/or Slack channel `<CHANNEL — fill after setup>`.
-- **Escalation:** Unresolved P1 issues escalate to Platform Engineer within 4 hours.
+- **Alert routing:** Sentry alerts route directly to the project owner’s member email (`evancurry@idaholegalaid.org`) for the three permanent live AILA rules.
+- **Escalation:** No backup responder is configured; Evan is the sole responder and escalation target.
 
 ## Approved Sentry Payload
 The `SentryOptionsSubscriber` class defines the approved payload schema via constants:

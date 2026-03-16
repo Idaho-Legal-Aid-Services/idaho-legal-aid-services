@@ -1,24 +1,26 @@
 # Manual Steps: Sentry
 
 ## Projects and SCM
-1. Create or confirm two Sentry projects:
-   - PHP: `<SENTRY_PROJECT_SLUG_PHP>`
-   - Browser: `<SENTRY_PROJECT_SLUG_BROWSER>`
+1. Current verified topology on 2026-03-16: the Sentry org `idaho-legal-aid-services` currently exposes project slug `php`, and both AILA PHP and browser events resolve there. Use `php` for `SENTRY_PROJECT_SLUG_BROWSER` unless the Sentry org is intentionally restructured.
 2. Connect the Sentry org `<SENTRY_ORG_SLUG>` to GitHub repo `<GITHUB_REPO_SLUG>`.
 3. Add code mappings for this repository and enable suspect commits.
 4. Review `CODEOWNERS` and mirror the same ownership logic in Sentry ownership rules if needed.
+5. If a dedicated browser project is introduced later, update `SENTRY_PROJECT_SLUG_BROWSER` and rerun TOVR-03 release/event proof.
 
 ## Runtime Secrets
 1. Provide `SENTRY_DSN` to Pantheon runtime secrets for backend capture.
 2. Provide `SENTRY_BROWSER_DSN` to Pantheon runtime secrets for browser capture.
 3. Provide `SENTRY_AUTH_TOKEN` only to CI/manual release tooling, not to Drupal runtime.
-4. Optional: provide `SENTRY_CRON_MONITOR_ID` after creating the Drupal cron monitor.
+4. A write-capable local `SENTRY_AUTH_TOKEN` can be used for manual release upload, rule verification, and ownership updates, but it must remain a short-lived local session secret and never move into Pantheon runtime.
+5. Optional: provide `SENTRY_CRON_MONITOR_ID` after creating the Drupal cron monitor.
 
 ## Releases and Source Maps
 1. After the code deploy exists on Pantheon, run:
    `bash scripts/observability/sentry-release.sh --site <PANTHEON_SITE_NAME> --env <pantheon-env> --org <SENTRY_ORG_SLUG> --project <SENTRY_PROJECT_SLUG_BROWSER>`
 2. Or use the manual GitHub workflow `Observability Release` with the Pantheon deployment identifier as `release_name`.
-3. Verify the release contains uploaded source maps for `~/themes/custom/b5subtheme`.
+3. Current repo behavior expects modern `sentry-cli` syntax: `releases ...` plus `sourcemaps upload ...`. GitHub Actions run `23164126480` on 2026-03-16 proved the build path but failed at the older CLI syntax before this repo fix reached GitHub.
+4. Local write-capable verification on 2026-03-16 successfully finalized releases `test_155` and `test_156`, but the current upload bundle only contains one actual sourcemap: `~/themes/custom/b5subtheme/css/style.css.map`.
+5. Verify the release contains uploaded source maps or artifact bundles for `~/themes/custom/b5subtheme`, then confirm a fresh browser exception resolves to original source coordinates before calling JS de-minification proven.
 
 ## Alerts and Monitors
 1. Create issue alerts for:
@@ -44,16 +46,20 @@
 4. Screenshot or link the Sentry event detail page as evidence.
 
 ## Alert Configuration
-1. Document each Sentry alert rule after creation:
-   - **Rule name:** `<fill>`
-   - **Conditions:** `<fill>` (e.g., "New issue seen more than 5 times in 1 hour")
-   - **Actions:** `<fill>` (e.g., "Send email to project owner")
-   - **Environments:** `<fill>` (e.g., "pantheon-live, pantheon-test")
-2. Test alert delivery and record proof (email/Slack screenshot) in the evidence artifact.
+1. Current verified AILA live rules on 2026-03-16:
+   - `AILA live issues -> Evan` (`16801471`) — `assistant_name=aila`, `environment=pantheon-live`
+   - `AILA live backend issues -> Evan` (`16801472`) — `assistant_name=aila`, `environment=pantheon-live`, `platform=php`
+   - `AILA live browser issues -> Evan` (`16801473`) — `assistant_name=aila`, `environment=pantheon-live`, `platform=javascript`
+2. Current ownership rule on project `php`:
+   - `tags.assistant_name:aila evancurry@idaholegalaid.org`
+3. Temporary `pantheon-test` proof rules were used on 2026-03-16 to prove route execution and then deleted:
+   - backend proof `16801475` lastTriggered `2026-03-16T20:51:57.078326Z`
+   - browser exception proof `16801486` lastTriggered `2026-03-16T20:53:56.099404Z`
+4. If alert delivery proof must be repeated, recreate a temporary `pantheon-test` rule scoped to the exact proof tag, capture `lastTriggered`, confirm the mailbox receipt, then remove the rule.
 
 ## Operational Owner
-- **Named owner:** `<NAME — fill after assignment>`
-- **Backup/escalation:** `<NAME — fill after assignment>`
+- **Named owner:** `Evan Curry <evancurry@idaholegalaid.org>`
+- **Backup/escalation:** `None configured; Evan is the sole responder`
 - **Review cadence:** Weekly, documented in `docs/observability.md` Operational Ownership section.
 
 ## Feedback / Triage

@@ -3042,6 +3042,9 @@ that remained open after 2026-03-13.
   checking out full git history for commit association, and staging only
   deployable theme `css`/`js` assets in `sentry-release.sh` so source-map
   upload no longer depends on tracked `.map` files or a `node_modules` sweep.
+  The current repo also aligns `sentry-release.sh` with modern `sentry-cli`
+  syntax (`releases ...` plus `sourcemaps upload ...`) after GitHub Actions
+  run `23164126480` exposed the older command form as incompatible.
 - Evidence:
   - `.github/workflows/observability-release.yml`
   - `scripts/observability/sentry-release.sh`
@@ -3062,13 +3065,18 @@ that remained open after 2026-03-13.
 ### CLAIM-208
 - Claim: TOVR-03 reran current repo/runtime verification on 2026-03-16 and
   confirmed: `VC-PURE` and `VC-UNIT` pass, pre- and post-edit PHP probes emit
-  fresh event IDs in `local`/`dev`/`test`/`live`, post-edit Pantheon `test`
-  browser synthetic capture returned event ID
-  `163b2e3129ae4ca884586aaaf75f9438` with scrubbed client context, and the
-  remaining Sentry status is still `Unverified` because local
-  `SENTRY_AUTH_TOKEN` is absent, alert/ownership placeholders remain
-  unresolved, the browser-project slug is not yet verified, and the fixed
-  workflow still has no execution history.
+  fresh event IDs in `local`/`dev`/`test`/`live`, Pantheon `test` helper-path
+  browser capture returned event ID `1e805c654fa8472ab0d7d66f3e9c2798` with
+  scrubbed client context, a browser exception proof returned event ID
+  `26abb98d151b45f0990bff8c91dec67a`, Sentry API verification proves that
+  project slug `php` currently receives both PHP and browser events with null
+  user email/IP fields, ownership now maps `assistant_name=aila` to
+  `evancurry@idaholegalaid.org`, permanent live AILA rules exist, temporary
+  test rules proved backend/browser alert-route execution, and local
+  write-capable runs finalized releases `test_155` and `test_156`. The
+  remaining Sentry status is still `Unverified` because GitHub workflow
+  history is still failed-only and the fresh browser exception still lacks
+  resolved original source coordinates.
 - Evidence:
   - `docs/aila/runtime/tovr-03-sentry-operationalization.txt`
   - `docs/aila/current-state.md`

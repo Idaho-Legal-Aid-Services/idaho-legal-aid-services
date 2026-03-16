@@ -4,7 +4,7 @@ PHARD-01: Sentry Live Operationalization Evidence
 Finding IDs: OBS-4, R-OBS-01, PHG-OBS-01
 Risk Register: R-OBS-01
 Created: 2026-03-10
-Last updated: 2026-03-10
+Last updated: 2026-03-16
 
 ────────────────────────────────────────────────────
 1. Pre-Edit State (VC-PANTHEON-READONLY)
@@ -105,43 +105,76 @@ Comparison — pre-deploy (8b6a8edf) vs post-deploy (a444811f):
 4. Alert Routing Evidence
 ────────────────────────────────────────────────────
 
-Alert rules created:
-  [ ] Backend exception spike
-      Rule name: <FILL>
-      Conditions: <FILL>
-      Delivery: <FILL>
+2026-03-16 account-side Sentry verification on project `php`:
 
-  [ ] Browser error spike
-      Rule name: <FILL>
-      Conditions: <FILL>
-      Delivery: <FILL>
+  [x] Generic new/regression issue rule present
+      Rule id: 16774069
+      Rule name: Monitor Alert: Website
+      Conditions: FirstSeenEventCondition + RegressionEventCondition
+      Delivery: NotifyEmailAction to Member targetIdentifier=4133540
+                with ActiveMembers fallthrough
 
-  [ ] Assistant-specific (assistant_name:aila)
-      Rule name: <FILL>
-      Conditions: <FILL>
-      Delivery: <FILL>
+  [x] Generic high-priority issue rule present
+      Rule id: 16709469
+      Rule name: Send a notification for high priority issues
+      Conditions: NewHighPriorityIssueCondition + ExistingHighPriorityIssueCondition
+      Delivery: NotifyEmailAction to IssueOwners with ActiveMembers fallthrough
+
+  [x] AILA-specific live issue rule
+      Rule id: 16801471
+      Rule name: AILA live issues -> Evan
+      Filters: assistant_name=aila, environment=pantheon-live
+      Delivery: NotifyEmailAction to Member targetIdentifier=4133540
+                with NoOne fallthrough
+
+  [x] AILA-specific live backend rule
+      Rule id: 16801472
+      Rule name: AILA live backend issues -> Evan
+      Filters: assistant_name=aila, environment=pantheon-live, platform=php
+      Delivery: NotifyEmailAction to Member targetIdentifier=4133540
+                with NoOne fallthrough
+
+  [x] AILA-specific live browser rule
+      Rule id: 16801473
+      Rule name: AILA live browser issues -> Evan
+      Filters: assistant_name=aila, environment=pantheon-live, platform=javascript
+      Delivery: NotifyEmailAction to Member targetIdentifier=4133540
+                with NoOne fallthrough
 
 Alert delivery proof:
-  [ ] Email screenshot/link: <FILL>
-  [ ] Slack screenshot/link: <FILL>
+  [x] Backend proof rule executed
+      Temp rule id: 16801475
+      Rule name: TEMP AILA test backend proof -> Evan
+      lastTriggered: 2026-03-16T20:51:57.078326Z
+      Notes: rule was deleted after proof to avoid non-live noise
+  [x] Browser proof rule executed
+      Temp rule id: 16801486
+      Rule name: TEMP AILA test browser exception proof -> Evan
+      lastTriggered: 2026-03-16T20:53:56.099404Z
+      Notes: rule was deleted after proof to avoid non-live noise
+  [ ] Email inbox screenshot/link: not captured from this shell
+  [ ] Slack delivery: not configured; email destination is the member mailbox only
 
 ────────────────────────────────────────────────────
 5. Dashboard Ownership Evidence
 ────────────────────────────────────────────────────
 
-Sentry team membership:
-  Team name: <FILL>
-  Named owner: <FILL>
-  Members: <FILL>
-  Screenshot/URL: <FILL>
+Sentry ownership:
+  Project slug: php
+  Ownership rule: tags.assistant_name:aila evancurry@idaholegalaid.org
+  fallthrough: false
+  Named owner: Evan Curry <evancurry@idaholegalaid.org>
+  Sentry member id: 4133540
+  Member directory listing: still permission denied, but owner resolution is proven
+  directly through the ownership schema returned by Sentry
 
 ────────────────────────────────────────────────────
 6. Incident Review Workflow
 ────────────────────────────────────────────────────
 
 Review cadence: Weekly
-Primary responder: <FILL>
-Escalation path: <FILL>
+Primary responder: Evan Curry <evancurry@idaholegalaid.org>
+Escalation path: self-escalation only; no backup responder is configured
 Artifact location: docs/aila/runtime/phard-01-sentry-operationalization.txt
 Runbook reference: docs/incident-runbook.md
 
@@ -149,19 +182,28 @@ Runbook reference: docs/incident-runbook.md
 7. Closure Determination
 ────────────────────────────────────────────────────
 
-Status: Partially Fixed (redaction complete, alert/ownership pending)
+Status: Unverified (runtime/redaction/ownership/alert routing verified; GitHub workflow history and browser JS de-minification still incomplete)
 
 Criteria:
   [x] Probe events captured on all 3 environments
   [x] Tags and redaction verified via Sentry API (section 3)
   [x] OS/Runtime contexts scrubbed (confirmed null post-deploy)
   [x] Breadcrumb scrubbing implemented + contract tested (13/13 tests pass)
-  [ ] Alert rules created and delivery tested
-  [ ] Dashboard ownership assigned
-  [ ] Review cadence established
+  [x] Current project topology verified (`php` receives both PHP and browser events)
+  [x] AILA-specific alert rules created and delivery route tested
+  [x] Dashboard ownership assigned
+  [x] Review cadence backed by named responder and documented single-person escalation posture
+  [x] Release/source-map upload proven from write-capable local script run (`test_155`, `test_156`)
+  [ ] Successful post-fix GitHub Actions workflow run captured
+  [ ] Browser JS stack de-minification proven with resolved original source coordinates
 
-Determination date: <FILL — pending manual setup of sections 4-6>
-Determined by: <FILL>
-Notes: Sections 1-3 complete. OS/Runtime context clearing and breadcrumb
-       scrubbing deployed to dev (release 5dc98e9) and verified via Sentry
-       API on 2026-03-10. Sections 4-6 require manual Sentry UI admin setup.
+Determination date: 2026-03-16
+Determined by: TOVR-03 verification pass
+Notes: Historical sections 1-3 remain valid. The 2026-03-16 read-only account-side
+       pass was superseded by a write-capable verification pass that created
+       ownership plus live AILA rules, proved backend/browser alert-route
+       execution with temporary `pantheon-test` proof rules, and successfully
+       uploaded/finalized local Sentry releases `test_155` and `test_156`.
+       Remaining blockers are a successful GitHub Actions rerun and browser JS
+       source-map usefulness proof (fresh exception stack frames still lacked
+       resolved original coordinates).
