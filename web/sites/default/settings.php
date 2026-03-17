@@ -161,6 +161,31 @@ function _ilas_read_boolean(string|false|null $raw, bool $fallback = FALSE): boo
 }
 
 /**
+ * Helper: parses a runtime boolean toggle from a plain-text flag file.
+ *
+ * @param string $path
+ *   Absolute or relative path to the flag file.
+ * @param bool $fallback
+ *   Fallback when the file is absent, unreadable, or invalid.
+ *
+ * @return bool
+ *   Parsed boolean value.
+ */
+function _ilas_read_boolean_file(string $path, bool $fallback = FALSE): bool {
+  $path = trim($path);
+  if ($path === '' || !is_readable($path)) {
+    return $fallback;
+  }
+
+  $contents = file_get_contents($path);
+  if ($contents === FALSE) {
+    return $fallback;
+  }
+
+  return _ilas_read_boolean($contents, $fallback);
+}
+
+/**
  * Returns the raw Pantheon environment name when available.
  */
 function _ilas_raw_pantheon_environment(): string|false {
@@ -527,13 +552,36 @@ if ($pinecone_key) {
  * ILAS Site Assistant vector-search rollout toggle.
  *
  * Runtime-only toggle. Sync config remains disabled-by-default so enablement
- * can be staged per environment without changing exported config.
+ * can be staged per environment without changing exported config. Pantheon
+ * non-live environments may also use a private flag file when secrets do not
+ * propagate to the PHP runtime.
  */
-$ilas_vector_search_enabled = _ilas_read_boolean(_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED'));
+$ilas_vector_search_raw = _ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED');
+$ilas_vector_search_enabled = _ilas_read_boolean($ilas_vector_search_raw);
+$ilas_vector_search_override_channel = NULL;
 $ilas_vector_search_environment = _ilas_raw_pantheon_environment();
 $ilas_vector_search_environment = $ilas_vector_search_environment !== FALSE
   ? mb_strtolower(trim($ilas_vector_search_environment))
   : 'local';
+
+if (
+  !$ilas_vector_search_enabled &&
+  ($ilas_vector_search_raw === FALSE || trim((string) $ilas_vector_search_raw) === '') &&
+  in_array($ilas_vector_search_environment, ['dev', 'test'], TRUE) &&
+  !empty($settings['file_private_path']) &&
+  is_string($settings['file_private_path'])
+) {
+  $ilas_vector_search_flag_path = rtrim($settings['file_private_path'], '/')
+    . '/ilas-vector-search-enabled.txt';
+  if (_ilas_read_boolean_file($ilas_vector_search_flag_path)) {
+    $ilas_vector_search_enabled = TRUE;
+    $ilas_vector_search_override_channel = 'settings.php runtime toggle -> private flag file';
+  }
+}
+
+if ($ilas_vector_search_enabled && $ilas_vector_search_override_channel === NULL) {
+  $ilas_vector_search_override_channel = 'settings.php runtime toggle -> getenv/pantheon_get_secret';
+}
 
 if ($ilas_vector_search_environment === 'live') {
   $config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;
@@ -541,7 +589,7 @@ if ($ilas_vector_search_environment === 'live') {
 }
 elseif (in_array($ilas_vector_search_environment, ['local', 'dev', 'test'], TRUE) && $ilas_vector_search_enabled) {
   $config['ilas_site_assistant.settings']['vector_search']['enabled'] = TRUE;
-  $settings['ilas_vector_search_override_channel'] = 'settings.php runtime toggle -> getenv/pantheon_get_secret';
+  $settings['ilas_vector_search_override_channel'] = $ilas_vector_search_override_channel;
 }
 
 /**
