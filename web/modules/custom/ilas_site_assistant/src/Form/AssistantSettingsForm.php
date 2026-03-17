@@ -426,8 +426,11 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['vector_search']['vector_search_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enable Vector Search Fallback'),
-      '#description' => $this->t('When enabled, sparse lexical results will be supplemented with semantic vector search results from Pinecone.'),
-      '#default_value' => $vector_config['enabled'] ?? FALSE,
+      '#description' => $is_live_environment
+        ? $this->t('Disabled in live: vector retrieval rollout must remain controlled by runtime-only non-live toggles until TOVR-13 closes the live gate.')
+        : $this->t('When enabled, sparse lexical results will be supplemented with semantic vector search results from Pinecone.'),
+      '#default_value' => $is_live_environment ? FALSE : ($vector_config['enabled'] ?? FALSE),
+      '#disabled' => $is_live_environment,
     ];
 
     $form['vector_search']['vector_search_fallback_threshold'] = [
@@ -665,6 +668,12 @@ class AssistantSettingsForm extends ConfigFormBase {
         $this->t('LLM enhancement cannot be enabled in the live environment through Phase 2.'),
       );
     }
+    if ($this->isLiveEnvironment() && (bool) $form_state->getValue('vector_search_enabled')) {
+      $form_state->setErrorByName(
+        'vector_search_enabled',
+        $this->t('Vector search fallback cannot be enabled in the live environment before TOVR-13 closes the live rollout gate.'),
+      );
+    }
 
     // Privacy coupling: if conversation logging is enabled,
     // PII redaction and user notice must remain on.
@@ -758,8 +767,13 @@ class AssistantSettingsForm extends ConfigFormBase {
     ];
 
     // Build vector search config array.
+    $vector_search_enabled = (bool) $form_state->getValue('vector_search_enabled');
+    if ($this->isLiveEnvironment()) {
+      $vector_search_enabled = FALSE;
+    }
+
     $vector_search_config = [
-      'enabled' => (bool) $form_state->getValue('vector_search_enabled'),
+      'enabled' => $vector_search_enabled,
       'fallback_threshold' => (int) $form_state->getValue('vector_search_fallback_threshold'),
       'min_vector_score' => (float) $form_state->getValue('vector_search_min_score'),
       'score_normalization_factor' => (int) $form_state->getValue('vector_search_normalization_factor'),

@@ -56,12 +56,9 @@ class FaqIndex {
   const VECTOR_BACKOFF_SECONDS = 120;
 
   /**
-   * Timestamp (epoch seconds) until which vector search is skipped due to a
-   * recent timeout/failure. Static so it applies across instances per request.
-   *
-   * @var int
+   * Cache key used to suppress repeated degraded vector attempts.
    */
-  protected static int $vectorBackoffUntil = 0;
+  const VECTOR_BACKOFF_CACHE_ID = 'ilas_site_assistant.vector_backoff.faq';
 
   /**
    * The entity type manager.
@@ -156,6 +153,36 @@ class FaqIndex {
   }
 
   /**
+   * Returns TRUE when a result URL matches the current language context.
+   */
+  protected function urlMatchesCurrentLanguage(string $url): bool {
+    if (!isset($this->languageManager) || !is_object($this->languageManager)) {
+      return TRUE;
+    }
+
+    $current = $this->getCurrentLanguage();
+    $default = $this->languageManager->getDefaultLanguage()->getId();
+    $path = parse_url($url, PHP_URL_PATH);
+    $path = is_string($path) ? $path : '';
+
+    $languages = method_exists($this->languageManager, 'getLanguages')
+      ? array_keys($this->languageManager->getLanguages())
+      : [$default];
+    $prefixedLanguages = array_values(array_filter($languages, static fn(string $langcode): bool => $langcode !== $default));
+
+    if ($current === $default) {
+      if ($prefixedLanguages === []) {
+        return TRUE;
+      }
+
+      $pattern = '#^/(' . implode('|', array_map(static fn(string $langcode): string => preg_quote($langcode, '#'), $prefixedLanguages)) . ')(/|$)#';
+      return preg_match($pattern, $path) !== 1;
+    }
+
+    return preg_match('#^/' . preg_quote($current, '#') . '(/|$)#', $path) === 1;
+  }
+
+  /**
    * Gets the Search API index.
    *
    * @return \Drupal\search_api\IndexInterface|null
@@ -241,9 +268,10 @@ class FaqIndex {
       }
 
       // Supplement with vector search if lexical results are sparse.
-      $items = $this->supplementWithVectorResults($items, $query, $limit, $type);
+      $supplement = $this->supplementWithVectorResultsDetailed($items, $query, $limit, $type);
+      $items = $supplement['items'];
 
-      if ($cache_key) {
+      if ($cache_key && $this->isVectorOutcomeCacheable($supplement['vector_outcome'])) {
         $this->cache->set($cache_key, $items, time() + self::QUERY_CACHE_TTL, [
           'paragraph_list',
           'config:ilas_site_assistant.settings',
@@ -671,6 +699,165 @@ class FaqIndex {
   }
 
   /**
+   * Builds the lexical-vs-vector trigger decision before any vector query.
+   *
+   * @param array $lexical_items
+   *   Results from lexical search.
+   *
+   * @return array
+   *   Trigger decision metadata.
+   */
+  protected function buildVectorDecisionMap(array $lexical_items): array {
+    $vector_config = $this->getVectorSearchConfig();
+    $best_score = !empty($lexical_items) ? (float) max(array_column($lexical_items, 'score') ?: [0]) : 0.0;
+    $decision = [
+      'enabled' => !empty($vector_config['enabled']),
+      'should_attempt' => FALSE,
+      'reason' => 'disabled',
+      'lexical_count' => count($lexical_items),
+      'best_lexical_score' => $best_score,
+    ];
+
+    if (!$decision['enabled']) {
+      return $decision;
+    }
+
+    $threshold = (int) ($vector_config['fallback_threshold'] ?? 2);
+    $min_lexical_score = (float) ($vector_config['min_lexical_score'] ?? 0);
+
+    if ($decision['lexical_count'] < $threshold) {
+      $decision['should_attempt'] = TRUE;
+      $decision['reason'] = 'sparse_lexical';
+      return $decision;
+    }
+
+    if ($min_lexical_score > 0 && $decision['lexical_count'] > 0 && $best_score < $min_lexical_score) {
+      $decision['should_attempt'] = TRUE;
+      $decision['reason'] = 'low_quality_lexical';
+      return $decision;
+    }
+
+    $decision['reason'] = 'sufficient_lexical';
+    return $decision;
+  }
+
+  /**
+   * Creates a normalized vector outcome payload.
+   *
+   * @param bool $attempted
+   *   Whether vector retrieval was attempted.
+   * @param string $status
+   *   Outcome status.
+   * @param string $reason
+   *   Outcome reason.
+   * @param array $items
+   *   Vector items.
+   * @param int|null $elapsed_ms
+   *   Vector query duration in milliseconds, if known.
+   * @param bool $cacheable
+   *   Whether lexical results may be cached alongside this outcome.
+   *
+   * @return array
+   *   Normalized outcome payload.
+   */
+  protected function buildVectorOutcome(
+    bool $attempted,
+    string $status,
+    string $reason,
+    array $items = [],
+    ?int $elapsed_ms = NULL,
+    bool $cacheable = TRUE,
+  ): array {
+    return [
+      'attempted' => $attempted,
+      'status' => $status,
+      'reason' => $reason,
+      'elapsed_ms' => $elapsed_ms,
+      'cacheable' => $cacheable,
+      'items' => $items,
+    ];
+  }
+
+  /**
+   * Normalizes vector helper returns for production code and unit-test doubles.
+   *
+   * @param array $vector_result
+   *   Either a normalized outcome payload or a raw vector-item list.
+   *
+   * @return array
+   *   Normalized outcome payload.
+   */
+  protected function normalizeVectorOutcome(array $vector_result): array {
+    if (array_key_exists('status', $vector_result) && array_key_exists('items', $vector_result)) {
+      return $vector_result + $this->buildVectorOutcome(FALSE, 'healthy', 'unknown');
+    }
+
+    $items = array_values($vector_result);
+    return $this->buildVectorOutcome(
+      TRUE,
+      empty($items) ? 'healthy_empty' : 'healthy',
+      empty($items) ? 'no_results_above_threshold' : 'results_available',
+      $items,
+      NULL,
+      TRUE,
+    );
+  }
+
+  /**
+   * Returns whether the vector outcome allows normal query-cache writes.
+   *
+   * @param array $vector_outcome
+   *   The vector outcome payload.
+   *
+   * @return bool
+   *   TRUE when the query results are cacheable.
+   */
+  protected function isVectorOutcomeCacheable(array $vector_outcome): bool {
+    return (bool) ($vector_outcome['cacheable'] ?? TRUE);
+  }
+
+  /**
+   * Returns the active vector backoff-until timestamp.
+   *
+   * @return int
+   *   Epoch seconds, or 0 when no backoff is active.
+   */
+  protected function getVectorBackoffUntil(): int {
+    if (!$this->cache instanceof CacheBackendInterface) {
+      return 0;
+    }
+
+    $cached = $this->cache->get(self::VECTOR_BACKOFF_CACHE_ID);
+    if (!$cached) {
+      return 0;
+    }
+
+    $until = (int) ($cached->data ?? 0);
+    if ($until <= time()) {
+      $this->cache->delete(self::VECTOR_BACKOFF_CACHE_ID);
+      return 0;
+    }
+
+    return $until;
+  }
+
+  /**
+   * Activates cross-request vector backoff.
+   *
+   * @return int
+   *   The backoff-until timestamp.
+   */
+  protected function activateVectorBackoff(): int {
+    $until = time() + self::VECTOR_BACKOFF_SECONDS;
+    if ($this->cache instanceof CacheBackendInterface) {
+      $this->cache->set(self::VECTOR_BACKOFF_CACHE_ID, $until, $until, [
+        'config:ilas_site_assistant.settings',
+      ]);
+    }
+    return $until;
+  }
+
+  /**
    * Supplements lexical results with vector search when results are sparse.
    *
    * Only fires when vector search is enabled and lexical results are below
@@ -690,32 +877,54 @@ class FaqIndex {
    *   Merged results, limited to $limit.
    */
   protected function supplementWithVectorResults(array $lexical_items, string $query, int $limit, ?string $type = NULL): array {
-    $vector_config = $this->getVectorSearchConfig();
+    return $this->supplementWithVectorResultsDetailed($lexical_items, $query, $limit, $type)['items'];
+  }
 
-    if (empty($vector_config['enabled'])) {
-      return $lexical_items;
+  /**
+   * Supplements lexical results and returns the decision and outcome metadata.
+   *
+   * @param array $lexical_items
+   *   Results from lexical search.
+   * @param string $query
+   *   The original search query.
+   * @param int $limit
+   *   Maximum total results to return.
+   * @param string|null $type
+   *   Optional paragraph type filter.
+   *
+   * @return array
+   *   Structured payload containing merged items, decision, and outcome.
+   */
+  protected function supplementWithVectorResultsDetailed(array $lexical_items, string $query, int $limit, ?string $type = NULL): array {
+    $decision = $this->buildVectorDecisionMap($lexical_items);
+    if (!$decision['should_attempt']) {
+      return [
+        'items' => $lexical_items,
+        'decision' => $decision,
+        'vector_outcome' => $this->buildVectorOutcome(FALSE, 'healthy', $decision['reason']),
+      ];
     }
 
-    $threshold = $vector_config['fallback_threshold'] ?? 2;
-    $min_lexical_score = $vector_config['min_lexical_score'] ?? 0;
-
-    // Fire vector search when lexical results are sparse (count-based) OR
-    // when all lexical results score below the quality threshold.
-    $has_enough_results = count($lexical_items) >= $threshold;
-    $has_quality_results = TRUE;
-    if ($min_lexical_score > 0 && !empty($lexical_items)) {
-      $best_score = max(array_column($lexical_items, 'score') ?: [0]);
-      $has_quality_results = $best_score >= $min_lexical_score;
+    $vector_outcome = $this->normalizeVectorOutcome($this->searchVector($query, $limit, $type));
+    if (!in_array($vector_outcome['status'] ?? 'healthy', ['healthy', 'healthy_empty'], TRUE)) {
+      return [
+        'items' => $lexical_items,
+        'decision' => $decision,
+        'vector_outcome' => $vector_outcome,
+      ];
     }
 
-    if ($has_enough_results && $has_quality_results) {
-      return $lexical_items;
-    }
-
-    $vector_items = $this->searchVector($query, $limit, $type);
-
+    $vector_items = array_values(array_filter(
+      $vector_outcome['items'] ?? [],
+      fn(array $item): bool => $this->urlMatchesCurrentLanguage((string) ($item['parent_url'] ?? $item['url'] ?? '')),
+    ));
+    $vector_outcome['items'] = $vector_items;
     if (empty($vector_items)) {
-      return $lexical_items;
+      return [
+        'items' => $lexical_items,
+        'decision' => $decision,
+        'vector_outcome' => $vector_outcome,
+      ];
     }
 
     // Build a map of existing items keyed by paragraph_id.
@@ -769,7 +978,11 @@ class FaqIndex {
       // Logger unavailable outside Drupal bootstrap (unit tests).
     }
 
-    return $results;
+    return [
+      'items' => $results,
+      'decision' => $decision,
+      'vector_outcome' => $vector_outcome,
+    ];
   }
 
   /**
@@ -856,12 +1069,14 @@ class FaqIndex {
    *   Optional paragraph type filter.
    *
    * @return array
-   *   Array of matching items with normalized scores.
+   *   Structured vector outcome payload.
    */
   protected function searchVector(string $query, int $limit, ?string $type = NULL): array {
-    // Quick circuit breaker: skip if we've recently seen a failure/timeout.
-    if (time() < static::$vectorBackoffUntil) {
-      return [];
+    $backoff_until = $this->getVectorBackoffUntil();
+    if ($backoff_until > time()) {
+      return $this->buildVectorOutcome(FALSE, 'backoff', 'backoff_active', [], NULL, FALSE) + [
+        'backoff_until' => $backoff_until,
+      ];
     }
 
     $vector_config = $this->getVectorSearchConfig();
@@ -870,18 +1085,25 @@ class FaqIndex {
     $normalization = $vector_config['score_normalization_factor'] ?? 100;
 
     if ($index_id === NULL) {
-      return [];
+      \Drupal::logger('ilas_site_assistant')->warning('Vector FAQ search skipped because no vector index is configured.');
+      $this->activateVectorBackoff();
+      return $this->buildVectorOutcome(TRUE, 'degraded', 'index_id_unconfigured', [], NULL, FALSE);
     }
 
     try {
       $vector_index = Index::load($index_id);
       if (!$vector_index || !$vector_index->status()) {
-        return [];
+        \Drupal::logger('ilas_site_assistant')->warning('Vector FAQ index @index is unavailable; preserving lexical results.', [
+          '@index' => $index_id,
+        ]);
+        $this->activateVectorBackoff();
+        return $this->buildVectorOutcome(TRUE, 'degraded', 'index_unavailable', [], NULL, FALSE);
       }
 
       // Validate that the index uses cosine similarity metric.
       if (!$this->validateVectorMetric($vector_index)) {
-        return [];
+        $this->activateVectorBackoff();
+        return $this->buildVectorOutcome(TRUE, 'degraded', 'metric_validation_failed', [], NULL, FALSE);
       }
 
       $search_query = $vector_index->query();
@@ -902,11 +1124,12 @@ class FaqIndex {
       $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
 
       if ($elapsed_ms > self::MAX_VECTOR_MS) {
-        static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
+        $this->activateVectorBackoff();
         \Drupal::logger('ilas_site_assistant')->warning(
           'Vector FAQ search exceeded @ms ms (threshold @thresh). Entering backoff.',
           ['@ms' => $elapsed_ms, '@thresh' => self::MAX_VECTOR_MS]
         );
+        return $this->buildVectorOutcome(TRUE, 'degraded', 'latency_budget_exceeded', [], $elapsed_ms, FALSE);
       }
 
       $items = [];
@@ -923,6 +1146,9 @@ class FaqIndex {
 
           $item = $this->buildResultItem($result_item);
           if ($item) {
+            if (!$this->urlMatchesCurrentLanguage((string) ($item['parent_url'] ?? $item['url'] ?? ''))) {
+              continue;
+            }
             // Normalize vector score to be comparable with lexical scores.
             $item['score'] = $raw_score * $normalization;
             $item['vector_score'] = $raw_score;
@@ -949,7 +1175,14 @@ class FaqIndex {
         ]);
       }
 
-      return $items;
+      return $this->buildVectorOutcome(
+        TRUE,
+        empty($items) ? 'healthy_empty' : 'healthy',
+        empty($items) ? 'no_results_above_threshold' : 'results_available',
+        $items,
+        $elapsed_ms,
+        TRUE,
+      );
     }
     catch (\Exception $e) {
       $exception_class = get_class($e);
@@ -968,7 +1201,7 @@ class FaqIndex {
         $category = 'index_not_found';
       }
 
-      static::$vectorBackoffUntil = time() + self::VECTOR_BACKOFF_SECONDS;
+      $this->activateVectorBackoff();
       \Drupal::logger('ilas_site_assistant')->log($level,
         'Vector FAQ search failed [@category]: @class @error_signature (backing off @seconds s)', [
           '@category' => $category,
@@ -977,7 +1210,7 @@ class FaqIndex {
           '@seconds' => self::VECTOR_BACKOFF_SECONDS,
         ]
       );
-      return [];
+      return $this->buildVectorOutcome(TRUE, 'degraded', $category, [], NULL, FALSE);
     }
   }
 

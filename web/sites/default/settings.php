@@ -133,6 +133,34 @@ function _ilas_parse_trusted_proxy_addresses(string|false $raw): array {
 }
 
 /**
+ * Helper: parses a runtime boolean toggle.
+ *
+ * @param string|false|null $raw
+ *   Raw environment value.
+ * @param bool $fallback
+ *   Fallback when the value is absent or invalid.
+ *
+ * @return bool
+ *   Parsed boolean value.
+ */
+function _ilas_read_boolean(string|false|null $raw, bool $fallback = FALSE): bool {
+  if ($raw === FALSE || $raw === NULL) {
+    return $fallback;
+  }
+
+  $normalized = mb_strtolower(trim($raw));
+  if ($normalized === '') {
+    return $fallback;
+  }
+
+  return match ($normalized) {
+    '1', 'true', 'yes', 'on' => TRUE,
+    '0', 'false', 'no', 'off' => FALSE,
+    default => $fallback,
+  };
+}
+
+/**
  * Returns the raw Pantheon environment name when available.
  */
 function _ilas_raw_pantheon_environment(): string|false {
@@ -493,6 +521,27 @@ $config['ilas_site_assistant.settings']['langfuse']['environment'] = _ilas_obser
 $pinecone_key = _ilas_get_secret('ILAS_PINECONE_API_KEY');
 if ($pinecone_key) {
   $config['key.key.pinecone_api_key']['key_provider_settings']['key_value'] = $pinecone_key;
+}
+
+/**
+ * ILAS Site Assistant vector-search rollout toggle.
+ *
+ * Runtime-only toggle. Sync config remains disabled-by-default so enablement
+ * can be staged per environment without changing exported config.
+ */
+$ilas_vector_search_enabled = _ilas_read_boolean(_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED'));
+$ilas_vector_search_environment = _ilas_raw_pantheon_environment();
+$ilas_vector_search_environment = $ilas_vector_search_environment !== FALSE
+  ? mb_strtolower(trim($ilas_vector_search_environment))
+  : 'local';
+
+if ($ilas_vector_search_environment === 'live') {
+  $config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;
+  $settings['ilas_vector_search_override_channel'] = 'settings.php live branch';
+}
+elseif (in_array($ilas_vector_search_environment, ['local', 'dev', 'test'], TRUE) && $ilas_vector_search_enabled) {
+  $config['ilas_site_assistant.settings']['vector_search']['enabled'] = TRUE;
+  $settings['ilas_vector_search_override_channel'] = 'settings.php runtime toggle -> getenv/pantheon_get_secret';
 }
 
 /**
