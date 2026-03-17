@@ -215,9 +215,11 @@ class RuntimeTruthSnapshotBuilder {
    *   The override-channel labels by field path.
    */
   public function buildOverrideChannels(): array {
+    $vectorSearchOverrideChannel = $this->resolveVectorSearchOverrideChannel();
+
     return [
       'llm.enabled' => 'settings.php live branch',
-      'vector_search.enabled' => 'config export',
+      'vector_search.enabled' => $vectorSearchOverrideChannel,
       'langfuse.enabled' => 'settings.php secret -> getenv/pantheon_get_secret',
       'langfuse.public_key_present' => 'settings.php secret -> getenv/pantheon_get_secret',
       'langfuse.secret_key_present' => 'settings.php secret -> getenv/pantheon_get_secret',
@@ -338,6 +340,24 @@ class RuntimeTruthSnapshotBuilder {
       throw new \RuntimeException(sprintf('Required config-sync object "%s" is missing or unreadable.', $configName));
     }
     return $data;
+  }
+
+  /**
+   * Resolves the authoritative source label for vector enablement.
+   */
+  protected function resolveVectorSearchOverrideChannel(): string {
+    $overrideChannel = Settings::get('ilas_vector_search_override_channel');
+    if (is_string($overrideChannel) && $overrideChannel !== '') {
+      return $overrideChannel;
+    }
+
+    $observability = $this->getObservabilitySettings();
+    $pantheonEnvironment = $this->stringValue($observability['pantheon_environment'] ?? getenv('PANTHEON_ENVIRONMENT') ?: '');
+    if ($pantheonEnvironment === 'live') {
+      return 'settings.php live branch';
+    }
+
+    return 'config export';
   }
 
   /**
