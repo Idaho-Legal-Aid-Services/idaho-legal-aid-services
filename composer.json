@@ -60,7 +60,7 @@
         "drupal/mailsystem": "^4.5",
         "drupal/metatag_ai": "^2.0",
         "drupal/paragraphs": "^1.19",
-        "drupal/project_browser": "^1.0",
+        "drupal/project_browser": "@beta",
         "drupal/raven": "^7.3",
         "drupal/recipe_installer_kit": "^1-alpha3@alpha",
         "drupal/schema_metatag": "^3.0",

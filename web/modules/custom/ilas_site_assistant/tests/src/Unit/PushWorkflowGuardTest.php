@@ -51,6 +51,8 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('PR-branch publishes from local `master` are advisory locally', $runbook);
     $this->assertStringContainsString('runs the local DDEV deploy-bound Promptfoo gate before the Pantheon push', $runbook);
     $this->assertStringContainsString('hosted GitHub check is not treated as deploy proof for `origin/master`', $runbook);
+    $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $runbook);
+    $this->assertStringContainsString('GitHub `Install Composer dependencies` step', $runbook);
     $this->assertStringContainsString('promotion to Pantheon `test` and `live` is a separate deployment', $runbook);
     $this->assertStringContainsString('"git:finish": "bash scripts/git/finish.sh"', $package);
   }
@@ -69,6 +71,9 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('Direct pushes to protected github/master are not supported', $strictHook);
     $this->assertStringContainsString('Refusing to push origin/master before github/master matches local master', $strictHook);
     $this->assertStringContainsString('Use: npm run git:publish', $strictHook);
+    $this->assertStringContainsString('Running Composer installability parity check...', $strictHook);
+    $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $strictHook);
+    $this->assertStringContainsString("mirrors the GitHub 'Install Composer dependencies' step", $strictHook);
     $this->assertStringContainsString('run-quality-gate.sh', $strictHook);
     $this->assertStringContainsString('resolve_promptfoo_branch', $strictHook);
     $this->assertStringContainsString('is_effective_target_branch', $strictHook);
@@ -89,6 +94,8 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('git status --short --branch', $installer);
     $this->assertStringContainsString('npm run git:publish', $installer);
     $this->assertStringContainsString('npm run git:finish', $installer);
+    $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $installer);
+    $this->assertStringContainsString("mirroring the GitHub 'Install Composer dependencies' step", $installer);
     $this->assertStringContainsString('using the pushed target branch for blocking/advisory policy', $installer);
     $this->assertStringContainsString('requires local DDEV exact-code evals for synced origin/master deploy pushes', $installer);
     $this->assertStringContainsString('Do not wait on stale PR numbers from earlier publishes.', $installer);

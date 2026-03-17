@@ -170,6 +170,19 @@ fi
 
 cd "$REPO_ROOT"
 
+if ! command -v composer >/dev/null 2>&1; then
+  echo "ERROR: Composer is required for strict pre-push dependency parity checks." >&2
+  echo "Install Composer locally before publishing, or bypass intentionally with git push --no-verify." >&2
+  exit 1
+fi
+
+echo "Running Composer installability parity check..."
+if ! composer install --no-interaction --no-progress --prefer-dist --dry-run; then
+  echo "ERROR: Composer install dry-run failed." >&2
+  echo "This mirrors the GitHub 'Install Composer dependencies' step and usually means composer.json/composer.lock drift." >&2
+  exit 1
+fi
+
 echo "Running module quality gate..."
 bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 

@@ -2516,8 +2516,12 @@ terminus env:code-log idaho-legal-aid-services.dev --format=table
 
 Notes:
 - The strict hook first runs `scripts/git/sync-check.sh` to block
-  `remote-ahead`/`diverged` pushes, then runs `run-quality-gate.sh` plus
-  branch-aware Promptfoo gate checks keyed to the pushed target branch.
+  `remote-ahead`/`diverged` pushes, then runs
+  `composer install --no-interaction --no-progress --prefer-dist --dry-run`
+  to mirror the GitHub `Install Composer dependencies` step and catch
+  `composer.json`/`composer.lock` drift before publish. After that it runs
+  `run-quality-gate.sh` plus branch-aware Promptfoo gate checks keyed to the
+  pushed target branch.
 - Post-merge local sync is reduced to one command: `npm run git:sync-master`.
 - Optional shortcut: `npm run git:finish` waits for the current
   `publish/master-<shortsha>` PR, merges it with a merge commit, runs
