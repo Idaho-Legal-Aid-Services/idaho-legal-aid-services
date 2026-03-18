@@ -607,6 +607,10 @@ class FaqIndex {
    *   The default URL.
    */
   protected function getDefaultUrl() {
+    if (!isset($this->configFactory) || !is_object($this->configFactory)) {
+      return '/faq';
+    }
+
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     return $config->get('faq_node_path') ?? '/faq';
   }
@@ -782,6 +786,10 @@ class FaqIndex {
    *   min_lexical_score.
    */
   protected function getVectorSearchConfig(): array {
+    if (!isset($this->configFactory) || !is_object($this->configFactory)) {
+      return ['enabled' => FALSE];
+    }
+
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     return $config->get('vector_search') ?? ['enabled' => FALSE];
   }

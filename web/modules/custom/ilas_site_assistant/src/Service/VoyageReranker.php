@@ -82,8 +82,9 @@ class VoyageReranker implements RerankerInterface {
       return $this->doRerank($query, $items, $options, $meta);
     }
     catch (\Throwable $e) {
-      $this->logger->error('Voyage reranker unexpected error: @message', [
-        '@message' => $e->getMessage(),
+      $this->logger->error('Voyage reranker unexpected error: @class @error_signature', [
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
       $meta['fallback_reason'] = 'unexpected_error';
       return ['items' => $items, 'meta' => $meta];
@@ -165,8 +166,9 @@ class VoyageReranker implements RerankerInterface {
       $meta['latency_ms'] = round((microtime(TRUE) - $start) * 1000, 1);
       $meta['fallback_reason'] = 'timeout';
       $this->recordCircuitFailure();
-      $this->logger->warning('Voyage reranker timeout: @message', [
-        '@message' => $e->getMessage(),
+      $this->logger->warning('Voyage reranker timeout: @class @error_signature', [
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
       return $this->fallbackOrThrow($config, $items, $meta);
     }
@@ -175,9 +177,10 @@ class VoyageReranker implements RerankerInterface {
       $meta['fallback_reason'] = 'api_error';
       $this->recordCircuitFailure();
       $status_code = $e->getResponse() ? $e->getResponse()->getStatusCode() : 0;
-      $this->logger->warning('Voyage reranker API error (@code): @message', [
+      $this->logger->warning('Voyage reranker API error (@code): @class @error_signature', [
         '@code' => $status_code,
-        '@message' => $e->getMessage(),
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
       return $this->fallbackOrThrow($config, $items, $meta);
     }
