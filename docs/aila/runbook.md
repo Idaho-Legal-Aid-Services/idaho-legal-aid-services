@@ -2028,18 +2028,21 @@ Expected verification result:
   assistant admin form no longer accepts or stores the Vertex service-account
   JSON.
 - `settings.php` loads that secret into `$settings['ilas_vertex_sa_json']`.
-  `LlmEnhancer` and the `vertex_sa_credentials` Key entity both resolve the
-  runtime site setting; neither path stores the secret blob in Drupal config.
+  `LlmEnhancer` reads that runtime site setting directly, and TOVR-14 removes
+  the dormant synced `vertex_sa_credentials` entity entirely. No exported
+  Drupal config should now carry Vertex credential material.
 - Read-only local checks after deploy/import:
   - `ddev drush config:get ilas_site_assistant.settings llm --format=yaml`
   - `ddev drush config:get key.key.vertex_sa_credentials --format=yaml`
+    Expected result: config does not exist.
   - Optional runtime-presence check without printing the secret:
-    `ddev drush php:eval "echo \Drupal::service('key.repository')->getKey('vertex_sa_credentials')->getKeyValue() ? 'present' : 'missing';"`
+    `ddev drush php:eval "echo \Drupal\Core\Site\Settings::get('ilas_vertex_sa_json') ? 'present' : 'missing';"`
 - Read-only Pantheon checks after deployment:
   - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings llm --format=yaml`
   - `terminus remote:drush idaho-legal-aid-services.dev -- config:get key.key.vertex_sa_credentials --format=yaml`
+    Expected result: config does not exist.
   - Optional runtime-presence check without printing the secret:
-    `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal::service('key.repository')->getKey('vertex_sa_credentials')->getKeyValue() ? 'present' : 'missing';"`
+    `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal\Core\Site\Settings::get('ilas_vertex_sa_json') ? 'present' : 'missing';"`
 
 ### RAUD-05 LLM transport hardening verification
 
@@ -2172,7 +2175,7 @@ cd /home/evancurry/idaho-legal-aid-services
 
 ddev drush status --fields=uri,drupal-version,db-status
 ddev drush ilas:runtime-truth
-curl -skL https://ilas-pantheon.ddev.site/assistant | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer' -n || true
+curl -skL https://ilas-pantheon.ddev.site/assistant | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer|gtag\\(' -n || true
 ```
 
 - Canonical Pantheon read-only checks after deployment:
@@ -2183,7 +2186,7 @@ for ENV in dev test live; do
   echo "=== ${ENV} ==="
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- status --fields=uri,drupal-version,db-status
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth
-  curl -skL "${BASE_URL%/}/assistant" | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer' -n || true
+  curl -skL "${BASE_URL%/}/assistant" | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer|gtag\\(' -n || true
 done
 ```
 
@@ -2204,14 +2207,540 @@ done
     inspection only, not effective runtime truth.
   - `/assistant` HTML sampling remains the authoritative companion proof for
     browser-only truth such as `ilasObservability`, browser Sentry flags, and
-    live-only GA/dataLayer markers.
+    assistant-route GA suppression.
+  - `browser_expected.google_analytics.tag_present=true` now means sitewide GA
+    is configured somewhere in the environment, not that `/assistant` should
+    render GA. For the assistant route, the authoritative expectation is
+    `assistant_page_suppressed=true`,
+    `assistant_page_loader_expected=false`, and
+    `assistant_page_data_layer_expected=false`; if a non-assistant public page
+    still renders GA markers, record that separately as sitewide GA proof.
   - If Pantheon `dev`/`test`/`live` still report
     `Command "ilas:runtime-truth" is not defined`, classify the result as
     `repo remediated / deployment pending` instead of claiming hosted
-    post-change runtime proof.
+    post-change runtime proof. Current TOVR-09 evidence confirms the helper now
+    executes successfully on Pantheon `dev`/`test`/`live`.
 - Archive the executed command summaries, misleading prior habits, residual
   risks, and final classification in
   `docs/aila/runtime/tovr-08-runtime-truth-verification.txt`.
+
+### Langfuse runtime override pattern (reference)
+
+Langfuse enablement uses a **secret-gated runtime override** pattern that is
+standard for Drupal on Pantheon but can mislead auditors who only inspect
+stored config files.
+
+**How it works:**
+
+1. Stored config (`config/ilas_site_assistant.settings.yml`) intentionally
+   shows `langfuse.enabled: false` and empty credentials. This is by design —
+   credentials must never appear in config exports.
+2. At bootstrap, `settings.php` (L471-484) checks for `LANGFUSE_PUBLIC_KEY`
+   and `LANGFUSE_SECRET_KEY` via `_ilas_get_secret()` (L380-390). If both are
+   present, it sets `langfuse.enabled = TRUE` and injects the credentials into
+   the active config via `$config` overrides.
+3. The `_ilas_get_secret()` helper tries `pantheon_get_secret()` first (Pantheon
+   runtime secrets), then falls back to `getenv()` (DDEV `.env` or shell env).
+4. The `langfuse.environment` label is always overridden to `local` or
+   `pantheon-{env}` regardless of what stored config says.
+
+**Verification commands:**
+
+```bash
+# Canonical check: runtime truth with stored-vs-effective divergences
+ddev drush ilas:runtime-truth
+
+# Focused Langfuse status with queue health
+ddev drush ilas:langfuse-status
+
+# Admin UI: /admin/reports/ilas-assistant shows Observability Runtime Status
+```
+
+**Common audit pitfall:** Inspecting `config:get ilas_site_assistant.settings
+langfuse.enabled` returns the stored value (`false`), not the effective runtime
+value (`true`). Always use `ilas:runtime-truth` or `ilas:langfuse-status` for
+the authoritative state.
+
+### TOVR-09 Pinecone environment inventory verification
+
+- Baseline before the investigation:
+  - Repo config already defined `pinecone_vector`,
+    `faq_accordion_vector`, and `assistant_resources_vector`, but prior docs
+    still lacked one current per-environment answer for secret presence, index
+    enablement, index population, queryability, and runtime gating.
+  - The production audit still described Pinecone as disabled and partially
+    unverified.
+- Required verification commands for the inventory report:
+  - `VC-RUNTIME-LOCAL-SAFE`
+  - `VC-RUNTIME-PANTHEON-SAFE`
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-PINECONE-QUERY-LOCAL`
+  - `VC-PINECONE-PANTHEON-SAFE`
+- Canonical local checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+ddev drush status --fields=uri,drupal-version,db-status
+ddev drush ilas:runtime-truth
+ddev drush search-api:server-list
+ddev drush search-api:list
+ddev drush search-api:status faq_accordion_vector
+ddev drush search-api:status assistant_resources_vector
+ddev drush search-api:search faq_accordion_vector custody
+ddev drush search-api:search assistant_resources_vector eviction
+ddev drush config:status
+ddev drush updatedb:status
+```
+
+- Canonical Pantheon read-only checks:
+
+```bash
+for ENV in dev test live; do
+  BASE_URL="$(terminus env:view "idaho-legal-aid-services.${ENV}" --print)"
+  echo "=== ${ENV} runtime ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- status --fields=uri,drupal-version,db-status
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth
+  echo "=== ${ENV} search ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:server-list
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:list
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status faq_accordion_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status assistant_resources_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search faq_accordion_vector custody
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search assistant_resources_vector eviction
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$c=Drupal::config("ilas_site_assistant.settings"); echo json_encode(["vector_search" => $c->get("vector_search"), "retrieval" => $c->get("retrieval")], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- updatedb:status
+  curl -skL "${BASE_URL%/}/assistant" | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer' -n || true
+done
+```
+
+- Expected inventory contract:
+  - `local`, `dev`, `test`, and `live` each answer:
+    - Pinecone secret present or absent
+    - vector indexes enabled or disabled
+    - vector indexes populated and searchable or blocked
+    - effective `vector_search.enabled`
+    - current blockers to live enablement
+  - The report distinguishes "indexes exist" from "query path actually works".
+  - Hosted `dev`/`test`/`live` are the current runtime baseline for query proof.
+  - Local drift remains acceptable as an investigation finding, not a silent
+    contradiction: document pending updates, config drift, and blocked local
+    vector queries instead of treating local as equivalent to the hosted state.
+- Archive the executed command summaries, per-environment answers, residual
+  risks, and blocker classification in
+  `docs/aila/runtime/tovr-09-pinecone-inventory.txt`.
+
+### TOVR-10 Pinecone index integrity and refresh readiness verification
+
+- Baseline before the investigation:
+  - TOVR-09 already proved hosted `dev` / `test` / `live` were provisioned and
+    queryable while `local` was drifted.
+  - TOVR-10 must go further and prove whether each vector index is structurally
+    valid, populated, refreshable, and aligned with retrieval expectations.
+  - Do not enable vector search first and diagnose later.
+- Required validation commands for the integrity report:
+  - `VC-UNIT`
+  - `VC-PURE`
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-PINECONE-QUERY-LOCAL`
+  - `VC-PINECONE-PANTHEON-SAFE`
+- Canonical local checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+ddev drush search-api:server-list
+ddev drush search-api:list
+ddev drush search-api:status faq_accordion_vector
+ddev drush search-api:status assistant_resources_vector
+ddev drush search-api:search faq_accordion_vector custody
+ddev drush search-api:search assistant_resources_vector eviction
+ddev drush ilas:runtime-truth
+ddev drush config:get ilas_site_assistant.settings retrieval --format=json
+ddev drush config:status
+ddev drush updatedb:status
+ddev drush state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json
+ddev drush php:eval '$r=Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo "RETRIEVAL\n"; echo json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL; $v=Drupal::service("ilas_site_assistant.vector_index_hygiene")->getSnapshot(); echo "VECTOR\n"; echo json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+
+/usr/bin/time -p ddev drush search-api:search faq_accordion_vector custody
+/usr/bin/time -p ddev drush search-api:search assistant_resources_vector eviction
+```
+
+- Canonical Pantheon read-only checks:
+
+```bash
+for ENV in dev test live; do
+  echo "=== ${ENV} ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:server-list
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:list
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status faq_accordion_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status assistant_resources_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search faq_accordion_vector custody
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search assistant_resources_vector eviction
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$r=Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo "RETRIEVAL\n"; echo json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL; $v=Drupal::service("ilas_site_assistant.vector_index_hygiene")->getSnapshot(); echo "VECTOR\n"; echo json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json
+  /usr/bin/time -p terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search faq_accordion_vector custody
+  /usr/bin/time -p terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search assistant_resources_vector eviction
+done
+```
+
+- Scope and decision rules:
+  - Hosted Pantheon remains read-only in TOVR-10; do not reset trackers or run
+    full reindex commands there.
+  - Treat current steady-state hosted freshness as proven only if Search API
+    status, retrieval config, and hygiene snapshots agree.
+  - Treat local refresh proof as blocked if local config drift or pending
+    updates break retrieval governance.
+  - Record query latency beside each probe, but do not infer timeout safety from
+    a fast one-off probe alone.
+  - If the repo still lacks a clean Pinecone transport timeout control, report
+    timeout handling as `unproven` / `not sufficient for enablement`.
+- Expected integrity contract:
+  - One matrix row per environment per index (`local`, `dev`, `test`, `live`
+    x `faq_accordion_vector`, `assistant_resources_vector`).
+  - Each row answers:
+    - retrieval ID matches current runtime expectation or not
+    - server/metric/dimensions match or drift
+    - index is populated or not
+    - direct query succeeds, warns, or fails
+    - hygiene snapshot is fresh/non-overdue or stale/overdue
+    - current refresh path is sufficient, blocked, or unverified
+    - timeout/degraded-response handling is proven or still unverified
+  - The report must end with an explicit enablement verdict. If local drift,
+    hosted rebuild proof, or timeout readiness remain unresolved, the index
+    layer is not ready for enablement.
+- Archive the executed command summaries, integrity matrix, residual risks, and
+  still-unverified surfaces in
+  `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`.
+
+### TOVR-11 Pinecone retrieval integration hardening verification
+
+- Baseline before the investigation:
+  - TOVR-10 already proved the index layer was not enablement-ready.
+  - TOVR-11 must focus on the application-layer retrieval contract in
+    `FaqIndex` and `ResourceFinder`, not just index existence.
+  - Keep vector retrieval supplement-only and lexical-first unless executable
+    proof shows otherwise.
+- Required validation commands for the integration report:
+  - `VC-UNIT`
+  - `VC-PURE`
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-PINECONE-QUERY-LOCAL`
+- Canonical local checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+# Focused retrieval contracts while iterating.
+vendor/bin/phpunit \
+  --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php \
+  /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php
+
+# Broad verification aliases.
+vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml
+ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit
+
+# Search API + local vector probes.
+ddev drush search-api:server-list
+ddev drush search-api:list
+ddev drush search-api:status faq_accordion_vector
+ddev drush search-api:status assistant_resources_vector
+
+# Mandatory after any Pinecone service-definition change.
+ddev drush cr
+
+ddev drush search-api:search faq_accordion_vector custody
+ddev drush search-api:search assistant_resources_vector eviction
+```
+
+- Scope and decision rules:
+  - Reconstruct the trigger path before editing and record the decision points:
+    `disabled`, `sufficient_lexical`, `sparse_lexical`,
+    `low_quality_lexical`.
+  - Treat vector results as mergeable only when the vector outcome is healthy
+    or healthy-empty.
+  - Treat degraded or backoff outcomes as lexical-only and non-cacheable in the
+    normal per-query cache.
+  - If Pinecone provider or service definitions changed, rebuild Drupal caches
+    before interpreting any Drush query failure.
+  - Query-only Pinecone timeouts may be added here, but if embeddings still use
+    shared/global transport settings, keep the final verdict below full
+    enablement readiness.
+- Expected integration contract:
+  - The report must include a trigger-path map for FAQ and resource retrieval.
+  - Tests must prove:
+    - trigger reasons are explicit
+    - degraded/slow vector outcomes do not merge
+    - degraded/backoff outcomes do not write the normal query cache
+    - cross-request backoff works
+    - healthy and policy-skipped outcomes still cache normally
+    - Pinecone query-only timeout config is wired through the actual client
+  - If local direct vector queries still fail or hosted post-change runtime
+    proof is missing, the final result remains `Partially Fixed` or
+    `Unverified`, not enablement-ready.
+- Archive the executed command summaries, trigger-path map, residual risks, and
+  still-unverified surfaces in
+  `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`.
+
+### TOVR-12 Pinecone non-live enablement verification
+
+- Baseline before the enablement pass:
+  - TOVR-09 through TOVR-11 proved Pinecone secret wiring, hosted vector-index
+    availability, and lexical-first retrieval hardening, but did not actually
+    enable vector supplementation anywhere.
+  - Sync config must remain safe-by-default with
+    `vector_search.enabled=false`; non-live rollout is runtime-only via
+    `ILAS_VECTOR_SEARCH_ENABLED`.
+  - On `dev` / `test`, `settings.php` also checks
+    `private://ilas-vector-search-enabled.txt` whenever vector search is still
+    effectively disabled, including the case where a site-level falsey secret
+    masks an env-level enablement override.
+  - `live` remains hard-forced off in `settings.php` even if the toggle is set.
+- Required validation commands for the enablement report:
+  - `VC-PURE`
+  - `VC-UNIT`
+  - `VC-KERNEL`
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-PINECONE-QUERY-LOCAL`
+  - `VC-PINECONE-REINDEX-LOCAL`
+  - `VC-PINECONE-PANTHEON-SAFE`
+  - `VC-ASSISTANT-SMOKE-LOCAL`
+  - `VC-ASSISTANT-SMOKE-PANTHEON`
+  - `VC-PROMPTFOO-PACED-LOCAL`
+- Canonical local repair and pre-enable checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+# Baseline with runtime toggle off.
+ddev drush ilas:runtime-truth
+ddev drush config:status
+ddev drush updatedb:status
+ddev drush search-api:list
+ddev drush state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json
+ddev drush php:eval '$snapshot = Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+ddev drush search-api:search faq_accordion_vector custody
+ddev drush search-api:search assistant_resources_vector eviction
+
+# Repair local parity before enablement.
+ddev drush updatedb -y
+ddev drush config:import --partial --source=/var/www/html/.codex-tmp/tovr12-local-config -y
+ddev drush cr
+
+# Confirm retrieval IDs, Gemini runtime provider, and Pinecone timeout keys.
+ddev drush config:get ilas_site_assistant.settings retrieval
+ddev drush config:get key.key.gemini_api_key
+ddev drush config:get ai_vdb_provider_pinecone.settings
+
+# Enable via runtime env only.
+printf '\nILAS_VECTOR_SEARCH_ENABLED=1\n' >> .ddev/.env
+ddev restart
+ddev drush ilas:runtime-truth
+
+# Provenance + lexical-first smoke checks.
+BASE_URL=https://ilas-pantheon.ddev.site
+COOKIE_JAR="$(mktemp)"
+TOKEN="$(curl -sk -c "$COOKIE_JAR" "$BASE_URL/assistant/api/session/bootstrap")"
+for QUERY in \
+  "custody forms" \
+  "do you have custody forms" \
+  "where is the Boise office" \
+  "what office helps me in Twin Falls" \
+  "eviction forms or guides"; do
+  curl -sk -b "$COOKIE_JAR" \
+    -H "Content-Type: application/json" \
+    -H "X-CSRF-Token: $TOKEN" \
+    --data "{\"message\":\"$QUERY\"}" \
+    "$BASE_URL/assistant/api/message"
+  echo
+done
+rm -f "$COOKIE_JAR"
+
+env NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" \
+  node scripts/ci/run-vector-provenance-smoke.js \
+  --assistant-url "$BASE_URL/assistant/api/message" \
+  --site-base-url "$BASE_URL" \
+  --environment local
+```
+
+- Canonical hosted `dev` / `test` rollout sequence after protected `master`
+  merge and Pantheon code publish:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+# Push Pantheon only after protected github/master is green.
+npm run git:publish -- --origin-only
+terminus env:code-rebuild idaho-legal-aid-services.dev -y
+
+# Dev: baseline with toggle absent/off.
+terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.dev -- updatedb -y
+terminus remote:drush idaho-legal-aid-services.dev -- config:import -y
+terminus remote:drush idaho-legal-aid-services.dev -- cr
+terminus remote:drush idaho-legal-aid-services.dev -- config:get ai_vdb_provider_pinecone.settings
+terminus remote:drush idaho-legal-aid-services.dev -- php:eval '$snapshot = Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+terminus remote:drush idaho-legal-aid-services.dev -- state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json
+terminus remote:drush idaho-legal-aid-services.dev -- search-api:search faq_accordion_vector custody
+terminus remote:drush idaho-legal-aid-services.dev -- search-api:search assistant_resources_vector eviction
+
+DEV_BASE_URL="$(terminus env:view idaho-legal-aid-services.dev --print)"
+env NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" \
+  node scripts/ci/run-vector-provenance-smoke.js \
+  --assistant-url "${DEV_BASE_URL%/}/assistant/api/message" \
+  --site-base-url "${DEV_BASE_URL%/}" \
+  --environment dev
+
+terminus secret:site:set idaho-legal-aid-services ILAS_VECTOR_SEARCH_ENABLED 0 --type=env --scope=web,user
+terminus secret:site:set idaho-legal-aid-services.dev ILAS_VECTOR_SEARCH_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.dev
+terminus remote:drush idaho-legal-aid-services.dev -- cr
+
+# If the secret path still does not appear in `ilas:runtime-truth`, or if a
+# falsey site-level secret masks the env override, enable via the private flag
+# file on Pantheon instead of exported config.
+terminus remote:drush idaho-legal-aid-services.dev -- php:eval '$path = \Drupal::service("file_system")->realpath("private://") . "/ilas-vector-search-enabled.txt"; file_put_contents($path, "1\n"); echo $path . PHP_EOL;'
+terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth
+
+# Promote code to test only after dev passes.
+terminus env:deploy idaho-legal-aid-services.test --updatedb --cc --note="TOVR-12 dev to test" -y
+terminus remote:drush idaho-legal-aid-services.test -- config:import -y
+terminus remote:drush idaho-legal-aid-services.test -- cr
+
+TEST_BASE_URL="$(terminus env:view idaho-legal-aid-services.test --print)"
+env NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" \
+  node scripts/ci/run-vector-provenance-smoke.js \
+  --assistant-url "${TEST_BASE_URL%/}/assistant/api/message" \
+  --site-base-url "${TEST_BASE_URL%/}" \
+  --environment test
+
+terminus secret:site:set idaho-legal-aid-services.test ILAS_VECTOR_SEARCH_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.test
+terminus remote:drush idaho-legal-aid-services.test -- cr
+# If `ilas:runtime-truth` still shows `config export` or a falsey secret path,
+# write the private flag file and rerun the command.
+terminus remote:drush idaho-legal-aid-services.test -- php:eval '$path = \Drupal::service("file_system")->realpath("private://") . "/ilas-vector-search-enabled.txt"; file_put_contents($path, "1\n"); echo $path . PHP_EOL;'
+terminus remote:drush idaho-legal-aid-services.test -- ilas:runtime-truth
+```
+
+- Required fixed provenance prompts for all non-live environments:
+  - `what are idaho tenant rights for eviction notices`
+  - `im raising my granddaughter because my daughter is on drugs... what are my legal options`
+  - `is there any way to get my car back`
+- Scope and decision rules:
+  - Keep sync config at `vector_search.enabled=false`; only runtime toggles may
+    enable non-live vector behavior.
+  - Do not enable `dev` or `test` until the active Pinecone provider config
+    proves `query_connect_timeout_seconds=1.0` and
+    `query_request_timeout_seconds=2.0`.
+  - Treat lexical-first control prompts as regression sentinels. After
+    enablement they may remain lexical-only, but they must not degrade into
+    vector-only or worse-quality results.
+  - Treat untranslated or wrong-language vector hits as rollout defects. If the
+    assistant response surface shows translation ghosts, clear the runtime
+    toggle and stop promotion.
+  - `live` remains out of scope. If any command path touches `live`, stop and
+    re-scope the pass under `TOVR-13`.
+- Expected enablement contract:
+  - `ilas:runtime-truth` shows stored `false` versus effective `true` for
+    `vector_search.enabled` on `local`, then `dev`, then `test`, with
+    authoritative source
+    `settings.php runtime toggle -> getenv/pantheon_get_secret` or
+    `settings.php runtime toggle -> private flag file`.
+  - `live` still reports `vector_search.enabled=false` with authoritative source
+    `settings.php live branch`.
+  - Each environment has explicit before/after evidence, exact command
+    summaries, and a rollback switch:
+    - local: unset `ILAS_VECTOR_SEARCH_ENABLED` in `.ddev/.env`, restart DDEV,
+      rebuild caches
+    - dev/test: either clear or set `ILAS_VECTOR_SEARCH_ENABLED=0`, or remove
+      `private://ilas-vector-search-enabled.txt`, then clear caches and rerun
+      `drush cr`
+  - Archive the executed command summaries, before/after status by environment,
+    changed files, residual risks, rollback notes, and still-unverified
+    surfaces in `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`.
+
+### TOVR-13 Pinecone live readiness verification
+
+- Baseline before the live gate review:
+  - `TOVR-12` proves runtime-only vector enablement on `local` / `dev` /
+    `test`, while `live` remains hard-forced off.
+  - `TOVR-13` must separate infrastructure readiness from rollout approval.
+  - Do not enable live LLM response generation in this pass.
+- Required validation commands for the live-readiness report:
+  - `VC-RUNTIME-PANTHEON-SAFE`
+  - `VC-PINECONE-PANTHEON-SAFE`
+  - corrected `VC-ASSISTANT-SMOKE-PANTHEON`
+  - vector provenance smoke on the three fixed prompts
+  - `VC-PROMPTFOO-LIVE-SANITIZED`
+  - `VC-SENTRY-PROBE`
+  - `VC-LANGFUSE-PROBE-DIRECT`
+- Canonical hosted checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status faq_accordion_vector
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status assistant_resources_vector
+terminus remote:drush idaho-legal-aid-services.live -- php:eval '$snapshot=Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+terminus remote:drush idaho-legal-aid-services.live -- state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json
+
+LIVE_BASE_URL="$(terminus env:view idaho-legal-aid-services.live --print)"
+BASE_URL="${LIVE_BASE_URL%/}"
+COOKIE_JAR="$(mktemp)"
+TOKEN="$(curl -sk -c "$COOKIE_JAR" "$BASE_URL/assistant/api/session/bootstrap")"
+curl -sk -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $TOKEN" \
+  --data '{"message":"custody forms"}' \
+  "$BASE_URL/assistant/api/message"
+rm -f "$COOKIE_JAR"
+
+ILAS_ASSISTANT_URL="$BASE_URL/assistant/api/message" \
+ILAS_SITE_BASE_URL="$BASE_URL" \
+node scripts/ci/run-vector-provenance-smoke.js --environment live
+
+gh run list --workflow quality-gate.yml -L 5 --json databaseId,status,conclusion,headBranch,displayTitle,updatedAt
+terminus remote:drush idaho-legal-aid-services.live -- ilas:sentry-probe
+terminus remote:drush idaho-legal-aid-services.live -- ilas:langfuse-probe --direct
+python3 "$HOME/.codex/skills/sentry/scripts/sentry_api.py" \
+  --org idaho-legal-aid-services \
+  --project php \
+  list-issues \
+  --environment pantheon-live \
+  --time-range 24h \
+  --limit 10 \
+  --query 'assistant_name:aila is:unresolved'
+```
+
+- Scope and decision rules:
+  - Corrected smoke means POST without redirect-follow and a normalized base
+    URL (`${BASE_URL%/}`).
+  - Treat healthy secrets/indexes as necessary but not sufficient.
+  - Treat live observability as `ready` only if Sentry capture is current and
+    Langfuse direct ingestion is current; treat vector-path trace proof as
+    incomplete until hosted traces show the new vector metadata fields.
+  - Treat live monitoring as blocked while `diagnostics_token_present=false`
+    unless a formally approved authenticated drush/probe standard is used
+    instead of `/assistant/api/health` and `/assistant/api/metrics`.
+  - Treat prompt-level quality as blocked until prompts 2 / 3 either show
+    accepted vector improvement or are explicitly removed from the rollout
+    acceptance set.
+  - If the latest `master` Quality Gate is red, the final result cannot be
+    `Ready for live enablement`.
+- Expected readiness contract:
+  - Final state must be exactly one of:
+    - `Ready for live enablement`
+    - `Blocked with explicit evidence`
+    - `Partially ready with exact prerequisites`
+  - Current expected result on the 2026-03-17 evidence set is
+    `Blocked with explicit evidence`.
+  - Archive the full report, command summaries, blockers, exact prerequisites,
+    rollback notes, and still-unverified surfaces in
+    `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`.
 
 ### RAUD-09 live debug metadata guard verification
 

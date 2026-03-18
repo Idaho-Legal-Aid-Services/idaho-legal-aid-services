@@ -1,0 +1,200 @@
+TOVR-10 Pinecone Index Integrity and Refresh Readiness
+======================================================
+
+Prompt ID: TOVR-10
+Roadmap item: Tooling + Pinecone remediation -> Pinecone integrity #2
+Verification level tag: repo-inspected / runtime-verified / hosted-read-only-verified / timed-query-probed / tests-rerun
+Created: 2026-03-17
+Last updated: 2026-03-17
+
+1. Prior status
+---------------
+
+Before TOVR-10, TOVR-09 had already established the Pinecone inventory baseline:
+
+- `local`, `dev`, `test`, and `live` all reported Pinecone key presence in
+  effective runtime, and `vector_search.enabled=false` everywhere.
+- Hosted `dev` / `test` / `live` had enabled lexical + vector Search API
+  indexes with successful sample vector queries.
+- `local` remained drifted with missing lexical indexes, pending
+  `ilas_site_assistant` updates `10008` / `10009` / `10010`, and blocked vector
+  queries caused by the Gemini provider identity path.
+- Repo config and service code already proved the intended structural contract:
+  `pinecone_vector` on cosine similarity with 3072 dimensions, managed by
+  `VectorIndexHygieneService` and resolved through
+  `RetrievalConfigurationService`.
+
+What TOVR-09 did not yet prove:
+
+- whether the current index counts could still be trusted as fresh
+- whether hygiene snapshots matched live Search API status in each environment
+- whether current refresh procedures were sufficient for current steady-state
+- whether direct query timings and degraded Pinecone behavior were acceptable
+- whether the overall index layer was ready for enablement
+
+2. Post-investigation status
+----------------------------
+
+Overall readiness verdict
+
+- Hosted structural state is mixed:
+  - `live`: structurally valid, populated, queryable, and currently
+    non-overdue.
+  - `test`: structurally valid, populated, queryable, and currently due but
+    not overdue.
+  - `dev`: structurally valid, populated, queryable, but its current hygiene
+    snapshot is now overdue and therefore operationally degraded.
+- `local`: not structurally governable from active config and not operationally
+  refreshable because `retrieval` resolves to `null`, lexical indexes are
+  missing, pending updates remain, direct vector queries fail, and the stored
+  hygiene snapshot is overdue.
+- Timeout and degraded-response handling: not sufficient for enablement proof.
+  Repo code proves graceful exception fallback and backoff, but there is still
+  no repo-owned preemptive Pinecone transport timeout to validate against.
+- Index-layer enablement readiness: `no`.
+
+3. Verification level tag
+-------------------------
+
+- `Verified by execution` for Search API status, direct query probes, runtime
+  retrieval/hygiene snapshots, local drift evidence, and hosted read-only
+  verification.
+- `Verified by code inspection` for metric/dimension contract, hygiene-service
+  expectations, incremental refresh behavior, and timeout/degraded-response
+  handling limits.
+
+4. Index integrity matrix
+-------------------------
+
+| Environment | Index ID | Retrieval ID match | Server ID match | Metric match | Dimensions match | Indexed / Total | Remaining items | Direct query result | Query latency | Hygiene snapshot freshness | Refreshability verdict | Timeout / degraded-response verdict | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `local` | `faq_accordion_vector` | No. Active `retrieval` config is `null`. | Yes | Yes | Yes | `862 / 862` | `0` | Failed: `ProviderProxy` unregistered callers | `2.27s` | Stale / overdue | Blocked | Not sufficient | Search API entity exists and is full, but active retrieval governance is degraded and direct query path is blocked. |
+| `local` | `assistant_resources_vector` | No. Active `retrieval` config is `null`. | Yes | Yes | Yes | `152 / 152` | `0` | Failed: `ProviderProxy` unregistered callers | `1.57s` | Stale / overdue | Blocked | Not sufficient | Same local drift as FAQ index; pending updates and missing lexical indexes keep refresh proof blocked. |
+| `dev` | `faq_accordion_vector` | Yes | Yes | Yes | Yes | `236 / 236` | `0` | Returned matches for `custody` | `5.69s` | Overdue / degraded | Not sufficient | Unproven | Post-edit recheck shows hosted retrieval config still healthy, but current hygiene cadence has lapsed into overdue state. |
+| `dev` | `assistant_resources_vector` | Yes | Yes | Yes | Yes | `38 / 38` | `0` | Returned matches for `eviction` with untranslated-entity warnings | `4.97s` | Overdue / degraded | Not sufficient | Unproven | Queryable but not clean; current hosted cadence is overdue and the resource probe still emits untranslated-item warnings. |
+| `test` | `faq_accordion_vector` | Yes | Yes | Yes | Yes | `228 / 228` | `0` | Returned matches for `custody` | `4.87s` | Due / not overdue | Conditional | Unproven | Hosted query works and retrieval config is healthy, but the latest hygiene snapshot is due now rather than comfortably fresh. |
+| `test` | `assistant_resources_vector` | Yes | Yes | Yes | Yes | `38 / 38` | `0` | Returned matches for `eviction` with untranslated-entity warnings | `4.59s` | Due / not overdue | Conditional | Unproven | Same untranslated-item warnings as `dev`; cadence has not yet crossed overdue grace but is not fully comfortable. |
+| `live` | `faq_accordion_vector` | Yes | Yes | Yes | Yes | `883 / 883` | `0` | Returned matches for `custody` | `4.81s` | Fresh / non-overdue | Incremental refresh evidenced; full rebuild unverified | Unproven | Hosted query works and hygiene snapshot matches Search API status. |
+| `live` | `assistant_resources_vector` | Yes | Yes | Yes | Yes | `152 / 152` | `0` | Returned matches for `eviction` | `5.79s` | Fresh / non-overdue | Incremental refresh evidenced; full rebuild unverified | Unproven | Cleanest hosted resource probe of the three environments, but full rebuild and timeout policy still remain unverified. |
+
+5. Evidence
+-----------
+
+Primary code and config surfaces
+
+- `config/search_api.server.pinecone_vector.yml`
+- `config/search_api.index.faq_accordion_vector.yml`
+- `config/search_api.index.assistant_resources_vector.yml`
+- `config/ilas_site_assistant.settings.yml`
+- `config/ai_vdb_provider_pinecone.settings.yml`
+- `config/key.key.pinecone_api_key.yml`
+- `web/sites/default/settings.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+
+Command summaries
+
+- `VC-SEARCHAPI-INVENTORY`
+  - `local` listed only `content`, `faq_accordion_vector`, and
+    `assistant_resources_vector`; both vector indexes were `100%` complete.
+- `VC-PINECONE-QUERY-LOCAL`
+  - both local vector queries failed with `ProviderProxy` "Method doesn't allow
+    unregistered callers".
+- `ddev drush ilas:runtime-truth`
+  - `local` effective runtime still reported `pinecone.key_present=true` and
+    `vector_search.enabled=false`.
+- `ddev drush config:get ilas_site_assistant.settings retrieval --format=json`
+  - local active `retrieval` config returned `null`.
+- `ddev drush config:status`
+  - local drift still includes `ilas_site_assistant.settings`,
+    `key.key.gemini_api_key`, and missing lexical Search API index sync.
+- `ddev drush updatedb:status`
+  - local still needs `10008`, `10009`, `10010`.
+- `ddev drush state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json`
+  - local stored snapshot showed both indexes structurally compliant and fully
+    indexed, but stale enough to evaluate as overdue at the current check time.
+- `ddev drush php:eval` retrieval/hygiene snapshots
+  - local `RetrievalConfigurationService` health was degraded across all
+    retrieval IDs; local `VectorIndexHygieneService` showed compliant metadata
+    but overdue refresh cadence.
+- `VC-PINECONE-PANTHEON-SAFE`
+  - `dev`, `test`, `live` all showed enabled lexical + vector indexes, fully
+    indexed vector trackers, and successful sample vector searches.
+- `terminus remote:drush ... -- php:eval` retrieval/hygiene snapshots
+  - `dev`, `test`, `live` all showed healthy retrieval config and zero tracker
+    backlog.
+  - Final post-edit recheck showed cadence is mixed:
+    - `dev`: overdue / degraded
+    - `test`: due but not overdue
+    - `live`: healthy / non-overdue
+- Timed vector query probes
+  - local FAQ: failed in `2.27s`
+  - local resource: failed in `1.57s`
+  - `dev` FAQ/resource: `5.69s` / `4.97s`
+  - `test` FAQ/resource: `4.87s` / `4.59s`
+  - `live` FAQ/resource: `4.81s` / `5.79s`
+- Validation reruns after doc changes
+  - `VC-PURE`: failed on an unrelated pre-existing observability contract in
+    `src/Controller/AssistantReportController.php` (`@message` placeholder
+    still present).
+  - `VC-UNIT`: failed on the same unrelated pre-existing observability
+    contract in `src/Controller/AssistantReportController.php`.
+
+Interpretation
+
+- Hosted timings prove the query path is live and responsive enough for further
+  evaluation, but they do not prove acceptable timeout governance because the
+  repo still relies on provider-default Pinecone HTTP timeouts.
+- `FaqIndex` and `ResourceFinder` do enforce post-failure backoff plus graceful
+  fallback, but the timeout budget is request-duration observation, not a
+  configured Pinecone transport limit.
+
+6. Changed files
+----------------
+
+Docs and report only. No code changes.
+
+- `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+
+7. Residual risks / unknowns
+----------------------------
+
+- Local environment parity remains broken and blocks any honest local refresh or
+  rebuild proof.
+- Hosted cadence is not uniformly healthy: `dev` is overdue and `test` is due,
+  which weakens any claim that current refresh monitoring is sufficient across
+  all non-live environments.
+- `dev` / `test` resource vector probes still emit untranslated-entity load
+  warnings; these should be treated as index-content hygiene defects.
+- Full rebuild success remains unverified on Pantheon because TOVR-10 stayed
+  read-only there.
+- Pinecone collection namespace contents and account-side health were not
+  directly inspected.
+- End-to-end timeout posture remains unproven because the repo does not expose
+  a clean Pinecone transport timeout control to exercise.
+
+8. Rollback notes
+-----------------
+
+- No runtime or config behavior was changed.
+- Rollback is doc-only: revert the TOVR-10 report and linked documentation
+  edits if the evidence needs to be replaced.
+
+9. Still-unverified surfaces
+----------------------------
+
+- Hosted full rebuild / reset-tracker success for each vector index
+- Acceptable degraded behavior under real Pinecone slowness or partial outage
+- Account-side Pinecone namespace / collection correctness beyond Search API
+  read-only probes
+- Any claim that the vector index layer is ready for enablement in `local` or
+  overall

@@ -598,6 +598,7 @@ function b5subtheme_preprocess_html(array &$variables): void {
   $language_manager = \Drupal::languageManager();
   $languages = $language_manager->getLanguages();
   $current_language = $language_manager->getCurrentLanguage();
+  $route_name = \Drupal::routeMatch()->getRouteName();
 
   $language_links = [];
   if (count($languages) > 1) {
@@ -615,8 +616,10 @@ function b5subtheme_preprocess_html(array &$variables): void {
   $variables['language_links'] = $language_links;
   $variables['language'] = $current_language;
 
-  // Expose GA4 ID from settings.php to Twig.
-  $variables['google_tag_id'] = Settings::get('google_tag_id');
+  // Keep sitewide GA available, but deny GA/bootstrap on the assistant page.
+  $variables['google_tag_id'] = $route_name === 'ilas_site_assistant.page'
+    ? NULL
+    : Settings::get('google_tag_id');
   // Add JSON-LD BreadcrumbList schema for SEO.
   _b5subtheme_add_breadcrumb_schema($variables);
 

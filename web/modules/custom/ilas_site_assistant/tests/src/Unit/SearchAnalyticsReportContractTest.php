@@ -71,7 +71,7 @@ class SearchAnalyticsReportContractTest extends TestCase {
     $this->assertStringContainsString("'out_of_scope'", $source);
     $this->assertStringContainsString("'generic_answer'", $source);
     $this->assertStringContainsString("'grounding_refusal'", $source);
-    $this->assertStringContainsString("'post_gen_safety_legal_advice'", $source);
+    $this->assertStringContainsString("'post_gen_safety_review_flag'", $source);
   }
 
   /**
@@ -92,6 +92,35 @@ class SearchAnalyticsReportContractTest extends TestCase {
     $this->assertStringContainsString("'owner_role'", $source);
     $this->assertStringContainsString("'cadence'", $source);
     $this->assertStringContainsString("'escalation_path'", $source);
+  }
+
+  /**
+   * Tests that the report controller contains an observability status section.
+   */
+  public function testReportControllerContainsObservabilityStatusSection(): void {
+    $source = self::readModuleFile('src/Controller/AssistantReportController.php');
+    $this->assertStringContainsString('buildObservabilityStatusSection', $source);
+    $this->assertStringContainsString("'observability_status'", $source);
+  }
+
+  /**
+   * Tests that the observability section surfaces Langfuse runtime state.
+   */
+  public function testObservabilityStatusSurfacesLangfuseState(): void {
+    $source = self::readModuleFile('src/Controller/AssistantReportController.php');
+    $this->assertStringContainsString('RuntimeTruthSnapshotBuilder', $source);
+    $this->assertStringContainsString('QueueHealthMonitor', $source);
+    $this->assertStringContainsString("'langfuse'", $source);
+    $this->assertStringContainsString("'divergences'", $source);
+  }
+
+  /**
+   * Tests that the observability section explains the override pattern.
+   */
+  public function testObservabilityStatusExplainsOverridePattern(): void {
+    $source = self::readModuleFile('src/Controller/AssistantReportController.php');
+    $this->assertStringContainsString('settings.php', $source);
+    $this->assertStringContainsString('ilas:runtime-truth', $source);
   }
 
 }

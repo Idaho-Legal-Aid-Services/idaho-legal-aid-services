@@ -19,6 +19,84 @@ use PHPUnit\Framework\Attributes\Group;
 class VectorSearchMergeTest extends TestCase {
 
   /**
+   * Tests that disabled vector search reports the expected trigger reason.
+   */
+  public function testVectorDecisionMapReportsDisabledReason(): void {
+    $faq = new TestFaqIndex(['enabled' => FALSE]);
+
+    $decision = $faq->testVectorDecisionMap([
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50],
+    ]);
+
+    $this->assertFalse($decision['enabled']);
+    $this->assertFalse($decision['should_attempt']);
+    $this->assertSame('disabled', $decision['reason']);
+    $this->assertSame(1, $decision['lexical_count']);
+    $this->assertSame(50.0, $decision['best_lexical_score']);
+  }
+
+  /**
+   * Tests that sufficient lexical coverage reports the expected trigger reason.
+   */
+  public function testVectorDecisionMapReportsSufficientLexicalReason(): void {
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ]);
+
+    $decision = $faq->testVectorDecisionMap([
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50],
+      ['paragraph_id' => 2, 'id' => 2, 'score' => 40],
+    ]);
+
+    $this->assertTrue($decision['enabled']);
+    $this->assertFalse($decision['should_attempt']);
+    $this->assertSame('sufficient_lexical', $decision['reason']);
+    $this->assertSame(2, $decision['lexical_count']);
+    $this->assertSame(50.0, $decision['best_lexical_score']);
+  }
+
+  /**
+   * Tests that sparse lexical coverage reports the expected trigger reason.
+   */
+  public function testVectorDecisionMapReportsSparseLexicalReason(): void {
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ]);
+
+    $decision = $faq->testVectorDecisionMap([
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50],
+    ]);
+
+    $this->assertTrue($decision['should_attempt']);
+    $this->assertSame('sparse_lexical', $decision['reason']);
+    $this->assertSame(1, $decision['lexical_count']);
+  }
+
+  /**
+   * Tests that low-quality lexical coverage reports the expected trigger reason.
+   */
+  public function testVectorDecisionMapReportsLowQualityLexicalReason(): void {
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 10.0,
+    ]);
+
+    $decision = $faq->testVectorDecisionMap([
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 4.0],
+      ['paragraph_id' => 2, 'id' => 2, 'score' => 3.5],
+    ]);
+
+    $this->assertTrue($decision['should_attempt']);
+    $this->assertSame('low_quality_lexical', $decision['reason']);
+    $this->assertSame(4.0, $decision['best_lexical_score']);
+  }
+
+  /**
    * Tests that vector disabled returns lexical items unchanged.
    */
   public function testVectorDisabledReturnsLexicalUnchanged(): void {
@@ -69,6 +147,83 @@ class VectorSearchMergeTest extends TestCase {
 
     $result = $faq->testSupplementWithVectorResults($lexical, 'test', 10);
     $this->assertCount(2, $result);
+  }
+
+  /**
+   * Tests that structured healthy vector outcomes still merge correctly.
+   */
+  public function testStructuredHealthyVectorOutcomeStillMerges(): void {
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], [
+      'attempted' => TRUE,
+      'status' => 'healthy',
+      'reason' => 'results_available',
+      'elapsed_ms' => 125,
+      'cacheable' => TRUE,
+      'items' => [
+        ['paragraph_id' => 10, 'id' => 10, 'score' => 85, 'source' => 'vector'],
+      ],
+    ]);
+
+    $payload = $faq->testSupplementWithVectorResultsDetailed([
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50, 'source' => 'lexical'],
+    ], 'test', 10);
+
+    $this->assertSame('healthy', $payload['vector_outcome']['status']);
+    $this->assertCount(2, $payload['items']);
+    $this->assertContains('vector', array_column($payload['items'], 'source'));
+  }
+
+  /**
+   * Tests that FAQ vector merge drops non-current-language URLs.
+   */
+  public function testFaqVectorMergeDropsNonCurrentLanguageUrls(): void {
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], [
+      ['paragraph_id' => 10, 'id' => 10, 'score' => 85, 'source' => 'vector', 'parent_url' => '/es/resources/tenant-rights', 'url' => '/es/resources/tenant-rights#rights'],
+      ['paragraph_id' => 11, 'id' => 11, 'score' => 84, 'source' => 'vector', 'parent_url' => '/resources/tenant-rights', 'url' => '/resources/tenant-rights#rights'],
+    ]);
+
+    $payload = $faq->testSupplementWithVectorResultsDetailed([], 'test', 10);
+
+    $this->assertCount(1, $payload['items']);
+    $this->assertSame('/resources/tenant-rights#rights', $payload['items'][0]['url']);
+  }
+
+  /**
+   * Tests that degraded vector outcomes never merge into lexical results.
+   */
+  public function testDegradedVectorOutcomeNeverMerges(): void {
+    $lexical = [
+      ['paragraph_id' => 1, 'id' => 1, 'score' => 50, 'source' => 'lexical'],
+    ];
+    $faq = new TestFaqIndex([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], [
+      'attempted' => TRUE,
+      'status' => 'degraded',
+      'reason' => 'latency_budget_exceeded',
+      'elapsed_ms' => 2501,
+      'cacheable' => FALSE,
+      'items' => [
+        ['paragraph_id' => 99, 'id' => 99, 'score' => 95, 'source' => 'vector'],
+      ],
+    ]);
+
+    $payload = $faq->testSupplementWithVectorResultsDetailed($lexical, 'test', 10);
+
+    $this->assertSame($lexical, $payload['items']);
+    $this->assertSame('degraded', $payload['vector_outcome']['status']);
+    $this->assertSame('latency_budget_exceeded', $payload['vector_outcome']['reason']);
+    $this->assertFalse($payload['vector_outcome']['cacheable']);
   }
 
   /**
@@ -139,6 +294,25 @@ class VectorSearchMergeTest extends TestCase {
     $ids = array_column($result, 'paragraph_id');
     $this->assertContains(10, $ids);
     $this->assertContains(20, $ids);
+  }
+
+  /**
+   * Tests that resource vector merge drops non-current-language URLs.
+   */
+  public function testResourceVectorMergeDropsNonCurrentLanguageUrls(): void {
+    $finder = new TestResourceFinder([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 0,
+    ], [
+      ['id' => 10, 'score' => 85, 'source' => 'vector', 'url' => '/es/resources/evictions'],
+      ['id' => 11, 'score' => 84, 'source' => 'vector', 'url' => '/resources/evictions'],
+    ]);
+
+    $result = $finder->testSupplementWithVectorResults([], 'test', NULL, 10);
+
+    $this->assertCount(1, $result);
+    $this->assertSame('/resources/evictions', $result[0]['url']);
   }
 
   /**
@@ -479,6 +653,25 @@ class VectorSearchMergeTest extends TestCase {
     $this->assertCount(3, $result);
   }
 
+  /**
+   * Tests ResourceFinder reports the low-quality lexical trigger reason.
+   */
+  public function testResourceVectorDecisionMapReportsLowQualityLexicalReason(): void {
+    $finder = new TestResourceFinder([
+      'enabled' => TRUE,
+      'fallback_threshold' => 2,
+      'min_lexical_score' => 10.0,
+    ]);
+
+    $decision = $finder->testVectorDecisionMap([
+      ['id' => 1, 'score' => 4.0],
+      ['id' => 2, 'score' => 3.5],
+    ]);
+
+    $this->assertTrue($decision['should_attempt']);
+    $this->assertSame('low_quality_lexical', $decision['reason']);
+  }
+
 }
 
 /**
@@ -506,6 +699,7 @@ class TestFaqIndex extends FaqIndex {
     // Skip parent constructor — we only test merge logic.
     $this->testVectorConfig = $vector_config;
     $this->testVectorItems = $vector_items;
+    $this->languageManager = $this->buildLanguageManagerStub();
   }
 
   /**
@@ -527,6 +721,52 @@ class TestFaqIndex extends FaqIndex {
    */
   public function testSupplementWithVectorResults(array $lexical, string $query, int $limit, ?string $type = NULL): array {
     return $this->supplementWithVectorResults($lexical, $query, $limit, $type);
+  }
+
+  /**
+   * Exposes protected supplementWithVectorResultsDetailed() for testing.
+   */
+  public function testSupplementWithVectorResultsDetailed(array $lexical, string $query, int $limit, ?string $type = NULL): array {
+    return $this->supplementWithVectorResultsDetailed($lexical, $query, $limit, $type);
+  }
+
+  /**
+   * Exposes the vector decision map for testing.
+   */
+  public function testVectorDecisionMap(array $lexical): array {
+    return $this->buildVectorDecisionMap($lexical);
+  }
+
+  /**
+   * Builds a minimal language-manager stub for URL-language filtering.
+   */
+  private function buildLanguageManagerStub(): object {
+    return new class {
+      public function getCurrentLanguage(): object {
+        return new class {
+          public function getId(): string {
+            return 'en';
+          }
+        };
+      }
+
+      public function getDefaultLanguage(): object {
+        return new class {
+          public function getId(): string {
+            return 'en';
+          }
+        };
+      }
+
+      public function getLanguages(): array {
+        return [
+          'en' => new \stdClass(),
+          'es' => new \stdClass(),
+          'nl' => new \stdClass(),
+          'sw' => new \stdClass(),
+        ];
+      }
+    };
   }
 
 }
@@ -556,6 +796,7 @@ class TestResourceFinder extends ResourceFinder {
     // Skip parent constructor — we only test merge logic.
     $this->testVectorConfig = $vector_config;
     $this->testVectorItems = $vector_items;
+    $this->languageManager = $this->buildLanguageManagerStub();
   }
 
   /**
@@ -577,6 +818,45 @@ class TestResourceFinder extends ResourceFinder {
    */
   public function testSupplementWithVectorResults(array $lexical, string $query, ?string $type, int $limit): array {
     return $this->supplementWithVectorResults($lexical, $query, $type, $limit);
+  }
+
+  /**
+   * Exposes the vector decision map for testing.
+   */
+  public function testVectorDecisionMap(array $lexical): array {
+    return $this->buildVectorDecisionMap($lexical);
+  }
+
+  /**
+   * Builds a minimal language-manager stub for URL-language filtering.
+   */
+  private function buildLanguageManagerStub(): object {
+    return new class {
+      public function getCurrentLanguage(): object {
+        return new class {
+          public function getId(): string {
+            return 'en';
+          }
+        };
+      }
+
+      public function getDefaultLanguage(): object {
+        return new class {
+          public function getId(): string {
+            return 'en';
+          }
+        };
+      }
+
+      public function getLanguages(): array {
+        return [
+          'en' => new \stdClass(),
+          'es' => new \stdClass(),
+          'nl' => new \stdClass(),
+          'sw' => new \stdClass(),
+        ];
+      }
+    };
   }
 
 }

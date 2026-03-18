@@ -1,0 +1,285 @@
+TOVR-09 Pinecone Environment Inventory
+======================================
+
+Prompt ID: TOVR-09
+Roadmap item: Tooling + Pinecone remediation -> Pinecone inventory #1
+Verification level tag: repo-investigated / runtime-verified / hosted-query-verified / local-drift-detected
+Created: 2026-03-17
+Last updated: 2026-03-17
+
+1. Prior status
+---------------
+
+Before TOVR-09, the repo already showed the Pinecone/vector stack in config:
+
+- `config/search_api.server.pinecone_vector.yml` defines Search API AI server
+  `pinecone_vector` with:
+  - database `ilas-assistant`
+  - collection `default`
+  - metric `cosine_similarity`
+  - embeddings engine `gemini__models/gemini-embedding-001`
+  - dimensions `3072`
+- `config/search_api.index.faq_accordion_vector.yml` and
+  `config/search_api.index.assistant_resources_vector.yml` define the FAQ and
+  resource vector indexes on that server.
+- `config/key.key.pinecone_api_key.yml` intentionally stores an empty config
+  value, and `web/sites/default/settings.php` injects `ILAS_PINECONE_API_KEY`
+  into effective runtime config.
+- `config/ilas_site_assistant.settings.yml` keeps:
+  - `retrieval.faq_vector_index_id=faq_accordion_vector`
+  - `retrieval.resource_vector_index_id=assistant_resources_vector`
+  - `vector_search.enabled=false`
+  - `vector_search.fallback_threshold=2`
+  - `vector_search.min_vector_score=0.7`
+  - `vector_search.score_normalization_factor=100`
+  - `vector_search.min_lexical_score=0`
+
+Known pre-TOVR-09 gaps:
+
+- TOVR-08 originally recorded Pantheon `ilas:runtime-truth` as deployment-gated.
+- The production audit still described Pinecone as disabled and partially
+  unverified.
+- Existing docs proved config presence and secret wiring, but did not yet give
+  one current per-environment answer for:
+  - secret presence
+  - index enablement
+  - population
+  - queryability
+  - active runtime callers and blockers
+
+2. Post-investigation status
+----------------------------
+
+Environment inventory
+
+| Environment | Pinecone secret present? | Vector indexes enabled/populated? | Searchable right now? | `vector_search.enabled` effective runtime | Current blockers / notes |
+|---|---|---|---|---|---|
+| `local` | Yes. `ddev drush ilas:runtime-truth` reported `effective_runtime.pinecone.key_present=true`. | Yes for vector entities only: `pinecone_vector` server enabled; `faq_accordion_vector` `862/862`; `assistant_resources_vector` `152/152`. Local `search-api:list` only showed `content` plus the two vector indexes; canonical lexical indexes were missing. | Blocked. Both `ddev drush search-api:search faq_accordion_vector custody` and `... assistant_resources_vector eviction` failed with `ProviderProxy` `Method doesn't allow unregistered callers`. | `false` | Local drift is real: `ddev drush config:status` showed `ilas_site_assistant.settings` and `key.key.gemini_api_key` as different, and `ddev drush updatedb:status` still listed updates `10008`, `10009`, and `10010`. Active local `key.key.gemini_api_key` still used the old blank `config` provider instead of the runtime site-setting provider. |
+| `dev` | Yes. `terminus remote:drush ... -- ilas:runtime-truth` reported `effective_runtime.pinecone.key_present=true`. | Yes. `search-api:list` showed lexical `faq_accordion` + `assistant_resources` plus both vector indexes. `faq_accordion_vector` `236/236`; `assistant_resources_vector` `38/38`. | Yes. Sample queries returned results for `custody` and `eviction`. Resource query emitted non-fatal warnings about untranslated entities that could not be loaded, but still returned matches. | `false` | Hosted vector stack is provisioned and queryable, but runtime vector retrieval is still off because `vector_search.enabled=false`. |
+| `test` | Yes. `terminus remote:drush ... -- ilas:runtime-truth` reported `effective_runtime.pinecone.key_present=true`. | Yes. `search-api:list` showed lexical `faq_accordion` + `assistant_resources` plus both vector indexes. `faq_accordion_vector` `228/228`; `assistant_resources_vector` `38/38`. | Yes. Sample queries returned results for `custody` and `eviction`. Resource query emitted the same non-fatal untranslated-entity warnings seen on `dev`. | `false` | Hosted vector stack is provisioned and queryable, but runtime vector retrieval is still off because `vector_search.enabled=false`. |
+| `live` | Yes. `terminus remote:drush ... -- ilas:runtime-truth` reported `effective_runtime.pinecone.key_present=true`. | Yes. `search-api:list` showed lexical `faq_accordion` + `assistant_resources` plus both vector indexes. `faq_accordion_vector` `883/883`; `assistant_resources_vector` `152/152`. | Yes. Sample queries returned results for `custody` and `eviction`. | `false` | Live has the hosted Pinecone stack and queryable indexes, but production enablement is still blocked by the runtime flag and the later Pinecone readiness prompts. |
+
+Five mandatory environment questions
+
+1. Which environments actually have Pinecone secrets?
+   - Answer: all four sampled environments (`local`, `dev`, `test`, `live`)
+     currently report Pinecone key presence in effective runtime.
+
+2. Which environments have enabled vector indexes?
+   - Answer: all four sampled environments have enabled vector server/index
+     entities, but `local` is drifted because the lexical indexes expected by
+     live retrieval code are missing there.
+
+3. Are the vector indexes populated and searchable?
+   - Answer:
+     - `dev`, `test`, and `live`: yes, populated and queryable by read-only
+       sample searches.
+     - `local`: populated but query-time execution is blocked by local active
+       config drift and pending updates.
+
+4. Is vector search runtime-enabled anywhere?
+   - Answer: no. `vector_search.enabled=false` in effective runtime on
+     `local`, `dev`, `test`, and `live`.
+
+5. Which code paths and feature flags gate current use?
+   - Answer:
+     - `FaqIndex::search()` and `ResourceFinder::findByTypeSearchApi()` run the
+       lexical Search API branch first.
+     - `FaqIndex::supplementWithVectorResults()` and
+       `ResourceFinder::supplementWithVectorResults()` only invoke vector search
+       when `vector_search.enabled=true` and lexical results are sparse or below
+       the configured score threshold.
+     - Current live callers are in `AssistantApiController`:
+       - early retrieval before fallback gate evaluation
+       - public suggest endpoint FAQ suggestions
+       - public FAQ endpoint
+       - FAQ intent branch
+       - forms, guides, and generic resources branches
+       - same-area follow-up resource branch
+       - final default FAQ/resource fallback branch
+     - Because `vector_search.enabled=false` everywhere, none of those current
+       code paths will actually call the vector indexes in normal runtime today.
+
+Stack reconstruction
+
+- Pinecone Search API server:
+  - `pinecone_vector` uses Search API AI Search with Pinecone as the database,
+    Gemini models for chat + embeddings, cosine similarity, and 3072
+    dimensions.
+- Vector indexes:
+  - `faq_accordion_vector` indexes `faq_item` and `accordion_item` paragraphs.
+  - `assistant_resources_vector` indexes `resource` nodes.
+- Secret wiring:
+  - Pinecone API key: `ILAS_PINECONE_API_KEY` -> `settings.php` runtime config
+    injection into `key.key.pinecone_api_key`.
+  - Gemini API key for query-time embeddings:
+    `ILAS_GEMINI_API_KEY` -> `settings.php` runtime site setting
+    `ilas_gemini_api_key` -> `key.key.gemini_api_key`.
+  - Vertex AI service-account fallback:
+    `ILAS_VERTEX_SA_JSON` -> runtime site setting -> `key.key.vertex_sa_credentials`.
+- Assistant retrieval config:
+  - Hosted `dev` / `test` / `live` all reported:
+    - `retrieval.faq_index_id=faq_accordion`
+    - `retrieval.resource_index_id=assistant_resources`
+    - `retrieval.resource_fallback_index_id=content`
+    - `retrieval.faq_vector_index_id=faq_accordion_vector`
+    - `retrieval.resource_vector_index_id=assistant_resources_vector`
+  - Hosted `dev` / `test` / `live` all reported:
+    - `vector_search.enabled=false`
+    - `vector_search.fallback_threshold=2`
+    - `vector_search.min_vector_score=0.7`
+    - `vector_search.score_normalization_factor=100`
+    - `vector_search.min_lexical_score=0`
+
+Current blockers to production enablement
+
+- Runtime gating:
+  - `vector_search.enabled=false` in all sampled environments, including `live`.
+- Local environment drift:
+  - pending updates `10008`, `10009`, `10010`
+  - `config:status` drift on `ilas_site_assistant.settings` and
+    `key.key.gemini_api_key`
+  - missing lexical indexes locally
+  - local Gemini key entity still on the old blank `config` provider path
+  - both local sample vector queries fail before returning results
+- Readiness work is still owned by later prompts:
+  - `TOVR-10`: index integrity and refresh readiness
+  - `TOVR-11`: retrieval integration correctness
+  - `TOVR-12`: controlled dev/test enablement
+  - backlog `RET-2`: enable Pinecone vector search in staging and verify
+    index + embeddings
+- Governance/safety boundary:
+  - this prompt is inventory only and does not justify turning on vector search
+    in `live`.
+
+3. Command summaries
+--------------------
+
+Local
+
+- `VC-RUNTIME-LOCAL-SAFE`
+  - `effective_runtime.pinecone.key_present=true`
+  - `effective_runtime.vector_search.enabled=false`
+- `VC-SEARCHAPI-INVENTORY`
+  - servers: `database`, `pinecone_vector`
+  - indexes listed locally: `content`, `faq_accordion_vector`,
+    `assistant_resources_vector`
+  - vector status:
+    - `faq_accordion_vector` `862/862`
+    - `assistant_resources_vector` `152/152`
+- `ddev drush search-api:search faq_accordion_vector custody`
+  - failed with `ProviderProxy` `Method doesn't allow unregistered callers`
+- `ddev drush search-api:search assistant_resources_vector eviction`
+  - failed with the same `ProviderProxy` error
+- `ddev drush config:status`
+  - different: `ilas_site_assistant.settings`, `key.key.gemini_api_key`
+- `ddev drush updatedb:status`
+  - pending: `ilas_site_assistant` updates `10008`, `10009`, `10010`
+- `ddev drush config:get key.key.gemini_api_key -y`
+  - active local config still showed:
+    - `key_provider: config`
+    - `key_provider_settings.key_value: ''`
+    - `key_input: text_field`
+
+Pantheon
+
+- `VC-RUNTIME-PANTHEON-SAFE`
+  - `ilas:runtime-truth` now executes successfully on `dev`, `test`, and
+    `live`
+  - all three reported:
+    - `effective_runtime.pinecone.key_present=true`
+    - `effective_runtime.vector_search.enabled=false`
+  - browser markers remained environment-correct:
+    - `dev`: `environment="pantheon-dev"`, release `f6b1229`
+    - `test`: `environment="pantheon-test"`, release `test_158`
+    - `live`: `environment="pantheon-live"`, release `live_148`,
+      plus `googletagmanager` and `dataLayer`
+- `VC-PINECONE-PANTHEON-SAFE` plus hosted `search-api:list`
+  - `dev`, `test`, and `live` all showed:
+    - servers: `database`, `pinecone_vector`
+    - lexical indexes: `faq_accordion`, `assistant_resources`
+    - vector indexes: `faq_accordion_vector`, `assistant_resources_vector`
+  - hosted vector status:
+    - `dev`: FAQ `236/236`, resources `38/38`
+    - `test`: FAQ `228/228`, resources `38/38`
+    - `live`: FAQ `883/883`, resources `152/152`
+  - hosted active runtime retrieval/vector config matched exported defaults
+- hosted sample vector queries
+  - `faq_accordion_vector custody`: returned results on `dev`, `test`, `live`
+  - `assistant_resources_vector eviction`: returned results on `dev`, `test`,
+    `live`
+  - `dev` and `test` resource searches warned that a few translated entities
+    could not be loaded; results still returned successfully
+- hosted `updatedb:status`
+  - `dev`, `test`, `live`: `No database updates required.`
+
+4. Evidence
+-----------
+
+Primary code/config surfaces reviewed
+
+- `config/search_api.server.pinecone_vector.yml`
+- `config/search_api.index.faq_accordion_vector.yml`
+- `config/search_api.index.assistant_resources_vector.yml`
+- `config/ai_vdb_provider_pinecone.settings.yml`
+- `config/key.key.pinecone_api_key.yml`
+- `config/key.key.gemini_api_key.yml`
+- `config/key.key.vertex_sa_credentials.yml`
+- `config/ilas_site_assistant.settings.yml`
+- `web/sites/default/settings.php`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.install`
+- `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+
+Audit / planning surfaces reviewed
+
+- `web/modules/custom/ilas_site_assistant/HOSTILE_AUDIT_REPORT.md`
+- `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+- `docs/assistant_audit_backlog.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+
+5. Changed files
+----------------
+
+Docs only. No code changes.
+
+- `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+
+6. Residual risks / unknowns
+----------------------------
+
+- Hosted sample queries prove the vector indexes answer read-only searches, but
+  this prompt did not calibrate quality or threshold suitability.
+- Local vector-query failure is attributed by current evidence to real local
+  drift and pending updates, but this prompt does not remediate that drift.
+- `dev` and `test` resource vector searches returned some untranslated-entity
+  load warnings; they did not block result delivery, but they should be tracked
+  in later integrity/readiness work.
+- This inventory does not prove that enabling `vector_search.enabled=true`
+  would improve relevance or preserve response-quality contracts.
+
+7. Rollback notes
+-----------------
+
+- Revert the documentation-only changes if this inventory needs to be replaced.
+- No runtime behavior, config schema, or production code was changed by TOVR-09.
+
+8. Still-unverified surfaces
+----------------------------
+
+- TOVR-10 index-integrity and refresh-readiness decision
+- TOVR-11 retrieval integration correctness decision
+- TOVR-12 controlled non-live enablement proof
+- live relevance calibration and threshold validation for vector supplementation

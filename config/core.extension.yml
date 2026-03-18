@@ -5,9 +5,7 @@ module:
   address: 0
   addtocal_augment: 0
   ai: 0
-  ai_provider_google_vertex: 0
   ai_search: 0
-  ai_seo: 0
   ai_vdb_provider_pinecone: 0
   announcements_feed: 0
   antibot: 0
@@ -107,7 +105,6 @@ module:
   menu_link_content: 0
   menu_ui: 0
   metatag: 0
-  metatag_ai: 0
   metatag_open_graph: 0
   metatag_twitter_cards: 0
   metatag_views: 0

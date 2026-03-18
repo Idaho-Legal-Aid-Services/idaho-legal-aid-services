@@ -24,9 +24,14 @@ test('renderAssistantFixture emits contract_meta with required fields and derive
       'citations_count',
       'confidence',
       'decision_reason',
+      'lexical_citation_count',
+      'lexical_result_count',
       'reason_code',
       'response_mode',
       'response_type',
+      'result_source_classes',
+      'vector_citation_count',
+      'vector_result_count',
     ]
   );
   assert.equal(rendered.contractMeta.citations_count, 3);
@@ -34,6 +39,11 @@ test('renderAssistantFixture emits contract_meta with required fields and derive
   assert.equal(rendered.contractMeta.response_mode, 'grounded_answer');
   assert.equal(rendered.contractMeta.reason_code, 'retrieval_match');
   assert.equal(rendered.contractMeta.decision_reason, 'ranked_search_match');
+  assert.deepEqual(rendered.contractMeta.result_source_classes, []);
+  assert.equal(rendered.contractMeta.vector_result_count, 0);
+  assert.equal(rendered.contractMeta.lexical_result_count, 0);
+  assert.equal(rendered.contractMeta.vector_citation_count, 0);
+  assert.equal(rendered.contractMeta.lexical_citation_count, 0);
 });
 
 test('evaluateMetricSet passes when retrieval thresholds meet score and count floors', () => {

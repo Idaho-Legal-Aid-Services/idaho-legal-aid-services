@@ -201,9 +201,15 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js:1350-1393`
 
 ### CLAIM-027
-- Claim: Widget tracking pushes GA-style events to `dataLayer` and separately POSTs to `/assistant/api/track`.
+- Claim: Widget tracking sends normalized assistant telemetry to
+  `/assistant/api/track` and emits minimized browser custom events for internal
+  observability, but it does not push assistant-originated telemetry to
+  `window.dataLayer` or GA4.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js:1420-1442`
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityBrowserAssetContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/README.md`
 
 ### CLAIM-028
 - Claim: URL and HTML/attribute sanitization is implemented in widget JS (`escapeHtml`, `escapeAttr`, `sanitizeUrl`).
@@ -1035,10 +1041,10 @@ Evidence precedence used in this audit:
   - `web/sites/default/settings.php:116-138`
 
 ### CLAIM-098
-- Claim: Runtime secret wiring exists for Aila LLM, Langfuse, AI key entities,
-  Pinecone key entity, and Sentry DSN; the Vertex service-account JSON is held
-  only in a Drupal site setting and a custom Key provider consumes that runtime
-  setting without storing the blob in Drupal config.
+- Claim: Runtime secret wiring exists for Aila LLM, Langfuse, Pinecone key
+  entity, and Sentry DSN; the Vertex service-account JSON is held only in a
+  Drupal site setting and custom Vertex code consumes that runtime setting
+  without any exported Vertex key entity remaining in synced Drupal config.
 - Evidence:
   - `web/sites/default/settings.php:190-193`
   - `web/sites/default/settings.php:201-204`
@@ -1046,8 +1052,8 @@ Evidence precedence used in this audit:
   - `web/sites/default/settings.php:228-231`
   - `web/sites/default/settings.php:242-245`
   - `web/sites/default/settings.php:253-268`
-  - `config/key.key.vertex_sa_credentials.yml`
-  - `web/modules/custom/ilas_site_assistant/src/Plugin/KeyProvider/RuntimeSiteSettingKeyProvider.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
 
 ### CLAIM-099
 - Claim: Production (`PANTHEON_ENVIRONMENT=live`) overrides include GA tag ID, chatbot per-IP rate limits, and a hard-disable for `llm.enabled`.
@@ -2446,18 +2452,20 @@ Evidence precedence used in this audit:
 ### CLAIM-166
 - Claim: Re-audit remediation `RAUD-03` removes plaintext Vertex credential
   storage from the ILAS assistant admin UI and exported Drupal config, while
-  preserving runtime-only secret injection for Vertex auth.
+  preserving runtime-only secret injection for Vertex auth. TOVR-14 later
+  removes the dormant synced Vertex key entity entirely, so current repo state
+  no longer includes any exported Vertex key config.
 - Evidence:
   - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
   - `web/sites/default/settings.php`
   - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
   - `config/ilas_site_assistant.settings.yml`
-  - `config/key.key.vertex_sa_credentials.yml`
   - `web/modules/custom/ilas_site_assistant/src/Plugin/KeyProvider/RuntimeSiteSettingKeyProvider.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php`
   - `docs/aila/runtime/raud-03-vertex-runtime-secret-remediation.txt`
+  - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
 
 ### CLAIM-167
 - Claim: Re-audit remediation `RAUD-05` caches Vertex access tokens in the
@@ -3214,4 +3222,433 @@ that remained open after 2026-03-13.
   - `web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
   - `docs/aila/current-state.md`
   - `docs/aila/runbook.md`
+  - `docs/aila/risk-register.md`
+
+---
+
+## TOVR-09 Pinecone Environment Inventory (2026-03-17)
+
+### CLAIM-216
+- Claim: TOVR-09 reran the canonical runtime-truth checks on 2026-03-17 and
+  confirmed current effective Pinecone/vector state across all sampled
+  environments: `ilas:runtime-truth` now executes successfully on Pantheon
+  `dev` / `test` / `live`, Pinecone key presence is `true` in `local` / `dev`
+  / `test` / `live`, and `vector_search.enabled` remains `false` in effective
+  runtime for all four sampled environments.
+- Evidence:
+  - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/RuntimeTruthCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+  - `web/sites/default/settings.php`
+
+### CLAIM-217
+- Claim: TOVR-09 proves the hosted Pinecone stack is provisioned and queryable
+  while exposing real local drift: `dev` / `test` / `live` all report enabled
+  lexical + vector Search API indexes, fully populated vector trackers, and
+  successful read-only sample vector searches, while `local` currently shows
+  only `content` plus the two vector indexes, pending `ilas_site_assistant`
+  updates `10008` / `10009` / `10010`, drift on
+  `ilas_site_assistant.settings` and `key.key.gemini_api_key`, and both local
+  vector sample queries failing with the AI provider `ProviderProxy`
+  "unregistered callers" error.
+- Evidence:
+  - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+  - `config/search_api.server.pinecone_vector.yml`
+  - `config/search_api.index.faq_accordion_vector.yml`
+  - `config/search_api.index.assistant_resources_vector.yml`
+  - `config/key.key.gemini_api_key.yml`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.install`
+
+### CLAIM-218
+- Claim: Effective retrieval/vector configuration is currently aligned across
+  sampled hosted environments: `retrieval.*` resolves to
+  `faq_accordion`, `assistant_resources`, `content`, `faq_accordion_vector`,
+  and `assistant_resources_vector`, while `vector_search.*` remains
+  `enabled=false`, `fallback_threshold=2`, `min_vector_score=0.7`,
+  `score_normalization_factor=100`, and `min_lexical_score=0`.
+- Evidence:
+  - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+  - `config/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+
+### CLAIM-219
+- Claim: Current vector usage remains lexical-first and config-gated:
+  `FaqIndex` and `ResourceFinder` only supplement Search API lexical results
+  with vector results when `vector_search.enabled` is true and lexical results
+  are sparse or low quality, and the live callers are the early retrieval path,
+  public suggest/FAQ endpoints, FAQ intent path, forms/guides/resources
+  branches, same-area follow-up resource branch, and the final FAQ/resource
+  fallback branch in `AssistantApiController`.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+
+### CLAIM-220
+- Claim: Current blockers to live Pinecone enablement are not missing hosted
+  secrets or missing hosted vector indexes; they are the runtime gate
+  (`vector_search.enabled=false` everywhere sampled), real local environment
+  drift, and the still-open later readiness work for index integrity,
+  retrieval correctness, and controlled non-live enablement captured in
+  `TOVR-10`, `TOVR-11`, `TOVR-12`, backlog item `RET-2`, and the production
+  audit's Pinecone readiness notes.
+- Evidence:
+  - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+  - `docs/assistant_audit_backlog.md`
+  - `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+  - `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+
+---
+
+## TOVR-10 Pinecone Index Integrity and Refresh Readiness (2026-03-17)
+
+### CLAIM-221
+- Claim: TOVR-10 proves the hosted Pinecone vector indexes are currently
+  structurally valid and populated on `dev` / `test` / `live`, while `local`
+  remains drifted: active `retrieval` config resolves to `null`, lexical
+  indexes are absent locally, pending updates `10008` / `10009` / `10010`
+  remain, and both local direct vector queries still fail with the
+  `ProviderProxy` unregistered-callers error.
+- Evidence:
+  - `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
+  - `config/search_api.server.pinecone_vector.yml`
+  - `config/search_api.index.faq_accordion_vector.yml`
+  - `config/search_api.index.assistant_resources_vector.yml`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+
+### CLAIM-222
+- Claim: TOVR-10 proves Search API status and hygiene-service expectations are
+  only partially aligned across hosted environments: retrieval config is
+  healthy and tracker backlog is zero on `dev` / `test` / `live`, but the final
+  post-edit cadence check shows `dev` is overdue, `test` is due but not
+  overdue, and only `live` is clearly non-overdue. Local still shows a
+  structurally compliant but stale/overdue hygiene snapshot that does not
+  rescue the degraded active retrieval configuration.
+- Evidence:
+  - `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RetrievalConfigurationServiceTest.php`
+
+### CLAIM-223
+- Claim: TOVR-10 timed the direct vector probes and classified timeout handling
+  as still unproven for enablement: hosted sample queries returned in roughly
+  `4.59s` to `5.79s`, local failures returned in `1.57s` to `2.27s`, and repo
+  code only proves graceful exception fallback plus post-failure backoff, not a
+  repo-owned Pinecone transport timeout. `dev` and `test` resource probes also
+  surfaced untranslated-entity load warnings that count as hygiene defects.
+- Evidence:
+  - `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+
+### CLAIM-224
+- Claim: TOVR-10 concludes the Pinecone index layer is not yet ready for
+  enablement. Hosted incremental refresh looks operational in the current
+  steady state only in part: `live` is healthy, `test` is due, and `dev` is
+  already overdue. Local refresh proof is blocked by drift, hosted full rebuild
+  success remains unverified under the prompt's read-only constraint, and
+  timeout / degraded Pinecone behavior is still not proven acceptable.
+- Evidence:
+  - `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
+  - `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+  - `docs/aila/runbook.md`
+  - `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+
+## TOVR-11 Pinecone Retrieval Integration Hardening (2026-03-17)
+
+### CLAIM-225
+- Claim: TOVR-11 hardens the application-layer vector retrieval path in both
+  `FaqIndex` and `ResourceFinder`: each service now computes an explicit
+  lexical-vs-vector decision map before querying, keeps vector retrieval
+  supplement-only, and stores vector backoff in cache with separate FAQ and
+  resource keys.
+- Evidence:
+  - `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+
+### CLAIM-226
+- Claim: TOVR-11 proves degraded or over-budget vector outcomes no longer merge
+  into lexical results and no longer populate the normal 5-minute query cache,
+  while healthy and policy-skipped outcomes remain cacheable. The expanded unit
+  coverage also proves trigger reasons (`disabled`, `sufficient_lexical`,
+  `sparse_lexical`, `low_quality_lexical`) and cross-request backoff behavior.
+- Evidence:
+  - `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+
+### CLAIM-227
+- Claim: TOVR-11 adds Pinecone query-only timeout controls
+  (`query_connect_timeout_seconds=1.0`,
+  `query_request_timeout_seconds=2.0`) across install config, active config,
+  schema, admin form, service wiring, and a timeout-aware Saloon client used
+  only by `Pinecone::query()`.
+- Evidence:
+  - `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`
+  - `web/modules/contrib/ai_vdb_provider_pinecone/config/install/ai_vdb_provider_pinecone.settings.yml`
+  - `config/ai_vdb_provider_pinecone.settings.yml`
+  - `web/modules/contrib/ai_vdb_provider_pinecone/config/schema/ai_vdb_provider_pinecone.schema.yml`
+  - `web/modules/contrib/ai_vdb_provider_pinecone/src/Form/PineconeConfigForm.php`
+  - `web/modules/contrib/ai_vdb_provider_pinecone/src/Pinecone.php`
+  - `web/modules/contrib/ai_vdb_provider_pinecone/src/QueryTimeoutPineconeClient.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php`
+
+### CLAIM-228
+- Claim: TOVR-11 restores broad validation (`VC-PURE`, `VC-UNIT`) by removing
+  the remaining raw `@message` placeholders from `AssistantReportController`,
+  but the final retrieval verdict remains `Partially Fixed`: after cache
+  rebuild, local direct vector queries still fail with the `ProviderProxy`
+  unregistered-caller identity error, and embeddings-side timeout governance
+  still depends on the shared/global `ai.settings.request_timeout`.
+- Evidence:
+  - `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SearchAnalyticsReportContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+
+## TOVR-12 Pinecone Non-Live Enablement (2026-03-17)
+
+### CLAIM-229
+- Claim: TOVR-12 completes the repo-side non-live rollout controls needed for
+  Pinecone enablement without changing exported enablement config: vector
+  enablement remains runtime-only in `settings.php`, `live` is still
+  hard-forced off, the assistant settings form still coerces `live` back to
+  `false`, promptfoo contract metadata now reports lexical/vector provenance
+  counts, and the repo-owned smoke helper can emit per-query JSON summaries for
+  the fixed provenance prompts.
+- Evidence:
+  - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+  - `promptfoo-evals/lib/ilas-live-shared.js`
+  - `scripts/ci/run-vector-provenance-smoke.js`
+
+### CLAIM-230
+- Claim: TOVR-12 repairs local parity and proves hosted non-live enablement:
+  local now has successful direct vector queries again, Pantheon `dev` reports
+  release `1d0561d` with stored `vector_search.enabled=false` versus effective
+  `true`, and Pantheon `test` reports release `test_160` with the same stored
+  versus effective split. In both hosted non-live environments, retrieval
+  health and vector-index hygiene remain `healthy` after enablement.
+- Evidence:
+  - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+  - `config/ai_vdb_provider_pinecone.settings.yml`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+
+### CLAIM-231
+- Claim: TOVR-12 identifies and fixes the `test`-specific rollout bug in
+  `settings.php`: `dev` / `test` now check
+  `private://ilas-vector-search-enabled.txt` whenever vector search is still
+  effectively disabled, instead of only when the hosted secret is absent. This
+  removes the prior failure mode where a falsey site-level secret masked the
+  env override and bypassed the file fallback. After deploy, `test` retained a
+  truthy private flag file and `pantheon_get_secret('ILAS_VECTOR_SEARCH_ENABLED')`
+  returned `1`, so the active verified channel ended up being the secret path
+  while the private file remains a rollbackable fallback.
+- Evidence:
+  - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+  - `web/sites/default/settings.php`
+  - `docs/env-vars.md`
+  - `docs/aila/runbook.md`
+
+### CLAIM-232
+- Claim: TOVR-12 proves the current post-enable retrieval behavior is still
+  lexical-first on non-live: the fixed eviction-notices prompt now shows mixed
+  `faq_lexical` / `faq_vector` provenance on both hosted `dev` and `test`,
+  while the lexical-control prompts continue to return navigate/clarify
+  outcomes. The remaining quality gap is narrower and explicit: prompts 2 / 3
+  still do not expose strong vector provenance, so enablement is proven but
+  recall/relevance improvement is not yet uniformly demonstrated across all
+  fixed prompts.
+- Evidence:
+  - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+  - `promptfoo-evals/lib/ilas-live-shared.js`
+  - `scripts/ci/run-vector-provenance-smoke.js`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+
+## TOVR-13 Pinecone Live Readiness Review (2026-03-17)
+
+### CLAIM-233
+- Claim: TOVR-13 closes the live-readiness investigation with the verdict
+  `Blocked with explicit evidence`, records the eight-gate checklist, and
+  enumerates exact prerequisites before any future live vector rollout.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+  - `docs/aila/runbook.md`
+  - `docs/aila/roadmap.md`
+
+### CLAIM-234
+- Claim: Current hosted `live` runtime truth is no longer ambiguous: release
+  `live_148` still reports `vector_search.enabled=false`, Pinecone/Langfuse/
+  Sentry effective config present, `debug_metadata_force_disable=true`, and
+  `diagnostics_token_present=false`.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+
+### CLAIM-235
+- Claim: Hosted `live` Pinecone readiness is infrastructurally healthy even
+  though rollout approval is blocked: both live vector indexes are fully
+  indexed/query-ready, retrieval configuration is `healthy`, and the current
+  vector-index hygiene snapshot is `healthy` with no drift or backlog.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+
+### CLAIM-236
+- Claim: TOVR-13 re-verifies live observability capture on current hosted code:
+  fresh live Sentry probe events still land in project `php`, current live
+  Sentry issues are queryable through the Sentry API, and fresh direct
+  Langfuse ingestion still returns HTTP `207`.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/js/observability.js`
+
+### CLAIM-237
+- Claim: Repo-side observability is strengthened for the eventual live rollout:
+  `FaqIndex` and `ResourceFinder` now buffer privacy-safe retrieval telemetry,
+  and `AssistantApiController` adds vector-specific Langfuse trace metadata
+  (`vector_enabled_effective`, `vector_attempted`, `vector_status`,
+  `vector_result_count`, `lexical_result_count`, `source_classes`,
+  `degraded_reason`, `retrieval_operations`) without changing the public API
+  response contract.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+
+### CLAIM-238
+- Claim: TOVR-13 identifies the current hard blockers to live enablement as
+  prompt-level quality proof gaps on prompts 2/3, missing positive live
+  diagnostics-token monitoring, the failing latest `master` Quality Gate run
+  `23218168501`, and embeddings-side timeout governance that still depends on
+  the shared/global `ai.settings.request_timeout`.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `.github/workflows/quality-gate.yml`
+  - `promptfoo-evals/promptfooconfig.yaml`
+  - `config/ai.settings.yml`
+
+## TOVR-14 AI Provider Footprint Rationalization (2026-03-17)
+
+### CLAIM-239
+- Claim: TOVR-14 reduces the enabled AI/provider module footprint to the
+  minimum currently required for Pinecone-backed vector search:
+  `ai`, `ai_search`, `ai_vdb_provider_pinecone`, `gemini_provider`, and `key`
+  remain enabled, while dormant `ai_provider_google_vertex`, `ai_seo`, and
+  `metatag_ai` are uninstalled and their exported config is removed.
+- Evidence:
+  - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
+  - `config/core.extension.yml`
+  - `config/search_api.server.pinecone_vector.yml`
+  - `config/ai_vdb_provider_pinecone.settings.yml`
+  - `config/key.key.pinecone_api_key.yml`
+  - `web/modules/contrib/ai/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php`
+  - `web/modules/contrib/ai_seo/src/AiSeoAnalyzer.php`
+  - `web/modules/contrib/metatag_ai/src/Plugin/GenerateMetatag.php`
+
+### CLAIM-240
+- Claim: Local post-change verification still proves the vector path and
+  assistant behavior work after the footprint cleanup: `ilas:runtime-truth`
+  stays healthy, Pinecone Search API server/index inventory remains enabled and
+  populated, focused PHPUnit coverage stays green, and local assistant smoke
+  preserves the same navigation/clarify/office behavior observed before the
+  cleanup.
+- Evidence:
+  - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/Tovr14AiProviderFootprintContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/GeminiRuntimeCredentialGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php`
+
+### CLAIM-241
+- Claim: TOVR-14 intentionally leaves the dormant custom Vertex runtime-secret
+  path in place (`settings.php` plus `LlmEnhancer`) while removing the exported
+  Vertex key entity from synced config, so the residual unused surface is
+  runtime-only rather than config-exported.
+- Evidence:
+  - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
+
+### CLAIM-242
+- Claim: TOVR-14 captures hosted pre-change `dev` / `test` / `live` Pinecone
+  and assistant baselines from TOVR-09/TOVR-13, but marks hosted post-change
+  verification `Unverified` because no deploy occurred in this prompt.
+- Evidence:
+  - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/risk-register.md`
+
+## TOVR-15 Privacy and Analytics Boundary Review (2026-03-18)
+
+### CLAIM-243
+- Claim: TOVR-15 applies a deny-by-default assistant GA policy in repo code:
+  assistant widget telemetry no longer pushes to `window.dataLayer`, and theme
+  preprocessing suppresses GA bootstrap on route `ilas_site_assistant.page`
+  even when `google_tag_id` is present. Local post-change runtime proof shows
+  `/assistant` rendering only Sentry/browser observability markers, while
+  hosted `live` remains explicitly `repo remediated / deployment pending`
+  because the currently deployed public `/assistant` page still shows the old
+  GA bootstrap until the next release.
+- Evidence:
+  - `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/themes/custom/b5subtheme/b5subtheme.theme`
+  - `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityBrowserAssetContractTest.php`
+  - `docs/aila/current-state.md`
+
+### CLAIM-244
+- Claim: Runtime truth now separates sitewide GA tag presence from assistant
+  page expectations by recording `browser_expected.google_analytics`
+  `assistant_page_suppressed=true`,
+  `assistant_page_loader_expected=false`, and
+  `assistant_page_data_layer_expected=false`, so `/assistant` HTML sampling is
+  the authoritative proof for assistant-route GA suppression even when a
+  non-assistant `live` page still carries sitewide GA.
+- Evidence:
+  - `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+  - `docs/aila/runbook.md`
+  - `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+
+### CLAIM-245
+- Claim: TOVR-15 documents an explicit telemetry allow/deny policy: Drupal DB
+  analytics/conversation storage remains allowed and metadata-only inside
+  Drupal-controlled boundaries; Sentry and Langfuse remain allowed only through
+  their existing minimized/scrubbed payload contracts; assistant GA4/dataLayer
+  export is denied; dormant New Relic browser telemetry remains denied; and
+  in-browser assistant custom events are allowed only as transient internal
+  signals that feed minimized observability handlers.
+- Evidence:
+  - `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
+  - `web/modules/custom/ilas_site_assistant/js/observability.js`
   - `docs/aila/risk-register.md`

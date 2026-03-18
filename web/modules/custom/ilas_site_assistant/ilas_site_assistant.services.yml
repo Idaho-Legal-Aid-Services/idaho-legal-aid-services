@@ -234,6 +234,14 @@ services:
     tags:
       - { name: event_subscriber }
 
+  ilas_site_assistant.voyage_reranker:
+    class: Drupal\ilas_site_assistant\Service\VoyageReranker
+    arguments:
+      - '@config.factory'
+      - '@http_client'
+      - '@logger.channel.ilas_site_assistant'
+      - '@state'
+
   ilas_site_assistant.sentry_options_subscriber:
     class: Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber
     tags:

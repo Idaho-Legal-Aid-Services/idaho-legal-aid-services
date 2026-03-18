@@ -239,17 +239,13 @@ The assistant directs users to these pages:
 | `no_answer` | Query returned no results |
 | `policy_violation` | Detected legal advice/PII request |
 
-### DataLayer Integration
+### Browser Telemetry Boundary
 
-Events push to `window.dataLayer` for GA4:
-```javascript
-window.dataLayer.push({
-  event: 'ilas_assistant_chat_open',
-  event_category: 'Site Assistant',
-  event_action: 'chat_open',
-  event_label: ''
-});
-```
+Assistant-originated events do not push to `window.dataLayer` or GA4.
+The widget keeps telemetry inside Drupal-owned analytics by POSTing normalized
+`event_type` / `event_value` pairs to `/assistant/api/track`, and it emits
+minimized `ilas:assistant:action` / `ilas:assistant:error` browser events for
+the local observability helper.
 
 ### Admin Reports
 

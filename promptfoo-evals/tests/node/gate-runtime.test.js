@@ -19,6 +19,7 @@ const {
   createSerializedPacer,
   formatStructuredError,
   parseStructuredError,
+  summarizeAssistantResponse,
 } = require('../../lib/ilas-live-shared');
 
 function makeTempDir() {
@@ -280,4 +281,49 @@ test('IlasLiveTransport retries HTTP 429 when failFast429 is disabled', async ()
 
   assert.equal(result.ok, true);
   assert.equal(calls.filter((url) => url.endsWith('/assistant/api/message')).length, 2);
+});
+
+test('IlasLiveTransport normalizes accidental double slashes in assistant URLs', () => {
+  const transport = new IlasLiveTransport({
+    assistantUrl: 'https://example.test//assistant/api/message',
+    silent: true,
+  });
+
+  const resolved = transport.resolveUrls();
+
+  assert.deepEqual(resolved, {
+    baseUrl: 'https://example.test',
+    messageUrl: 'https://example.test/assistant/api/message',
+  });
+});
+
+test('summarizeAssistantResponse captures lexical and vector provenance counts', () => {
+  const summary = summarizeAssistantResponse({
+    response_mode: 'answer',
+    reason_code: 'retrieval_match',
+    confidence: 0.81,
+    results: [
+      { source_class: 'faq_lexical' },
+      { source_class: 'faq_vector' },
+      { source_class: 'resource_vector' },
+    ],
+    citations: [
+      { source: 'lexical' },
+      { source: 'vector' },
+      { source: 'vector' },
+    ],
+  });
+
+  assert.deepEqual(summary, {
+    response_mode: 'answer',
+    reason_code: 'retrieval_match',
+    confidence: 0.81,
+    results_count: 3,
+    citations_count: 3,
+    source_classes: ['faq_lexical', 'faq_vector', 'resource_vector'],
+    vector_result_count: 2,
+    lexical_result_count: 1,
+    vector_citation_count: 2,
+    lexical_citation_count: 1,
+  });
 });

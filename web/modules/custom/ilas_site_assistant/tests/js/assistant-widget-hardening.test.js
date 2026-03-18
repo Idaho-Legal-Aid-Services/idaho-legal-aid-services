@@ -305,6 +305,17 @@ window._assistantWidgetTestDone = (async function () {
       });
     },
 
+    trackEvent: function (deps, eventType, eventValue, metadata) {
+      eventValue = SA.normalizeTrackValue(eventType, eventValue);
+      SA.emitAssistantAction(deps, eventType, eventValue, metadata);
+      return deps.callTrackApi({
+        event_type: eventType,
+        event_value: eventValue || '',
+      }).catch(function () {
+        // Silent fail for tracking.
+      });
+    },
+
     currentPagePath: function () {
       return SA.normalizeTrackPath(window.location.pathname || '');
     },
@@ -1016,6 +1027,36 @@ window._assistantWidgetTestDone = (async function () {
     assert(payloads[0].event_type === 'chat_open', 'trackEvent payload preserves event_type');
     assert(payloads[0].event_value === '', 'trackEvent payload preserves the approved chat_open contract');
     assert(addMessageCalls === 0, 'track failures do not surface message recovery UI');
+  });
+
+  suite('Assistant tracking stays out of dataLayer while observability and /track remain active', async function () {
+    var payloads = [];
+    var events = [];
+
+    window.dataLayer = [{ event: 'page_view' }];
+
+    await SA.trackEvent({
+      isPageMode: false,
+      emitObservabilityEvent: function (name, detail) {
+        events.push({ name: name, detail: detail });
+      },
+      callTrackApi: function (payload) {
+        payloads.push(payload);
+        return Promise.resolve({ ok: true });
+      },
+    }, 'resource_click', 'https://idaholegalaid.org/legal-help/housing?foo=bar#section', {
+      responseType: 'resources',
+      path: 'https://idaholegalaid.org/assistant?topic=housing',
+    });
+
+    assert(window.dataLayer.length === 1, 'assistant tracking does not add GA/dataLayer events');
+    assert(payloads.length === 1, 'assistant tracking still POSTs to /track');
+    assert(payloads[0].event_type === 'resource_click', 'tracking payload preserves event_type');
+    assert(payloads[0].event_value === '/legal-help/housing', 'tracking payload normalizes pathname only');
+    assert(events.length === 1, 'assistant tracking still emits one observability action event');
+    assert(events[0].name === 'ilas:assistant:action', 'observability action event is preserved');
+    assert(events[0].detail.actionValue === '/legal-help/housing', 'observability action uses normalized pathname');
+    assert(events[0].detail.path === '/assistant', 'observability metadata keeps pathname only');
   });
 
   // ===================================================================

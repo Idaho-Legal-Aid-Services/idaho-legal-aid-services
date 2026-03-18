@@ -1,0 +1,213 @@
+TOVR-11 Pinecone Retrieval Integration Hardening
+================================================
+
+Prompt ID: TOVR-11
+Roadmap item: Tooling + Pinecone remediation -> Pinecone integration #3
+Verification level tag: Partially Fixed / code-changed / unit-verified / local-runtime-verified
+Created: 2026-03-17
+Last updated: 2026-03-17T19:24:48Z
+
+1. Prior status
+---------------
+
+Before TOVR-11:
+
+- Vector-specific merge and hygiene tests already passed locally, but the
+  application-layer vector path still had two production-safety gaps:
+  degraded/slow vector outcomes could still flow into merged results and the
+  normal per-query cache, and the backoff state only lived in-process instead
+  of across requests.
+- `VC-PURE` and `VC-UNIT` were both blocked by one unrelated observability
+  contract failure in `AssistantReportController.php` due raw `@message`
+  placeholders.
+- TOVR-10 had already shown the broader Pinecone picture remained mixed:
+  hosted vector structure/queryability existed, but timeout governance was
+  still unproven and local direct vector queries still failed.
+
+2. Post-change status
+---------------------
+
+Overall readiness verdict
+
+- Retrieval-layer hardening: improved.
+  - `FaqIndex` and `ResourceFinder` now compute an explicit lexical-vs-vector
+    decision map before any vector call.
+  - Degraded and backoff vector outcomes no longer merge into results and no
+    longer populate the normal 5-minute query cache.
+  - Cross-request backoff is now cache-backed and keyed separately for FAQ and
+    resource retrieval.
+  - Slow vector responses beyond `MAX_VECTOR_MS` are treated as degraded rather
+    than silently accepted.
+- Pinecone query-time hardening: improved.
+  - Query-only Pinecone transport timeouts are now configurable and wired
+    through a timeout-aware client used only in `Pinecone::query()`.
+- Validation unblocker: fixed.
+  - The raw `@message` placeholders in `AssistantReportController` were
+    replaced with metadata-only exception rendering, and both `VC-PURE` and
+    `VC-UNIT` now pass.
+- Environment-wide enablement readiness: still `no`.
+  - Local direct vector queries still fail with the
+    `ProviderProxy` unregistered-caller identity error after cache rebuild.
+  - The embeddings request path still depends on the shared
+    `ai.settings.request_timeout` setting rather than the new query-only
+    Pinecone timeout controls.
+  - Hosted post-change runtime probes were not rerun in this prompt, so the
+    final enablement claim cannot move past `Partially Fixed`.
+
+3. Verification level tag
+-------------------------
+
+- `Verified by execution`
+  - targeted retrieval/timeout unit tests
+  - `VC-PURE`
+  - `VC-UNIT`
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-PINECONE-QUERY-LOCAL`
+- `Verified by code inspection`
+  - lexical-first trigger map
+  - cacheability and backoff rules
+  - Pinecone query-time timeout wiring
+
+4. Trigger-path map
+-------------------
+
+FAQ and resource retrieval now follow the same bounded decision structure:
+
+1. Run lexical Search API retrieval first.
+2. Build a vector decision map with:
+   - `enabled`
+   - `should_attempt`
+   - `reason`
+   - `lexical_count`
+   - `best_lexical_score`
+3. Skip vector search with a cacheable healthy outcome when:
+   - `reason=disabled`
+   - `reason=sufficient_lexical`
+4. Attempt vector search when:
+   - `reason=sparse_lexical`
+   - `reason=low_quality_lexical`
+5. Before querying Pinecone-backed Search API, check cache-backed backoff:
+   - active backoff => `status=backoff`, lexical-only, no normal query-cache
+     write
+6. Treat these outcomes as degraded:
+   - vector index unconfigured
+   - vector index unavailable
+   - metric validation failure
+   - vector exception / transport failure
+   - `elapsed_ms > MAX_VECTOR_MS`
+7. On degraded outcome:
+   - activate backoff
+   - preserve lexical-only results
+   - do not merge vector items
+   - do not write the normal query cache
+8. On healthy or healthy-empty outcome:
+   - merge with lexical-priority rules
+   - preserve minimum lexical presence
+   - allow normal query-cache write
+
+5. Evidence
+-----------
+
+Primary code surfaces
+
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/Pinecone.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/QueryTimeoutPineconeClient.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/Form/PineconeConfigForm.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/config/install/ai_vdb_provider_pinecone.settings.yml`
+- `config/ai_vdb_provider_pinecone.settings.yml`
+- `web/modules/contrib/ai_vdb_provider_pinecone/config/schema/ai_vdb_provider_pinecone.schema.yml`
+
+Primary test surfaces
+
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+
+Command summaries
+
+- Focused retrieval/timeout contracts:
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml ...VectorSearchMergeTest.php ...DependencyFailureDegradeContractTest.php ...PineconeQueryTimeoutContractTest.php`
+  - Result: `38 tests, 109 assertions, OK`
+- `VC-PURE`
+  - `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml`
+  - Result: `2240 tests, 11339 assertions, 1 skipped, OK`
+- `VC-UNIT`
+  - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: `2240 tests, 11339 assertions, 1 skipped, OK`
+- `VC-SEARCHAPI-INVENTORY`
+  - `ddev drush search-api:server-list`
+  - `ddev drush search-api:list`
+  - `ddev drush search-api:status faq_accordion_vector`
+  - `ddev drush search-api:status assistant_resources_vector`
+  - Result: local `pinecone_vector` server enabled; `faq_accordion_vector`
+    `862/862`; `assistant_resources_vector` `152/152`
+- Local cache rebuild required after service-constructor changes:
+  - `ddev drush cr`
+  - Result: successful cache rebuild; stale-container constructor mismatch no
+    longer affected probe results
+- `VC-PINECONE-QUERY-LOCAL`
+  - `ddev drush search-api:search faq_accordion_vector custody`
+  - `ddev drush search-api:search assistant_resources_vector eviction`
+  - Result after cache rebuild: local query path still fails with
+    `ProviderProxy` "Method doesn't allow unregistered callers"
+
+6. Changed files
+----------------
+
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorSearchMergeTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/Pinecone.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/QueryTimeoutPineconeClient.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/src/Form/PineconeConfigForm.php`
+- `web/modules/contrib/ai_vdb_provider_pinecone/config/install/ai_vdb_provider_pinecone.settings.yml`
+- `web/modules/contrib/ai_vdb_provider_pinecone/config/schema/ai_vdb_provider_pinecone.schema.yml`
+- `web/modules/contrib/ai_vdb_provider_pinecone/ai_vdb_provider_pinecone.services.yml`
+- `config/ai_vdb_provider_pinecone.settings.yml`
+- `docs/aila/runtime/tovr-11-pinecone-retrieval-integration.txt`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+
+7. Residual risks / unknowns
+----------------------------
+
+- Local direct vector queries still fail with the provider-identity error, so
+  the end-to-end local Pinecone query path remains blocked.
+- Pinecone query-time timeout hardening does not cover the embeddings request;
+  that path still inherits the shared/global `ai.settings.request_timeout`
+  behavior.
+- Hosted post-change runtime validation was not rerun in this prompt, so the
+  final readiness claim cannot move beyond `Partially Fixed`.
+- Tight query-only timeouts are now repo-owned, but they are intentionally
+  stricter than previously observed hosted probe latencies; the operational
+  effect after deploy is still unverified.
+
+8. Rollback notes
+-----------------
+
+- Retrieval rollback:
+  - revert the `FaqIndex` and `ResourceFinder` vector-outcome/backoff changes
+- Pinecone timeout rollback:
+  - revert the new query-time config keys and `QueryTimeoutPineconeClient`
+  - restore `Pinecone::query()` to the default client path
+- Validation unblocker rollback:
+  - restore the old admin-report placeholder strings if needed, though that
+    would reintroduce the observability contract failure
+
+9. Still-unverified surfaces
+----------------------------
+
+- Hosted post-change Pinecone query behavior under the new query-only timeout
+  settings
+- End-to-end Pinecone retrieval readiness across all environments
+- Embeddings-side timeout separation from shared AI provider transport settings
+- Any claim that the retrieval layer is ready for environment-wide enablement

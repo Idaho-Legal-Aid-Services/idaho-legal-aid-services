@@ -1,0 +1,202 @@
+# TOVR-14 AI Provider Footprint Rationalization (2026-03-17T23:32:18Z)
+
+- Prompt ID: `TOVR-14`
+- Roadmap item: `Tooling + Pinecone remediation -> Platform rationalization #1`
+- Verification level tag: `repo + local runtime post-change + hosted baseline pre-change`
+
+## Prior status
+
+- Before TOVR-14, the active Drupal module footprint still included dormant
+  AI/provider modules that were not required by the current Pinecone-backed
+  assistant runtime:
+  - `ai_provider_google_vertex`
+  - `ai_seo`
+  - `metatag_ai`
+- Current vector-search evidence already showed the live path depended on:
+  - Search API AI backend (`search_api_ai_search`)
+  - Pinecone VDB provider
+  - Gemini embeddings/chat configuration on `pinecone_vector`
+  - Pinecone key wiring
+- Pre-change hosted baselines were already available from earlier prompts:
+  - `TOVR-09`: hosted `dev` / `test` / `live` Pinecone server/index inventory
+    and queryability
+  - `TOVR-13`: hosted `dev` / `test` / `live` runtime-truth and assistant smoke
+    baselines, with `live` still blocked for rollout
+
+## Post-change status
+
+- Enabled AI/provider modules now kept in sync config:
+  - `ai`
+  - `ai_search`
+  - `ai_vdb_provider_pinecone`
+  - `gemini_provider`
+  - `key`
+- Disabled/uninstalled in Drupal and removed from config export:
+  - `ai_provider_google_vertex`
+  - `ai_seo`
+  - `metatag_ai`
+- Deleted exported config owned only by the removed footprint:
+  - `config/ai_provider_google_vertex.settings.yml`
+  - `config/ai_seo.settings.yml`
+  - `config/ai_seo.report_type.full.yml`
+  - `config/ai_seo.report_type.headings_and_structure.yml`
+  - `config/ai_seo.report_type.link_analysis.yml`
+  - `config/ai_seo.report_type.natural_language.yml`
+  - `config/ai_seo.report_type.schema_org_markup.yml`
+  - `config/ai_seo.report_type.topic_authority.yml`
+  - `config/system.action.generate_metatag_action.yml`
+  - `config/key.key.vertex_sa_credentials.yml`
+- Composer packages were intentionally not removed in this prompt.
+- The dormant custom Vertex runtime-secret path was intentionally left in place:
+  - `web/sites/default/settings.php` still loads `ILAS_VERTEX_SA_JSON` into
+    `$settings['ilas_vertex_sa_json']`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+    still supports the dormant Vertex path
+
+## Module/provider inventory
+
+| Surface | Status after TOVR-14 | Why |
+|---|---|---|
+| `ai` | `keep enabled` | Base AI module required by AI Search and provider plumbing. |
+| `ai_search` | `keep enabled` | `pinecone_vector` uses Search API AI backend `search_api_ai_search`. |
+| `ai_vdb_provider_pinecone` | `keep enabled` | Required for Pinecone vector database integration and current query transport. |
+| `gemini_provider` | `keep enabled` | Current Pinecone server config still names Gemini embeddings/chat models. |
+| `key` | `keep enabled` | Pinecone key config remains active and runtime-wired. |
+| `ai_provider_google_vertex` | `disable/uninstall` | Not used by current `pinecone_vector` server or custom assistant runtime. |
+| `ai_seo` | `disable/uninstall` | Dormant, but source falls back to default chat provider when config is blank. |
+| `metatag_ai` | `disable/uninstall` | Dormant, but action/plugin source falls back to default chat provider when config is blank. |
+
+## Evidence and command summaries
+
+- Drupal module cleanup:
+  - Command: `ddev drush pm:uninstall ai_provider_google_vertex ai_seo metatag_ai -y`
+  - Summary: module uninstall completed successfully.
+- Config export:
+  - Command: `ddev drush cex -y`
+  - Summary: exported uninstall state to `config/`; unrelated local export drift
+    was restored and excluded from this prompt.
+- Vertex key export cleanup:
+  - Commands:
+    - `ddev drush config:get key.key.vertex_sa_credentials --format=yaml`
+    - `ddev drush config:delete key.key.vertex_sa_credentials -y`
+  - Summary: active local config still retained the dormant key entity after
+    module uninstall, so it was explicitly deleted and removed from export.
+- Runtime dependency evidence for the kept footprint:
+  - File: `config/search_api.server.pinecone_vector.yml`
+  - Summary: current Pinecone server still uses backend `search_api_ai_search`,
+    database `pinecone`, embeddings engine
+    `gemini__models/gemini-embedding-001`, and chat model
+    `gemini__models/gemini-2.0-flash`.
+  - File: `web/modules/contrib/ai/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php`
+  - Summary: backend resolves the embeddings provider from the configured
+    embeddings engine, so Gemini provider support remains required.
+- Dormant-module risk evidence:
+  - File: `web/modules/contrib/ai_seo/src/AiSeoAnalyzer.php`
+  - Summary: blank `provider_and_model` falls back to
+    `getSimpleDefaultProviderOptions('chat')`.
+  - File: `web/modules/contrib/metatag_ai/src/Plugin/GenerateMetatag.php`
+  - Summary: blank `provider_model` falls back to the default chat provider.
+
+## Post-change local verification
+
+- Focused PHPUnit:
+  - Command:
+    `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/ConfigCompletenessDriftTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/GeminiRuntimeCredentialGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/Tovr14AiProviderFootprintContractTest.php`
+  - Result: pass (`37 tests`, `305 assertions`)
+  - Covered:
+    - `ConfigCompletenessDriftTest`
+    - `RuntimeTruthSnapshotBuilderTest`
+    - `RuntimeTruthDocumentationGuardTest`
+    - `GeminiRuntimeCredentialGuardTest`
+    - `VertexRuntimeCredentialGuardTest`
+    - `PineconeQueryTimeoutContractTest`
+    - `Tovr14AiProviderFootprintContractTest`
+- Local runtime truth:
+  - Command:
+    `cd /home/evancurry/idaho-legal-aid-services && ddev drush status --fields=uri,drupal-version,db-status && ddev drush ilas:runtime-truth && curl -skL https://ilas-pantheon.ddev.site/assistant | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer' -n || true`
+  - Summary: effective runtime still reports Pinecone key present, Gemini key
+    present, Vertex site-setting presence unchanged, and
+    `effective_runtime.vector_search.enabled=true` in local. The command also
+    reconfirmed Drupal bootstrap success and local `/assistant` browser markers
+    for observability (`ilasObservability`, `environment":"local"`,
+    `browserEnabled`, `showReportDialog`, `replaySessionSampleRate":0`).
+- Local enabled-module inventory:
+  - Command:
+    `ddev drush pml --status=enabled --type=module --no-core --format=list | rg '^(ai|ai_provider_google_vertex|ai_search|ai_seo|ai_vdb_provider_pinecone|gemini_provider|key|metatag_ai)$' -n`
+  - Summary: only `ai`, `ai_search`, `ai_vdb_provider_pinecone`,
+    `gemini_provider`, and `key` were listed as enabled. Removed modules no
+    longer appeared in active local state.
+- Local Vertex key absence:
+  - Command: `ddev drush config:get key.key.vertex_sa_credentials --format=yaml`
+  - Summary: Drush returned `Config key.key.vertex_sa_credentials does not exist`.
+- Local Search API inventory:
+  - Command:
+    `cd /home/evancurry/idaho-legal-aid-services && ddev drush search-api:server-list && ddev drush search-api:list && ddev drush search-api:status faq_accordion_vector && ddev drush search-api:status assistant_resources_vector`
+  - Summary: `database` and `pinecone_vector` servers remain enabled; lexical
+    and vector indexes remain listed; vector indexes remain populated
+    (`faq_accordion_vector` `862/862`, `assistant_resources_vector` `152/152`).
+- Local assistant smoke:
+  - Command:
+    `cd /home/evancurry/idaho-legal-aid-services && BASE_URL=https://ilas-pantheon.ddev.site && COOKIE_JAR=$(mktemp) && TOKEN=$(curl -sk -c "$COOKIE_JAR" "$BASE_URL/assistant/api/session/bootstrap") && for QUERY in "custody forms" "do you have custody forms" "where is the Boise office" "what office helps me in Twin Falls" "eviction forms or guides"; do curl -sk -b "$COOKIE_JAR" -H "Content-Type: application/json" -H "X-CSRF-Token: $TOKEN" --data "{\"message\":\"$QUERY\"}" "$BASE_URL/assistant/api/message"; echo; done`
+  - Summary: fixed smoke prompts preserved the same outputs seen before
+    cleanup:
+    - `custody forms` -> `navigation` to `/forms`
+    - `do you have custody forms` -> `form_finder_clarify`
+    - `where is the Boise office` -> `office_location`
+    - `what office helps me in Twin Falls` -> `office_location`
+    - `eviction forms or guides` -> `navigation` with `decision_reason=clarification_needed`
+
+## Hosted baseline and still-unverified surfaces
+
+- Hosted pre-change baseline remains available from:
+  - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+- Hosted post-change status: `Unverified (no deploy performed in TOVR-14)`
+- Still-unverified surfaces:
+  - Post-deploy `VC-RUNTIME-PANTHEON-SAFE`
+  - Post-deploy `VC-ASSISTANT-SMOKE-PANTHEON`
+  - Post-deploy proof that removed modules/config are absent from active hosted
+    Drupal state
+
+## Changed files
+
+- `config/core.extension.yml`
+- deleted:
+  - `config/ai_provider_google_vertex.settings.yml`
+  - `config/ai_seo.settings.yml`
+  - `config/ai_seo.report_type.full.yml`
+  - `config/ai_seo.report_type.headings_and_structure.yml`
+  - `config/ai_seo.report_type.link_analysis.yml`
+  - `config/ai_seo.report_type.natural_language.yml`
+  - `config/ai_seo.report_type.schema_org_markup.yml`
+  - `config/ai_seo.report_type.topic_authority.yml`
+  - `config/system.action.generate_metatag_action.yml`
+  - `config/key.key.vertex_sa_credentials.yml`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/Tovr14AiProviderFootprintContractTest.php`
+
+## Residual risks and unknowns
+
+- `ILAS_VERTEX_SA_JSON` remains wired in `settings.php` and the dormant custom
+  Vertex code path remains in `LlmEnhancer`; this is now runtime-only residual
+  surface rather than exported config.
+- Composer packages for the removed Drupal modules remain installed by design in
+  this prompt.
+- Hosted post-change verification cannot be inferred from local success because
+  no deploy occurred here.
+
+## Rollback notes
+
+- To restore the removed module footprint:
+  1. Re-enable `ai_provider_google_vertex`, `ai_seo`, and `metatag_ai`.
+  2. Re-import the deleted module-owned config entities.
+  3. Recreate `key.key.vertex_sa_credentials` only if the team explicitly
+     chooses to restore that dormant Drupal key path.
+  4. Clear Drupal caches and rerun the same local/hosted verification bundle.
+- No rollback is required for Composer because package removal was out of scope.

@@ -266,6 +266,57 @@ function buildHumanReadableOutput(data, siteBaseUrl) {
   return parts;
 }
 
+function summarizeRetrievalProvenance(data) {
+  const sourceClasses = new Set();
+  let vectorResultCount = 0;
+  let lexicalResultCount = 0;
+  let vectorCitationCount = 0;
+  let lexicalCitationCount = 0;
+
+  if (Array.isArray(data.results)) {
+    data.results.forEach((result) => {
+      const sourceClass =
+        typeof result?.source_class === 'string' ? result.source_class.trim() : '';
+      if (!sourceClass) {
+        return;
+      }
+
+      sourceClasses.add(sourceClass);
+      const normalized = sourceClass.toLowerCase();
+      if (normalized.includes('vector')) {
+        vectorResultCount += 1;
+      }
+      if (normalized.includes('lexical')) {
+        lexicalResultCount += 1;
+      }
+    });
+  }
+
+  if (Array.isArray(data.citations)) {
+    data.citations.forEach((citation) => {
+      const source = typeof citation?.source === 'string' ? citation.source.trim().toLowerCase() : '';
+      if (!source) {
+        return;
+      }
+
+      if (source.includes('vector')) {
+        vectorCitationCount += 1;
+      }
+      if (source.includes('lexical')) {
+        lexicalCitationCount += 1;
+      }
+    });
+  }
+
+  return {
+    result_source_classes: Array.from(sourceClasses).sort(),
+    vector_result_count: vectorResultCount,
+    lexical_result_count: lexicalResultCount,
+    vector_citation_count: vectorCitationCount,
+    lexical_citation_count: lexicalCitationCount,
+  };
+}
+
 function buildContractMeta(data, siteBaseUrl) {
   const derivedCitationUrls = new Set();
   if (data.url) {
@@ -306,6 +357,7 @@ function buildContractMeta(data, siteBaseUrl) {
     ? data.citations.length
     : (Array.isArray(data.sources) ? data.sources.length : 0);
   const fallbackCitationCount = derivedCitationUrls.size;
+  const provenance = summarizeRetrievalProvenance(data);
 
   return {
     confidence: normalizedConfidence,
@@ -314,6 +366,28 @@ function buildContractMeta(data, siteBaseUrl) {
     response_mode: data.response_mode || null,
     reason_code: data.reason_code || null,
     decision_reason: data.decision_reason || null,
+    result_source_classes: provenance.result_source_classes,
+    vector_result_count: provenance.vector_result_count,
+    lexical_result_count: provenance.lexical_result_count,
+    vector_citation_count: provenance.vector_citation_count,
+    lexical_citation_count: provenance.lexical_citation_count,
+  };
+}
+
+function summarizeAssistantResponse(data, siteBaseUrl = DEFAULT_SITE_BASE_URL) {
+  const contractMeta = buildContractMeta(data, siteBaseUrl);
+
+  return {
+    response_mode: data.response_mode || null,
+    reason_code: data.reason_code || null,
+    confidence: contractMeta.confidence,
+    results_count: Array.isArray(data.results) ? data.results.length : 0,
+    citations_count: contractMeta.citations_count,
+    source_classes: contractMeta.result_source_classes,
+    vector_result_count: contractMeta.vector_result_count,
+    lexical_result_count: contractMeta.lexical_result_count,
+    vector_citation_count: contractMeta.vector_citation_count,
+    lexical_citation_count: contractMeta.lexical_citation_count,
   };
 }
 
@@ -369,8 +443,9 @@ class IlasLiveTransport {
     }
 
     const parsed = new URL(this.options.assistantUrl);
+    parsed.pathname = parsed.pathname.replace(/\/{2,}/g, '/');
     this.baseUrl = `${parsed.protocol}//${parsed.host}`;
-    this.messageUrl = this.options.assistantUrl;
+    this.messageUrl = parsed.toString();
     return {
       baseUrl: this.baseUrl,
       messageUrl: this.messageUrl,
@@ -724,5 +799,7 @@ module.exports = {
   formatStructuredError,
   parseStructuredError,
   renderAssistantOutput,
+  summarizeAssistantResponse,
+  summarizeRetrievalProvenance,
   toAbsoluteUrl,
 };
