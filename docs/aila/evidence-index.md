@@ -3135,7 +3135,9 @@ that remained open after 2026-03-13.
   merge, hosted GitHub runs use the smaller `promptfooconfig.hosted.yaml`
   profile to stay inside the shared Pantheon `dev` hourly budget, and synced
   `origin/master` deploys still block on a local DDEV exact-code promptfoo
-  gate instead of trusting hosted GitHub status as deploy proof.
+  gate instead of trusting hosted GitHub status as deploy proof. The local
+  hook installer now also deploys a pre-commit guard on `master` so stale or
+  diverged local `master` work is blocked before the helper-PR flow can deadlock.
 - Evidence:
   - `docs/aila/runtime/tovr-05-promptfoo-gate-remediation.txt`
   - `docs/aila/runtime/tovr-05-promptfoo-hosted-rate-limit-followup.txt`
@@ -3146,10 +3148,12 @@ that remained open after 2026-03-13.
   - `promptfoo-evals/tests/grounding-escalation-safety-boundaries-hosted.yaml`
   - `scripts/ci/run-promptfoo-gate.sh`
   - `scripts/ci/run-external-quality-gate.sh`
+  - `scripts/ci/pre-commit-master-sync.sh`
   - `scripts/ci/pre-push-strict.sh`
   - `scripts/ci/install-pre-push-strict-hook.sh`
   - `scripts/git/publish.sh`
   - `scripts/git/finish.sh`
+  - `scripts/git/sync-master.sh`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PushWorkflowGuardTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PromptfooGateReliabilityContractTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QualityGateEnforcementContractTest.php`

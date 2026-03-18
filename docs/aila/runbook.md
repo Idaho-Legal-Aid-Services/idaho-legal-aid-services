@@ -3007,7 +3007,7 @@ Use this when your repository remotes match current ILAS operations:
 - `origin` = Pantheon remote
 - canonical branch = `master`
 
-Install strict pre-push enforcement (runs for every push, any remote):
+Install strict local workflow enforcement (pre-commit on local `master`, pre-push on every push):
 
 ```bash
 bash scripts/ci/install-pre-push-strict-hook.sh
@@ -3044,6 +3044,11 @@ terminus env:code-log idaho-legal-aid-services.dev --format=table
 ```
 
 Notes:
+- `bash scripts/ci/install-pre-push-strict-hook.sh` installs both
+  `.git/hooks/pre-commit` and `.git/hooks/pre-push`.
+- The pre-commit hook runs only on local `master`, fetches `github`, and
+  blocks new commits when `github/master` is ahead or diverged. Use
+  `npm run git:sync-master` before starting more work on `master`.
 - The strict hook first runs `scripts/git/sync-check.sh` to block
   `remote-ahead`/`diverged` pushes, then runs
   `composer install --no-interaction --no-progress --prefer-dist --dry-run`
@@ -3085,6 +3090,15 @@ Notes:
   attempt Pantheon URL derivation (`derive-assistant-url.sh`) for `--env dev`.
 - Bypass once (not recommended): `git push --no-verify`. This bypasses both the
   drift checks and the protected-master PR-first policy.
+
+Recovery when local `master` drifted before you committed:
+
+```bash
+git branch backup/recovery-<timestamp> master
+git reset --hard github/master
+git cherry-pick <local-master-commit>
+npm run git:publish
+```
 
 ### External CI promptfoo gate (Pantheon-derived URL)
 

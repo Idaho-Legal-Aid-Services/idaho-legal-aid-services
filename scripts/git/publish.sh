@@ -217,6 +217,8 @@ main() {
       both|github)
         if [[ "$github_master_status" == "remote-ahead" || "$github_master_status" == "diverged" ]]; then
           err "Refusing to publish from local master while github/master is '$github_master_status'."
+          err "Run: npm run git:sync-master"
+          err "If local master has unpublished commits, preserve and restack them onto github/master before rerunning npm run git:publish."
           err "Inspect with: git log --left-right --cherry-pick --oneline github/master...master"
           exit 1
         fi
@@ -246,7 +248,13 @@ main() {
       origin)
         if [[ "$github_master_status" != "in-sync" ]]; then
           err "Refusing to push origin/master until github/master matches local master."
-          err "Run: npm run git:publish"
+          if [[ "$github_master_status" == "local-ahead" ]]; then
+            err "Run: npm run git:publish"
+          else
+            err "Run: npm run git:sync-master"
+            err "If local master has unpublished commits, preserve and restack them onto github/master before rerunning npm run git:publish -- --origin-only."
+            err "Inspect with: git log --left-right --cherry-pick --oneline github/master...master"
+          fi
           exit 1
         fi
         ;;

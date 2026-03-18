@@ -91,11 +91,17 @@ main() {
       ;;
     diverged)
       err "Local master diverged from github/master."
+      err "If local master has unpublished commits, preserve and restack them first:"
+      err "  git branch backup/recovery-<timestamp> master"
+      err "  git reset --hard github/master"
+      err "  git cherry-pick <local-master-commit>"
+      err "After restacking, rerun: npm run git:sync-master"
       err "Inspect with: git log --left-right --cherry-pick --oneline github/master...master"
       exit 1
       ;;
     missing)
       err "github/master does not exist."
+      err "Fetch or repair the github remote before continuing."
       exit 1
       ;;
   esac
