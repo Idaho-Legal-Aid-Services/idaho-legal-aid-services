@@ -205,17 +205,11 @@ class VertexRuntimeCredentialGuardTest extends TestCase {
   }
 
   /**
-   * The Vertex key entity must use the runtime provider and store no key blob.
+   * TOVR-14 removes the dormant exported Vertex key entity entirely.
    */
-  public function testVertexKeyEntityUsesRuntimeProviderWithoutStoredSecret(): void {
-    $keyConfig = self::readYaml('config/key.key.vertex_sa_credentials.yml');
-    $schema = self::readYaml('web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.key.schema.yml');
-
-    $this->assertSame('ilas_runtime_site_setting', $keyConfig['key_provider']);
-    $this->assertSame('ilas_vertex_sa_json', $keyConfig['key_provider_settings']['settings_key'] ?? NULL);
-    $this->assertSame('none', $keyConfig['key_input']);
-    $this->assertArrayNotHasKey('key_value', $keyConfig['key_provider_settings']);
-    $this->assertArrayHasKey('key.provider.ilas_runtime_site_setting', $schema);
+  public function testVertexKeyEntityConfigNoLongerExists(): void {
+    $path = self::repoRoot() . '/config/key.key.vertex_sa_credentials.yml';
+    $this->assertFileDoesNotExist($path);
   }
 
   /**

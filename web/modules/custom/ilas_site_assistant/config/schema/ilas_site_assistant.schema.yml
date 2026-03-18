@@ -338,6 +338,41 @@ ilas_site_assistant.settings:
         min_lexical_score:
           type: integer
           label: 'Minimum lexical score for quality check (0 = disabled)'
+    voyage:
+      type: mapping
+      label: 'Voyage AI reranking settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable Voyage AI reranking'
+        rerank_model:
+          type: string
+          label: 'Voyage rerank model name'
+        api_timeout:
+          type: float
+          label: 'Voyage API timeout in seconds'
+        max_candidates:
+          type: integer
+          label: 'Maximum candidates to send for reranking'
+        top_k:
+          type: integer
+          label: 'Number of top results to return after reranking'
+        min_results_to_rerank:
+          type: integer
+          label: 'Minimum results before reranking fires'
+        circuit_breaker:
+          type: mapping
+          label: 'Circuit breaker settings'
+          mapping:
+            failure_threshold:
+              type: integer
+              label: 'Consecutive failures to open circuit'
+            cooldown_seconds:
+              type: integer
+              label: 'Seconds to keep circuit open before half-open probe'
+        fallback_on_error:
+          type: boolean
+          label: 'Use unreranked results if Voyage fails'
     safety_alerting:
       type: mapping
       label: 'Safety spike alerting settings'

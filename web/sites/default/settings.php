@@ -592,6 +592,35 @@ elseif (in_array($ilas_vector_search_environment, ['local', 'dev', 'test'], TRUE
 }
 
 /**
+ * Voyage AI reranking API key.
+ *
+ * On Pantheon: type "runtime", scope "web", key "ILAS_VOYAGE_API_KEY".
+ * Locally (DDEV): add ILAS_VOYAGE_API_KEY=<value> to .ddev/.env, then ddev restart.
+ */
+$voyage_key = _ilas_get_secret('ILAS_VOYAGE_API_KEY');
+if ($voyage_key) {
+  $settings['ilas_voyage_api_key'] = $voyage_key;
+}
+
+/**
+ * Voyage AI reranking rollout toggle.
+ *
+ * Runtime-only toggle. Like vector search, disabled by default in config
+ * and gated by environment in settings.php.
+ */
+$voyage_enabled_raw = _ilas_get_secret('ILAS_VOYAGE_ENABLED');
+if (
+  _ilas_read_boolean($voyage_enabled_raw)
+  && in_array($ilas_vector_search_environment, ['local', 'dev', 'test'], TRUE)
+) {
+  $config['ilas_site_assistant.settings']['voyage']['enabled'] = TRUE;
+}
+// Live hard-gate: force disabled until explicit live rollout approval.
+if ($ilas_vector_search_environment === 'live') {
+  $config['ilas_site_assistant.settings']['voyage']['enabled'] = FALSE;
+}
+
+/**
  * Sentry error tracking via drupal/raven.
  *
  * On Pantheon: type "runtime", scope "web", key "SENTRY_DSN".

@@ -7,6 +7,9 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
+use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
+use Drupal\ilas_site_assistant\Service\SloDefinitions;
 use Drupal\ilas_site_assistant\Service\TopicResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -44,13 +47,45 @@ class AssistantReportController extends ControllerBase {
   protected $configFactory;
 
   /**
+   * The runtime truth snapshot builder.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder
+   */
+  protected RuntimeTruthSnapshotBuilder $snapshotBuilder;
+
+  /**
+   * The queue health monitor.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\QueueHealthMonitor
+   */
+  protected QueueHealthMonitor $queueHealthMonitor;
+
+  /**
+   * The SLO definitions service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SloDefinitions
+   */
+  protected SloDefinitions $sloDefinitions;
+
+  /**
    * Constructs an AssistantReportController object.
    */
-  public function __construct(Connection $database, DateFormatterInterface $date_formatter, TopicResolver $topic_resolver, ConfigFactoryInterface $config_factory) {
+  public function __construct(
+    Connection $database,
+    DateFormatterInterface $date_formatter,
+    TopicResolver $topic_resolver,
+    ConfigFactoryInterface $config_factory,
+    RuntimeTruthSnapshotBuilder $snapshot_builder,
+    QueueHealthMonitor $queue_health_monitor,
+    SloDefinitions $slo_definitions,
+  ) {
     $this->database = $database;
     $this->dateFormatter = $date_formatter;
     $this->topicResolver = $topic_resolver;
     $this->configFactory = $config_factory;
+    $this->snapshotBuilder = $snapshot_builder;
+    $this->queueHealthMonitor = $queue_health_monitor;
+    $this->sloDefinitions = $slo_definitions;
   }
 
   /**
@@ -61,7 +96,10 @@ class AssistantReportController extends ControllerBase {
       $container->get('database'),
       $container->get('date.formatter'),
       $container->get('ilas_site_assistant.topic_resolver'),
-      $container->get('config.factory')
+      $container->get('config.factory'),
+      $container->get('ilas_site_assistant.runtime_truth_snapshot_builder'),
+      $container->get('ilas_site_assistant.queue_health_monitor'),
+      $container->get('ilas_site_assistant.slo_definitions'),
     );
   }
 
@@ -136,6 +174,16 @@ class AssistantReportController extends ControllerBase {
 
     $build['feedback']['summary'] = $this->buildFeedbackSummaryTable();
     $build['feedback']['breakdown'] = $this->buildFeedbackBreakdownTable();
+
+    // Observability runtime status.
+    $build['observability_status'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Observability Runtime Status'),
+      '#open' => TRUE,
+      '#weight' => -10,
+    ];
+
+    $build['observability_status']['content'] = $this->buildObservabilityStatusSection();
 
     // Review loop.
     $build['review_loop'] = [
@@ -395,7 +443,7 @@ class AssistantReportController extends ControllerBase {
       'safety_violation' => $this->t('Safety Violations'),
       'out_of_scope' => $this->t('Out-of-Scope'),
       'policy_violation' => $this->t('Policy Violations'),
-      'post_gen_safety_legal_advice' => $this->t('Post-Gen: Legal Advice'),
+      'post_gen_safety_review_flag' => $this->t('Post-Gen: Review Flag'),
       'post_gen_safety_weak_grounding' => $this->t('Post-Gen: Weak Grounding'),
       'post_gen_stale_citations' => $this->t('Post-Gen: Stale Citations'),
     ];
@@ -540,6 +588,214 @@ class AssistantReportController extends ControllerBase {
       '#rows' => $rows,
       '#empty' => $this->t('No per-type feedback data available yet.'),
     ];
+  }
+
+  /**
+   * Builds the observability runtime status section.
+   *
+   * Surfaces the effective runtime state of Langfuse, Sentry, and Pinecone
+   * alongside stored config values so admins and auditors can see divergences
+   * without needing Drush access. This addresses the known discrepancy where
+   * stored config shows langfuse.enabled=false while settings.php runtime
+   * overrides enable it when secrets are present.
+   *
+   * @return array
+   *   Render array with observability status.
+   */
+  protected function buildObservabilityStatusSection() {
+    $build = [];
+
+    try {
+      $snapshot = $this->snapshotBuilder->buildSnapshot();
+    }
+    catch (\Throwable $e) {
+      $build['error'] = [
+        '#markup' => '<p>' . $this->t('Unable to build runtime truth snapshot: @class @error_signature', [
+          '@class' => get_class($e),
+          '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+        ]) . '</p>',
+      ];
+      return $build;
+    }
+
+    $build['description'] = [
+      '#markup' => '<p>' . $this->t('Effective runtime state as seen by the application. Stored config may show different values because <code>settings.php</code> applies runtime overrides when secrets are present. Use <code>drush ilas:runtime-truth</code> for the full machine-readable snapshot.') . '</p>',
+    ];
+
+    // Langfuse status table.
+    $stored = $snapshot['exported_storage']['langfuse'] ?? [];
+    $effective = $snapshot['effective_runtime']['langfuse'] ?? [];
+    $environment = $snapshot['environment'] ?? [];
+
+    $langfuseHeader = [
+      $this->t('Setting'),
+      $this->t('Stored Config'),
+      $this->t('Effective Runtime'),
+      $this->t('Source of Truth'),
+    ];
+
+    $overrideChannels = $snapshot['override_channels'] ?? [];
+
+    $langfuseRows = [];
+    $langfuseRows[] = [
+      $this->t('Enabled'),
+      $this->formatBool($stored['enabled'] ?? FALSE),
+      $this->formatBool($effective['enabled'] ?? FALSE),
+      htmlspecialchars($overrideChannels['langfuse.enabled'] ?? 'config export', ENT_QUOTES, 'UTF-8'),
+    ];
+    $langfuseRows[] = [
+      $this->t('Public Key Present'),
+      $this->formatBool($stored['public_key_present'] ?? FALSE),
+      $this->formatBool($effective['public_key_present'] ?? FALSE),
+      htmlspecialchars($overrideChannels['langfuse.public_key_present'] ?? 'config export', ENT_QUOTES, 'UTF-8'),
+    ];
+    $langfuseRows[] = [
+      $this->t('Secret Key Present'),
+      $this->formatBool($stored['secret_key_present'] ?? FALSE),
+      $this->formatBool($effective['secret_key_present'] ?? FALSE),
+      htmlspecialchars($overrideChannels['langfuse.secret_key_present'] ?? 'config export', ENT_QUOTES, 'UTF-8'),
+    ];
+    $langfuseRows[] = [
+      $this->t('Environment'),
+      htmlspecialchars($stored['environment'] ?? '', ENT_QUOTES, 'UTF-8'),
+      htmlspecialchars($effective['environment'] ?? '', ENT_QUOTES, 'UTF-8'),
+      htmlspecialchars($overrideChannels['langfuse.environment'] ?? 'config export', ENT_QUOTES, 'UTF-8'),
+    ];
+    $langfuseRows[] = [
+      $this->t('Sample Rate'),
+      (string) ($stored['sample_rate'] ?? 0.0),
+      (string) ($effective['sample_rate'] ?? 0.0),
+      htmlspecialchars($overrideChannels['langfuse.sample_rate'] ?? 'config export', ENT_QUOTES, 'UTF-8'),
+    ];
+
+    $build['langfuse_heading'] = [
+      '#markup' => '<h4>' . $this->t('Langfuse Tracing') . '</h4>',
+    ];
+
+    $build['langfuse_table'] = [
+      '#type' => 'table',
+      '#header' => $langfuseHeader,
+      '#rows' => $langfuseRows,
+    ];
+
+    // Queue health.
+    try {
+      $queueHealth = $this->queueHealthMonitor->getQueueHealthStatus($this->sloDefinitions);
+      $queueRows = [];
+      $queueRows[] = [
+        $this->t('Queue Status'),
+        htmlspecialchars($queueHealth['status'] ?? 'unknown', ENT_QUOTES, 'UTF-8'),
+      ];
+      $queueRows[] = [
+        $this->t('Queue Depth'),
+        (string) ($queueHealth['depth'] ?? 0),
+      ];
+      $queueRows[] = [
+        $this->t('Utilization'),
+        ($queueHealth['utilization_pct'] ?? 0) . '%',
+      ];
+      $queueRows[] = [
+        $this->t('Max Depth (SLO)'),
+        (string) ($queueHealth['max_depth'] ?? 0),
+      ];
+
+      if ($queueHealth['oldest_item_age_seconds'] !== NULL) {
+        $queueRows[] = [
+          $this->t('Oldest Item Age'),
+          $this->t('@seconds seconds', ['@seconds' => $queueHealth['oldest_item_age_seconds']]),
+        ];
+      }
+
+      $build['queue_heading'] = [
+        '#markup' => '<h4>' . $this->t('Langfuse Export Queue') . '</h4>',
+      ];
+
+      $build['queue_table'] = [
+        '#type' => 'table',
+        '#header' => [$this->t('Metric'), $this->t('Value')],
+        '#rows' => $queueRows,
+      ];
+    }
+    catch (\Throwable $e) {
+      $build['queue_error'] = [
+        '#markup' => '<p>' . $this->t('Unable to read queue health: @class @error_signature', [
+          '@class' => get_class($e),
+          '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+        ]) . '</p>',
+      ];
+    }
+
+    // Divergences.
+    $divergences = $snapshot['divergences'] ?? [];
+    if (!empty($divergences)) {
+      $divHeader = [
+        $this->t('Field'),
+        $this->t('Stored Value'),
+        $this->t('Effective Value'),
+        $this->t('Authoritative Source'),
+      ];
+
+      $divRows = [];
+      foreach ($divergences as $divergence) {
+        $divRows[] = [
+          htmlspecialchars($divergence['field'] ?? '', ENT_QUOTES, 'UTF-8'),
+          $this->formatDivergenceValue($divergence['stored_value'] ?? NULL),
+          $this->formatDivergenceValue($divergence['effective_value'] ?? NULL),
+          htmlspecialchars($divergence['authoritative_source'] ?? '', ENT_QUOTES, 'UTF-8'),
+        ];
+      }
+
+      $build['divergences_heading'] = [
+        '#markup' => '<h4>' . $this->t('Config Divergences (Stored vs Effective)') . '</h4>',
+      ];
+
+      $build['divergences_description'] = [
+        '#markup' => '<p>' . $this->t('These divergences are expected when <code>settings.php</code> runtime overrides are active. The effective value is the authoritative runtime state.') . '</p>',
+      ];
+
+      $build['divergences_table'] = [
+        '#type' => 'table',
+        '#header' => $divHeader,
+        '#rows' => $divRows,
+      ];
+    }
+
+    return $build;
+  }
+
+  /**
+   * Formats a boolean value for display.
+   *
+   * @param bool $value
+   *   The boolean value.
+   *
+   * @return string
+   *   'Yes' or 'No'.
+   */
+  protected function formatBool(bool $value): string {
+    return $value ? (string) $this->t('Yes') : (string) $this->t('No');
+  }
+
+  /**
+   * Formats a divergence value for display.
+   *
+   * @param mixed $value
+   *   The value to format.
+   *
+   * @return string
+   *   The formatted value.
+   */
+  protected function formatDivergenceValue(mixed $value): string {
+    if (is_bool($value)) {
+      return $this->formatBool($value);
+    }
+    if (is_string($value)) {
+      return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+    if (is_numeric($value)) {
+      return (string) $value;
+    }
+    return (string) $this->t('(empty)');
   }
 
   /**

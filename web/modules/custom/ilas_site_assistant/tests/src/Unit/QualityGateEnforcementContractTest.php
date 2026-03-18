@@ -91,6 +91,7 @@ final class QualityGateEnforcementContractTest extends TestCase {
 
     // Job 1: PHPUnit quality gate references.
     $this->assertStringContainsString('phpunit.pure.xml', $workflow);
+    $this->assertStringContainsString('Run PHPUnit pure-unit tests (VC-PURE)', $workflow);
     $this->assertStringContainsString('phpunit.xml', $workflow);
     $this->assertStringContainsString('--testsuite drupal-unit', $workflow);
     $this->assertStringContainsString('run-quality-gate.sh', $workflow);

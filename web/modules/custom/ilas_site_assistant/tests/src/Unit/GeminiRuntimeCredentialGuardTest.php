@@ -14,6 +14,7 @@ use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Form\AssistantSettingsForm;
+use Drupal\ilas_site_assistant\Service\EnvironmentDetector;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use GuzzleHttp\ClientInterface;
@@ -27,6 +28,37 @@ use Symfony\Component\Yaml\Yaml;
  */
 #[Group('ilas_site_assistant')]
 class GeminiRuntimeCredentialGuardTest extends TestCase {
+
+  /**
+   * Original Pantheon environment value.
+   */
+  private string|false $originalPantheonEnvironment = FALSE;
+
+  /**
+   * Captures process-level environment before each test.
+   */
+  protected function setUp(): void {
+    parent::setUp();
+    $this->originalPantheonEnvironment = getenv('PANTHEON_ENVIRONMENT');
+  }
+
+  /**
+   * Resets process-level globals after each test.
+   */
+  protected function tearDown(): void {
+    new Settings([]);
+
+    if ($this->originalPantheonEnvironment === FALSE) {
+      putenv('PANTHEON_ENVIRONMENT');
+      unset($_ENV['PANTHEON_ENVIRONMENT']);
+    }
+    else {
+      putenv('PANTHEON_ENVIRONMENT=' . $this->originalPantheonEnvironment);
+      $_ENV['PANTHEON_ENVIRONMENT'] = $this->originalPantheonEnvironment;
+    }
+
+    parent::tearDown();
+  }
 
   /**
    * Returns the repository root path.
@@ -170,6 +202,118 @@ class GeminiRuntimeCredentialGuardTest extends TestCase {
     $this->assertSame('', $savedLlmConfig['api_key']);
     $this->assertSame('gemini_api', $savedLlmConfig['provider']);
     $this->assertSame('gemini-1.5-flash', $savedLlmConfig['model']);
+  }
+
+  /**
+   * Live settings saves must coerce vector enablement back to false.
+   */
+  public function testSettingsFormSubmitCoercesLiveVectorEnablementToFalse(): void {
+    putenv('PANTHEON_ENVIRONMENT=live');
+    $_ENV['PANTHEON_ENVIRONMENT'] = 'live';
+
+    $savedVectorConfig = NULL;
+    $savedLlmConfig = NULL;
+
+    $config = $this->createMock(Config::class);
+    $config->method('get')
+      ->willReturnCallback(static function (string $key): mixed {
+        return match ($key) {
+          'canonical_urls.service_areas' => [
+            'housing' => '/legal-help/housing',
+            'family' => '/legal-help/family',
+            'seniors' => '/legal-help/seniors',
+            'health' => '/legal-help/health',
+            'consumer' => '/legal-help/consumer',
+            'civil_rights' => '/legal-help/civil-rights',
+          ],
+          default => NULL,
+        };
+      });
+    $config->method('set')
+      ->willReturnCallback(function (string $key, mixed $value) use (&$savedVectorConfig, &$savedLlmConfig, $config): Config {
+        if ($key === 'vector_search') {
+          $savedVectorConfig = $value;
+        }
+        if ($key === 'llm') {
+          $savedLlmConfig = $value;
+        }
+        return $config;
+      });
+    $config->expects($this->once())->method('save');
+
+    $configFactory = $this->createMock(ConfigFactoryInterface::class);
+    $configFactory->expects($this->once())
+      ->method('getEditable')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($config);
+
+    $typedConfigManager = $this->createStub(TypedConfigManagerInterface::class);
+    $messenger = $this->createMock(MessengerInterface::class);
+    $messenger->expects($this->once())->method('addStatus');
+
+    $form = new AssistantSettingsForm(
+      $configFactory,
+      $typedConfigManager,
+      new EnvironmentDetector(),
+    );
+    $form->setMessenger($messenger);
+    $form->setStringTranslation($this->translationStub());
+
+    $formState = new FormState();
+    $formState->setValues([
+      'disclaimer_text' => 'Disclaimer',
+      'welcome_message' => 'Welcome',
+      'escalation_message' => 'Escalate',
+      'enable_global_widget' => TRUE,
+      'enable_faq' => TRUE,
+      'enable_resources' => TRUE,
+      'excluded_paths' => '',
+      'enable_logging' => TRUE,
+      'log_retention_days' => 90,
+      'url_apply' => '/apply-for-help',
+      'url_hotline' => '/Legal-Advice-Line',
+      'url_offices' => '/contact/offices',
+      'url_donate' => '/donate',
+      'url_feedback' => '/get-involved/feedback',
+      'url_resources' => '/what-we-do/resources',
+      'url_forms' => '/forms',
+      'url_guides' => '/guides',
+      'url_faq' => '/faq',
+      'url_services' => '/services',
+      'url_senior_risk' => '/resources/legal-risk-detector',
+      'faq_node_path' => '/faq',
+      'retrieval_faq_index_id' => 'faq_accordion',
+      'retrieval_resource_index_id' => 'assistant_resources',
+      'retrieval_resource_fallback_index_id' => 'content',
+      'retrieval_faq_vector_index_id' => 'faq_accordion_vector',
+      'retrieval_resource_vector_index_id' => 'assistant_resources_vector',
+      'vector_search_enabled' => TRUE,
+      'vector_search_fallback_threshold' => 2,
+      'vector_search_min_score' => 0.7,
+      'vector_search_normalization_factor' => 100,
+      'vector_search_min_lexical_score' => 0,
+      'llm_enabled' => TRUE,
+      'llm_provider' => 'gemini_api',
+      'llm_model' => 'gemini-1.5-flash',
+      'llm_project_id' => '',
+      'llm_location' => 'us-central1',
+      'llm_max_tokens' => 150,
+      'llm_temperature' => 0.3,
+      'llm_enhance_greetings' => FALSE,
+      'llm_fallback_on_error' => TRUE,
+      'conversation_logging_enabled' => FALSE,
+      'conversation_logging_retention_hours' => 72,
+      'conversation_logging_redact_pii' => TRUE,
+      'conversation_logging_show_user_notice' => TRUE,
+    ]);
+
+    $builtForm = [];
+    $form->submitForm($builtForm, $formState);
+
+    $this->assertIsArray($savedVectorConfig, 'Expected vector_search config to be saved.');
+    $this->assertFalse($savedVectorConfig['enabled']);
+    $this->assertIsArray($savedLlmConfig, 'Expected llm config to be saved.');
+    $this->assertFalse($savedLlmConfig['enabled']);
   }
 
   /**

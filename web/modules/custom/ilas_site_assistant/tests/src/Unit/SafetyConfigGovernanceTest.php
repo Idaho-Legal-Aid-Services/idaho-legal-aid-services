@@ -366,6 +366,11 @@ class SafetyConfigGovernanceTest extends TestCase {
       $contents,
       'Live environment must hard-disable llm.enabled via runtime override',
     );
+    $this->assertStringContainsString(
+      "\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;",
+      $contents,
+      'Live environment must hard-disable vector_search.enabled via runtime override',
+    );
   }
 
   /**
@@ -380,7 +385,10 @@ class SafetyConfigGovernanceTest extends TestCase {
     $this->assertStringContainsString('protected function isLiveEnvironment(): bool', $contents);
     $this->assertStringContainsString("'#disabled' => \$is_live_environment", $contents);
     $this->assertStringContainsString("setErrorByName(\n        'llm_enabled',", $contents);
+    $this->assertStringContainsString("setErrorByName(\n        'vector_search_enabled',", $contents);
+    $this->assertStringContainsString("if (\$this->isLiveEnvironment()) {\n      \$vector_search_enabled = FALSE;", $contents);
     $this->assertStringContainsString("if (\$this->isLiveEnvironment()) {\n      \$llm_enabled = FALSE;", $contents);
+    $this->assertStringContainsString("'enabled' => \$vector_search_enabled", $contents);
     $this->assertStringContainsString("'enabled' => \$llm_enabled", $contents);
   }
 

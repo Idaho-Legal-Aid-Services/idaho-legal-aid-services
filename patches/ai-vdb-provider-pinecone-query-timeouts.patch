@@ -1,0 +1,171 @@
+diff --git a/ai_vdb_provider_pinecone.services.yml b/ai_vdb_provider_pinecone.services.yml
+index f267b10..2e80c0e 100644
+--- a/ai_vdb_provider_pinecone.services.yml
++++ b/ai_vdb_provider_pinecone.services.yml
+@@ -1,4 +1,4 @@
+ services:
+   pinecone.api:
+     class: Drupal\ai_vdb_provider_pinecone\Pinecone
+-    arguments: ['@cache.default', '@messenger', '@logger.factory']
++    arguments: ['@cache.default', '@messenger', '@logger.factory', '@config.factory']
+diff --git a/config/install/ai_vdb_provider_pinecone.settings.yml b/config/install/ai_vdb_provider_pinecone.settings.yml
+index 8734d86..4e02343 100644
+--- a/config/install/ai_vdb_provider_pinecone.settings.yml
++++ b/config/install/ai_vdb_provider_pinecone.settings.yml
+@@ -2,3 +2,5 @@ api_key: ''
+ hostname: ''
+ region: ''
+ cloud_provider: ''
++query_connect_timeout_seconds: 1.0
++query_request_timeout_seconds: 2.0
+diff --git a/config/schema/ai_vdb_provider_pinecone.schema.yml b/config/schema/ai_vdb_provider_pinecone.schema.yml
+index a4ddaed..25bd521 100644
+--- a/config/schema/ai_vdb_provider_pinecone.schema.yml
++++ b/config/schema/ai_vdb_provider_pinecone.schema.yml
+@@ -14,3 +14,9 @@ ai_vdb_provider_pinecone.settings:
+     cloud_provider:
+       type: integer
+       label: 'Cloud Provider'
++    query_connect_timeout_seconds:
++      type: float
++      label: 'Query connection timeout in seconds'
++    query_request_timeout_seconds:
++      type: float
++      label: 'Query request timeout in seconds'
+diff --git a/src/Form/PineconeConfigForm.php b/src/Form/PineconeConfigForm.php
+index 10ab907..e5897e5 100644
+--- a/src/Form/PineconeConfigForm.php
++++ b/src/Form/PineconeConfigForm.php
+@@ -72,6 +72,28 @@ class PineconeConfigForm extends ConfigFormBase {
+       '#description' => $this->t('The API key to use for authentication. This can be created and found under "API keys" at <a href="https://app.pinecone.io/" target="_blank">https://app.pinecone.io/</a>.'),
+     ];
+ 
++    $form['query_connect_timeout_seconds'] = [
++      '#type' => 'number',
++      '#title' => $this->t('Query Connection Timeout'),
++      '#description' => $this->t('Maximum time in seconds to establish Pinecone query connections for search-time vector reads.'),
++      '#default_value' => $config->get('query_connect_timeout_seconds') ?? 1.0,
++      '#min' => 0.1,
++      '#max' => 30,
++      '#step' => 0.1,
++      '#required' => TRUE,
++    ];
++
++    $form['query_request_timeout_seconds'] = [
++      '#type' => 'number',
++      '#title' => $this->t('Query Request Timeout'),
++      '#description' => $this->t('Maximum total time in seconds for Pinecone query requests used during search-time vector reads.'),
++      '#default_value' => $config->get('query_request_timeout_seconds') ?? 2.0,
++      '#min' => 0.1,
++      '#max' => 60,
++      '#step' => 0.1,
++      '#required' => TRUE,
++    ];
++
+     return parent::buildForm($form, $form_state);
+   }
+ 
+@@ -113,6 +135,8 @@ class PineconeConfigForm extends ConfigFormBase {
+   public function submitForm(array &$form, FormStateInterface $form_state): void {
+     $this->config(static::CONFIG_NAME)
+       ->set('api_key', $form_state->getValue('api_key'))
++      ->set('query_connect_timeout_seconds', (float) $form_state->getValue('query_connect_timeout_seconds'))
++      ->set('query_request_timeout_seconds', (float) $form_state->getValue('query_request_timeout_seconds'))
+       ->save();
+ 
+     parent::submitForm($form, $form_state);
+diff --git a/src/Pinecone.php b/src/Pinecone.php
+index 0e10395..639c008 100644
+--- a/src/Pinecone.php
++++ b/src/Pinecone.php
+@@ -4,6 +4,7 @@ namespace Drupal\ai_vdb_provider_pinecone;
+ 
+ use Drupal\Component\Utility\Crypt;
+ use Drupal\Core\Cache\CacheBackendInterface;
++use Drupal\Core\Config\ConfigFactoryInterface;
+ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+ use Drupal\Core\Messenger\MessengerInterface;
+ use Drupal\Core\StringTranslation\StringTranslationTrait;
+@@ -36,6 +37,7 @@ class Pinecone {
+     protected CacheBackendInterface $cache,
+     protected MessengerInterface $messenger,
+     protected LoggerChannelFactoryInterface $loggerChannelFactory,
++    protected ConfigFactoryInterface $configFactory,
+   ) {
+   }
+ 
+@@ -78,6 +80,32 @@ class Pinecone {
+     return $this->client;
+   }
+ 
++  /**
++   * Helper method to get a timeout-aware client for query operations.
++   *
++   * Only search-time vector reads use these tighter bounds so index
++   * maintenance paths retain their existing behavior.
++   *
++   * @param string $index_name
++   *   The index name.
++   *
++   * @return \Drupal\ai_vdb_provider_pinecone\QueryTimeoutPineconeClient
++   *   The Pinecone query client.
++   */
++  protected function getQueryClientForIndex(string $index_name): QueryTimeoutPineconeClient {
++    $index = $this->describeIndex($index_name);
++    $config = $this->configFactory->get('ai_vdb_provider_pinecone.settings');
++    $connect_timeout = (float) ($config->get('query_connect_timeout_seconds') ?? 1.0);
++    $request_timeout = (float) ($config->get('query_request_timeout_seconds') ?? 2.0);
++
++    return new QueryTimeoutPineconeClient(
++      $this->client->apiKey,
++      'https://' . ($index['host'] ?? ''),
++      $connect_timeout,
++      $request_timeout,
++    );
++  }
++
+   /**
+    * Clear the indexes cache.
+    */
+@@ -279,7 +307,7 @@ class Pinecone {
+    *   The response.
+    */
+   public function query(string $namespace, string $index_name, array $filter = [], int $topK = 10, array $vector = []): array {
+-    $response = $this->getClientForIndex($index_name)->data()->vectors()->query(
++    $response = $this->getQueryClientForIndex($index_name)->data()->vectors()->query(
+       vector: $vector,
+       namespace: $namespace,
+       filter: $filter,
+diff --git a/src/QueryTimeoutPineconeClient.php b/src/QueryTimeoutPineconeClient.php
+new file mode 100644
+index 0000000..2ba8ac4
+--- /dev/null
++++ b/src/QueryTimeoutPineconeClient.php
+@@ -0,0 +1,27 @@
++<?php
++
++namespace Drupal\ai_vdb_provider_pinecone;
++
++use Probots\Pinecone\Client as PineconeClient;
++use Saloon\Traits\Plugins\HasTimeout;
++
++/**
++ * Pinecone client variant with query-only transport timeouts.
++ */
++final class QueryTimeoutPineconeClient extends PineconeClient {
++
++  use HasTimeout;
++
++  /**
++   * Constructs a timeout-aware Pinecone query client.
++   */
++  public function __construct(
++    string $api_key,
++    ?string $index_host = NULL,
++    protected float $connectTimeout = 1.0,
++    protected float $requestTimeout = 2.0,
++  ) {
++    parent::__construct($api_key, $index_host);
++  }
++
++}

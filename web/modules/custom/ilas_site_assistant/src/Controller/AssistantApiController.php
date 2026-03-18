@@ -41,6 +41,7 @@ use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
+use Drupal\ilas_site_assistant\Service\VoyageReranker;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
@@ -316,6 +317,13 @@ class AssistantApiController extends ControllerBase {
   protected $readEndpointGuard;
 
   /**
+   * The Voyage AI reranker service.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\VoyageReranker|null
+   */
+  protected ?VoyageReranker $voyageReranker;
+
+  /**
    * Constructs an AssistantApiController object.
    */
   public function __construct(
@@ -350,6 +358,7 @@ class AssistantApiController extends ControllerBase {
     AssistantSessionBootstrapGuard $session_bootstrap_guard = NULL,
     PreRoutingDecisionEngine $pre_routing_decision_engine = NULL,
     AssistantReadEndpointGuard $read_endpoint_guard = NULL,
+    VoyageReranker $voyage_reranker = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -381,6 +390,7 @@ class AssistantApiController extends ControllerBase {
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
     $this->sessionBootstrapGuard = $session_bootstrap_guard;
     $this->readEndpointGuard = $read_endpoint_guard;
+    $this->voyageReranker = $voyage_reranker;
     $this->preRoutingDecisionEngine = $pre_routing_decision_engine ?? new PreRoutingDecisionEngine(
       $policy_filter,
       $safety_classifier,
@@ -424,6 +434,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.session_bootstrap_guard') ? $container->get('ilas_site_assistant.session_bootstrap_guard') : NULL,
       $container->has('ilas_site_assistant.pre_routing_decision_engine') ? $container->get('ilas_site_assistant.pre_routing_decision_engine') : NULL,
       $container->has('ilas_site_assistant.read_endpoint_guard') ? $container->get('ilas_site_assistant.read_endpoint_guard') : NULL,
+      $container->has('ilas_site_assistant.voyage_reranker') ? $container->get('ilas_site_assistant.voyage_reranker') : NULL,
     );
   }
 
@@ -1724,6 +1735,23 @@ class AssistantApiController extends ControllerBase {
     $builder = new ResponseBuilder($canonical_urls, $this->topIntentsPack);
     $response = $builder->enforceHardRouteUrlWithOverrideIntent($response, $intent, $routing_override_intent);
 
+    // Apply Voyage AI reranking (if enabled, after retrieval, before grounding).
+    $rerank_meta = NULL;
+    if ($this->voyageReranker && !empty($response['results'])
+        && count($response['results']) >= 2
+        && in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE)) {
+      $this->langfuseTracer?->startSpan('rerank.voyage');
+      $rerank_result = $this->voyageReranker->rerank($user_message, $response['results']);
+      $response['results'] = $rerank_result['items'];
+      $rerank_meta = $rerank_result['meta'];
+      $this->langfuseTracer?->endSpan($rerank_meta);
+      if ($debug_mode) {
+        $debug_meta['processing_stages'][] = ($rerank_meta['applied'] ?? FALSE)
+          ? 'voyage_reranked' : 'voyage_skipped';
+        $debug_meta['rerank_meta'] = $rerank_meta;
+      }
+    }
+
     // Apply response grounding (add citations, validate info).
     if ($this->responseGrounder && !empty($response['results'])) {
       $this->langfuseTracer?->startSpan('response.ground');
@@ -1924,11 +1952,12 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('grounding_refusal', $request_id ?? '');
     }
 
+    $retrieval_trace = $this->collectRetrievalTraceMetadata($response);
     $this->langfuseTracer?->addEvent('request.complete', [
       'intent_type' => $intent['type'] ?? 'unknown',
       'response_type' => $response['type'] ?? 'unknown',
       'is_quick_action' => $is_quick_action,
-    ]);
+    ] + $retrieval_trace);
     $langfuse_output = $this->buildLangfuseOutputPayload(
       (string) ($response['message'] ?? ''),
       (string) ($response['type'] ?? 'unknown'),
@@ -1947,6 +1976,7 @@ class AssistantApiController extends ControllerBase {
           'turn_type' => $turn_type,
           'fallback_level' => $response['fallback_level'] ?? NULL,
         ],
+        $retrieval_trace,
         $success_telemetry,
         $langfuse_output['metadata'],
       )
@@ -1997,10 +2027,11 @@ class AssistantApiController extends ControllerBase {
       }
 
       // End Langfuse trace on error.
+      $retrieval_trace = $this->collectRetrievalTraceMetadata([]);
       $this->langfuseTracer?->addEvent('error', [
         'class' => get_class($e),
         'error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
-      ], 'ERROR');
+      ] + $retrieval_trace, 'ERROR');
       $langfuse_output = $this->buildLangfuseOutputPayload(
         'Something went wrong. Please try again or contact us directly.',
         'internal_error',
@@ -2014,6 +2045,7 @@ class AssistantApiController extends ControllerBase {
             'error' => get_class($e),
             'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
           ],
+          $retrieval_trace,
           $error_telemetry,
           $langfuse_output['metadata'],
         )
@@ -2441,6 +2473,101 @@ class AssistantApiController extends ControllerBase {
     }
 
     return $meta;
+  }
+
+  /**
+   * Builds Langfuse-safe retrieval trace metadata for the completed response.
+   */
+  protected function collectRetrievalTraceMetadata(array $response): array {
+    $results = !empty($response['results']) && is_array($response['results'])
+      ? $response['results']
+      : [];
+
+    $source_classes = [];
+    $lexical_result_count = 0;
+    $vector_result_count = 0;
+
+    foreach ($results as $result) {
+      $source_class = isset($result['source_class']) && is_string($result['source_class'])
+        ? $result['source_class']
+        : NULL;
+      if ($source_class !== NULL && $source_class !== '') {
+        $source_classes[$source_class] = TRUE;
+      }
+
+      $is_vector = FALSE;
+      if ($source_class !== NULL) {
+        $is_vector = str_ends_with($source_class, '_vector');
+      }
+      elseif (($result['source'] ?? 'lexical') === 'vector') {
+        $is_vector = TRUE;
+      }
+
+      if ($is_vector) {
+        $vector_result_count++;
+      }
+      else {
+        $lexical_result_count++;
+      }
+    }
+
+    $operations = [];
+    if ($this->faqIndex && method_exists($this->faqIndex, 'drainRetrievalTelemetry')) {
+      $operations = array_merge($operations, $this->faqIndex->drainRetrievalTelemetry());
+    }
+    if ($this->resourceFinder && method_exists($this->resourceFinder, 'drainRetrievalTelemetry')) {
+      $operations = array_merge($operations, $this->resourceFinder->drainRetrievalTelemetry());
+    }
+
+    $degraded_reason = NULL;
+    $operation_source_classes = [];
+    $operation_lexical_result_count = 0;
+    $operation_vector_result_count = 0;
+    $vector_attempted = FALSE;
+    foreach ($operations as $operation) {
+      if (!empty($operation['degraded_reason']) && is_string($operation['degraded_reason'])) {
+        $degraded_reason = $operation['degraded_reason'];
+      }
+      $vector_attempted = $vector_attempted || !empty($operation['vector_attempted']);
+      foreach (($operation['source_classes'] ?? []) as $source_class) {
+        if (is_string($source_class) && $source_class !== '') {
+          $operation_source_classes[$source_class] = TRUE;
+        }
+      }
+      $operation_lexical_result_count += (int) ($operation['lexical_result_count'] ?? 0);
+      $operation_vector_result_count += (int) ($operation['vector_result_count'] ?? 0);
+    }
+
+    $vector_enabled_effective = (bool) ($this->configFactory->get('ilas_site_assistant.settings')->get('vector_search.enabled') ?? FALSE);
+    $effective_vector_result_count = !empty($operations) ? $operation_vector_result_count : $vector_result_count;
+    $effective_lexical_result_count = !empty($operations) ? $operation_lexical_result_count : $lexical_result_count;
+    $vector_status = 'disabled';
+    if ($degraded_reason !== NULL) {
+      $vector_status = 'degraded';
+    }
+    elseif ($effective_vector_result_count > 0) {
+      $vector_status = 'used';
+    }
+    elseif ($vector_attempted) {
+      $vector_status = 'attempted_without_results';
+    }
+    elseif ($vector_enabled_effective) {
+      $vector_status = 'enabled_not_needed';
+    }
+
+    return [
+      'vector_enabled_effective' => $vector_enabled_effective,
+      'vector_attempted' => $vector_attempted,
+      'vector_status' => $vector_status,
+      'vector_result_count' => $effective_vector_result_count,
+      'lexical_result_count' => $effective_lexical_result_count,
+      'source_classes' => array_values(array_unique(array_merge(
+        array_keys($source_classes),
+        array_keys($operation_source_classes),
+      ))),
+      'degraded_reason' => $degraded_reason,
+      'retrieval_operations' => array_slice($operations, 0, 6),
+    ];
   }
 
   /**

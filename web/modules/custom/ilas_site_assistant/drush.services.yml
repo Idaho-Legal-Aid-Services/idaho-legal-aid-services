@@ -18,6 +18,11 @@ services:
     arguments: ['@ilas_site_assistant.runtime_truth_snapshot_builder']
     tags:
       - { name: drush.command }
+  ilas_site_assistant.langfuse_status_commands:
+    class: \Drupal\ilas_site_assistant\Commands\LangfuseStatusCommands
+    arguments: ['@ilas_site_assistant.runtime_truth_snapshot_builder', '@ilas_site_assistant.queue_health_monitor', '@ilas_site_assistant.slo_definitions', '@config.factory']
+    tags:
+      - { name: drush.command }
   ilas_site_assistant.disambiguation_review_commands:
     class: \Drupal\ilas_site_assistant\Commands\DisambiguationReviewCommands
     arguments: ['@ilas_site_assistant.analytics_logger']

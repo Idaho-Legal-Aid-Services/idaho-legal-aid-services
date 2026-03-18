@@ -1915,17 +1915,7 @@
     trackEvent: function (eventType, eventValue, metadata) {
       eventValue = this.normalizeTrackValue(eventType, eventValue);
       this.emitAssistantAction(eventType, eventValue, metadata);
-      // Push to dataLayer if available.
-      if (window.dataLayer) {
-        window.dataLayer.push({
-          event: 'aila_chat_' + eventType,
-          event_category: 'Aila Chat',
-          event_action: eventType,
-          event_label: eventValue,
-        });
-      }
-
-      // Also log to server.
+      // Assistant-originated telemetry must stay inside Drupal-owned analytics.
       return this.callTrackApi({
         event_type: eventType,
         event_value: eventValue,

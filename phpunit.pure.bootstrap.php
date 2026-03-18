@@ -80,3 +80,23 @@ if (is_dir($keySourcePath)) {
   });
 }
 
+$pineconeSourcePath = __DIR__ . '/web/modules/contrib/ai_vdb_provider_pinecone/src';
+if (is_dir($pineconeSourcePath)) {
+  spl_autoload_register(static function (string $class) use ($pineconeSourcePath): void {
+    $prefix = 'Drupal\\ai_vdb_provider_pinecone\\';
+    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+      return;
+    }
+
+    $relativeClass = substr($class, strlen($prefix));
+    if ($relativeClass === false || $relativeClass === '') {
+      return;
+    }
+
+    $relativePath = str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+    $resolvedPath = $pineconeSourcePath . DIRECTORY_SEPARATOR . $relativePath;
+    if (is_file($resolvedPath)) {
+      require_once $resolvedPath;
+    }
+  });
+}

@@ -25,6 +25,26 @@ on hosted environments.
 
 ### ILAS Site Assistant
 
+- `ILAS_GEMINI_API_KEY`
+  - Required runtime API key for Gemini-backed assistant and Pinecone
+    embedding/query operations when Gemini is the active provider path.
+- `ILAS_PINECONE_API_KEY`
+  - Required runtime Pinecone API key for vector index queries and refreshes.
+- `ILAS_VECTOR_SEARCH_ENABLED`
+  - Runtime-only rollout toggle for vector retrieval supplementation.
+  - Truthy values are honored only on `local`, `dev`, and `test`.
+  - `live` is hard-forced back to `false` in `settings.php` even if this
+    toggle is set.
+  - On `dev` / `test`, `settings.php` also checks
+    `private://ilas-vector-search-enabled.txt` whenever vector search is still
+    effectively disabled, including the case where a site-level falsey secret
+    masks an env-level enablement override.
+- `ILAS_VOYAGE_API_KEY`
+  - Runtime Voyage AI API key for second-stage reranking.
+- `ILAS_VOYAGE_ENABLED`
+  - Runtime-only rollout toggle for Voyage reranking.
+  - Same gating pattern as `ILAS_VECTOR_SEARCH_ENABLED`: honored on
+    `local`, `dev`, `test`; hard-forced to `false` on `live`.
 - `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL`
   - Required runtime-only LegalServer intake URL for assistant health checks.
   - Must be an absolute `https` URL and include the LegalServer `pid` and `h`
@@ -78,6 +98,10 @@ Use local-only files for local values. Do not commit real credentials.
 
 - Use `.ddev/.env` or `.ddev/.env.local`
 - Start from `.ddev/.env.example`
+- Put `ILAS_GEMINI_API_KEY` and `ILAS_PINECONE_API_KEY` only in local env
+  files, never in committed config.
+- Keep `ILAS_VECTOR_SEARCH_ENABLED=0` by default and only set it to `1` when
+  intentionally verifying non-live vector rollout behavior.
 - Set `ILAS_LOCAL_BROWSER_OBSERVABILITY=1` only if you intentionally want local
   browser injection when the corresponding secrets exist
 

@@ -100,6 +100,17 @@ vector_search:
   min_vector_score: 0.7
   score_normalization_factor: 100
   min_lexical_score: 0
+voyage:
+  enabled: false
+  rerank_model: rerank-2
+  api_timeout: 3.0
+  max_candidates: 20
+  top_k: 5
+  min_results_to_rerank: 2
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_seconds: 300
+  fallback_on_error: true
 retrieval_contract:
   policy_version: 'phard_06_v1'
   enforcement_mode: 'advisory'

@@ -44,7 +44,7 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Run PHPUnit pure-unit tests (VC-UNIT)
+      - name: Run PHPUnit pure-unit tests (VC-PURE)
         run: vendor/bin/phpunit -c phpunit.pure.xml --colors=always
 
       - name: Run PHPUnit drupal-unit tests (VC-DRUPAL-UNIT)

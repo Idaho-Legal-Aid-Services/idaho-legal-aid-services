@@ -1,0 +1,201 @@
+# TOVR-15 Privacy and Analytics Boundary Remediation (2026-03-18T00:48:13Z)
+
+- Prompt ID: `TOVR-15`
+- Verification level tag: `repo + local runtime post-change + hosted runtime read-only pre-deploy + targeted tests`
+
+## Prior status
+
+- Assistant telemetry boundaries were already mostly minimized on the
+  server-controlled side:
+  - Drupal analytics/conversation storage had already been reduced to hashes,
+    IDs, buckets, and signatures.
+  - Sentry payload shaping already scrubbed PII and promoted only approved tags.
+  - Langfuse payload shaping already kept tracing to minimized, metadata-first
+    summaries.
+- The remaining boundary problem was GA on assistant surfaces:
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js` still pushed
+    assistant-originated events into `window.dataLayer`.
+  - Hosted `live` `/assistant` still rendered `googletagmanager`,
+    `window.dataLayer`, and `gtag()`.
+- Safe baseline proof before the remediation:
+  - Local `/assistant` already showed Sentry/browser observability markers and
+    no GA markers.
+  - Hosted `dev` and `test` `/assistant` also showed no GA markers.
+  - Hosted `live` `/assistant` still showed GA markers and therefore exceeded
+    the desired assistant-only privacy boundary.
+
+## Post-change status
+
+- Assistant widget tracking no longer writes assistant-originated telemetry to
+  `window.dataLayer`.
+- Dedicated `/assistant` page rendering now suppresses GA bootstrap on route
+  `ilas_site_assistant.page`, even when `google_tag_id` is present for sitewide
+  live analytics.
+- `ilas:runtime-truth` now distinguishes:
+  - sitewide `google_tag_id_present`
+  - `browser_expected.google_analytics.tag_present`
+  - assistant-page suppression expectations:
+    - `assistant_page_suppressed=true`
+    - `assistant_page_loader_expected=false`
+    - `assistant_page_data_layer_expected=false`
+- Local post-change proof is clean:
+  - `/assistant` rendered only Sentry/browser observability markers.
+  - No `googletagmanager`, `dataLayer`, or `gtag()` markers appeared locally.
+- Hosted post-change status is intentionally split:
+  - `dev` and `test` already behave acceptably for `/assistant` and still show
+    no assistant-page GA markers.
+  - `live` remains `repo remediated / deployment pending`; the currently
+    deployed `/assistant` page still shows old GA bootstrap markers because the
+    new repo code has not been deployed there yet.
+  - A non-assistant hosted `live` page (`/`) still shows GA markers, which is
+    acceptable under the TOVR-15 policy because the deny rule is specific to
+    assistant-originated telemetry and the dedicated assistant route.
+
+## Payload-boundary matrix
+
+| Telemetry path | Destination | Policy | Data allowed to leave Drupal-controlled storage | Data denied from leaving Drupal-controlled storage | Current proof |
+|---|---|---|---|---|---|
+| `/assistant/api/track` -> `AnalyticsLogger` | Drupal DB | `allow` | normalized event name, route/path context, conversation/session IDs, coarse metadata | raw user message text, legal-aid-sensitive free text, richer analytics payloads | code inspection + existing analytics/kernel contracts |
+| Conversation logging | Drupal DB | `allow` | hashed/minimized conversation metadata, deterministic IDs/signatures | raw assistant/user content export to third parties | code inspection + existing conversation/kernel contracts |
+| Browser custom events (`ilas:assistant:*`) | Browser only / internal listeners | `allow with constraint` | transient minimized action/error metadata used by internal observability hooks | forwarding raw content to GA or other third parties | widget/observability code inspection |
+| Browser Sentry | Sentry | `allow with constraint` | approved tags, scrubbed extra data, browser health/error metadata | user content, email, IP, unsanitized extras | existing Sentry contract tests + browser/runtime proof |
+| PHP Sentry | Sentry | `allow with constraint` | approved tags, scrubbed exception/log metadata | raw legal-aid-sensitive text, direct PII | existing Sentry contract tests |
+| Langfuse | Langfuse | `allow with constraint` | hashed/minimized trace summaries, counts, flags, degraded reasons, retrieval metadata | raw user message text, rich conversation bodies, expanded retention payloads | existing Langfuse contract tests |
+| Assistant widget -> `window.dataLayer` / GA4 | Google Analytics | `deny` | none | all assistant-originated interaction telemetry | widget code change + JS/unit contracts |
+| `/assistant` HTML GA bootstrap | Google Analytics | `deny` | none on the assistant route | `googletagmanager`, `dataLayer`, `gtag()` on `/assistant` | theme route suppression + local runtime proof |
+| Non-assistant site pages with sitewide GA | Google Analytics | `allow outside assistant scope` | ordinary sitewide GA as separately governed by site policy | assistant-originated telemetry routed through widget/page | hosted `live` `/` curl |
+| New Relic browser/change tracking | New Relic | `deny / keep disabled` | none | all assistant browser RUM/change-tracking data | retired/dormant state remains unchanged |
+
+## Evidence and command summaries
+
+- Code surfaces reviewed:
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/modules/custom/ilas_site_assistant/js/observability.js`
+  - `web/themes/custom/b5subtheme/b5subtheme.theme`
+  - `web/themes/custom/b5subtheme/templates/page/html.html.twig`
+  - `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/SentryOptionsSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+- Focused post-change contract tests:
+  - Command:
+    `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityBrowserAssetContractTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+  - Result: pass (`11 tests`, `89 assertions`)
+  - Summary: assistant widget no longer references `window.dataLayer.push`,
+    theme docs/tests require assistant-route GA suppression, and runtime truth
+    exposes the new assistant-page GA expectation fields.
+- JS widget hardening:
+  - Command:
+    `node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs`
+  - Result: pass (`assistant-widget-hardening: pass=172 fail=0`)
+  - Summary: tracking still emits `/assistant/api/track` plus minimized custom
+    events, but does not write to `window.dataLayer` even when it exists.
+- Local runtime truth:
+  - Command:
+    `ddev drush ilas:runtime-truth`
+  - Summary: `google_tag_id_present=false`; `browser_expected.google_analytics`
+    now includes `assistant_page_suppressed=true`,
+    `assistant_page_loader_expected=false`, and
+    `assistant_page_data_layer_expected=false`.
+- Local `/assistant` browser marker sample:
+  - Command:
+    `curl -skL https://ilas-pantheon.ddev.site/assistant | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer|gtag\\(' -n || true`
+  - Summary: only Sentry/browser markers appeared (`ilasObservability`,
+    `environment":"local"`, `browserEnabled`, `showReportDialog`,
+    `replaySessionSampleRate":0`); no GA markers appeared.
+- Local assistant smoke:
+  - Summary:
+    - `custody forms` -> `navigation` `/forms`
+    - `do you have custody forms` -> `form_finder_clarify`
+    - `where is the Boise office` -> `office_location`
+    - `what office helps me in Twin Falls` -> `office_location`
+    - `eviction forms or guides` -> `navigation` with
+      `decision_reason=clarification_needed`
+- Hosted read-only runtime truth + `/assistant` markers + smoke:
+  - `dev`
+    - Runtime: `pantheon-dev`, release `1d0561d`,
+      `google_tag_id_present=false`, browser Sentry enabled.
+    - `/assistant`: no `googletagmanager`, `dataLayer`, or `gtag()` markers.
+    - Smoke: same five synthetic prompts returned the expected
+      `navigation` / `form_finder_clarify` / `office_location` outputs.
+  - `test`
+    - Runtime: `pantheon-test`, release `test_160`,
+      `google_tag_id_present=false`, browser Sentry enabled.
+    - `/assistant`: no `googletagmanager`, `dataLayer`, or `gtag()` markers.
+    - Smoke: same five synthetic prompts returned the expected
+      `navigation` / `form_finder_clarify` / `office_location` outputs.
+  - `live`
+    - Runtime: `pantheon-live`, release `live_148`,
+      `google_tag_id_present=true`, browser GA tag present, browser Sentry
+      enabled. New assistant-page suppression fields are absent because hosted
+      code has not been deployed yet.
+    - `/assistant`: still shows `googletagmanager`, `dataLayer`, and `gtag()`.
+    - `/`: still shows `googletagmanager`, `dataLayer`, and `gtag()`.
+    - Smoke: same five synthetic prompts still return the expected outputs.
+- Broader validation carried forward from the implementation pass:
+  - `VC-KERNEL`
+    - Result: pass (`76 tests`, `1355 assertions`)
+  - Targeted telemetry PHPUnit bundle
+    - Result: one unrelated failure only in
+      `ObservabilitySurfaceContractTest::testNoRawMessagePlaceholderInProductionCode`
+      because `web/modules/custom/ilas_site_assistant/src/Service/VoyageReranker.php`
+      still contains `'@message'`.
+  - `VC-UNIT`
+    - Result: not green, but failures were unrelated pre-existing dirty-worktree
+      noise:
+      - config completeness drift expects top-level key `voyage`
+      - dependency-closure tests blocked by `active_missing:voyage`
+      - `ObservabilitySurfaceContractTest` failure on `VoyageReranker.php`
+      - `RetrievalColdStartGuardTest` null dereference in `FaqIndex.php`
+
+## Changed files
+
+- `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+- `web/themes/custom/b5subtheme/b5subtheme.theme`
+- `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+- `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityBrowserAssetContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+- `web/modules/custom/ilas_site_assistant/README.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/tooling-observability-vector-remediation-prompt-pack.md`
+- `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+
+## Residual risks / unknowns
+
+- Hosted `live` assistant-page GA suppression is not yet proven because the new
+  repo code has not been deployed there.
+- Sitewide live GA remains present on non-assistant pages by policy; TOVR-15
+  only denies assistant-originated GA/dataLayer telemetry.
+- Broad `VC-UNIT` remains noisy for unrelated reasons in the current dirty
+  worktree, so TOVR-15 closure relies on focused contracts plus runtime proof.
+- No GA property-side account inspection was performed; the boundary decision is
+  enforced from code, rendered HTML, and runtime-truth evidence instead.
+
+## Rollback notes
+
+1. Restore the assistant widget `window.dataLayer.push(...)` behavior only if
+   the team explicitly chooses to reopen assistant telemetry export to GA.
+2. Remove assistant-route `google_tag_id` suppression in
+   `b5subtheme_preprocess_html()` only if the privacy boundary decision is
+   reversed.
+3. Clear Drupal caches and rerun:
+   - `ddev drush ilas:runtime-truth`
+   - local `/assistant` curl marker sample
+   - focused PHPUnit and JS widget hardening
+   - hosted read-only runtime/HTML checks after deploy
+
+## Still-unverified surfaces
+
+- Hosted post-deploy `live` `/assistant` proof on the new code path.
+- Hosted post-deploy runtime truth fields
+  `assistant_page_suppressed`, `assistant_page_loader_expected`, and
+  `assistant_page_data_layer_expected`.
+- Post-deploy confirmation that no assistant-originated telemetry reaches the
+  GA property from the browser in practice; current proof is source/rendered
+  boundary enforcement rather than GA account-side inspection.

@@ -1,0 +1,89 @@
+# TOVR-13 Pinecone Live Readiness Review (2026-03-17)
+
+- Prior status:
+  - `TOVR-12` proved runtime-only vector enablement on `local`, `dev`, and `test`.
+  - `live` remained hard-forced off in `settings.php` and the admin form.
+  - Prompt-level quality proof was still incomplete on the second and third
+    fixed provenance prompts.
+- Final readiness state: `Blocked with explicit evidence`
+- Verification level tag: `repo + hosted runtime read-only + hosted observability + workflow history`
+
+## Live readiness checklist
+
+| Gate | Status | Evidence |
+|---|---|---|
+| Secrets present and effective | `pass` | `ilas:runtime-truth` on `live` shows Pinecone key present, Langfuse enabled with both keys present, Sentry enabled with browser support, release `live_148`, and `llm.enabled=false`. |
+| Indexes healthy and queryable | `pass` | `search-api:status` on `live` shows `faq_accordion_vector` at `883/883` and `assistant_resources_vector` at `152/152`; retrieval health snapshot is `healthy`; `vector_index_hygiene.snapshot` is `healthy` with zero drift and zero remaining items. |
+| Live toggle posture | `blocked by policy` | `ilas:runtime-truth` on `live` still reports `effective_runtime.vector_search.enabled=false`; override channel remains `config export`; `settings.php` still forces `live` off and the assistant settings form still blocks live admin enablement. |
+| Smoke and eval approval coverage | `blocked` | Corrected hosted POST smoke succeeds on `live`, but latest `master` Quality Gate run `23218168501` failed on 2026-03-17 with Promptfoo `failure_kind=connectivity`, `failure_code=invalid_json`, `eval_exit=100`, `pass_rate=98.7`, `74/75` passed. Prompt-level provenance proof still does not show reliable vector gains on prompts 2 and 3. |
+| Sentry visibility for live vector flows | `pass with noise caveat` | Fresh live probe `ilas:sentry-probe` emitted event ID `81775a1f4f834ccab7e7c6cce02d1e7c` on 2026-03-17 22:23:43 UTC. Sentry API also shows a same-evening unresolved synthetic-probe issue (`PHP-2Q`) and the earlier bad-GET smoke noise issue (`PHP-Z`), proving current live PHP capture while also documenting indexing/noise caveats. |
+| Langfuse visibility for live vector flows | `partial` | Fresh live direct probe `ilas:langfuse-probe --direct` returned HTTP `207` with trace ID `a16c0893-f653-4493-ac4b-5dbc30050980` and `3 succeeded, 0 errors`. Repo code now adds vector/lexical retrieval trace metadata, but that trace contract is not yet deployed on hosted `live`, and direct account-side trace lookup is still unavailable from this shell. |
+| Safety and privacy boundaries | `pass` | `live` still has `llm.enabled=false`; `debug_metadata_force_disable=true`; retrieval/Langfuse additions remain metadata-only (hashes, counts, source classes, degraded reasons) and do not add raw user text. |
+| Rollback switch and operator safety | `partial` | No live enablement was executed. Existing safety posture is already rollback-safe because `live` remains forced off. A future live rollout still needs an explicit runtime-only rollback command path plus cache-clear verification captured in the release packet. |
+| Positive monitoring/auth path | `blocked` | `ilas:runtime-truth` on `live` shows `diagnostics_token_present=false`; anonymous `/assistant/api/health` and `/assistant/api/metrics` still deny with `403 access_denied`, so positive live machine-auth monitoring is not currently proven. |
+
+## Evidence summary
+
+- Runtime truth:
+  - Command: `terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth`
+  - Summary: `pantheon-live`, release `live_148`, vector search `false`, Pinecone/Langfuse/Sentry effective, diagnostics token absent, debug metadata force-disable enabled.
+- Pinecone/index health:
+  - Commands:
+    - `terminus remote:drush idaho-legal-aid-services.live -- search-api:status faq_accordion_vector`
+    - `terminus remote:drush idaho-legal-aid-services.live -- search-api:status assistant_resources_vector`
+    - `terminus remote:drush idaho-legal-aid-services.live -- php:eval '$snapshot=Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); ...'`
+    - `terminus remote:drush idaho-legal-aid-services.live -- state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json`
+  - Summary: FAQ vector `883/883`, resource vector `152/152`, retrieval config `healthy`, hygiene snapshot `healthy`.
+- Hosted quality gate:
+  - Command: `gh run list --workflow quality-gate.yml -L 5 --json databaseId,status,conclusion,headBranch,displayTitle,updatedAt`
+  - Summary: latest `master` run `23218168501` updated `2026-03-17T22:01:47Z` and still failed.
+  - Prior detailed gate summary (same run): Promptfoo failed with connectivity / `invalid_json`; PHPUnit gate passed.
+- Sentry:
+  - Commands:
+    - `terminus remote:drush idaho-legal-aid-services.live -- ilas:sentry-probe`
+    - `python3 "$HOME/.codex/skills/sentry/scripts/sentry_api.py" --org idaho-legal-aid-services --project php list-issues --environment pantheon-live --time-range 24h --limit 10 --query 'assistant_name:aila is:unresolved'`
+  - Summary: fresh live probe command emitted event ID `81775a1f4f834ccab7e7c6cce02d1e7c`; issue-list output also shows same-evening synthetic-probe issue `PHP-2Q`; unresolved noise includes `PHP-Z` caused by an earlier invalid GET smoke command.
+- Langfuse:
+  - Command: `terminus remote:drush idaho-legal-aid-services.live -- ilas:langfuse-probe --direct`
+  - Summary: direct probe succeeded with HTTP `207`, trace ID `a16c0893-f653-4493-ac4b-5dbc30050980`, `3 succeeded`, `0 errors`.
+- Repo observability contract:
+  - Files:
+    - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+    - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+    - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - Summary: FAQ/resource retrieval now records privacy-safe request-local telemetry and Langfuse trace metadata now includes `vector_enabled_effective`, `vector_attempted`, `vector_status`, `vector_result_count`, `lexical_result_count`, `source_classes`, `degraded_reason`, and per-operation retrieval summaries.
+
+## Exact prerequisites before any live enablement
+
+1. Clear the current `master` Quality Gate blocker with a green replacement for run `23218168501`.
+2. Either provision `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` on `live` and prove positive machine-auth `/assistant/api/health` + `/assistant/api/metrics`, or formally adopt authenticated `remote:drush ilas:runtime-truth` plus probe commands as the rollout monitoring standard.
+3. Deploy the current repo so hosted `live` traces carry the new vector-specific Langfuse metadata, then prove one live request shows those fields in Langfuse.
+4. Close or explicitly narrow the prompt-level quality gate: prompts 2 and 3 must either show accepted vector recall/relevance improvement or be removed from the rollout acceptance set through written scope change.
+5. Separate embeddings-side timeout governance from the shared/global `ai.settings.request_timeout` before any production rollout approval.
+6. Preserve a runtime-only rollback path for `live` vector enablement and document the exact secret/file toggle plus cache-clear sequence before executing any flip.
+
+## Changed files
+
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+- TOVR-13 documentation updates in `current-state.md`, `evidence-index.md`, `roadmap.md`, `runbook.md`, and `risk-register.md`
+
+## Residual risks and still-unverified surfaces
+
+- Prompts 2 and 3 still do not prove consistent retrieval-quality improvement.
+- Embeddings-side timeout policy is still shared/global.
+- Positive live diagnostics token path is unproven because the token is absent.
+- Hosted live Langfuse account-side proof for the new vector metadata is pending deploy.
+- The latest `master` quality gate is red, so deploy-approval evidence is not yet current.
+
+## Rollback notes
+
+- No live vector enablement was executed in TOVR-13.
+- Current operator-safe state is lexical-only on `live` because `settings.php` still forces `vector_search.enabled=false`.
+- Future live rollback must restore that lexical-only posture through runtime-only toggles, clear Drupal caches, rerun smoke, and rerun Sentry/Langfuse probes.
+
+## Post-enable monitoring summary
+
+- Not applicable. `live` vector search was not enabled in this pass.

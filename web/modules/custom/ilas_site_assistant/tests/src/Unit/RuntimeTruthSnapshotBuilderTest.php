@@ -119,6 +119,10 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertTrue($snapshot['effective_runtime']['sentry']['client_key_present']);
     $this->assertTrue($snapshot['runtime_site_settings']['gemini_api_key_present']);
     $this->assertTrue($snapshot['browser_expected']['google_analytics']['loader_expected']);
+    $this->assertTrue($snapshot['browser_expected']['google_analytics']['assistant_page_suppressed']);
+    $this->assertFalse($snapshot['browser_expected']['google_analytics']['assistant_page_loader_expected']);
+    $this->assertFalse($snapshot['browser_expected']['google_analytics']['assistant_page_data_layer_expected']);
+    $this->assertSame('settings.php live branch', $snapshot['override_channels']['vector_search.enabled']);
     $this->assertSame('settings.php secret -> getenv/pantheon_get_secret', $snapshot['override_channels']['langfuse.enabled']);
 
     $divergenceFields = array_column($snapshot['divergences'], 'field');
@@ -152,6 +156,148 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->expectException(\RuntimeException::class);
     $this->expectExceptionMessage('ilas_site_assistant.settings');
     $builder->buildSnapshot();
+  }
+
+  /**
+   * Vector runtime enablement reports the runtime toggle as authoritative.
+   */
+  public function testBuildSnapshotReportsVectorRuntimeToggleOverride(): void {
+    new Settings([
+      'ilas_observability' => [
+        'environment' => 'dev',
+        'pantheon_environment' => 'dev',
+      ],
+      'ilas_vector_search_override_channel' => 'settings.php runtime toggle -> getenv/pantheon_get_secret',
+    ]);
+
+    $syncStorage = new MemoryStorage();
+    $syncStorage->write('ilas_site_assistant.settings', [
+      'llm' => [
+        'enabled' => FALSE,
+      ],
+      'vector_search' => [
+        'enabled' => FALSE,
+      ],
+      'langfuse' => [
+        'enabled' => FALSE,
+        'public_key' => '',
+        'secret_key' => '',
+        'environment' => '',
+        'sample_rate' => 0.0,
+      ],
+    ]);
+    $syncStorage->write('key.key.pinecone_api_key', [
+      'key_provider_settings' => [
+        'key_value' => '',
+      ],
+    ]);
+
+    $builder = new RuntimeTruthSnapshotBuilder($this->buildConfigFactory([
+      'ilas_site_assistant.settings' => [
+        'llm.enabled' => FALSE,
+        'vector_search.enabled' => TRUE,
+        'langfuse.enabled' => FALSE,
+        'langfuse.public_key' => '',
+        'langfuse.secret_key' => '',
+        'langfuse.environment' => '',
+        'langfuse.sample_rate' => 0.0,
+      ],
+      'raven.settings' => [],
+      'key.key.pinecone_api_key' => [
+        'key_provider_settings' => [
+          'key_value' => '',
+        ],
+      ],
+    ]), $syncStorage);
+
+    $snapshot = $builder->buildSnapshot();
+
+    $this->assertSame(
+      'settings.php runtime toggle -> getenv/pantheon_get_secret',
+      $snapshot['override_channels']['vector_search.enabled'],
+    );
+
+    $vectorDivergence = array_values(array_filter(
+      $snapshot['divergences'],
+      static fn(array $divergence): bool => $divergence['field'] === 'vector_search.enabled',
+    ));
+    $this->assertCount(1, $vectorDivergence);
+    $this->assertSame(FALSE, $vectorDivergence[0]['stored_value']);
+    $this->assertSame(TRUE, $vectorDivergence[0]['effective_value']);
+    $this->assertSame(
+      'settings.php runtime toggle -> getenv/pantheon_get_secret',
+      $vectorDivergence[0]['authoritative_source'],
+    );
+  }
+
+  /**
+   * Private flag file fallback reports the file-based override channel.
+   */
+  public function testBuildSnapshotReportsVectorPrivateFlagFileOverride(): void {
+    new Settings([
+      'ilas_observability' => [
+        'environment' => 'test',
+        'pantheon_environment' => 'test',
+      ],
+      'ilas_vector_search_override_channel' => 'settings.php runtime toggle -> private flag file',
+    ]);
+
+    $syncStorage = new MemoryStorage();
+    $syncStorage->write('ilas_site_assistant.settings', [
+      'llm' => [
+        'enabled' => FALSE,
+      ],
+      'vector_search' => [
+        'enabled' => FALSE,
+      ],
+      'langfuse' => [
+        'enabled' => FALSE,
+        'public_key' => '',
+        'secret_key' => '',
+        'environment' => '',
+        'sample_rate' => 0.0,
+      ],
+    ]);
+    $syncStorage->write('key.key.pinecone_api_key', [
+      'key_provider_settings' => [
+        'key_value' => '',
+      ],
+    ]);
+
+    $builder = new RuntimeTruthSnapshotBuilder($this->buildConfigFactory([
+      'ilas_site_assistant.settings' => [
+        'llm.enabled' => FALSE,
+        'vector_search.enabled' => TRUE,
+        'langfuse.enabled' => FALSE,
+        'langfuse.public_key' => '',
+        'langfuse.secret_key' => '',
+        'langfuse.environment' => '',
+        'langfuse.sample_rate' => 0.0,
+      ],
+      'raven.settings' => [],
+      'key.key.pinecone_api_key' => [
+        'key_provider_settings' => [
+          'key_value' => '',
+        ],
+      ],
+    ]), $syncStorage);
+
+    $snapshot = $builder->buildSnapshot();
+
+    $this->assertSame(
+      'settings.php runtime toggle -> private flag file',
+      $snapshot['override_channels']['vector_search.enabled'],
+    );
+
+    $vectorDivergence = array_values(array_filter(
+      $snapshot['divergences'],
+      static fn(array $divergence): bool => $divergence['field'] === 'vector_search.enabled',
+    ));
+    $this->assertCount(1, $vectorDivergence);
+    $this->assertSame(
+      'settings.php runtime toggle -> private flag file',
+      $vectorDivergence[0]['authoritative_source'],
+    );
   }
 
   /**

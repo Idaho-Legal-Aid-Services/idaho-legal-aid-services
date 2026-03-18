@@ -44,6 +44,8 @@ class RuntimeTruthDocumentationGuardTest extends TestCase {
     $this->assertStringContainsString('Stored-config-only habits to avoid', $runbook);
     $this->assertStringContainsString('config:get raven.settings', $runbook);
     $this->assertStringContainsString('config:get langfuse.settings', $runbook);
+    $this->assertStringContainsString('assistant_page_suppressed=true', $runbook);
+    $this->assertStringContainsString('assistant-route GA suppression', $runbook);
   }
 
   /**
@@ -59,10 +61,12 @@ class RuntimeTruthDocumentationGuardTest extends TestCase {
     $this->assertNotEmpty($pantheonMatch['command'] ?? '');
 
     $this->assertStringContainsString('ddev drush ilas:runtime-truth', $localMatch['command']);
+    $this->assertStringContainsString('gtag\\\\(', $localMatch['command']);
     $this->assertStringNotContainsString('php:eval', $localMatch['command']);
     $this->assertStringNotContainsString('config:get', $localMatch['command']);
 
     $this->assertStringContainsString('terminus remote:drush idaho-legal-aid-services.$ENV -- ilas:runtime-truth', $pantheonMatch['command']);
+    $this->assertStringContainsString('gtag\\\\(', $pantheonMatch['command']);
     $this->assertStringNotContainsString('php:eval', $pantheonMatch['command']);
     $this->assertStringNotContainsString('config:get', $pantheonMatch['command']);
   }

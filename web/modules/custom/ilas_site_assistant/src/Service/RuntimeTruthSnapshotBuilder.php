@@ -204,6 +204,9 @@ class RuntimeTruthSnapshotBuilder {
         'tag_present' => $gaTagPresent,
         'loader_expected' => $gaTagPresent,
         'data_layer_expected' => $gaTagPresent,
+        'assistant_page_suppressed' => TRUE,
+        'assistant_page_loader_expected' => FALSE,
+        'assistant_page_data_layer_expected' => FALSE,
       ],
     ];
   }

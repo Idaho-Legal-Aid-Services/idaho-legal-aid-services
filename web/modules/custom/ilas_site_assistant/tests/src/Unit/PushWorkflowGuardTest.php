@@ -48,7 +48,11 @@ final class PushWorkflowGuardTest extends TestCase {
     $package = self::readFile('package.json');
 
     $this->assertStringContainsString('bash scripts/ci/install-pre-push-strict-hook.sh', $runbook);
+    $this->assertStringContainsString('.git/hooks/pre-commit', $runbook);
+    $this->assertStringContainsString('The pre-commit hook runs only on local `master`', $runbook);
+    $this->assertStringContainsString('`github/master` is ahead or diverged', $runbook);
     $this->assertStringContainsString('git status --short --branch', $runbook);
+    $this->assertStringContainsString('git branch backup/recovery-<timestamp> master', $runbook);
     $this->assertStringContainsString('npm run git:publish', $runbook);
     $this->assertStringContainsString('npm run git:finish', $runbook);
     $this->assertStringContainsString('npm run git:sync-master', $runbook);
@@ -70,10 +74,20 @@ final class PushWorkflowGuardTest extends TestCase {
    * Strict pre-push scripts must exist and wire required gate commands.
    */
   public function testStrictPrePushScriptsExistAndContainRequiredCommands(): void {
+    $preCommitHook = self::readFile('scripts/ci/pre-commit-master-sync.sh');
     $strictHook = self::readFile('scripts/ci/pre-push-strict.sh');
     $installer = self::readFile('scripts/ci/install-pre-push-strict-hook.sh');
     $publishHelper = self::readFile('scripts/git/publish.sh');
     $finishHelper = self::readFile('scripts/git/finish.sh');
+    $syncHelper = self::readFile('scripts/git/sync-master.sh');
+
+    $this->assertStringContainsString('fetch_remote "github"', $preCommitHook);
+    $this->assertStringContainsString('describe_remote_status "github" "$CURRENT_BRANCH"', $preCommitHook);
+    $this->assertStringContainsString('Local master is stale; github/master is ahead by', $preCommitHook);
+    $this->assertStringContainsString('Local master diverged from github/master.', $preCommitHook);
+    $this->assertStringContainsString('Run: npm run git:sync-master', $preCommitHook);
+    $this->assertStringContainsString('git cherry-pick <local-master-commit>', $preCommitHook);
+    $this->assertStringContainsString('github/master is required for commits on local master.', $preCommitHook);
 
     $this->assertStringContainsString('scripts/git/common.sh', $strictHook);
     $this->assertStringContainsString('scripts/git/sync-check.sh', $strictHook);
@@ -83,6 +97,9 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('Running Composer installability parity check...', $strictHook);
     $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $strictHook);
     $this->assertStringContainsString("mirrors the GitHub 'Install Composer dependencies' step", $strictHook);
+    $this->assertStringContainsString('Running PHPUnit pure-unit parity gate (VC-PURE)...', $strictHook);
+    $this->assertStringContainsString('vendor/bin/phpunit -c phpunit.pure.xml --colors=always', $strictHook);
+    $this->assertStringContainsString("mirrors the GitHub 'Run PHPUnit pure-unit tests (VC-PURE)' step", $strictHook);
     $this->assertStringContainsString('run-quality-gate.sh', $strictHook);
     $this->assertStringContainsString('resolve_promptfoo_branch', $strictHook);
     $this->assertStringContainsString('is_effective_target_branch', $strictHook);
@@ -99,12 +116,17 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('REMOTE_URL', $strictHook);
 
     $this->assertStringContainsString('.git/hooks/pre-push', $installer);
+    $this->assertStringContainsString('.git/hooks/pre-commit', $installer);
+    $this->assertStringContainsString('pre-commit-master-sync.sh', $installer);
     $this->assertStringContainsString('pre-push-strict.sh', $installer);
     $this->assertStringContainsString('git status --short --branch', $installer);
+    $this->assertStringContainsString('npm run git:sync-master', $installer);
     $this->assertStringContainsString('npm run git:publish', $installer);
     $this->assertStringContainsString('npm run git:finish', $installer);
     $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $installer);
     $this->assertStringContainsString("mirroring the GitHub 'Install Composer dependencies' step", $installer);
+    $this->assertStringContainsString('vendor/bin/phpunit -c phpunit.pure.xml --colors=always', $installer);
+    $this->assertStringContainsString("mirroring the GitHub 'Run PHPUnit pure-unit tests (VC-PURE)' step", $installer);
     $this->assertStringContainsString('using the pushed target branch for blocking/advisory policy', $installer);
     $this->assertStringContainsString('requires local DDEV exact-code evals for synced origin/master deploy pushes', $installer);
     $this->assertStringContainsString('Do not wait on stale PR numbers from earlier publishes.', $installer);
@@ -114,12 +136,14 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('gh pr create', $publishHelper);
     $this->assertStringContainsString('npm run git:finish', $publishHelper);
     $this->assertStringContainsString('npm run git:sync-master', $publishHelper);
+    $this->assertStringContainsString('preserve and restack them onto github/master', $publishHelper);
     $this->assertStringContainsString('npm run git:publish -- --origin-only', $publishHelper);
     $this->assertStringContainsString('through the local DDEV deploy gate', $publishHelper);
 
-    $syncHelper = self::readFile('scripts/git/sync-master.sh');
     $this->assertStringContainsString('Syncing local master from github/master', $syncHelper);
     $this->assertStringContainsString('github/master does not yet include local master', $syncHelper);
+    $this->assertStringContainsString('git branch backup/recovery-<timestamp> master', $syncHelper);
+    $this->assertStringContainsString('After restacking, rerun: npm run git:sync-master', $syncHelper);
     $this->assertStringContainsString('Pantheon is behind. Deploy with: npm run git:publish -- --origin-only', $syncHelper);
 
     $this->assertStringContainsString('gh pr checks', $finishHelper);

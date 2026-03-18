@@ -111,6 +111,9 @@
             },
             "drupal/gemini_provider": {
                 "Use v1beta API for embedding model support + gemini-embedding-001 vector size": "patches/gemini-provider-v1beta.patch"
+            },
+            "drupal/ai_vdb_provider_pinecone": {
+                "Add query-only Pinecone timeout client and config controls": "patches/ai-vdb-provider-pinecone-query-timeouts.patch"
             }
         },
         "compile-mode": "all",

@@ -1,5 +1,5 @@
 {
-    "_hash": "f1bde3d9180d7dcdefe286d55a7bfd5935c823ce5a6239fae086e62be5b8de17",
+    "_hash": "e5eb241897fb74dd4d514f6ab8799725bb0901b1689318a26557c3125dc71daa",
     "patches": {
         "drupal/core": [
             {
@@ -43,6 +43,18 @@
                 "description": "Use v1beta API for embedding model support + gemini-embedding-001 vector size",
                 "url": "patches/gemini-provider-v1beta.patch",
                 "sha256": "f454f1dd1de2ecdd124e516c9191db9013a6a6cda085ff6e31f55d898c020308",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ],
+        "drupal/ai_vdb_provider_pinecone": [
+            {
+                "package": "drupal/ai_vdb_provider_pinecone",
+                "description": "Add query-only Pinecone timeout client and config controls",
+                "url": "patches/ai-vdb-provider-pinecone-query-timeouts.patch",
+                "sha256": "935462ab509b34f9549d9f3b70c65956d73d580fe5c966fc03804d2cc3ba4f92",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"

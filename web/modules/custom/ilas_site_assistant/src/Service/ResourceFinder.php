@@ -106,6 +106,13 @@ class ResourceFinder {
   protected $index;
 
   /**
+   * Request-local retrieval telemetry summaries for observability traces.
+   *
+   * @var array<int, array<string, mixed>>
+   */
+  protected array $retrievalTelemetry = [];
+
+  /**
    * The source freshness/provenance governance service.
    *
    * @var \Drupal\ilas_site_assistant\Service\SourceGovernanceService|null
@@ -459,6 +466,19 @@ class ResourceFinder {
     if ($cache_key) {
       $cached = $this->cache->get($cache_key);
       if ($cached) {
+        $this->recordRetrievalTelemetry(
+          $query,
+          $type,
+          is_array($cached->data) ? $cached->data : [],
+          [
+            'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+            'should_attempt' => NULL,
+            'reason' => 'query_cache_hit',
+          ],
+          $this->buildVectorOutcome(FALSE, 'cached', 'query_cache_hit'),
+          'query_cache',
+          TRUE,
+        );
         return $cached->data;
       }
     }
@@ -475,6 +495,14 @@ class ResourceFinder {
           'config:ilas_site_assistant.settings',
         ]);
       }
+      $this->recordRetrievalTelemetry(
+        $query,
+        $type,
+        $results,
+        $search_payload['decision'] ?? NULL,
+        $search_payload['vector_outcome'] ?? NULL,
+        'search_api',
+      );
       return $results;
     }
 
@@ -486,7 +514,31 @@ class ResourceFinder {
         'config:ilas_site_assistant.settings',
       ]);
     }
+    $this->recordRetrievalTelemetry(
+      $query,
+      $type,
+      $results,
+      [
+        'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+        'should_attempt' => FALSE,
+        'reason' => 'lexical_index_unavailable',
+      ],
+      $this->buildVectorOutcome(FALSE, 'not_evaluated', 'lexical_index_unavailable'),
+      'legacy',
+    );
     return $results;
+  }
+
+  /**
+   * Returns and clears request-local retrieval telemetry summaries.
+   *
+   * @return array<int, array<string, mixed>>
+   *   Buffered retrieval telemetry rows.
+   */
+  public function drainRetrievalTelemetry(): array {
+    $telemetry = $this->retrievalTelemetry;
+    $this->retrievalTelemetry = [];
+    return $telemetry;
   }
 
   /**
@@ -501,6 +553,71 @@ class ResourceFinder {
     $type_token = $type ?: 'all';
     $hash = hash('sha256', $sanitized . '|' . $type_token . '|' . $limit . '|' . $langcode);
     return 'resources.search:' . $hash;
+  }
+
+  /**
+   * Records privacy-safe retrieval telemetry for request-scoped tracing.
+   */
+  protected function recordRetrievalTelemetry(
+    string $query,
+    ?string $type,
+    array $items,
+    ?array $decision,
+    ?array $vector_outcome,
+    string $path,
+    bool $cache_hit = FALSE,
+  ): void {
+    $query_metadata = ObservabilityPayloadMinimizer::buildTextMetadata($query);
+    $source_classes = [];
+    $lexical_result_count = 0;
+    $vector_result_count = 0;
+
+    foreach ($items as $item) {
+      $source_class = isset($item['source_class']) && is_string($item['source_class'])
+        ? $item['source_class']
+        : NULL;
+      if ($source_class !== NULL && $source_class !== '') {
+        $source_classes[$source_class] = TRUE;
+      }
+
+      $is_vector = FALSE;
+      if ($source_class !== NULL) {
+        $is_vector = str_ends_with($source_class, '_vector');
+      }
+      elseif (($item['source'] ?? 'lexical') === 'vector') {
+        $is_vector = TRUE;
+      }
+
+      if ($is_vector) {
+        $vector_result_count++;
+      }
+      else {
+        $lexical_result_count++;
+      }
+    }
+
+    $vector_outcome = $vector_outcome ?? $this->buildVectorOutcome(FALSE, 'not_evaluated', 'not_evaluated');
+    $this->retrievalTelemetry[] = [
+      'service' => 'resource',
+      'path' => $path,
+      'cache_hit' => $cache_hit,
+      'type_filter' => $type ?? 'all',
+      'query_hash' => $query_metadata['text_hash'],
+      'query_length_bucket' => $query_metadata['length_bucket'],
+      'query_redaction_profile' => $query_metadata['redaction_profile'],
+      'vector_enabled_effective' => (bool) (($decision['enabled'] ?? $this->getVectorSearchConfig()['enabled']) ?? FALSE),
+      'vector_attempted' => (bool) ($vector_outcome['attempted'] ?? FALSE),
+      'vector_status' => (string) ($vector_outcome['status'] ?? 'not_evaluated'),
+      'vector_decision_reason' => $decision['reason'] ?? 'not_evaluated',
+      'degraded_reason' => in_array(($vector_outcome['status'] ?? ''), ['degraded', 'backoff'], TRUE)
+        ? ($vector_outcome['reason'] ?? 'degraded')
+        : NULL,
+      'vector_elapsed_ms' => isset($vector_outcome['elapsed_ms']) ? (int) $vector_outcome['elapsed_ms'] : NULL,
+      'result_count' => count($items),
+      'lexical_result_count' => $lexical_result_count,
+      'vector_result_count' => $vector_result_count,
+      'source_classes' => array_keys($source_classes),
+    ];
   }
 
   /**

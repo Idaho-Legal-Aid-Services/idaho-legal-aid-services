@@ -183,6 +183,13 @@ if ! composer install --no-interaction --no-progress --prefer-dist --dry-run; th
   exit 1
 fi
 
+echo "Running PHPUnit pure-unit parity gate (VC-PURE)..."
+if ! vendor/bin/phpunit -c phpunit.pure.xml --colors=always; then
+  echo "ERROR: VC-PURE failed." >&2
+  echo "This mirrors the GitHub 'Run PHPUnit pure-unit tests (VC-PURE)' step." >&2
+  exit 1
+fi
+
 echo "Running module quality gate..."
 bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh
 

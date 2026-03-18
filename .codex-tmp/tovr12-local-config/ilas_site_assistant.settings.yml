@@ -1,0 +1,257 @@
+_core:
+  default_config_hash: 4_eQdtnPp7JizBul8ADHBdQ1xXv7UedEdHv-GG3ayLA
+disclaimer_text: 'I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'
+enable_global_widget: true
+enable_faq: true
+enable_resources: true
+enable_logging: true
+log_retention_days: 90
+excluded_paths:
+  - /admin
+  - /user/login
+  - /user/password
+canonical_urls:
+  apply: /apply-for-help
+  hotline: /Legal-Advice-Line
+  offices: /contact/offices
+  donate: /donate
+  feedback: /get-involved/feedback
+  resources: /what-we-do/resources
+  forms: /forms
+  guides: /guides
+  senior_risk_detector: /resources/legal-risk-detector
+  faq: /faq
+  services: /services
+  service_areas:
+    housing: /legal-help/housing
+    family: /legal-help/family
+    seniors: /legal-help/seniors
+    health: /legal-help/health
+    consumer: /legal-help/consumer
+    civil_rights: /legal-help/civil-rights
+faq_node_path: /faq
+welcome_message: 'Hello! I can help you find information on our website. What are you looking for today?'
+escalation_message: 'For personalized legal assistance, please contact our Legal Advice Line or apply for help.'
+rate_limit_per_minute: 15
+rate_limit_per_hour: 120
+session_bootstrap:
+  rate_limit_per_minute: 60
+  rate_limit_per_hour: 600
+  observation_window_hours: 24
+read_endpoint_rate_limits:
+  suggest:
+    rate_limit_per_minute: 120
+    rate_limit_per_hour: 1200
+  faq:
+    rate_limit_per_minute: 60
+    rate_limit_per_hour: 600
+conversation_logging:
+  enabled: false
+  retention_hours: 72
+  redact_pii: true
+  show_user_notice: true
+llm:
+  enabled: false
+  provider: gemini_api
+  model: gemini-1.5-flash
+  api_key: '' # Runtime-only via ILAS_GEMINI_API_KEY; config export must stay blank.
+  project_id: ''
+  location: us-central1
+  max_tokens: 150
+  temperature: 0.3
+  enhance_faq: true
+  enhance_resources: true
+  enhance_greetings: false
+  fallback_on_error: true
+  safety_threshold: BLOCK_MEDIUM_AND_ABOVE
+  cache_ttl: 3600
+  max_retries: 1
+  circuit_breaker:
+    failure_threshold: 3
+    failure_window_seconds: 60
+    cooldown_seconds: 300
+  global_rate_limit:
+    max_per_hour: 500
+    window_seconds: 3600
+fallback_gate:
+  thresholds:
+    intent_high_conf: 0.85
+    intent_medium_conf: 0.65
+    intent_low_conf: 0.40
+    retrieval_high_score: 0.75
+    retrieval_medium_score: 0.50
+    retrieval_low_score: 0.30
+    retrieval_score_gap_high: 0.25
+    retrieval_score_gap_low: 0.10
+    retrieval_min_results: 1
+    combined_high_conf: 0.80
+    combined_fallback_threshold: 0.50
+    short_message_words: 3
+    ambiguous_message_words: 2
+retrieval:
+  faq_index_id: faq_accordion
+  resource_index_id: assistant_resources
+  resource_fallback_index_id: content
+  faq_vector_index_id: faq_accordion_vector
+  resource_vector_index_id: assistant_resources_vector
+vector_search:
+  enabled: false
+  fallback_threshold: 2
+  min_vector_score: 0.7
+  score_normalization_factor: 100
+  min_lexical_score: 0
+retrieval_contract:
+  policy_version: 'phard_06_v1'
+  enforcement_mode: 'advisory'
+  lexical_priority_boost: 5
+  min_lexical_preserved: 1
+  approved_source_classes:
+    - 'faq_lexical'
+    - 'faq_vector'
+    - 'resource_lexical'
+    - 'resource_vector'
+  primary_source_classes:
+    - 'faq_lexical'
+    - 'resource_lexical'
+  supplement_source_classes:
+    - 'faq_vector'
+    - 'resource_vector'
+safety_alerting:
+  enabled: false
+  threshold: 20
+  window_hours: 1
+  cooldown_minutes: 60
+  recipients: ''
+history_fallback:
+  enabled: true
+  max_turns: 6
+  time_window_sec: 600
+  dominance_threshold: 0.5
+  min_eligible_turns: 1
+ab_testing:
+  enabled: false
+  experiments:
+    - id: welcome_v2
+      variants:
+        - control
+        - expanded_welcome
+      allocation:
+        - 50
+        - 50
+langfuse:
+  enabled: false
+  host: 'https://us.cloud.langfuse.com'
+  public_key: ''
+  secret_key: ''
+  sample_rate: 1.0
+  environment: production
+  timeout: 5.0
+  max_queue_depth: 10000
+  max_item_age_seconds: 3600
+slo:
+  availability_target_pct: 99.5
+  latency_p95_target_ms: 2000
+  latency_p99_target_ms: 5000
+  error_rate_target_pct: 5.0
+  error_budget_window_hours: 168
+  cron_max_age_seconds: 7200
+  cron_expected_cadence_seconds: 3600
+  queue_max_depth: 10000
+  queue_max_age_seconds: 3600
+
+source_governance:
+  enabled: true
+  policy_version: 'p2_obj_03_v1'
+  observation_window_hours: 24
+  stale_ratio_alert_pct: 18.0
+  min_observations: 20
+  unknown_ratio_degrade_pct: 22.0
+  missing_source_url_ratio_degrade_pct: 9.0
+  alert_cooldown_minutes: 60
+  source_classes:
+    faq_lexical:
+      provenance_label: 'search_api.index.faq_accordion'
+      owner_role: 'Content Operations Lead'
+      max_age_days: 180
+      require_source_url: true
+    faq_vector:
+      provenance_label: 'search_api.index.faq_accordion_vector'
+      owner_role: 'Content Operations Lead'
+      max_age_days: 180
+      require_source_url: true
+    resource_lexical:
+      provenance_label: 'search_api.index.assistant_resources'
+      owner_role: 'Content Operations Lead'
+      max_age_days: 180
+      require_source_url: true
+    resource_vector:
+      provenance_label: 'search_api.index.assistant_resources_vector'
+      owner_role: 'Content Operations Lead'
+      max_age_days: 180
+      require_source_url: true
+
+vector_index_hygiene:
+  enabled: true
+  policy_version: 'p2_del_03_v1'
+  refresh_mode: 'incremental'
+  refresh_interval_hours: 24
+  overdue_grace_minutes: 45
+  max_items_per_run: 60
+  alert_cooldown_minutes: 60
+  managed_indexes:
+    faq_vector:
+      owner_role: 'Content Operations Lead'
+      expected_server_id: 'pinecone_vector'
+      expected_metric: 'cosine_similarity'
+      expected_dimensions: 3072
+    resource_vector:
+      owner_role: 'Content Operations Lead'
+      expected_server_id: 'pinecone_vector'
+      expected_metric: 'cosine_similarity'
+      expected_dimensions: 3072
+
+audit_governance:
+  audit_domain_classes:
+    - legal_advice
+    - document_drafting
+    - criminal
+    - immigration
+    - external
+  audit_domain_event_types:
+    - safety_violation
+    - policy_violation
+    - out_of_scope
+    - post_gen_safety_legal_advice
+    - post_gen_safety_review_flag
+  report_cadence_days: 30
+  report_required_permission: 'view ilas site assistant reports'
+  signoff_required_permission: 'approve ilas site assistant audit'
+  report_retention_days: 365
+  signoff_deadline_days: 14
+
+review_loop:
+  owner_role: 'Content Manager + SRE/Platform Engineer'
+  cadence: 'Weekly'
+  scope:
+    - 'No-answer and generic-answer trends'
+    - 'User feedback satisfaction rate and volume'
+    - 'Safety violation counts and post-generation outcomes'
+    - 'Top content gaps from no-answer fingerprints'
+    - 'Grounding refusal frequency'
+  escalation_path: 'Content Manager -> Drupal Lead -> Product Owner'
+  artifact_location: 'docs/aila/runtime/phard-05-search-quality-review.txt'
+
+cost_control:
+  daily_call_limit: 5000
+  monthly_call_limit: 100000
+  per_ip_hourly_call_limit: 10
+  per_ip_window_seconds: 3600
+  sample_rate: 1.0
+  cache_hit_rate_target: 0.30
+  cache_stats_window_seconds: 86400
+  manual_kill_switch: false
+  pricing:
+    model: 'gemini-1.5-flash'
+    input_per_1m_tokens: 0.075
+    output_per_1m_tokens: 0.30
+  alert_cooldown_minutes: 60

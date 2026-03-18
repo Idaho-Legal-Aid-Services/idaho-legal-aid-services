@@ -46,4 +46,28 @@ class ObservabilityBrowserAssetContractTest extends TestCase {
     $this->assertStringContainsString("browser_traces_sample_rate", $module);
   }
 
+  /**
+   * Tests assistant tracking stays out of GA/dataLayer.
+   */
+  public function testAssistantWidgetDoesNotPushToDataLayer(): void {
+    $script = file_get_contents(self::repoRoot() . '/web/modules/custom/ilas_site_assistant/js/assistant-widget.js');
+
+    $this->assertIsString($script);
+    $this->assertStringNotContainsString('window.dataLayer.push', $script);
+    $this->assertStringContainsString('this.emitAssistantAction(eventType, eventValue, metadata);', $script);
+    $this->assertStringContainsString('return this.callTrackApi({', $script);
+  }
+
+  /**
+   * Tests the theme suppresses GA bootstrap on the assistant page route.
+   */
+  public function testThemeSuppressesGoogleTagOnAssistantPage(): void {
+    $theme = file_get_contents(self::repoRoot() . '/web/themes/custom/b5subtheme/b5subtheme.theme');
+
+    $this->assertIsString($theme);
+    $this->assertStringContainsString("ilas_site_assistant.page", $theme);
+    $this->assertStringContainsString("? NULL", $theme);
+    $this->assertStringContainsString("Settings::get('google_tag_id')", $theme);
+  }
+
 }

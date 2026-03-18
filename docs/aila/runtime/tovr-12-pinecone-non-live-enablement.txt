@@ -1,0 +1,267 @@
+TOVR-12 Pinecone Non-Live Enablement
+====================================
+
+Prompt ID: TOVR-12
+Roadmap item: Tooling + Pinecone remediation -> Pinecone enablement #4
+Verification level tag: Complete / code-changed / local-enabled / dev-enabled / test-enabled / live-blocked
+Created: 2026-03-17
+Last updated: 2026-03-17T22:01:14Z
+
+1. Prior status by environment
+------------------------------
+
+Local before repair / enablement
+
+- `ilas:runtime-truth` reported stored and effective
+  `vector_search.enabled=false`.
+- `updatedb:status` reported pending `ilas_site_assistant` updates
+  `10008`, `10009`, and `10010`.
+- Active retrieval governance was degraded because `retrieval.*` resolved to
+  `null`.
+- `search-api:list` lacked the canonical lexical indexes
+  `faq_accordion` and `assistant_resources`.
+- Direct vector queries failed with the AI provider `ProviderProxy`
+  unregistered-caller error.
+
+Dev before enablement
+
+- Pinecone and Gemini runtime secrets were present.
+- Retrieval health and vector-index hygiene were healthy.
+- Effective runtime still reported `vector_search.enabled=false`.
+- Active Pinecone provider config did not yet include the TOVR-11 query timeout
+  keys.
+
+Test before enablement
+
+- Pinecone and Gemini runtime secrets were present.
+- Retrieval health and vector-index hygiene were healthy.
+- Effective runtime still reported `vector_search.enabled=false`.
+- A site-level falsey `ILAS_VECTOR_SEARCH_ENABLED` value on Pantheon prevented
+  the existing private-file fallback from running, so runtime truth stayed on
+  `config export`.
+
+Live
+
+- Out of scope in TOVR-12.
+- `settings.php` still hard-forces `vector_search.enabled=FALSE` on `live`.
+
+2. Exact enablement steps
+-------------------------
+
+Repo/runtime controls
+
+- Added runtime-only `ILAS_VECTOR_SEARCH_ENABLED` handling in
+  `web/sites/default/settings.php`.
+- Kept sync config safe-by-default with `vector_search.enabled=false`.
+- Forced `live` back to `FALSE` even if the runtime toggle is set.
+- Extended `AssistantSettingsForm` so `live` displays vector enablement as
+  forced off and coerces submissions back to `FALSE`.
+- Updated runtime-truth reporting so `vector_search.enabled` reports the real
+  authority channel (`config export`, runtime toggle, or `live` branch).
+- Added promptfoo provenance metrics and the repo-owned
+  `scripts/ci/run-vector-provenance-smoke.js` helper.
+- Added language-path filtering in `FaqIndex` and `ResourceFinder` so enabled
+  vector retrieval does not surface cross-language translation ghosts.
+- Fixed the `dev` / `test` precedence bug in `settings.php`: the private flag
+  file is now checked whenever vector search is still effectively disabled,
+  not only when the secret is absent.
+
+Local repair and enablement
+
+1. Ran `ddev drush updatedb -y` to apply `10008`, `10009`, and `10010`.
+2. Imported the local Pinecone/retrieval parity config with partial
+   `config:import`.
+3. Rebuilt caches with `ddev drush cr`.
+4. Confirmed:
+   - `retrieval.*` was populated again
+   - lexical indexes were present again
+   - `key.key.gemini_api_key` used `ilas_runtime_site_setting`
+   - `ai_vdb_provider_pinecone.settings` contained
+     `query_connect_timeout_seconds=1.0` and
+     `query_request_timeout_seconds=2.0`
+5. Enabled local vector supplementation only through `.ddev/.env` by setting
+   `ILAS_VECTOR_SEARCH_ENABLED=1`, then restarted DDEV.
+
+Hosted rollout
+
+- Published the `test` precedence fix as GitHub PR `#22`
+  (`Allow test vector flag file override`).
+- PR `#22` passed `Analyze (actions)`, `Analyze (javascript-typescript)`,
+  `CodeQL`, `GitGuardian Security Checks`, `PHPUnit Quality Gate`, and
+  `Promptfoo Gate`.
+- PR `#22` merged to `github/master` at `2026-03-17T21:54:18Z` with merge
+  commit `1d0561dd1d7a48c7bf3b5677594c8ebed903b854`.
+- Pushed the same one-line precedence fix to Pantheon `origin/master` before
+  merge so the non-live verification could proceed without waiting on the
+  hosted gate.
+- Verified Pantheon `dev` first on release `5e6e879`, then resynced Pantheon
+  `origin/master` to merged release `1d0561d`.
+- Promoted code from `dev` to `test`; verified Pantheon `test` on release
+  `test_160`.
+
+3. Post-change status by environment
+------------------------------------
+
+Local after enablement
+
+- `ilas:runtime-truth` reports stored `vector_search.enabled=false` and
+  effective `true` via
+  `settings.php runtime toggle -> getenv/pantheon_get_secret`.
+- `updatedb:status` reports no pending updates.
+- `search-api:list` includes lexical plus vector indexes.
+- Direct local vector queries now succeed.
+- Local control prompts stayed on lexical-first navigation / clarify / office
+  paths.
+
+Dev after enablement
+
+- `ilas:runtime-truth` reports release `1d0561d`, stored
+  `vector_search.enabled=false`, and effective `true` via
+  `settings.php runtime toggle -> getenv/pantheon_get_secret`.
+- Retrieval health is `healthy`.
+- Vector-index hygiene is `healthy`.
+- Fixed provenance prompt results:
+  - `what are idaho tenant rights for eviction notices`
+    - `response_mode=answer`
+    - `reason_code=faq_match_found`
+    - `source_classes=["faq_lexical","faq_vector"]`
+    - `vector_result_count=1`
+    - `lexical_result_count=1`
+  - `im raising my granddaughter because my daughter is on drugs... what are my legal options`
+    - `response_mode=answer`
+    - `reason_code=faq_match_found`
+    - no result provenance surfaced in the payload
+  - `is there any way to get my car back`
+    - `response_mode=clarify`
+    - `reason_code=clarification_needed`
+- Control prompts stayed lexical-first:
+  - `custody forms` -> `navigate`, `navigation_page_match`
+  - `do you have custody forms` -> `clarify`, `resource_match_found`
+  - `where is the Boise office` -> `navigate`, `office_detail_requested`
+  - `what office helps me in Twin Falls` -> `navigate`, `office_detail_requested`
+  - `eviction forms or guides` -> `clarify`, `clarification_needed`
+
+Test after enablement
+
+- `ilas:runtime-truth` reports release `test_160`, stored
+  `vector_search.enabled=false`, and effective `true` via
+  `settings.php runtime toggle -> getenv/pantheon_get_secret`.
+- `pantheon_get_secret('ILAS_VECTOR_SEARCH_ENABLED')` now returns `"1"` on
+  `test`; `getenv()` remains false.
+- `private://ilas-vector-search-enabled.txt` still exists with value `1`,
+  leaving a validated fallback/rollback path even though the active verified
+  channel is now the secret path.
+- Retrieval health is `healthy`.
+- Vector-index hygiene is `healthy`.
+- Fixed provenance prompt results:
+  - `what are idaho tenant rights for eviction notices`
+    - `response_mode=answer`
+    - `reason_code=faq_match_found`
+    - `source_classes=["faq_lexical","faq_vector"]`
+    - `vector_result_count=1`
+    - `lexical_result_count=1`
+  - `im raising my granddaughter because my daughter is on drugs... what are my legal options`
+    - `response_mode=answer`
+    - `reason_code=faq_match_found`
+    - no result provenance surfaced in the payload
+  - `is there any way to get my car back`
+    - `response_mode=clarify`
+    - `reason_code=clarification_needed`
+- Control prompts stayed lexical-first:
+  - `custody forms` -> `navigate`, `navigation_page_match`
+  - `do you have custody forms` -> `clarify`, `resource_match_found`
+  - `where is the Boise office` -> `navigate`, `office_detail_requested`
+  - `what office helps me in Twin Falls` -> `navigate`, `office_detail_requested`
+  - `eviction forms or guides` -> `clarify`, `clarification_needed`
+
+Live
+
+- Remains out of scope and hard-forced off.
+
+4. Verification evidence
+------------------------
+
+Local validation
+
+- `php -l web/sites/default/settings.php`
+  - Result: passed
+- `node --test promptfoo-evals/tests/node/gate-runtime.test.js promptfoo-evals/tests/node/gate-metrics.test.js`
+  - Result: `16 tests, 16 passed`
+- `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant ...RuntimeTruthSnapshotBuilderTest.php ...SafetyConfigGovernanceTest.php`
+  - Result: `21 tests, 123 assertions, OK`
+- Earlier TOVR-12 local suite reruns already recorded:
+  - `VC-PURE`: `2244 tests, 11361 assertions, 1 skipped, OK`
+  - `VC-KERNEL`: `76 tests, 1355 assertions, OK`
+  - `VC-PROMPTFOO-PACED-LOCAL`: smoke passed; deep finished
+    `297 passed, 2 failed, 0 errors` with two unrelated residuals
+
+Hosted command highlights
+
+- `terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth`
+- `terminus remote:drush idaho-legal-aid-services.test -- ilas:runtime-truth`
+- `terminus remote:drush idaho-legal-aid-services.test -- php:eval 'echo json_encode(["release" => getenv("PANTHEON_DEPLOYMENT_IDENTIFIER"), "pantheon_get_secret" => ..., "getenv" => ...])'`
+- `terminus remote:drush idaho-legal-aid-services.test -- php:eval '$path = \Drupal::service("file_system")->realpath("private://") . "/ilas-vector-search-enabled.txt"; ...'`
+- `terminus remote:drush idaho-legal-aid-services.test -- php:eval '$s=\Drupal::service("ilas_site_assistant.retrieval_configuration"); echo json_encode($s->getHealthSnapshot(), ...);'`
+- `terminus remote:drush idaho-legal-aid-services.test -- state:get ilas_site_assistant.vector_index_hygiene.snapshot --format=json`
+- `node scripts/ci/run-vector-provenance-smoke.js --environment dev ...`
+- `node scripts/ci/run-vector-provenance-smoke.js --environment test ...`
+
+5. Changed files
+----------------
+
+- `web/sites/default/settings.php`
+- `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+- `promptfoo-evals/lib/ilas-live-shared.js`
+- `scripts/ci/run-vector-provenance-smoke.js`
+- `config/ai_vdb_provider_pinecone.settings.yml`
+- `docs/env-vars.md`
+- `.ddev/.env.example`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+
+6. Residual risks / unknowns
+----------------------------
+
+- Only the first fixed provenance prompt currently shows explicit mixed
+  lexical/vector contribution on hosted non-live environments.
+- Prompts 2 / 3 still do not prove improved recall/relevance from vector
+  supplementation, so TOVR-12 closes enablement proof but not prompt-level
+  quality proof for every fixed scenario.
+- Embeddings-side timeout governance still depends on the shared/global
+  `ai.settings.request_timeout`.
+- `VC-PROMPTFOO-PACED-LOCAL` still has two unrelated deep-suite failures
+  outside the Pinecone rollout mechanics.
+
+7. Rollback notes
+-----------------
+
+Local rollback
+
+- Remove or set `ILAS_VECTOR_SEARCH_ENABLED=0` in `.ddev/.env`
+- `ddev restart`
+- `ddev drush cr`
+
+Dev / test rollback
+
+- Set `ILAS_VECTOR_SEARCH_ENABLED=0` or clear the env-level override
+- Remove `private://ilas-vector-search-enabled.txt` or write `0`
+- `terminus env:clear-cache idaho-legal-aid-services.<env>`
+- `terminus remote:drush idaho-legal-aid-services.<env> -- cr`
+- Re-run `terminus remote:drush idaho-legal-aid-services.<env> -- ilas:runtime-truth`
+
+Live rollback
+
+- Not applicable in TOVR-12 because `live` remains hard-forced off.
+
+8. Still-unverified surfaces
+----------------------------
+
+- Live rollout remains intentionally unverified and out of scope until
+  `TOVR-13`.
+- Prompt-level recall/relevance improvement is still not uniformly proven on
+  the second and third fixed provenance prompts.
+- Embeddings-timeout separation from shared/global AI timeout policy remains
+  open.

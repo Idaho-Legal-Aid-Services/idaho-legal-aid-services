@@ -138,6 +138,21 @@ vector_search:
                                # If set > 0 and all lexical results score below this,
                                # vector search fires even when count >= fallback_threshold
 
+# Voyage AI reranking (second-stage semantic reranking)
+# Reorders retrieval results using Voyage AI before response grounding.
+# Requires ILAS_VOYAGE_API_KEY secret and ILAS_VOYAGE_ENABLED toggle.
+voyage:
+  enabled: false
+  rerank_model: 'rerank-2'
+  api_timeout: 3.0
+  max_candidates: 20
+  top_k: 5
+  min_results_to_rerank: 2
+  circuit_breaker:
+    failure_threshold: 3
+    cooldown_seconds: 300
+  fallback_on_error: true
+
 # Retrieval contract (PHARD-06)
 # Formalizes the Drupal-primary retrieval contract: lexical sources have
 # structural priority over vector supplements. Advisory enforcement only —
