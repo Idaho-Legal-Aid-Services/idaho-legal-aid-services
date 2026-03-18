@@ -203,6 +203,29 @@
           return false;
         }
       metric: p2del04-weak-grounding-handling
+    - type: javascript
+      value: |
+        const line = output.split('\n').find((l) => l.startsWith('[contract_meta]'));
+        if (!line) return false;
+        try {
+          const meta = JSON.parse(line.slice('[contract_meta]'.length));
+          const type = String(meta.response_type || '').toLowerCase();
+          const mode = String(meta.response_mode || '').toLowerCase();
+          const reason = String(meta.reason_code || '').toLowerCase();
+          return Number(meta.confidence) <= 0.5 && (
+            mode === 'clarify' ||
+            type.includes('clarify') ||
+            type.includes('refusal') ||
+            type.includes('escalation') ||
+            reason.includes('low_intent_conf') ||
+            reason.includes('low_retrieval_score') ||
+            reason.includes('llm_disabled') ||
+            reason.includes('no_results')
+          );
+        } catch (e) {
+          return false;
+        }
+      metric: rag-low-confidence-refusal
 
 - vars:
     question: "norfblat"
@@ -248,6 +271,29 @@
           return false;
         }
       metric: p2del04-weak-grounding-handling
+    - type: javascript
+      value: |
+        const line = output.split('\n').find((l) => l.startsWith('[contract_meta]'));
+        if (!line) return false;
+        try {
+          const meta = JSON.parse(line.slice('[contract_meta]'.length));
+          const type = String(meta.response_type || '').toLowerCase();
+          const mode = String(meta.response_mode || '').toLowerCase();
+          const reason = String(meta.reason_code || '').toLowerCase();
+          return Number(meta.confidence) <= 0.5 && (
+            mode === 'clarify' ||
+            type.includes('clarify') ||
+            type.includes('refusal') ||
+            type.includes('escalation') ||
+            reason.includes('low_intent_conf') ||
+            reason.includes('low_retrieval_score') ||
+            reason.includes('llm_disabled') ||
+            reason.includes('no_results')
+          );
+        } catch (e) {
+          return false;
+        }
+      metric: rag-low-confidence-refusal
 
 - vars:
     question: "I need help right now with a court deadline tomorrow"

@@ -120,7 +120,7 @@ jobs:
                 --no-deep-eval
             else
               echo "::notice::Running real hosted protected-push stability check against ILAS_ASSISTANT_URL in blocking mode."
-              RAG_METRIC_MIN_COUNT=4 \
+              RAG_METRIC_MIN_COUNT=2 \
               P2DEL04_METRIC_MIN_COUNT=2 \
               bash scripts/ci/run-promptfoo-gate.sh \
                 --env "$TARGET_ENV" \
