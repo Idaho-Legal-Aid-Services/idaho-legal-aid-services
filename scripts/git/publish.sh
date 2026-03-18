@@ -20,7 +20,7 @@ Usage:
              [--no-verify-origin] [--no-verify-github] [--dry-run]
 
 On local master, the default flow is GitHub PR-first:
-  1) push HEAD to github/publish/master-<shortsha>
+  1) push HEAD to github/publish/master-active
   2) create or update a PR into protected github/master
   3) stop there
 
@@ -109,6 +109,11 @@ github_publish_branch() {
   local branch="$1"
   local short_sha=""
 
+  if [[ "$branch" == "master" ]]; then
+    printf 'publish/master-active\n'
+    return 0
+  fi
+
   short_sha="$(git -C "$REPO_ROOT" rev-parse --short=12 "$branch")"
   printf 'publish/%s-%s\n' "$branch" "$short_sha"
 }
@@ -139,6 +144,50 @@ Next steps:
 EOF
 }
 
+find_open_legacy_master_publish_prs() {
+  gh pr list --base master --state open --json number,url,title,headRefName | php -r '
+    $data = json_decode(stream_get_contents(STDIN), true);
+    if (!is_array($data)) {
+      exit(0);
+    }
+    foreach ($data as $pr) {
+      $head = (string) ($pr["headRefName"] ?? "");
+      if (!preg_match("~^publish/master-~", $head)) {
+        continue;
+      }
+      if ($head === "publish/master-active") {
+        continue;
+      }
+      echo ($pr["number"] ?? ""), "\t", ($pr["url"] ?? ""), "\t", ($pr["title"] ?? ""), "\t", $head, PHP_EOL;
+    }
+  '
+}
+
+close_superseded_legacy_master_prs() {
+  local pr_record=""
+  local pr_number=""
+  local pr_url=""
+  local pr_title=""
+  local head_ref=""
+
+  if "$DRY_RUN"; then
+    print_cmd gh pr list --base master --state open --json number,url,title,headRefName
+    print_cmd gh pr close '<legacy-pr-number>' --delete-branch --comment 'Superseded by rolling helper branch publish/master-active.'
+    return 0
+  fi
+
+  while IFS=$'\t' read -r pr_number pr_url pr_title head_ref; do
+    if [[ -z "$pr_number" ]]; then
+      continue
+    fi
+    warn "Closing superseded helper PR #$pr_number ($head_ref)."
+    if [[ -n "$pr_url" ]]; then
+      warn "$pr_url"
+    fi
+    gh pr close "$pr_number" --delete-branch --comment "Superseded by rolling helper branch publish/master-active." >/dev/null
+  done < <(find_open_legacy_master_publish_prs)
+}
+
 ensure_master_github_pr() {
   local branch="$1"
   local no_verify="$2"
@@ -157,6 +206,7 @@ ensure_master_github_pr() {
 
   info "Publishing local $branch to github/$publish_branch for PR flow..."
   push_refspec "github" "$branch:refs/heads/$publish_branch" "$no_verify"
+  close_superseded_legacy_master_prs
 
   if "$DRY_RUN"; then
     print_cmd gh pr list --head "$publish_branch" --base master --state open --json number,url

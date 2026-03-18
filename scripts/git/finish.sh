@@ -13,6 +13,11 @@ MASTER_RUN_POLL_SECONDS=5
 MASTER_RUN_POLL_ATTEMPTS=24
 ARTIFACT_POLL_SECONDS=3
 ARTIFACT_POLL_ATTEMPTS=10
+PROMPTFOO_ARTIFACT_NAME="promptfoo-gate-artifacts"
+GATE_SUMMARY_ARTIFACT_NAME="gate-summary"
+PROTECTED_PUSH_PROMPTFOO_CONFIG="promptfooconfig.protected-push.yaml"
+PROTECTED_PUSH_RAG_MIN_COUNT="${PROTECTED_PUSH_RAG_MIN_COUNT:-4}"
+PROTECTED_PUSH_P2DEL04_MIN_COUNT="${PROTECTED_PUSH_P2DEL04_MIN_COUNT:-2}"
 
 usage() {
   cat <<'USAGE'
@@ -20,11 +25,13 @@ Usage:
   finish.sh
 
 Finish the protected-master flow for the current local master commit:
-  1) find the current helper PR (publish/master-<shortsha>)
+  1) find the current helper PR (publish/master-active)
   2) wait for GitHub checks to appear and pass
   3) merge the PR with a merge commit
   4) sync local master from github/master
   5) deploy Pantheon dev if origin/master is behind
+  6) run post-deploy Pantheon verification
+  7) wait for the post-merge hosted master gate before returning success
 
 If the PR is already merged, this script skips straight to sync + Pantheon deploy.
 USAGE
@@ -39,7 +46,12 @@ ensure_clean_worktree() {
 }
 
 expected_publish_branch() {
-  printf 'publish/master-%s\n' "$(git -C "$REPO_ROOT" rev-parse --short=12 master)"
+  printf 'publish/master-active\n'
+}
+
+is_master_publish_branch() {
+  local publish_branch="$1"
+  [[ "$publish_branch" == "publish/master-active" || "$publish_branch" =~ ^publish/master- ]]
 }
 
 find_open_publish_pr() {
@@ -138,16 +150,17 @@ find_promptfoo_check_run_id() {
   ' <<< "$pr_json"
 }
 
-download_gate_summary_artifact() {
+download_run_artifact() {
   local run_id="$1"
-  local destination_dir="$2"
+  local artifact_name="$2"
+  local destination_dir="$3"
   local attempt=0
 
   while true; do
     rm -rf "$destination_dir"
     mkdir -p "$destination_dir"
-    if gh run download "$run_id" --name gate-summary --dir "$destination_dir" >/dev/null 2>&1; then
-      if [[ -f "$destination_dir/gate-summary.txt" ]]; then
+    if gh run download "$run_id" --name "$artifact_name" --dir "$destination_dir" >/dev/null 2>&1; then
+      if find "$destination_dir" -type f | grep -q .; then
         return 0
       fi
     fi
@@ -157,9 +170,27 @@ download_gate_summary_artifact() {
       return 1
     fi
 
-    info "Waiting for gate-summary artifact from Promptfoo Gate run $run_id..."
+    info "Waiting for $artifact_name artifact from Promptfoo Gate run $run_id..."
     sleep "$ARTIFACT_POLL_SECONDS"
   done
+}
+
+find_artifact_file() {
+  local artifact_dir="$1"
+  local filename="$2"
+
+  find "$artifact_dir" -type f -name "$filename" | head -n1
+}
+
+download_promptfoo_artifacts() {
+  local run_id="$1"
+  local destination_dir="$2"
+
+  if download_run_artifact "$run_id" "$PROMPTFOO_ARTIFACT_NAME" "$destination_dir"; then
+    return 0
+  fi
+
+  download_run_artifact "$run_id" "$GATE_SUMMARY_ARTIFACT_NAME" "$destination_dir"
 }
 
 summary_field_value() {
@@ -174,13 +205,14 @@ require_publish_pr_promptfoo_artifact_pass() {
   local promptfoo_run_id=""
   local artifact_dir=""
   local summary_file=""
+  local structured_summary_file=""
   local mode=""
   local eval_execution_mode=""
   local failure_kind=""
   local eval_exit=""
   local failure_code=""
 
-  if [[ ! "$publish_branch" =~ ^publish/master- ]]; then
+  if ! is_master_publish_branch "$publish_branch"; then
     return 0
   fi
 
@@ -191,12 +223,19 @@ require_publish_pr_promptfoo_artifact_pass() {
   fi
 
   artifact_dir="$(mktemp -d)"
-  summary_file="$artifact_dir/gate-summary.txt"
-
-  if ! download_gate_summary_artifact "$promptfoo_run_id" "$artifact_dir"; then
+  if ! download_promptfoo_artifacts "$promptfoo_run_id" "$artifact_dir"; then
     rm -rf "$artifact_dir"
-    err "Unable to download gate-summary artifact from Promptfoo Gate run $promptfoo_run_id."
+    err "Unable to download Promptfoo artifacts from run $promptfoo_run_id."
     err "Inspect with: gh run view $promptfoo_run_id"
+    exit 1
+  fi
+  summary_file="$(find_artifact_file "$artifact_dir" "gate-summary.txt")"
+  structured_summary_file="$(find_artifact_file "$artifact_dir" "structured-error-summary.txt")"
+
+  if [[ -z "$summary_file" || ! -f "$summary_file" ]]; then
+    rm -rf "$artifact_dir"
+    err "Promptfoo artifacts from run $promptfoo_run_id do not contain gate-summary.txt."
+    err "Inspect with: gh run download $promptfoo_run_id --name $PROMPTFOO_ARTIFACT_NAME"
     exit 1
   fi
 
@@ -214,24 +253,40 @@ require_publish_pr_promptfoo_artifact_pass() {
   fi
 
   if [[ "$mode" != "blocking" ]]; then
+    if [[ -n "$structured_summary_file" ]]; then
+      err "Promptfoo structured summary:"
+      cat "$structured_summary_file" >&2
+    fi
     rm -rf "$artifact_dir"
     err "Refusing to merge helper PR #$pr_number because Promptfoo gate summary recorded mode=$mode."
     exit 1
   fi
 
   if [[ "$eval_execution_mode" != "real" ]]; then
+    if [[ -n "$structured_summary_file" ]]; then
+      err "Promptfoo structured summary:"
+      cat "$structured_summary_file" >&2
+    fi
     rm -rf "$artifact_dir"
     err "Refusing to merge helper PR #$pr_number because Promptfoo gate summary recorded eval_execution_mode=$eval_execution_mode."
     exit 1
   fi
 
   if [[ -n "$failure_kind" ]]; then
+    if [[ -n "$structured_summary_file" ]]; then
+      err "Promptfoo structured summary:"
+      cat "$structured_summary_file" >&2
+    fi
     rm -rf "$artifact_dir"
     err "Refusing to merge helper PR #$pr_number because Promptfoo gate summary recorded failure_kind=$failure_kind failure_code=${failure_code:-unknown}."
     exit 1
   fi
 
   if [[ "$eval_exit" != "0" ]]; then
+    if [[ -n "$structured_summary_file" ]]; then
+      err "Promptfoo structured summary:"
+      cat "$structured_summary_file" >&2
+    fi
     rm -rf "$artifact_dir"
     err "Refusing to merge helper PR #$pr_number because Promptfoo gate summary recorded eval_exit=$eval_exit."
     exit 1
@@ -287,6 +342,119 @@ wait_for_master_quality_gate_run() {
   done
 }
 
+print_promptfoo_failure_artifacts() {
+  local artifact_dir="$1"
+  local summary_file=""
+  local structured_summary_file=""
+
+  summary_file="$(find_artifact_file "$artifact_dir" "gate-summary.txt")"
+  structured_summary_file="$(find_artifact_file "$artifact_dir" "structured-error-summary.txt")"
+
+  if [[ -n "$summary_file" && -f "$summary_file" ]]; then
+    err "Promptfoo gate summary:"
+    cat "$summary_file" >&2
+  fi
+
+  if [[ -n "$structured_summary_file" && -f "$structured_summary_file" ]]; then
+    err "Promptfoo structured summary:"
+    cat "$structured_summary_file" >&2
+  fi
+}
+
+print_promptfoo_failure_artifacts_from_run() {
+  local run_id="$1"
+  local artifact_dir=""
+
+  artifact_dir="$(mktemp -d)"
+  if download_promptfoo_artifacts "$run_id" "$artifact_dir"; then
+    print_promptfoo_failure_artifacts "$artifact_dir"
+  else
+    err "Unable to download Promptfoo artifacts from run $run_id."
+  fi
+  rm -rf "$artifact_dir"
+}
+
+resolve_pantheon_dev_assistant_url() {
+  if [[ -n "${ILAS_ASSISTANT_URL:-}" ]]; then
+    printf '%s\n' "$ILAS_ASSISTANT_URL"
+    return 0
+  fi
+
+  bash "$REPO_ROOT/scripts/ci/derive-assistant-url.sh" --env dev
+}
+
+run_post_deploy_pantheon_verification() {
+  local assistant_url=""
+
+  if ! assistant_url="$(resolve_pantheon_dev_assistant_url)"; then
+    err "Unable to resolve the Pantheon dev assistant URL for post-deploy verification."
+    err "Set ILAS_ASSISTANT_URL or ensure terminus can resolve idaho-legal-aid-services.dev."
+    return 1
+  fi
+
+  info "Running post-deploy Pantheon dev hosted verification..."
+  info "$assistant_url"
+
+  if (
+    cd "$REPO_ROOT"
+    ILAS_ASSISTANT_URL="$assistant_url" \
+    CI_BRANCH=master \
+    RAG_METRIC_MIN_COUNT="$PROTECTED_PUSH_RAG_MIN_COUNT" \
+    P2DEL04_METRIC_MIN_COUNT="$PROTECTED_PUSH_P2DEL04_MIN_COUNT" \
+    bash scripts/ci/run-promptfoo-gate.sh \
+      --env dev \
+      --mode blocking \
+      --config "$PROTECTED_PUSH_PROMPTFOO_CONFIG" \
+      --no-deep-eval
+  ); then
+    ok "Post-deploy Pantheon dev hosted verification passed."
+    return 0
+  fi
+
+  err "Post-deploy Pantheon dev hosted verification failed."
+  print_promptfoo_failure_artifacts "$REPO_ROOT/promptfoo-evals/output"
+  return 1
+}
+
+list_open_publish_pr_heads() {
+  gh pr list --state open --json headRefName --limit 100 | php -r '
+    $data = json_decode(stream_get_contents(STDIN), true);
+    if (!is_array($data)) {
+      exit(0);
+    }
+    foreach ($data as $pr) {
+      $head = (string) ($pr["headRefName"] ?? "");
+      if (preg_match("~^publish/~", $head)) {
+        echo $head, PHP_EOL;
+      }
+    }
+  '
+}
+
+prune_merged_publish_branches() {
+  local open_publish_heads=""
+  local branch=""
+
+  open_publish_heads="$(list_open_publish_pr_heads || true)"
+
+  while IFS= read -r branch; do
+    if [[ -z "$branch" || "$branch" != publish/* ]]; then
+      continue
+    fi
+    if printf '%s\n' "$open_publish_heads" | grep -Fxq "$branch"; then
+      continue
+    fi
+    if ! git -C "$REPO_ROOT" merge-base --is-ancestor "github/$branch" "github/master" 2>/dev/null; then
+      continue
+    fi
+
+    info "Deleting merged helper branch github/$branch..."
+    if ! git -C "$REPO_ROOT" push github ":refs/heads/$branch" >/dev/null 2>&1; then
+      warn "Unable to delete github/$branch automatically."
+    fi
+  done < <(git -C "$REPO_ROOT" for-each-ref --format='%(refname:strip=3)' refs/remotes/github/publish)
+}
+
 main() {
   local branch=""
   local publish_branch=""
@@ -307,6 +475,7 @@ main() {
   local master_run_status=""
   local master_run_conclusion=""
   local master_gate_ok="true"
+  local post_deploy_ok="true"
 
   if (($# > 0)); then
     case "$1" in
@@ -383,30 +552,9 @@ main() {
 
   fetch_remote "github"
   merge_sha="$(git -C "$REPO_ROOT" rev-parse github/master)"
-  if ! master_run_record="$(wait_for_master_quality_gate_run "$merge_sha")"; then
-    err "Timed out waiting for post-merge Quality Gate run for $merge_sha."
-    err "Inspect with: gh run list --workflow \"Quality Gate\" --event push --limit 20"
-    exit 1
-  fi
-
-  IFS=$'\t' read -r master_run_id master_run_url master_run_status master_run_conclusion <<< "$master_run_record"
-  info "Post-merge Quality Gate run: $master_run_id"
-  if [[ -n "$master_run_url" ]]; then
-    info "$master_run_url"
-  fi
-  info "Waiting for post-merge Quality Gate run to finish..."
-  if ! gh run watch "$master_run_id" --exit-status; then
-    master_gate_ok="false"
-  fi
 
   info "Syncing local master from github/master..."
   bash "$SCRIPT_DIR/sync-master.sh"
-
-  if [[ "$master_gate_ok" != "true" ]]; then
-    err "Post-merge Quality Gate failed for github/master at $merge_sha."
-    err "Refusing to deploy Pantheon dev while master is red."
-    exit 1
-  fi
 
   IFS=$'\t' read -r origin_status origin_remote_only origin_local_only < <(describe_remote_status "origin" "$branch")
   print_remote_status "origin" "$branch" "$origin_status" "$origin_remote_only" "$origin_local_only"
@@ -425,6 +573,37 @@ main() {
       exit 1
       ;;
   esac
+
+  if ! run_post_deploy_pantheon_verification; then
+    post_deploy_ok="false"
+  fi
+
+  if ! master_run_record="$(wait_for_master_quality_gate_run "$merge_sha")"; then
+    master_gate_ok="false"
+    err "Timed out waiting for post-merge Quality Gate run for $merge_sha."
+    err "Inspect with: gh run list --workflow \"Quality Gate\" --event push --limit 20"
+  else
+    IFS=$'\t' read -r master_run_id master_run_url master_run_status master_run_conclusion <<< "$master_run_record"
+    info "Post-merge Quality Gate run: $master_run_id"
+    if [[ -n "$master_run_url" ]]; then
+      info "$master_run_url"
+    fi
+    info "Waiting for post-merge Quality Gate run to finish..."
+    if ! gh run watch "$master_run_id" --exit-status; then
+      master_gate_ok="false"
+      err "Post-merge Quality Gate failed for github/master at $merge_sha."
+      print_promptfoo_failure_artifacts_from_run "$master_run_id"
+    fi
+  fi
+
+  fetch_remote "github"
+  prune_merged_publish_branches
+
+  if [[ "$master_gate_ok" != "true" || "$post_deploy_ok" != "true" ]]; then
+    err "Protected-master flow is incomplete."
+    err "Completion requires both the hosted GitHub master gate and the post-deploy Pantheon dev verification to pass."
+    exit 1
+  fi
 
   ok "Protected-master flow complete."
 }

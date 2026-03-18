@@ -25,6 +25,10 @@ function getResultRows(resultsInput) {
   return Array.isArray(rows) ? rows : [];
 }
 
+function firstLine(input) {
+  return String(input || '').split(/\r?\n/)[0].trim();
+}
+
 function roundRate(rate) {
   return Number(rate.toFixed(1));
 }
@@ -59,6 +63,248 @@ function findStructuredError(resultsInput) {
   }
 
   return null;
+}
+
+function getStructuredErrorsForRow(row) {
+  const sources = [
+    row?.error,
+    row?.response?.error,
+    row?.failureReason,
+    row?.gradingResult?.reason,
+  ];
+  const parsedErrors = [];
+  const seen = new Set();
+
+  for (const value of sources) {
+    const parsed = parseStructuredError(value);
+    if (!parsed) {
+      continue;
+    }
+
+    const key = JSON.stringify([
+      parsed.kind || '',
+      parsed.code || '',
+      parsed.status ?? '',
+      parsed.phase || '',
+    ]);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    parsedErrors.push(parsed);
+  }
+
+  return parsedErrors;
+}
+
+function isFailureRow(row) {
+  if (typeof row?.success === 'boolean') {
+    return row.success === false;
+  }
+  if (typeof row?.gradingResult?.pass === 'boolean') {
+    return row.gradingResult.pass === false;
+  }
+  return Boolean(
+    row?.error ||
+    row?.response?.error ||
+    row?.failureReason ||
+    row?.gradingResult?.reason
+  );
+}
+
+function suiteNameFromPath(filePath) {
+  const text = String(filePath || '');
+  if (text.includes('results-smoke')) {
+    return 'smoke';
+  }
+  if (text.includes('results-deep')) {
+    return 'deep';
+  }
+  return 'primary';
+}
+
+function extractFailureText(row) {
+  return String(
+    row?.response?.output ||
+    row?.response?.error ||
+    row?.error ||
+    row?.failureReason ||
+    row?.gradingResult?.reason ||
+    ''
+  );
+}
+
+function normalizeExcerpt(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function summarizeDiagnosticResults(resultSources, context = {}) {
+  const sources = Array.isArray(resultSources) ? resultSources : [];
+  const suites = [];
+  const errorCounts = new Map();
+  const firstFailures = [];
+  let totalCases = 0;
+  let failureCases = 0;
+
+  for (const source of sources) {
+    const filePath = typeof source === 'string' ? source : source?.filePath;
+    if (!filePath || !fs.existsSync(filePath)) {
+      continue;
+    }
+
+    const suite = typeof source === 'string' ? suiteNameFromPath(filePath) : (source?.suite || suiteNameFromPath(filePath));
+    const rows = getResultRows(filePath);
+    let suiteFailures = 0;
+    totalCases += rows.length;
+
+    for (const row of rows) {
+      const structuredErrors = getStructuredErrorsForRow(row);
+      const failed = isFailureRow(row) || structuredErrors.length > 0;
+      if (!failed) {
+        continue;
+      }
+
+      suiteFailures += 1;
+      failureCases += 1;
+
+      const errorsForCounting = structuredErrors.length > 0
+        ? structuredErrors
+        : [{
+            kind: 'eval',
+            code: 'assertion_failed',
+            status: null,
+            message: firstLine(
+              row?.gradingResult?.reason ||
+              row?.failureReason ||
+              row?.error ||
+              row?.response?.error ||
+              ''
+            ),
+          }];
+
+      for (const error of errorsForCounting) {
+        const key = JSON.stringify([
+          error.kind || '',
+          error.code || '',
+          error.status ?? '',
+        ]);
+        const current = errorCounts.get(key) || {
+          kind: error.kind || 'unknown',
+          code: error.code || 'unknown',
+          status: error.status ?? null,
+          count: 0,
+        };
+        current.count += 1;
+        errorCounts.set(key, current);
+      }
+
+      if (firstFailures.length < 5) {
+        const primaryError = errorsForCounting[0];
+        firstFailures.push({
+          suite,
+          prompt_id: row?.promptId || row?.id || null,
+          scenario_id: row?.vars?.scenario_id || row?.testCase?.metadata?.scenario_id || row?.metadata?.scenario_id || null,
+          question: row?.vars?.question || row?.testCase?.vars?.question || null,
+          description: row?.testCase?.description || null,
+          kind: primaryError.kind || 'unknown',
+          code: primaryError.code || 'unknown',
+          status: primaryError.status ?? null,
+          excerpt: normalizeExcerpt(extractFailureText(row)),
+        });
+      }
+    }
+
+    suites.push({
+      suite,
+      file: filePath,
+      total_cases: rows.length,
+      failure_cases: suiteFailures,
+    });
+  }
+
+  const sortedErrorCounts = Array.from(errorCounts.values()).sort((left, right) => {
+    if (right.count !== left.count) {
+      return right.count - left.count;
+    }
+    return `${left.kind}/${left.code}/${left.status ?? ''}`.localeCompare(
+      `${right.kind}/${right.code}/${right.status ?? ''}`
+    );
+  });
+
+  return {
+    generated_at_utc: new Date().toISOString(),
+    context,
+    totals: {
+      total_cases: totalCases,
+      failure_cases: failureCases,
+    },
+    suites,
+    error_counts: sortedErrorCounts,
+    first_failures: firstFailures,
+  };
+}
+
+function formatDiagnosticSummaryText(summary) {
+  const lines = [];
+  const context = summary?.context || {};
+  const totals = summary?.totals || {};
+  const suites = Array.isArray(summary?.suites) ? summary.suites : [];
+  const errorCounts = Array.isArray(summary?.error_counts) ? summary.error_counts : [];
+  const firstFailures = Array.isArray(summary?.first_failures) ? summary.first_failures : [];
+
+  const orderedContextFields = [
+    'assistant_url',
+    'target_host',
+    'target_env',
+    'target_kind',
+    'target_source',
+    'mode',
+    'config_file',
+    'effective_pacing_rate_per_minute',
+    'effective_request_delay_ms',
+    'planned_message_request_budget',
+  ];
+
+  for (const field of orderedContextFields) {
+    if (Object.prototype.hasOwnProperty.call(context, field)) {
+      lines.push(`${field}=${context[field] ?? ''}`);
+    }
+  }
+
+  lines.push(`total_cases=${totals.total_cases ?? 0}`);
+  lines.push(`failure_cases=${totals.failure_cases ?? 0}`);
+
+  for (const suite of suites) {
+    lines.push(
+      `suite=${suite.suite} total_cases=${suite.total_cases ?? 0} failure_cases=${suite.failure_cases ?? 0}`
+    );
+  }
+
+  lines.push('error_counts:');
+  if (errorCounts.length === 0) {
+    lines.push('  none');
+  } else {
+    for (const error of errorCounts) {
+      lines.push(
+        `  kind=${error.kind} code=${error.code} status=${error.status ?? 'none'} count=${error.count}`
+      );
+    }
+  }
+
+  lines.push('first_failures:');
+  if (firstFailures.length === 0) {
+    lines.push('  none');
+  } else {
+    for (const failure of firstFailures) {
+      lines.push(
+        `  suite=${failure.suite} prompt_id=${failure.prompt_id ?? 'n/a'} scenario_id=${failure.scenario_id ?? 'n/a'} kind=${failure.kind} code=${failure.code} status=${failure.status ?? 'none'}`
+      );
+      lines.push(`  question=${failure.question ?? ''}`);
+      lines.push(`  excerpt=${failure.excerpt ?? ''}`);
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
 }
 
 function summarizeNamedMetric(resultsInput, metricName) {
@@ -143,12 +389,16 @@ function renderAssistantFixture(fixturePath, siteBaseUrl) {
 module.exports = {
   evaluateMetricSet,
   evaluateMetricThreshold,
+  formatDiagnosticSummaryText,
   findStructuredError,
   getPromptMetrics,
   getResultRows,
+  getStructuredErrorsForRow,
+  isFailureRow,
   parseContractMetaLine,
   parseResultsPassRate,
   readPromptfooResults,
   renderAssistantFixture,
+  summarizeDiagnosticResults,
   summarizeNamedMetric,
 };

@@ -82,6 +82,10 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
     $this->assertStringContainsString('effective_request_delay_ms=', $script);
     $this->assertStringContainsString('ddev_rate_limit_override=', $script);
     $this->assertStringContainsString('planned_message_request_budget=', $script);
+    $this->assertStringContainsString('structured-error-summary.json', $script);
+    $this->assertStringContainsString('structured-error-summary.txt', $script);
+    $this->assertStringContainsString('diagnostic-summary', $script);
+    $this->assertStringContainsString('reset_output_artifacts()', $script);
     $this->assertStringContainsString('target_env_mismatch', $script);
     $this->assertStringContainsString('compute_message_request_budget()', $script);
     $this->assertStringContainsString('compute_remote_pacing_rate_per_minute()', $script);
@@ -95,12 +99,21 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
 
     $overridePos = strpos($script, 'apply_ddev_rate_limit_override || finalize_and_exit 4');
     $preflightPos = strpos($script, 'run_connectivity_preflight || finalize_and_exit $?');
+    $resetArtifactsPos = strrpos($script, 'reset_output_artifacts');
+    $skipEvalBranchPos = strrpos($script, 'if [[ "$SKIP_EVAL" == "true" ]]');
     $this->assertNotFalse($overridePos);
     $this->assertNotFalse($preflightPos);
+    $this->assertNotFalse($resetArtifactsPos);
+    $this->assertNotFalse($skipEvalBranchPos);
     $this->assertLessThan(
       $preflightPos,
       $overridePos,
       'DDEV rate-limit override must occur before the live preflight so repeated local runs do not fail on stale flood counters.'
+    );
+    $this->assertLessThan(
+      $skipEvalBranchPos,
+      $resetArtifactsPos,
+      'Promptfoo output artifacts must be reset before the gate can short-circuit into simulated/skip-eval mode.'
     );
   }
 
@@ -157,6 +170,8 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
     $this->assertStringContainsString('TARGET_ENV="${CI_PROMPTFOO_ENV}"', $workflow);
     $this->assertStringContainsString('npm run test:promptfoo:runtime', $workflow);
     $this->assertStringContainsString('promptfooconfig.hosted.yaml', $workflow);
+    $this->assertStringContainsString('promptfooconfig.protected-push.yaml', $workflow);
+    $this->assertStringContainsString('promptfoo-gate-artifacts', $workflow);
     $this->assertStringContainsString('--no-deep-eval', $workflow);
   }
 
@@ -192,6 +207,23 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
     $this->assertContains('sb-10', $groundingScenarioIds);
     $this->assertContains('sb-11', $groundingScenarioIds);
     $this->assertContains('sb-20', $groundingScenarioIds);
+  }
+
+  /**
+   * Protected-push hosted profile must stay on the smaller stability subset.
+   */
+  public function testProtectedPushPromptfooProfilePreservesSmallerStabilitySubset(): void {
+    $config = self::readFile('promptfoo-evals/promptfooconfig.protected-push.yaml');
+    $caseCount = self::caseCount('promptfoo-evals/tests/protected-push-stability.yaml');
+    $scenarioIds = self::scenarioIds('promptfoo-evals/tests/protected-push-stability.yaml');
+
+    $this->assertStringContainsString('Protected push hosted stability evals', $config);
+    $this->assertStringContainsString('tests/protected-push-stability.yaml', $config);
+    $this->assertSame(19, $caseCount);
+    $this->assertContains('wg-01', $scenarioIds);
+    $this->assertContains('es-01', $scenarioIds);
+    $this->assertContains('sb-11', $scenarioIds);
+    $this->assertContains('es-apply-help', $scenarioIds);
   }
 
 }

@@ -1,0 +1,22 @@
+description: "ILAS Site Assistant — Protected push hosted stability evals"
+
+prompts:
+  - file://prompts/ilas-thread.yaml
+
+providers:
+  - file://providers/ilas-live.js
+
+evaluateOptions:
+  maxConcurrency: 1
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: "output.length > 50"
+      metric: non-empty-response
+    - type: javascript
+      value: "!output.toLowerCase().includes('error') && !output.toLowerCase().includes('failed')"
+      metric: no-error-keywords
+
+tests:
+  - file://tests/protected-push-stability.yaml

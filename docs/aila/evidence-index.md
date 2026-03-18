@@ -3130,10 +3130,13 @@ that remained open after 2026-03-13.
 - Claim: TOVR-05 hardens promptfoo release gating by replacing the protected
   push simulated path with a real hosted check, then closes the helper-PR
   honesty gap exposed by runs `23176299781` and `23176706947`: helper
-  `publish/master-*` PRs and protected pushes now both block on real hosted
-  Promptfoo, `git:finish` downloads and inspects `gate-summary.txt` before
-  merge, hosted GitHub runs use the smaller `promptfooconfig.hosted.yaml`
-  profile to stay inside the shared Pantheon `dev` hourly budget, and synced
+  PRs now reuse the rolling `publish/master-active` branch with real hosted
+  Promptfoo on `promptfooconfig.hosted.yaml`, protected pushes use the smaller
+  hosted `promptfooconfig.protected-push.yaml` stability profile, `git:finish`
+  downloads and inspects `gate-summary.txt` before merge, downloads richer
+  Promptfoo artifacts on failure, deploys Pantheon `dev` before waiting on the
+  hosted post-merge `master` gate, and then requires both the hosted `master`
+  gate plus the post-deploy Pantheon verification before completion. Synced
   `origin/master` deploys still block on a local DDEV exact-code promptfoo
   gate instead of trusting hosted GitHub status as deploy proof. The local
   hook installer now also deploys a pre-commit guard on `master` so stale or
@@ -3143,7 +3146,9 @@ that remained open after 2026-03-13.
   - `docs/aila/runtime/tovr-05-promptfoo-hosted-rate-limit-followup.txt`
   - `.github/workflows/quality-gate.yml`
   - `promptfoo-evals/promptfooconfig.hosted.yaml`
+  - `promptfoo-evals/promptfooconfig.protected-push.yaml`
   - `promptfoo-evals/promptfooconfig.deploy.yaml`
+  - `promptfoo-evals/tests/protected-push-stability.yaml`
   - `promptfoo-evals/tests/abuse-safety-hosted.yaml`
   - `promptfoo-evals/tests/grounding-escalation-safety-boundaries-hosted.yaml`
   - `scripts/ci/run-promptfoo-gate.sh`
@@ -3656,3 +3661,72 @@ that remained open after 2026-03-13.
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
   - `web/modules/custom/ilas_site_assistant/js/observability.js`
   - `docs/aila/risk-register.md`
+
+## TOVR-16 Final Consolidation Roadmap (2026-03-18)
+
+### CLAIM-246
+- Claim: Fresh TOVR-16 GitHub history reruns supersede the stale TOVR-13
+  protected-branch run reference: the latest `master` Quality Gate run is now
+  `23225344665` on 2026-03-18, and it failed because `Promptfoo Gate` failed
+  while `PHPUnit Quality Gate` passed.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `.github/workflows/quality-gate.yml`
+
+### CLAIM-247
+- Claim: TOVR-16 narrows the Sentry/observability release history gap with
+  fresh evidence: GitHub Actions now includes a successful `Observability
+  Release` run `23165713689` on 2026-03-16 after the earlier failed run
+  `23164126480`, so the remaining Sentry release gap is browser JS
+  de-minification usefulness rather than failed-only workflow history.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `.github/workflows/observability-release.yml`
+  - `scripts/observability/sentry-release.sh`
+
+### CLAIM-248
+- Claim: Fresh TOVR-16 runtime-truth reruns on 2026-03-18 show the current
+  Pinecone/diagnostics posture directly rather than by inheritance: `local`,
+  `dev`, and `test` now report effective `vector_search.enabled=true`, `live`
+  remains `false` on release `live_149`, and `diagnostics_token_present=false`
+  in all sampled environments.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+
+### CLAIM-249
+- Claim: TOVR-16 closes the prior TOVR-15 assistant-route live deploy gap with
+  fresh rendered runtime proof: sampled `/assistant` pages on `local`, `dev`,
+  `test`, and `live` no longer emit `googletagmanager`, `dataLayer`, or
+  `gtag()` markers, while sitewide live GA outside `/assistant` remains a
+  separate policy surface.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `web/themes/custom/b5subtheme/b5subtheme.theme`
+  - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+
+### CLAIM-250
+- Claim: TOVR-16 consolidates TOVR-01..15 plus fresh 2026-03-18 reruns into an
+  implementation-ready roadmap and carries forward only the still-open blockers:
+  Sentry browser JS source-map usefulness, hosted Langfuse queued/vector-field
+  proof, diagnostics-token versus authenticated drush-monitoring standard,
+  green replacement `master` gate, prompts 2 / 3 live-quality acceptance,
+  embeddings-timeout separation, long-run cron/queue observation, and the
+  dormant runtime-only Vertex surface.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `docs/aila/current-state.md`
+  - `docs/aila/risk-register.md`
+
+### CLAIM-251
+- Claim: TOVR-16 records an explicit phased remediation/dependency plan:
+  Phase 1 closes observability truth gaps, Phase 2 closes live Pinecone rollout
+  blockers, and Phase 3 reduces residual surface or captures optional expansion
+  work such as stale New Relic secret retirement and dormant Vertex-path
+  removal decisions.
+- Evidence:
+  - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/runbook.md`

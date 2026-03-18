@@ -2742,6 +2742,45 @@ python3 "$HOME/.codex/skills/sentry/scripts/sentry_api.py" \
     rollback notes, and still-unverified surfaces in
     `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`.
 
+### TOVR-16 final consolidation verification
+
+- Required validation commands for the consolidation report:
+  - `VC-GHA-QUALITY-HISTORY`
+  - `VC-GHA-OBS-RELEASE-HISTORY`
+  - `VC-RUNTIME-LOCAL-SAFE`
+  - `VC-RUNTIME-PANTHEON-SAFE`
+- Supplemental run-detail commands used to avoid guessing on current history:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+gh run view 23225344665 --json databaseId,displayTitle,conclusion,status,headBranch,event,workflowName,jobs,createdAt,updatedAt
+gh run view 23165713689 --json databaseId,displayTitle,conclusion,status,headBranch,event,workflowName,jobs,createdAt,updatedAt
+```
+
+- Interpretation rules:
+  - Use absolute dates and run IDs in the TOVR-16 report. Do not write
+    relative references like "latest run" or "currently pending" without the
+    specific run ID and date that prove it.
+  - Treat `TOVR-01` through `TOVR-15` runtime reports as dated history. TOVR-16
+    may supersede stale "deployment pending" or "failed-only" notes in current
+    docs only when the fresh reruns prove the newer state directly.
+  - Keep any surface not rerun by TOVR-16 explicitly labeled
+    `still unverified`, even if an earlier prompt was optimistic.
+  - Current 2026-03-18 expectations from the canonical reruns are:
+    - latest `master` Quality Gate remains failing (`23225344665`)
+    - `Observability Release` has at least one successful GitHub run
+      (`23165713689`)
+    - `local` / `dev` / `test` runtime truth reports
+      `vector_search.enabled=true`
+    - `live` runtime truth reports `vector_search.enabled=false` on
+      `release=live_149`
+    - `diagnostics_token_present=false` in all sampled runtimes
+    - rendered `/assistant` samples no longer show GA markers on `live`
+- Archive the full report, command summaries, scorecard, blockers, and
+  still-unverified surfaces in
+  `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`.
+
 ### RAUD-09 live debug metadata guard verification
 
 - Baseline before the remediation:
@@ -3060,17 +3099,19 @@ Notes:
   pushed target branch.
 - Post-merge local sync is reduced to one command: `npm run git:sync-master`.
 - Optional shortcut: `npm run git:finish` waits for the current
-  `publish/master-<shortsha>` PR, merges it with a merge commit, runs
-  `npm run git:sync-master`, and deploys Pantheon `dev` when `origin/master`
-  is behind.
+  `publish/master-active` PR, merges it with a merge commit, runs
+  `npm run git:sync-master`, deploys Pantheon `dev` when `origin/master`
+  is behind, runs hosted Pantheon `dev` verification, and then waits for the
+  hosted post-merge `master` gate before returning success.
 - Direct `git push github master` is intentionally blocked on protected
   `master`; use `npm run git:publish` so local `master` is pushed to
-  `github/publish/master-<shortsha>` and opened as a PR into `master`.
-- Each `npm run git:publish` invocation creates or updates the helper PR for
-  the current `publish/master-<shortsha>` branch; do not wait on stale PR
-  numbers from earlier publishes.
+  `github/publish/master-active` and opened as a PR into `master`.
+- Each `npm run git:publish` invocation reuses the rolling helper PR for
+  `publish/master-active`, auto-closes superseded legacy `publish/master-*`
+  PRs, and prunes merged helper branches after successful completion; do not
+  wait on stale PR numbers from earlier publishes.
 - PR-branch publishes from local `master` are advisory locally because the
-  hook classifies `github/publish/master-<shortsha>` as a non-protected target;
+  hook classifies `github/publish/master-active` as a non-protected target;
   helper publish PRs are blocking on GitHub, and `npm run git:finish`
   downloads the `gate-summary.txt` artifact before merging so advisory,
   simulated, or failed hosted Promptfoo runs cannot be merged into `master`.
@@ -3079,9 +3120,14 @@ Notes:
 - Once local `master` is fast-forwarded to the merged `github/master` commit,
   `npm run git:publish -- --origin-only` still runs sync-check plus the local
   module quality gate and runs the local DDEV deploy-bound Promptfoo gate before the Pantheon push.
-- The hosted GitHub check is not treated as deploy proof for `origin/master`;
-  deploy proof for Pantheon `dev` comes from the local DDEV exact-code promptfoo
-  gate on the commit being pushed.
+- The hosted GitHub checks are still not the deploy proof that allows the
+  `origin/master` push itself; deploy proof for Pantheon `dev` still comes
+  from the local DDEV exact-code promptfoo gate on the commit being pushed.
+  After the Pantheon push, `git:finish` also requires two hosted proofs before
+  it returns success: the post-deploy Pantheon `dev` verification and the
+  hosted post-merge `master` stability gate. That hosted `master` gate blocks
+  completion/promotion, but it no longer blocks the Pantheon `dev` deploy step
+  itself.
 - Synced `origin/master` deploy pushes require a running DDEV app with a
   resolvable primary URL; otherwise the strict hook refuses the push unless you
   intentionally bypass it with `git push --no-verify`.
@@ -3124,12 +3170,13 @@ GitHub Actions blocking runs should keep these settings aligned with Pantheon
 
 GitHub Actions uses two hosted Promptfoo paths plus a separate deploy-bound
 local gate:
-- Helper publish PRs (`publish/master-*`) use the real hosted eval path in
-  blocking mode with `promptfooconfig.hosted.yaml --no-deep-eval` when
+- Helper publish PRs (`publish/master-active`, with legacy `publish/master-*`
+  still recognized during cleanup) use the real hosted eval path in blocking
+  mode with `promptfooconfig.hosted.yaml --no-deep-eval` when
   `ILAS_ASSISTANT_URL` is available.
-- Protected-branch `push` runs on `master`/`main`/`release/*` use the same real
-  hosted profile in blocking mode; the workflow no longer uses simulated
-  config-parity mode on that path.
+- Protected-branch `push` runs on `master`/`main`/`release/*` use the smaller
+  hosted stability profile `promptfooconfig.protected-push.yaml --no-deep-eval`
+  in blocking mode.
 - Ordinary feature PRs use the real hosted eval path in advisory mode with
   `promptfooconfig.hosted.yaml --no-deep-eval` when `ILAS_ASSISTANT_URL` is
   available.
@@ -3138,7 +3185,9 @@ local gate:
   and never deploy proof.
 - Synced `origin/master` deploy pushes are separately blocked by the local DDEV
   exact-code gate in `scripts/ci/pre-push-strict.sh`; hosted GitHub results
-  remain hosted-environment evidence only.
+  remain hosted-environment evidence only for the push decision itself. After
+  the Pantheon `dev` push, `git:finish` re-runs hosted verification against the
+  deployed Pantheon URL with `promptfooconfig.protected-push.yaml`.
 
 If `ILAS_ASSISTANT_URL` explicitly points at a different Pantheon environment
 than the requested `--env`, `scripts/ci/run-promptfoo-gate.sh` now fails with
@@ -3146,13 +3195,15 @@ than the requested `--env`, `scripts/ci/run-promptfoo-gate.sh` now fails with
 
 Expected CI policy:
 - `master`, `main`, and `release/*` branches are blocking for threshold failures.
-- `publish/master-*` helper PRs are also blocking in GitHub Actions even though
-  the local pre-push helper branch remains advisory.
+- `publish/master-active` helper PRs are also blocking in GitHub Actions even
+  though the local pre-push helper branch remains advisory. Legacy
+  `publish/master-*` helper branches remain recognized during cleanup.
 - Other branches are advisory (non-zero eval result reported but does not fail job).
 - Hosted GitHub runs should use `promptfooconfig.hosted.yaml --no-deep-eval`
-  so the shared Pantheon `dev` budget stays below the hourly rate ceiling while
-  preserving the enforced retrieval, grounding, escalation, safety-boundary,
-  abuse, and multilingual metric families.
+  for helper PRs, and `promptfooconfig.protected-push.yaml --no-deep-eval` for
+  post-merge protected pushes/post-deploy verification, so the shared Pantheon
+  `dev` budget stays below the hourly rate ceiling while preserving
+  representative hosted stability coverage.
 - Deploy-safe local exact-code runs should use
   `promptfooconfig.deploy.yaml --no-deep-eval`.
 - Default promptfoo config in auto mode is `promptfooconfig.deep.yaml` for

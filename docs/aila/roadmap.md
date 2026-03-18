@@ -377,6 +377,28 @@ Explicit mapping:
 3. Local post-change proof is acceptable: focused contract tests stay green, `ilas:runtime-truth` still reports effective Pinecone/Gemini wiring, Search API vector indexes remain enabled/populated, and local assistant smoke behavior is unchanged across the fixed prompts used in TOVR-13/TOVR-12 follow-up. (Refs: current-state §1, §8; evidence-index CLAIM-240; runbook §3, §4)
 4. Hosted post-change verification remains `Unverified` until deploy. The canonical residual risk is now the dormant runtime-only Vertex secret path plus any future re-expansion of AI provider surface, not synced Drupal config carrying Vertex credentials. (Refs: current-state §1, §8; evidence-index CLAIM-241, CLAIM-242; runbook §3)
 
+### TOVR-16 final consolidation disposition (2026-03-18)
+1. Cross-tool findings: fresh TOVR-16 reruns supersede three stale pending notes without reopening earlier prompt conclusions. `Observability Release` now has a successful GitHub run `23165713689`, assistant-route GA suppression is now proven on hosted `live` release `live_149`, and `local` / `dev` / `test` still report effective `vector_search.enabled=true` while `live` remains `false`. The latest `master` Quality Gate run is now `23225344665`, and it is still red because `Promptfoo Gate` failed while `PHPUnit Quality Gate` passed. Fresh safe-runtime reruns also tighten the diagnostics posture: `diagnostics_token_present=false` now appears in every sampled environment. (Refs: current-state §1, §8; evidence-index CLAIM-246, CLAIM-247, CLAIM-248, CLAIM-249, CLAIM-250; runbook §3)
+2. Phased remediation:
+   - Phase 1 closes observability truth gaps: prove Sentry browser JS source-map usefulness on the current deployed asset bundle, rerun hosted Langfuse direct/queued probes plus one live vector-field trace proof, and choose a binding diagnostics-monitoring standard (`ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` or authenticated `remote:drush` plus probe commands). (Refs: current-state §1, §8; evidence-index CLAIM-247, CLAIM-248, CLAIM-250, CLAIM-251; runbook §3, §5)
+   - Phase 2 closes live Pinecone rollout blockers: replace the failing latest `master` gate with a green replacement, either prove accepted vector improvement on prompts 2 / 3 or narrow the rollout scope in writing, separate embeddings-side timeout governance from the shared/global `ai.settings.request_timeout`, and keep the live rollback path runtime-only and documented. (Refs: current-state §1, §8; evidence-index CLAIM-246, CLAIM-248, CLAIM-250, CLAIM-251; runbook §3, §4)
+   - Phase 3 reduces residual surface or captures optional expansion work: retire stale New Relic secrets if platform ownership agrees, decide whether to remove the dormant custom Vertex runtime-only path, and keep platform-level RUM/CWV explicitly outside AILA scope unless a separate platform decision funds it. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-250, CLAIM-251; runbook §3)
+3. Feature expansion opportunities: stale NR secret retirement is low-cost hygiene with modest value; dormant Vertex-path retirement is medium-cost with medium security/maintenance value; platform-level browser performance telemetry remains a separate governance/cost decision because TOVR-06 retired AILA-owned NR and TOVR-15 keeps assistant GA denied. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-251; runbook §3)
+4. Final scorecard and dependency summary:
+
+| Area | State | Blocking dependency |
+|---|---|---|
+| Promptfoo/CI | `BLOCKED` | Green replacement `master` Quality Gate after failed run `23225344665` |
+| Sentry | `partially proven` | Browser JS original-source resolution on the deployed asset bundle |
+| Langfuse | `BLOCKED` | Hosted queued-export parity plus hosted live trace proof for the vector fields |
+| Internal telemetry | `BLOCKED` | Diagnostics token provisioning or an approved authenticated drush-monitoring standard |
+| Pinecone non-live | `closed by fresh evidence` | Continue monitoring only |
+| Pinecone live | `BLOCKED` | Green `master` gate, prompt 2 / 3 acceptance, diagnostics standard, embeddings-timeout separation |
+| Privacy/analytics | `closed by fresh evidence` | Continue regression monitoring only |
+| AI/provider footprint | `historically closed but still monitored` | Dormant runtime-only Vertex path decision |
+
+   (Refs: current-state §1, §8; evidence-index CLAIM-246, CLAIM-247, CLAIM-248, CLAIM-249, CLAIM-250, CLAIM-251; runbook §3)
+
 ### Phase 2 Objective #3 disposition (2026-03-03)
 1. Objective #3 is closed as implemented: source freshness and provenance governance is now enforced through additive config policy, retrieval-result annotations, observation snapshots, health/metrics exposure, and objective-level closure guards without runtime filtering side effects. (Refs: current-state §4D, §8; evidence-index CLAIM-067, CLAIM-122, CLAIM-133; system-map Diagram A; runbook §4)
 2. Governance enforcement mode is soft-governance enforcement mode only: stale/missing/unknown conditions raise annotations, observability counters, and cooldowned alerts, while retrieval ranking/filtering behavior remains unchanged. (Refs: current-state §4D; evidence-index CLAIM-067, CLAIM-133; runbook §4)

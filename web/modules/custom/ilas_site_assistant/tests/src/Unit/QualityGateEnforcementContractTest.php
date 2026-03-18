@@ -75,12 +75,15 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('EFFECTIVE_MODE="advisory"', $script);
     $this->assertStringContainsString('promptfooconfig.smoke.yaml', $script);
     $this->assertStringContainsString('promptfooconfig.deploy.yaml', $script);
+    $this->assertStringContainsString('promptfooconfig.protected-push.yaml', $script);
     $this->assertStringContainsString('promptfooconfig.deep.yaml', $script);
     $this->assertStringContainsString('promptfooconfig.abuse.yaml', $script);
     $this->assertStringContainsString('config_file=', $script);
     $this->assertStringContainsString('eval_execution_mode=', $script);
     $this->assertStringContainsString('gate-metrics.js', $script);
     $this->assertStringContainsString('apply_metric_threshold_report', $script);
+    $this->assertStringContainsString('structured-error-summary.json', $script);
+    $this->assertStringContainsString('structured-error-summary.txt', $script);
   }
 
   /**
@@ -111,12 +114,15 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('Run promptfoo transport/runtime tests', $workflow);
     $this->assertStringContainsString('run-promptfoo-gate.sh', $workflow);
     $this->assertStringContainsString('promptfooconfig.hosted.yaml', $workflow);
+    $this->assertStringContainsString('promptfooconfig.protected-push.yaml', $workflow);
     $this->assertStringContainsString('--no-deep-eval', $workflow);
     $this->assertStringContainsString('CI_PROMPTFOO_ENV: dev', $workflow);
     $this->assertStringContainsString('TARGET_ENV="${CI_PROMPTFOO_ENV}"', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE', $workflow);
     $this->assertStringContainsString('ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR', $workflow);
-    $this->assertStringContainsString('publish/master-', $workflow);
+    $this->assertStringContainsString('publish/master-active', $workflow);
+    $this->assertStringContainsString('promptfoo-gate-artifacts', $workflow);
+    $this->assertStringContainsString('structured-error-summary.txt', $workflow);
 
     // Branch-aware policy annotation.
     $this->assertStringContainsString('BLOCKING', $workflow);

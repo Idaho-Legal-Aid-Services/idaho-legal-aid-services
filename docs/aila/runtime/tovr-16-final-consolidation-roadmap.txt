@@ -1,0 +1,192 @@
+# TOVR-16 Final Consolidation Roadmap (2026-03-18T02:41:20Z)
+
+- Prompt ID: `TOVR-16`
+- Final consolidated status: `Complete as documentation; implementation roadmap is ready, but operational rollout remains blocked on the explicit dependencies below.`
+- Verification level tag: `fresh-gh-history + local-runtime + pantheon-runtime-read-only + prior-prompt-evidence`
+
+## Cross-tool findings
+
+1. Fresh 2026-03-18 GitHub history supersedes the stale TOVR-13 CI note without reopening the earlier prompt: the latest `master` Quality Gate run is now `23225344665`, and it failed because `Promptfoo Gate` failed while `PHPUnit Quality Gate` passed.
+2. The Observability Release history gap is narrowed by fresh evidence rather than assumption: GitHub Actions now has a successful `Observability Release` run `23165713689` from 2026-03-16 after the earlier failed run `23164126480`. That closes the failed-only history gap, but not the browser JS de-minification usefulness gap.
+3. Pinecone non-live rollout state remains current on fresh runtime truth: `local`, `dev`, and `test` still report stored `false` versus effective `true` for `vector_search.enabled`, while `live` remains effectively `false` on release `live_149`.
+4. The diagnostics-monitoring gap is wider than some earlier prose suggested: fresh safe-runtime reruns show `diagnostics_token_present=false` in `local`, `dev`, `test`, and `live`, so the positive machine-auth `/assistant/api/health` and `/assistant/api/metrics` path is currently unproven everywhere unless the team formalizes authenticated `remote:drush` plus probe commands as the monitoring standard.
+5. TOVR-15's live assistant-route deploy gap is now closed by current runtime evidence: fresh rendered `/assistant` marker sampling on `local`, `dev`, `test`, and `live` showed Sentry/browser markers only and no `googletagmanager`, `dataLayer`, or `gtag()` hits on the assistant route. This does not expand the policy boundary to sitewide GA outside `/assistant`.
+6. Cross-tool overlap is now explicit:
+   - Sentry, Langfuse, Promptfoo, diagnostics-token monitoring, and Pinecone live readiness all converge on the same live go/no-go question.
+   - Privacy and observability are not competing goals in the current design; the allowed telemetry surfaces remain scrubbed/minimized, while assistant-route GA remains denied.
+   - The Pinecone live blocker set is no longer infrastructure ambiguity. It is quality, monitoring, and timeout-governance proof.
+
+## Phased remediation plan
+
+### Phase 1: Close observability truth gaps
+
+- Sentry:
+  - Rerun browser exception proof on the current deployed release path and capture one event that resolves to original source coordinates.
+  - Keep the successful GitHub workflow path (`23165713689`) as the current baseline, but require at least one additional successful release upload on the next live-relevant branch/release before calling workflow history stable.
+- Langfuse:
+  - Rerun direct and queued probes on current Pantheon `dev` / `test` / `live`.
+  - Capture one hosted `live` trace proving the deployed request path now emits the vector metadata fields added in TOVR-13.
+- Internal telemetry:
+  - Pick one monitoring standard and document it as binding:
+    - provision `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` and prove positive/negative HTTP checks, or
+    - formally adopt authenticated `remote:drush ilas:runtime-truth` plus probe commands as the release and monitoring standard.
+
+### Phase 2: Close live Pinecone rollout blockers
+
+- Replace the latest red `master` Quality Gate with a green `master` run on the current gate profile.
+- Either prove accepted vector recall/relevance improvement on prompts 2 / 3, or explicitly remove those prompts from the live-rollout acceptance set in writing.
+- Separate embeddings-side timeout governance from shared/global `ai.settings.request_timeout`.
+- Keep the live rollback contract runtime-only and documented before any future toggle:
+  - authoritative toggle path
+  - cache-clear sequence
+  - post-toggle smoke
+  - post-toggle Sentry/Langfuse proof
+
+### Phase 3: Reduce residual surface or pursue optional expansion
+
+- Retire stale New Relic Pantheon secrets if platform ownership agrees; this is hygiene work, not an AILA feature dependency.
+- Decide whether to remove the dormant custom Vertex runtime-only path or explicitly keep it as a justified contingency surface.
+- Leave platform-level CWV/RUM decisions outside AILA scope unless a separate platform decision funds and governs them.
+
+## Feature expansion opportunities
+
+- Stale New Relic secret retirement:
+  - Value: low-to-medium hygiene improvement.
+  - Cost: low.
+  - Dependency: platform secret ownership.
+- Dormant Vertex path retirement:
+  - Value: medium security/maintenance reduction.
+  - Cost: medium because it touches runtime-secret and fallback assumptions.
+  - Dependency: explicit product/platform decision that no active Vertex fallback is needed.
+- Additional platform-level browser performance telemetry:
+  - Value: medium for CWV/RUM visibility.
+  - Cost: medium-to-high.
+  - Dependency: explicit non-AILA platform governance because TOVR-06 retired AILA-owned NR and TOVR-15 keeps assistant GA denied.
+
+## Scorecard
+
+| Area | Current state | Verification basis | Open blocker | Dependency | Cost/value note |
+|---|---|---|---|---|---|
+| Promptfoo/CI | `BLOCKED pending new work` | `gh run list --workflow quality-gate.yml -L 10`; `gh run view 23225344665 --json ...`; prior TOVR-05 history | `BLOCKED: latest master Quality Gate run 23225344665 is still red because Promptfoo Gate failed while PHPUnit passed.` | Green replacement `master` run on the current gate profile | Low-to-medium code/process cost, high release-governance value |
+| Sentry | `closed historically but still monitored` | TOVR-03 report plus fresh `gh run list --workflow observability-release.yml -L 10`; `gh run view 23165713689 --json ...` | `BLOCKED: browser JS original-source resolution is still unproven even though workflow history now includes a successful run.` | Fresh browser exception proof on the current deployed asset bundle | Medium cost, high debugging value |
+| Langfuse | `BLOCKED pending new work` | TOVR-04 local direct/queued proof; TOVR-13 live direct proof; fresh 2026-03-18 safe runtime reruns | `BLOCKED: hosted queued-export parity and hosted vector-field trace proof were not rerun in TOVR-16.` | Current Pantheon direct/queued probes plus account-side trace inspection | Medium cost, medium-to-high rollout value |
+| Internal telemetry | `BLOCKED pending standard selection` | TOVR-07 route contracts; fresh 2026-03-18 safe runtime reruns | `BLOCKED: diagnostics_token_present=false in local/dev/test/live, so positive machine-auth monitoring is unproven everywhere.` | Token provisioning or approved authenticated `remote:drush` monitoring standard | Low implementation cost, high operational value |
+| Pinecone non-live | `closed by fresh evidence` | TOVR-12 report; fresh local and Pantheon runtime truth on 2026-03-18 | none; continue monitoring only | Existing runtime-only toggle design | Low additional cost, high confidence-retention value |
+| Pinecone live | `BLOCKED pending new work` | TOVR-13 report plus fresh 2026-03-18 GH/runtime reruns | `BLOCKED: live remains forced off; latest master gate is red; prompts 2/3 quality proof is incomplete; diagnostics monitoring is unresolved; embeddings timeout governance is still shared/global.` | Green master gate, prompt-scope decision, monitoring standard, timeout separation | Medium-to-high cost, high release-readiness value |
+| Privacy/analytics | `closed by fresh evidence` | TOVR-15 report plus fresh rendered `/assistant` sampling on all sampled environments | none for assistant-route suppression; continue regression monitoring | Existing deny-by-default assistant GA policy | Low monitoring cost, high privacy/compliance value |
+| AI/provider footprint | `closed historically but still monitored` | TOVR-14 report plus fresh 2026-03-18 runtime truth showing current releases after deploy | `BLOCKED: dormant runtime-only Vertex path remains in settings.php/LlmEnhancer and still needs either retirement or explicit justification.` | Product/platform decision on Vertex contingency surface | Medium cost, medium security/maintenance value |
+
+## Evidence with prompt cross-references, file paths, and command summaries
+
+- Promptfoo / CI
+  - Prompts: `TOVR-05`, `TOVR-13`, `TOVR-16`
+  - Files:
+    - `.github/workflows/quality-gate.yml`
+    - `docs/aila/runtime/tovr-05-promptfoo-hosted-rate-limit-followup.txt`
+    - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - Commands:
+    - `gh run list --workflow quality-gate.yml -L 10`
+    - `gh run view 23225344665 --json databaseId,displayTitle,conclusion,status,headBranch,event,workflowName,jobs,createdAt,updatedAt`
+  - Summary:
+    - latest `master` push `23225344665` failed on 2026-03-18
+    - `PHPUnit Quality Gate` succeeded
+    - `Promptfoo Gate` failed
+    - helper PR `23225146110` succeeded on 2026-03-18
+
+- Observability Release / Sentry
+  - Prompts: `TOVR-03`, `TOVR-16`
+  - Files:
+    - `.github/workflows/observability-release.yml`
+    - `scripts/observability/sentry-release.sh`
+    - `docs/aila/runtime/tovr-03-sentry-operationalization.txt`
+  - Commands:
+    - `gh run list --workflow observability-release.yml -L 10`
+    - `gh run view 23165713689 --json databaseId,displayTitle,conclusion,status,headBranch,event,workflowName,jobs,createdAt,updatedAt`
+  - Summary:
+    - workflow history now includes a successful run `23165713689` on 2026-03-16
+    - earlier failed run `23164126480` remains in history
+    - unresolved gap is original-source browser JS frame resolution, not workflow absence
+
+- Runtime truth / Pinecone / diagnostics
+  - Prompts: `TOVR-08`, `TOVR-12`, `TOVR-13`, `TOVR-16`
+  - Files:
+    - `web/sites/default/settings.php`
+    - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+    - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+    - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - Commands:
+    - `ddev drush status --fields=uri,drupal-version,db-status`
+    - `ddev drush ilas:runtime-truth`
+    - `VC-RUNTIME-PANTHEON-SAFE`
+  - Summary:
+    - local DDEV bootstrapped successfully and now reports effective `vector_search.enabled=true`
+    - `dev` release `bc27d2b` reports effective `vector_search.enabled=true`
+    - `test` release `test_161` reports effective `vector_search.enabled=true`
+    - `live` release `live_149` reports effective `vector_search.enabled=false`
+    - `diagnostics_token_present=false` in all sampled environments
+
+- Privacy / assistant-route GA boundary
+  - Prompts: `TOVR-15`, `TOVR-16`
+  - Files:
+    - `web/themes/custom/b5subtheme/b5subtheme.theme`
+    - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
+    - `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+  - Commands:
+    - `VC-RUNTIME-LOCAL-SAFE`
+    - `VC-RUNTIME-PANTHEON-SAFE`
+  - Summary:
+    - fresh local/dev/test/live `/assistant` marker samples showed only Sentry/browser markers
+    - no `googletagmanager`, `dataLayer`, or `gtag()` markers appeared on sampled assistant pages
+    - this closes the earlier hosted live assistant-route deploy gap, but does not change policy for non-assistant sitewide GA
+
+- Langfuse
+  - Prompts: `TOVR-04`, `TOVR-13`, `TOVR-16`
+  - Files:
+    - `docs/aila/runtime/tovr-04-langfuse-remediation.txt`
+    - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+    - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - Commands:
+    - `ddev drush ilas:runtime-truth`
+    - `VC-RUNTIME-PANTHEON-SAFE`
+  - Summary:
+    - fresh safe runtime reruns still show Langfuse effectively enabled everywhere
+    - TOVR-16 did not rerun direct or queued probes, so hosted queued parity and hosted vector-field trace proof remain unverified
+
+## Changed files
+
+- `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- No application, CI, or test code changes
+
+## Residual risks / unknowns
+
+- Sentry browser JS source-map usefulness remains unproven.
+- Hosted Langfuse queued-export parity on current releases remains unproven.
+- Hosted live trace proof for the TOVR-13 vector metadata fields remains unproven.
+- Diagnostics token is absent in all sampled runtimes unless the team adopts authenticated `remote:drush` as the formal standard instead.
+- Live vector rollout still lacks accepted prompt 2 / 3 quality proof and embeddings-timeout separation.
+- Long-run cron/queue behavior under sustained load remains unproven.
+- Dormant runtime-only Vertex surface remains active in code/settings.
+
+## Rollback notes
+
+1. No runtime, config, CI, or code behavior was changed in TOVR-16.
+2. Rolling back TOVR-16 means reverting the documentation updates only.
+3. Runtime rollback guidance for Pinecone and assistant-route GA remains in:
+   - `docs/aila/runtime/tovr-12-pinecone-non-live-enablement.txt`
+   - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+   - `docs/aila/runtime/tovr-15-privacy-analytics-boundaries.txt`
+
+## Still-unverified surfaces
+
+- Fresh browser JS exception with resolved original source coordinates in Sentry.
+- Hosted direct plus queued Langfuse probe proof on current `dev` / `test` / `live` releases.
+- Hosted live Langfuse trace showing the TOVR-13 vector metadata fields.
+- Positive machine-auth health/metrics proof unless a token is provisioned or authenticated `remote:drush` becomes the formal standard.
+- Prompt-level acceptance proof for prompts 2 / 3, or written scope reduction removing them from the rollout acceptance set.
+- Embeddings-side timeout separation from global `ai.settings.request_timeout`.
+- Sustained cron/queue observation under non-trivial load.

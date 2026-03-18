@@ -14,6 +14,8 @@ RESULTS_FILE="$REPO_ROOT/promptfoo-evals/output/results.json"
 RESULTS_FILE_SMOKE="$REPO_ROOT/promptfoo-evals/output/results-smoke.json"
 RESULTS_FILE_DEEP="$REPO_ROOT/promptfoo-evals/output/results-deep.json"
 SUMMARY_FILE="$REPO_ROOT/promptfoo-evals/output/gate-summary.txt"
+STRUCTURED_ERROR_SUMMARY_JSON="$REPO_ROOT/promptfoo-evals/output/structured-error-summary.json"
+STRUCTURED_ERROR_SUMMARY_TXT="$REPO_ROOT/promptfoo-evals/output/structured-error-summary.txt"
 
 SITE_NAME="${SITE_NAME:-idaho-legal-aid-services}"
 ENV_NAME=""
@@ -183,6 +185,16 @@ count_cases_for_config() {
   echo "$total"
 }
 
+reset_output_artifacts() {
+  rm -f \
+    "$RESULTS_FILE" \
+    "$RESULTS_FILE_SMOKE" \
+    "$RESULTS_FILE_DEEP" \
+    "$SUMMARY_FILE" \
+    "$STRUCTURED_ERROR_SUMMARY_JSON" \
+    "$STRUCTURED_ERROR_SUMMARY_TXT"
+}
+
 usage() {
   cat <<USAGE
 Usage: $0 --env <dev|test|live> [--site <pantheon-site>] [--mode auto|blocking|advisory] [--threshold <0-100>] [--config <promptfoo-config>] [--deep-config <deep-config>] [--no-deep-eval] [--connectivity-only] [--skip-eval] [--simulate-pass-rate <0-100>]
@@ -191,7 +203,8 @@ Policy:
   mode=auto -> blocking on master/main/release/*, advisory otherwise.
   --deep-config auto-enables on blocking branches if not explicitly set, unless --no-deep-eval is supplied.
   Deploy-safe local exact-code runs commonly use --config promptfooconfig.deploy.yaml --no-deep-eval.
-  Hosted GitHub runs commonly use --config promptfooconfig.hosted.yaml --no-deep-eval.
+  Hosted helper PR runs commonly use --config promptfooconfig.hosted.yaml --no-deep-eval.
+  Hosted protected-push/post-deploy runs commonly use --config promptfooconfig.protected-push.yaml --no-deep-eval.
 USAGE
 }
 
@@ -683,6 +696,51 @@ cleanup_ddev_rate_limit_override() {
   DDEV_RATE_LIMIT_OVERRIDE_APPLIED="false"
 }
 
+write_diagnostic_summary() {
+  local args=(
+    --assistant-url "${ILAS_ASSISTANT_URL:-}"
+    --target-host "${TARGET_HOST}"
+    --target-env "${ENV_NAME}"
+    --target-kind "${TARGET_KIND}"
+    --target-source "${TARGET_SOURCE}"
+    --mode "${EFFECTIVE_MODE}"
+    --config-file "${CONFIG_FILE}"
+    --effective-pacing-rate-per-minute "${EFFECTIVE_PACING_RATE_PER_MINUTE}"
+    --effective-request-delay-ms "${EFFECTIVE_REQUEST_DELAY_MS}"
+    --planned-message-request-budget "${PLANNED_MESSAGE_REQUEST_BUDGET}"
+    "$RESULTS_FILE_SMOKE"
+    "$RESULTS_FILE"
+    "$RESULTS_FILE_DEEP"
+  )
+
+  mkdir -p "$(dirname "$STRUCTURED_ERROR_SUMMARY_JSON")"
+
+  if ! node "$GATE_METRICS_SCRIPT" diagnostic-summary "${args[@]}" > "$STRUCTURED_ERROR_SUMMARY_JSON" 2>/dev/null; then
+    cat > "$STRUCTURED_ERROR_SUMMARY_JSON" <<EOF
+{"generated_at_utc":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","context":{"assistant_url":"${ILAS_ASSISTANT_URL:-}","target_host":"${TARGET_HOST}","target_env":"${ENV_NAME}","mode":"${EFFECTIVE_MODE}","config_file":"${CONFIG_FILE}","effective_pacing_rate_per_minute":"${EFFECTIVE_PACING_RATE_PER_MINUTE}","effective_request_delay_ms":"${EFFECTIVE_REQUEST_DELAY_MS}","planned_message_request_budget":"${PLANNED_MESSAGE_REQUEST_BUDGET}"},"totals":{"total_cases":0,"failure_cases":0},"suites":[],"error_counts":[],"first_failures":[]}
+EOF
+  fi
+
+  if ! node "$GATE_METRICS_SCRIPT" diagnostic-summary-text "${args[@]}" > "$STRUCTURED_ERROR_SUMMARY_TXT" 2>/dev/null; then
+    cat > "$STRUCTURED_ERROR_SUMMARY_TXT" <<EOF
+assistant_url=${ILAS_ASSISTANT_URL:-}
+target_host=${TARGET_HOST}
+target_env=${ENV_NAME}
+mode=${EFFECTIVE_MODE}
+config_file=${CONFIG_FILE}
+effective_pacing_rate_per_minute=${EFFECTIVE_PACING_RATE_PER_MINUTE}
+effective_request_delay_ms=${EFFECTIVE_REQUEST_DELAY_MS}
+planned_message_request_budget=${PLANNED_MESSAGE_REQUEST_BUDGET}
+total_cases=0
+failure_cases=0
+error_counts:
+  none
+first_failures:
+  none
+EOF
+  fi
+}
+
 write_summary() {
   local timestamp
   timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -805,6 +863,7 @@ finalize_and_exit() {
 
   trap - EXIT
   cleanup_ddev_rate_limit_override || true
+  write_diagnostic_summary
   write_summary
 
   if [[ "$requested_exit" -ne 0 ]]; then
@@ -935,6 +994,7 @@ PLANNED_CASE_COUNT=$((PLANNED_SMOKE_CASE_COUNT + PLANNED_PRIMARY_CASE_COUNT + PL
 PLANNED_MESSAGE_REQUEST_BUDGET="$(compute_message_request_budget)"
 
 mkdir -p "$(dirname "$SUMMARY_FILE")"
+reset_output_artifacts
 
 if [[ "$SKIP_EVAL" == "true" ]]; then
   EVAL_EXECUTION_MODE="simulated"

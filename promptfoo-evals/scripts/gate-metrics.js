@@ -2,15 +2,17 @@
 
 const {
   evaluateMetricSet,
+  formatDiagnosticSummaryText,
   findStructuredError,
   parseResultsPassRate,
   renderAssistantFixture,
+  summarizeDiagnosticResults,
   summarizeNamedMetric,
 } = require('../lib/gate-metrics');
 
 function usage() {
   process.stderr.write(
-    'Usage: gate-metrics.js <pass-rate|structured-error|metric-rate|evaluate-thresholds|render-output> ...\n'
+    'Usage: gate-metrics.js <pass-rate|structured-error|metric-rate|evaluate-thresholds|diagnostic-summary|diagnostic-summary-text|render-output> ...\n'
   );
 }
 
@@ -24,6 +26,31 @@ function requireArg(value, message) {
 
 function formatRate(value) {
   return Number(value || 0).toFixed(1);
+}
+
+function parseDiagnosticSummaryArgs(rawArgs) {
+  const context = {};
+  const files = [];
+
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const value = rawArgs[index];
+    if (!value.startsWith('--')) {
+      files.push(value);
+      continue;
+    }
+
+    const key = value.slice(2);
+    const next = rawArgs[index + 1];
+    if (typeof next === 'undefined') {
+      process.stderr.write(`missing value for --${key}\n`);
+      process.exit(2);
+    }
+
+    context[key.replace(/-/g, '_')] = next;
+    index += 1;
+  }
+
+  return { context, files };
 }
 
 const [command, ...args] = process.argv.slice(2);
@@ -87,6 +114,26 @@ switch (command) {
     }
 
     process.stdout.write(`overall|${report.fail ? 'yes' : 'no'}\n`);
+    break;
+  }
+
+  case 'diagnostic-summary': {
+    const { context, files } = parseDiagnosticSummaryArgs(args);
+    if (files.length === 0) {
+      requireArg('', 'at least one results file is required');
+    }
+    const summary = summarizeDiagnosticResults(files, context);
+    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+    break;
+  }
+
+  case 'diagnostic-summary-text': {
+    const { context, files } = parseDiagnosticSummaryArgs(args);
+    if (files.length === 0) {
+      requireArg('', 'at least one results file is required');
+    }
+    const summary = summarizeDiagnosticResults(files, context);
+    process.stdout.write(formatDiagnosticSummaryText(summary));
     break;
   }
 

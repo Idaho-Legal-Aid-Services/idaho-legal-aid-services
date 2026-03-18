@@ -87,7 +87,7 @@ jobs:
       - name: Run promptfoo transport/runtime tests
         run: npm run test:promptfoo:runtime
 
-      - name: Run promptfoo gate (real hosted check on PRs and protected pushes)
+      - name: Run promptfoo gate (real hosted helper-PR/protected-push checks)
         env:
           ILAS_ASSISTANT_URL: ${{ secrets.ILAS_ASSISTANT_URL }}
           ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE: ${{ vars.ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE }}
@@ -100,7 +100,7 @@ jobs:
           TARGET_ENV="${CI_PROMPTFOO_ENV}"
           HELPER_PR_BLOCKING="false"
           PROTECTED_PUSH_BLOCKING="false"
-          if [[ "$EVENT_NAME" == "pull_request" && "$BRANCH" =~ ^publish/master- ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && ( "$BRANCH" == "publish/master-active" || "$BRANCH" =~ ^publish/master- ) ]]; then
             HELPER_PR_BLOCKING="true"
           fi
           if [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
@@ -108,15 +108,26 @@ jobs:
           fi
           if [[ "$HELPER_PR_BLOCKING" == "true" || "$PROTECTED_PUSH_BLOCKING" == "true" ]]; then
             if [[ -z "${ILAS_ASSISTANT_URL:-}" ]]; then
-              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking hosted Promptfoo checks (publish/master-* PRs and master/main/release/* pushes)."
+              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking hosted Promptfoo checks (publish/master-active helper PRs and master/main/release/* pushes)."
               exit 1
             fi
-            echo "::notice::Running real hosted promptfoo check against ILAS_ASSISTANT_URL in blocking mode (publish/master-* PR or protected push; hosted-only proof, not deploy-proof for origin/master)."
-            bash scripts/ci/run-promptfoo-gate.sh \
-              --env "$TARGET_ENV" \
-              --mode blocking \
-              --config promptfooconfig.hosted.yaml \
-              --no-deep-eval
+            if [[ "$HELPER_PR_BLOCKING" == "true" ]]; then
+              echo "::notice::Running real hosted helper-PR promptfoo check against ILAS_ASSISTANT_URL in blocking mode."
+              bash scripts/ci/run-promptfoo-gate.sh \
+                --env "$TARGET_ENV" \
+                --mode blocking \
+                --config promptfooconfig.hosted.yaml \
+                --no-deep-eval
+            else
+              echo "::notice::Running real hosted protected-push stability check against ILAS_ASSISTANT_URL in blocking mode."
+              RAG_METRIC_MIN_COUNT=4 \
+              P2DEL04_METRIC_MIN_COUNT=2 \
+              bash scripts/ci/run-promptfoo-gate.sh \
+                --env "$TARGET_ENV" \
+                --mode blocking \
+                --config promptfooconfig.protected-push.yaml \
+                --no-deep-eval
+            fi
           elif [[ -n "${ILAS_ASSISTANT_URL:-}" ]]; then
             echo "::notice::Running real hosted promptfoo check against ILAS_ASSISTANT_URL in advisory mode."
             bash scripts/ci/run-promptfoo-gate.sh \
@@ -145,11 +156,25 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" && "$BRANCH" =~ ^publish/master- ]] || [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && ( "$BRANCH" == "publish/master-active" || "$BRANCH" =~ ^publish/master- ) ]] || [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
             echo "::notice::Promptfoo gate ran in BLOCKING mode for branch $BRANCH as a hosted GitHub check"
           else
             echo "::notice::Promptfoo gate ran in ADVISORY mode for branch $BRANCH as a hosted GitHub check"
           fi
+
+      - name: Upload Promptfoo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promptfoo-gate-artifacts
+          path: |
+            promptfoo-evals/output/gate-summary.txt
+            promptfoo-evals/output/results.json
+            promptfoo-evals/output/results-smoke.json
+            promptfoo-evals/output/results-deep.json
+            promptfoo-evals/output/structured-error-summary.json
+            promptfoo-evals/output/structured-error-summary.txt
+          if-no-files-found: warn
 
       - name: Upload gate summary
         if: always()

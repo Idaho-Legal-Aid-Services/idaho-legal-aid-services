@@ -57,13 +57,17 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('npm run git:finish', $runbook);
     $this->assertStringContainsString('npm run git:sync-master', $runbook);
     $this->assertStringContainsString('npm run git:publish -- --origin-only', $runbook);
-    $this->assertStringContainsString('do not wait on stale PR', $runbook);
+    $this->assertStringContainsString('wait on stale PR numbers from earlier publishes.', $runbook);
     $this->assertStringContainsString('terminus env:code-log idaho-legal-aid-services.dev --format=table', $runbook);
     $this->assertStringContainsString('PR-branch publishes from local `master` are advisory locally', $runbook);
     $this->assertStringContainsString('helper publish PRs are blocking on GitHub', $runbook);
     $this->assertStringContainsString('downloads the `gate-summary.txt` artifact before merging', $runbook);
     $this->assertStringContainsString('runs the local DDEV deploy-bound Promptfoo gate before the Pantheon push', $runbook);
-    $this->assertStringContainsString('hosted GitHub check is not treated as deploy proof for `origin/master`', $runbook);
+    $this->assertStringContainsString('not the deploy proof that allows the', $runbook);
+    $this->assertStringContainsString('`origin/master` push itself', $runbook);
+    $this->assertStringContainsString('publish/master-active', $runbook);
+    $this->assertStringContainsString('post-deploy Pantheon `dev` verification', $runbook);
+    $this->assertStringContainsString('hosted post-merge `master` gate', $runbook);
     $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $runbook);
     $this->assertStringContainsString('GitHub `Install Composer dependencies` step', $runbook);
     $this->assertStringContainsString('promotion to Pantheon `test` and `live` is a separate deployment', $runbook);
@@ -130,15 +134,20 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('using the pushed target branch for blocking/advisory policy', $installer);
     $this->assertStringContainsString('requires local DDEV exact-code evals for synced origin/master deploy pushes', $installer);
     $this->assertStringContainsString('Do not wait on stale PR numbers from earlier publishes.', $installer);
+    $this->assertStringContainsString('publish/master-active', $installer);
+    $this->assertStringContainsString('hosted Pantheon dev verification', $installer);
+    $this->assertStringContainsString('hosted post-merge master gate', $installer);
     $this->assertStringContainsString('git push --no-verify', $installer);
 
-    $this->assertStringContainsString('publish/master-', $publishHelper);
+    $this->assertStringContainsString('publish/master-active', $publishHelper);
     $this->assertStringContainsString('gh pr create', $publishHelper);
     $this->assertStringContainsString('npm run git:finish', $publishHelper);
     $this->assertStringContainsString('npm run git:sync-master', $publishHelper);
     $this->assertStringContainsString('preserve and restack them onto github/master', $publishHelper);
     $this->assertStringContainsString('npm run git:publish -- --origin-only', $publishHelper);
     $this->assertStringContainsString('through the local DDEV deploy gate', $publishHelper);
+    $this->assertStringContainsString('find_open_legacy_master_publish_prs', $publishHelper);
+    $this->assertStringContainsString('close_superseded_legacy_master_prs', $publishHelper);
 
     $this->assertStringContainsString('Syncing local master from github/master', $syncHelper);
     $this->assertStringContainsString('github/master does not yet include local master', $syncHelper);
@@ -152,13 +161,19 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('gh run list --workflow "Quality Gate" --event push', $finishHelper);
     $this->assertStringContainsString('gh run watch', $finishHelper);
     $this->assertStringContainsString('gate-summary.txt', $finishHelper);
+    $this->assertStringContainsString('promptfoo-gate-artifacts', $finishHelper);
+    $this->assertStringContainsString('structured-error-summary.txt', $finishHelper);
     $this->assertStringContainsString('failure_kind', $finishHelper);
     $this->assertStringContainsString('eval_execution_mode', $finishHelper);
     $this->assertStringContainsString('mode=$mode', $finishHelper);
     $this->assertStringContainsString('sync-master.sh', $finishHelper);
     $this->assertStringContainsString('publish.sh" --origin-only', $finishHelper);
-    $this->assertStringContainsString('Refusing to deploy Pantheon dev while master is red.', $finishHelper);
     $this->assertStringContainsString('deploying origin/master through the local DDEV deploy gate', $finishHelper);
+    $this->assertStringContainsString('run_post_deploy_pantheon_verification', $finishHelper);
+    $this->assertStringContainsString('promptfooconfig.protected-push.yaml', $finishHelper);
+    $this->assertStringContainsString('Protected-master flow is incomplete.', $finishHelper);
+    $this->assertStringContainsString('publish/master-active', $finishHelper);
+    $this->assertStringContainsString('prune_merged_publish_branches', $finishHelper);
     $this->assertStringContainsString('Commit or stash them before running npm run git:finish.', $finishHelper);
   }
 
