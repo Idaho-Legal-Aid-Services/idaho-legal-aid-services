@@ -65,6 +65,7 @@ class LangfuseStatusCommands extends DrushCommands {
         'timeout' => (float) ($config->get('langfuse.timeout') ?? 5.0),
       ],
       'queue' => $this->buildQueueStatus(),
+      'export' => $this->queueHealthMonitor->getExportOutcomeSummary(),
       'divergences' => $this->filterLangfuseDivergences($snapshot['divergences'] ?? []),
       'override_channels' => [
         'langfuse.enabled' => $snapshot['override_channels']['langfuse.enabled'] ?? 'config export',

@@ -107,6 +107,39 @@ class VoyageReranker implements RerankerInterface {
   }
 
   /**
+   * Returns the effective reranker summary without exposing secrets.
+   *
+   * @return array<string, mixed>
+   *   Safe runtime summary.
+   */
+  public function getRuntimeSummary(): array {
+    $config = $this->getConfig();
+    $key = Settings::get('ilas_voyage_api_key', '');
+    $apiKeyPresent = is_string($key) ? trim($key) !== '' : (bool) $key;
+    $circuitConfig = $config['circuit_breaker'] ?? [];
+    $circuitConfig = is_array($circuitConfig) ? $circuitConfig : [];
+    $circuitState = $this->getCircuitState();
+
+    return [
+      'enabled' => (bool) ($config['enabled'] ?? FALSE),
+      'rerank_model' => (string) ($config['rerank_model'] ?? 'rerank-2'),
+      'api_timeout' => (float) ($config['api_timeout'] ?? 3.0),
+      'max_candidates' => (int) ($config['max_candidates'] ?? 20),
+      'top_k' => (int) ($config['top_k'] ?? 5),
+      'min_results_to_rerank' => (int) ($config['min_results_to_rerank'] ?? 2),
+      'fallback_on_error' => (bool) ($config['fallback_on_error'] ?? TRUE),
+      'api_key_present' => $apiKeyPresent,
+      'runtime_ready' => $this->isEnabled(),
+      'circuit_breaker' => [
+        'failure_threshold' => (int) ($circuitConfig['failure_threshold'] ?? 3),
+        'cooldown_seconds' => (int) ($circuitConfig['cooldown_seconds'] ?? 300),
+        'state' => (string) ($circuitState['state'] ?? 'closed'),
+        'consecutive_failures' => (int) ($circuitState['consecutive_failures'] ?? 0),
+      ],
+    ];
+  }
+
+  /**
    * Internal reranking logic.
    */
   protected function doRerank(string $query, array $items, array $options, array &$meta): array {

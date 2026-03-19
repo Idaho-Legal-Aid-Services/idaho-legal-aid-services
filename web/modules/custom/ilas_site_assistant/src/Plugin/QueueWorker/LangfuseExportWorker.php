@@ -82,6 +82,7 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
     // Validate payload structure.
     if (!is_array($data) || empty($data['batch']) || !is_array($data['batch'])) {
       $this->logger->warning('Langfuse export: invalid queue item, discarding.');
+      $this->recordOutcome('discard_invalid_shape');
       $this->recordDrain(1);
       return;
     }
@@ -94,6 +95,9 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
       $this->logger->notice('Langfuse export: discarding pre-upgrade item without enqueued_at (@count events).', [
         '@count' => count($data['batch']),
       ]);
+      $this->recordOutcome('discard_missing_enqueued_at', [
+        'event_count' => count($data['batch']),
+      ]);
       $this->recordDrain(1);
       return;
     }
@@ -104,6 +108,11 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
         '@max' => $maxAge,
         '@count' => count($data['batch']),
       ]);
+      $this->recordOutcome('discard_stale', [
+        'event_count' => count($data['batch']),
+        'item_age_seconds' => $age,
+        'max_age_seconds' => $maxAge,
+      ]);
       $this->recordDrain(1);
       return;
     }
@@ -112,6 +121,9 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
     if (!$config->get('langfuse.enabled')) {
       $this->logger->notice('Langfuse export: tracing disabled, discarding @count events.', [
         '@count' => count($data['batch']),
+      ]);
+      $this->recordOutcome('discard_disabled', [
+        'event_count' => count($data['batch']),
       ]);
       $this->recordDrain(1);
       return;
@@ -124,6 +136,9 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
 
     if ($publicKey === '' || $secretKey === '') {
       $this->logger->warning('Langfuse export: credentials not configured, discarding batch.');
+      $this->recordOutcome('discard_missing_credentials', [
+        'event_count' => count($data['batch']),
+      ]);
       $this->recordDrain(1);
       return;
     }
@@ -157,11 +172,21 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
           '@ok' => count($successes),
           '@err' => count($errors),
         ]);
+        $this->recordOutcome('send_partial_207', [
+          'event_count' => count($data['batch']),
+          'http_status' => $statusCode,
+          'success_count' => count($successes),
+          'error_count' => count($errors),
+        ]);
         $this->recordDrain(1);
       }
       elseif ($statusCode >= 200 && $statusCode < 300) {
         $this->logger->info('Langfuse export: sent @count events successfully.', [
           '@count' => count($data['batch']),
+        ]);
+        $this->recordOutcome('send_success', [
+          'event_count' => count($data['batch']),
+          'http_status' => $statusCode,
         ]);
         $this->recordDrain(1);
       }
@@ -179,6 +204,10 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
           '@class' => get_class($e),
           '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
         ]);
+        $this->recordOutcome('discard_non_retryable_http', [
+          'event_count' => count($data['batch']),
+          'http_status' => $statusCode,
+        ]);
         $this->recordDrain(1);
         return;
       }
@@ -189,12 +218,20 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
+      $this->recordOutcome('retryable_suspend', [
+        'event_count' => count($data['batch']),
+        'http_status' => $statusCode,
+      ]);
       throw new SuspendQueueException('Langfuse API unavailable, will retry on next cron run.');
     }
     catch (\Throwable $e) {
       $this->logger->error('Langfuse export: unexpected error: @class @error_signature', [
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+      ]);
+      $this->recordOutcome('retryable_suspend', [
+        'event_count' => count($data['batch']),
+        'http_status' => 0,
       ]);
       throw new SuspendQueueException('Langfuse export failed unexpectedly, will retry.');
     }
@@ -211,6 +248,27 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
       $container = \Drupal::getContainer();
       if ($container && $container->has('ilas_site_assistant.queue_health_monitor')) {
         $container->get('ilas_site_assistant.queue_health_monitor')->recordDrain($count);
+      }
+    }
+    catch (\Throwable $e) {
+      // Never break export pipeline for monitoring.
+    }
+  }
+
+  /**
+   * Records an export outcome if the monitor service is available.
+   *
+   * @param string $outcome
+   *   Outcome key.
+   * @param array<string, mixed> $metadata
+   *   Scalar-safe metadata.
+   */
+  private function recordOutcome(string $outcome, array $metadata = []): void {
+    try {
+      $container = \Drupal::getContainer();
+      if ($container && $container->has('ilas_site_assistant.queue_health_monitor')) {
+        $container->get('ilas_site_assistant.queue_health_monitor')
+          ->recordOutcome($outcome, $metadata);
       }
     }
     catch (\Throwable $e) {

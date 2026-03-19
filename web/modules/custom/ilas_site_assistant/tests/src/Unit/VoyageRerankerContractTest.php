@@ -120,6 +120,25 @@ class VoyageRerankerContractTest extends TestCase {
   }
 
   /**
+   * Runtime summary reports readiness and key presence without exposing secrets.
+   */
+  public function testRuntimeSummaryReportsReadinessWithoutLeakingKey(): void {
+    new Settings(['ilas_voyage_api_key' => 'voyage-secret-key']);
+
+    $reranker = $this->buildReranker(['enabled' => TRUE]);
+    $summary = $reranker->getRuntimeSummary();
+
+    $this->assertTrue($summary['enabled']);
+    $this->assertTrue($summary['api_key_present']);
+    $this->assertTrue($summary['runtime_ready']);
+    $this->assertSame('rerank-2', $summary['rerank_model']);
+    $this->assertSame('closed', $summary['circuit_breaker']['state']);
+
+    $json = json_encode($summary, JSON_THROW_ON_ERROR);
+    $this->assertStringNotContainsString('voyage-secret-key', $json);
+  }
+
+  /**
    * Tests that input items are not mutated when reranking is disabled.
    */
   public function testInputItemsNotMutated(): void {

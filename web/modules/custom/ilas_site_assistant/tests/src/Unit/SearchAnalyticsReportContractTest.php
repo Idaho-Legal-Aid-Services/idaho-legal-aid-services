@@ -95,29 +95,31 @@ class SearchAnalyticsReportContractTest extends TestCase {
   }
 
   /**
-   * Tests that the report controller contains an observability status section.
+   * Tests that the report controller contains a runtime truth status section.
    */
-  public function testReportControllerContainsObservabilityStatusSection(): void {
+  public function testReportControllerContainsRuntimeTruthStatusSection(): void {
     $source = self::readModuleFile('src/Controller/AssistantReportController.php');
-    $this->assertStringContainsString('buildObservabilityStatusSection', $source);
-    $this->assertStringContainsString("'observability_status'", $source);
+    $this->assertStringContainsString('buildRuntimeTruthStatusSection', $source);
+    $this->assertStringContainsString("'runtime_truth_status'", $source);
   }
 
   /**
-   * Tests that the observability section surfaces Langfuse runtime state.
+   * Tests that the runtime truth section surfaces expanded assistant state.
    */
-  public function testObservabilityStatusSurfacesLangfuseState(): void {
+  public function testRuntimeTruthStatusSurfacesExpandedAssistantState(): void {
     $source = self::readModuleFile('src/Controller/AssistantReportController.php');
     $this->assertStringContainsString('RuntimeTruthSnapshotBuilder', $source);
     $this->assertStringContainsString('QueueHealthMonitor', $source);
+    $this->assertStringContainsString('Core Assistant Controls', $source);
+    $this->assertStringContainsString('Retrieval and Runtime-only URL Status', $source);
     $this->assertStringContainsString("'langfuse'", $source);
     $this->assertStringContainsString("'divergences'", $source);
   }
 
   /**
-   * Tests that the observability section explains the override pattern.
+   * Tests that the runtime truth section explains the override pattern.
    */
-  public function testObservabilityStatusExplainsOverridePattern(): void {
+  public function testRuntimeTruthStatusExplainsOverridePattern(): void {
     $source = self::readModuleFile('src/Controller/AssistantReportController.php');
     $this->assertStringContainsString('settings.php', $source);
     $this->assertStringContainsString('ilas:runtime-truth', $source);

@@ -233,6 +233,30 @@ class LoggerInjectionContractTest extends TestCase {
     $service->cleanup();
   }
 
+  public function testConversationLoggerResolvedConfigForcesPrivacyInvariants(): void {
+    $database = $this->createStub(Connection::class);
+    $logger = $this->createStub(LoggerInterface::class);
+
+    $service = new ConversationLogger(
+      $database,
+      $this->createConfigFactory([
+        'conversation_logging.enabled' => TRUE,
+        'conversation_logging.retention_hours' => 9999,
+        'conversation_logging.redact_pii' => FALSE,
+        'conversation_logging.show_user_notice' => FALSE,
+      ]),
+      $this->createTime(),
+      $logger
+    );
+
+    $resolved = $service->getResolvedConfig();
+
+    $this->assertTrue($resolved['enabled']);
+    $this->assertSame(ConversationLogger::MAX_RETENTION_HOURS, $resolved['retention_hours']);
+    $this->assertTrue($resolved['redact_pii']);
+    $this->assertTrue($resolved['show_user_notice']);
+  }
+
   /**
    * Creates a config factory stub with the provided values.
    */

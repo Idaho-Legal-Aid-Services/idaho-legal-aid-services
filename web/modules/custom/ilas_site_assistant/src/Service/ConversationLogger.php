@@ -86,6 +86,16 @@ class ConversationLogger {
   }
 
   /**
+   * Returns the effective conversation-logging config without exposing content.
+   *
+   * @return array{enabled: bool, retention_hours: int, redact_pii: bool, show_user_notice: bool}
+   *   The resolved runtime-safe config summary.
+   */
+  public function getResolvedConfig(): array {
+    return $this->resolveConfig();
+  }
+
+  /**
    * Returns resolved conversation_logging config with privacy invariants.
    *
    * When logging is enabled, PII redaction and user notice are forced on.

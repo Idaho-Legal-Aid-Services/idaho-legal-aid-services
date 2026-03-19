@@ -11,10 +11,10 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Flushes Langfuse trace data to the queue after the response is sent.
+ * Flushes Langfuse trace data to the queue once per request.
  *
- * Listens on kernel.terminate which fires AFTER the response has been
- * delivered to the client, ensuring zero impact on response latency.
+ * Prefers `kernel.response` when a finalized payload is available and falls
+ * back to `kernel.terminate` so request-path traces are not silently missed.
  */
 class LangfuseTerminateSubscriber implements EventSubscriberInterface {
 
@@ -47,6 +47,13 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
   protected LoggerInterface $logger;
 
   /**
+   * Whether the current request trace has already been flushed or dropped.
+   *
+   * @var bool
+   */
+  protected bool $flushed = FALSE;
+
+  /**
    * Constructs a LangfuseTerminateSubscriber.
    *
    * @param \Drupal\ilas_site_assistant\Service\LangfuseTracer $tracer
@@ -75,15 +82,30 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
    */
   public static function getSubscribedEvents(): array {
     return [
+      KernelEvents::RESPONSE => ['onResponse', 0],
       KernelEvents::TERMINATE => ['onTerminate', 0],
     ];
   }
 
   /**
-   * Enqueues trace data after the response has been sent.
+   * Enqueues trace data during the response event when available.
+   */
+  public function onResponse(): void {
+    $this->flushTracePayload();
+  }
+
+  /**
+   * Falls back to terminate-time enqueue if response-time flush did not occur.
    */
   public function onTerminate(): void {
-    if (!$this->tracer->isActive()) {
+    $this->flushTracePayload();
+  }
+
+  /**
+   * Flushes the current trace payload into the export queue once per request.
+   */
+  private function flushTracePayload(): void {
+    if ($this->flushed || !$this->tracer->isActive()) {
       return;
     }
 
@@ -105,6 +127,12 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
           '@max' => $maxDepth,
           '@events' => count($payload['batch'] ?? []),
         ]);
+        $this->recordOutcome('drop_max_depth', [
+          'queue_depth' => $currentDepth,
+          'max_depth' => $maxDepth,
+          'event_count' => count($payload['batch'] ?? []),
+        ]);
+        $this->flushed = TRUE;
         return;
       }
 
@@ -113,6 +141,7 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
 
       $queue->createItem($payload);
       $this->recordEnqueue((int) $payload['enqueued_at'], $currentDepth);
+      $this->flushed = TRUE;
     }
     catch (\Throwable $e) {
       // Never let queue failures propagate — trace data is best-effort.
@@ -132,6 +161,27 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
       if ($container && $container->has('ilas_site_assistant.queue_health_monitor')) {
         $container->get('ilas_site_assistant.queue_health_monitor')
           ->recordEnqueue($enqueuedAt, $depthBeforeEnqueue);
+      }
+    }
+    catch (\Throwable $e) {
+      // Never block response termination for monitoring side-effects.
+    }
+  }
+
+  /**
+   * Records an export outcome if the monitor service is available.
+   *
+   * @param string $outcome
+   *   Outcome key.
+   * @param array<string, mixed> $metadata
+   *   Scalar-safe metadata.
+   */
+  private function recordOutcome(string $outcome, array $metadata = []): void {
+    try {
+      $container = \Drupal::getContainer();
+      if ($container && $container->has('ilas_site_assistant.queue_health_monitor')) {
+        $container->get('ilas_site_assistant.queue_health_monitor')
+          ->recordOutcome($outcome, $metadata);
       }
     }
     catch (\Throwable $e) {

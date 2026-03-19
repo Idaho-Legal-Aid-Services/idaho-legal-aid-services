@@ -117,15 +117,29 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertFalse($snapshot['exported_storage']['langfuse']['enabled']);
     $this->assertTrue($snapshot['effective_runtime']['langfuse']['enabled']);
     $this->assertTrue($snapshot['effective_runtime']['sentry']['client_key_present']);
+    $this->assertArrayHasKey('conversation_logging', $snapshot['exported_storage']);
+    $this->assertArrayHasKey('retrieval', $snapshot['exported_storage']);
+    $this->assertArrayHasKey('voyage', $snapshot['exported_storage']);
+    $this->assertArrayHasKey('conversation_logging', $snapshot['effective_runtime']);
+    $this->assertArrayHasKey('retrieval', $snapshot['effective_runtime']);
+    $this->assertArrayHasKey('voyage', $snapshot['effective_runtime']);
     $this->assertTrue($snapshot['runtime_site_settings']['gemini_api_key_present']);
+    $this->assertFalse($snapshot['exported_storage']['llm']['gemini_api_key_present']);
+    $this->assertTrue($snapshot['effective_runtime']['llm']['gemini_api_key_present']);
+    $this->assertFalse($snapshot['exported_storage']['retrieval']['legalserver_online_application_url']['present']);
+    $this->assertTrue($snapshot['effective_runtime']['retrieval']['legalserver_online_application_url']['present']);
     $this->assertTrue($snapshot['browser_expected']['google_analytics']['loader_expected']);
     $this->assertTrue($snapshot['browser_expected']['google_analytics']['assistant_page_suppressed']);
     $this->assertFalse($snapshot['browser_expected']['google_analytics']['assistant_page_loader_expected']);
     $this->assertFalse($snapshot['browser_expected']['google_analytics']['assistant_page_data_layer_expected']);
     $this->assertSame('settings.php live branch', $snapshot['override_channels']['vector_search.enabled']);
     $this->assertSame('settings.php secret -> getenv/pantheon_get_secret', $snapshot['override_channels']['langfuse.enabled']);
+    $this->assertSame('ConversationLogger privacy invariants', $snapshot['override_channels']['conversation_logging.redact_pii']);
+    $this->assertSame('RetrievalConfigurationService runtime resolution', $snapshot['override_channels']['retrieval.legalserver_online_application_url.status']);
 
     $divergenceFields = array_column($snapshot['divergences'], 'field');
+    $this->assertContains('llm.gemini_api_key_present', $divergenceFields);
+    $this->assertContains('retrieval.legalserver_online_application_url.present', $divergenceFields);
     $this->assertContains('langfuse.enabled', $divergenceFields);
     $this->assertContains('langfuse.public_key_present', $divergenceFields);
     $this->assertContains('raven.settings.client_key_present', $divergenceFields);
@@ -136,6 +150,7 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertStringNotContainsString('gemini-secret-value', $json);
     $this->assertStringNotContainsString('vertex-secret-value', $json);
     $this->assertStringNotContainsString('diag-secret-token', $json);
+    $this->assertStringNotContainsString('extern_intake.php?pid=60&h=secret', $json);
     $this->assertStringNotContainsString('pk-live-secret', $json);
     $this->assertStringNotContainsString('sk-live-secret', $json);
     $this->assertStringNotContainsString('sentry-secret@example.ingest.sentry.io', $json);

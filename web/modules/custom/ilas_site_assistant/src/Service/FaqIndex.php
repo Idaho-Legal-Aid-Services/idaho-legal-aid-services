@@ -190,6 +190,56 @@ class FaqIndex {
   }
 
   /**
+   * Returns TRUE when resolved parent metadata proves current-language scope.
+   */
+  protected function parentInfoMatchesCurrentLanguage(array $parent_info): bool {
+    $parent_langcode = (string) ($parent_info['langcode'] ?? '');
+    if ($parent_langcode !== '' && $parent_langcode !== $this->getCurrentLanguage()) {
+      return FALSE;
+    }
+
+    $url = (string) ($parent_info['url'] ?? '');
+    if ($url === '') {
+      return FALSE;
+    }
+
+    return $this->urlMatchesCurrentLanguage($url);
+  }
+
+  /**
+   * Returns TRUE when one built FAQ item matches the current language context.
+   */
+  protected function itemMatchesCurrentLanguage(array $item): bool {
+    $parent_langcode = (string) ($item['parent_lang'] ?? '');
+    if ($parent_langcode !== '' && $parent_langcode !== $this->getCurrentLanguage()) {
+      return FALSE;
+    }
+
+    $url = (string) ($item['parent_url'] ?? $item['url'] ?? '');
+    if ($url === '') {
+      return FALSE;
+    }
+
+    return $this->urlMatchesCurrentLanguage($url);
+  }
+
+  /**
+   * Filters built FAQ items to the current language context.
+   *
+   * @param array $items
+   *   Built FAQ result items.
+   *
+   * @return array
+   *   The subset whose resolved URLs match the current request language.
+   */
+  protected function filterItemsByCurrentLanguage(array $items): array {
+    return array_filter(
+      $items,
+      fn(array $item): bool => $this->itemMatchesCurrentLanguage($item),
+    );
+  }
+
+  /**
    * Gets the Search API index.
    *
    * @return \Drupal\search_api\IndexInterface|null
@@ -299,6 +349,7 @@ class FaqIndex {
           continue;
         }
       }
+      $items = array_values($this->filterItemsByCurrentLanguage($items));
 
       // Supplement with vector search if lexical results are sparse.
       $supplement = $this->supplementWithVectorResultsDetailed($items, $query, $limit, $type);
@@ -486,8 +537,12 @@ class FaqIndex {
 
     // Get parent URL.
     $parent_info = $this->getParentInfo($paragraph);
+    if (!$this->parentInfoMatchesCurrentLanguage($parent_info)) {
+      return NULL;
+    }
+
     $item['category'] = $parent_info['title'] ?? NULL;
-    $item['parent_url'] = $parent_info['url'] ?? $this->getDefaultUrl();
+    $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
     $item['updated_at'] = $parent_info['changed'] ?? NULL;
@@ -586,6 +641,9 @@ class FaqIndex {
           'changed' => method_exists($parent, 'getChangedTime')
             ? (int) $parent->getChangedTime()
             : NULL,
+          'langcode' => method_exists($parent, 'language') && $parent->language()
+            ? $parent->language()->getId()
+            : NULL,
         ];
       }
       catch (\Exception $e) {
@@ -595,8 +653,9 @@ class FaqIndex {
 
     return [
       'title' => NULL,
-      'url' => $this->getDefaultUrl(),
+      'url' => '',
       'changed' => NULL,
+      'langcode' => NULL,
     ];
   }
 
@@ -636,7 +695,8 @@ class FaqIndex {
 
         if ($paragraph) {
           // Create a mock result item structure.
-          return $this->buildResultItemFromParagraph($paragraph);
+          $item = $this->buildResultItemFromParagraph($paragraph);
+          return ($item && $this->itemMatchesCurrentLanguage($item)) ? $item : NULL;
         }
       }
       catch (\Exception $e) {
@@ -687,6 +747,10 @@ class FaqIndex {
     $item['anchor'] = $custom_anchor ?: $this->generateAnchorSlug($item['question']);
 
     $parent_info = $this->getParentInfo($paragraph);
+    if (!$this->parentInfoMatchesCurrentLanguage($parent_info)) {
+      return NULL;
+    }
+
     $item['category'] = $parent_info['title'];
     $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
@@ -717,6 +781,7 @@ class FaqIndex {
     // Get all items and group by parent.
     $search_query = $index->query();
     $search_query->range(0, 1000); // Get all.
+    $search_query->addCondition('search_api_language', $this->getCurrentLanguage());
     $search_query->addCondition('paragraph_type', 'faq_item');
 
     try {
@@ -725,10 +790,9 @@ class FaqIndex {
 
       foreach ($results->getResultItems() as $result_item) {
         try {
-          $paragraph = $result_item->getOriginalObject()->getValue();
-          if ($paragraph) {
-            $parent_info = $this->getParentInfo($paragraph);
-            $category = $parent_info['title'] ?? 'General';
+          $item = $this->buildResultItem($result_item);
+          if ($item && $this->itemMatchesCurrentLanguage($item)) {
+            $category = $item['category'] ?? 'General';
 
             if (!isset($categories[$category])) {
               $categories[$category] = ['name' => $category, 'count' => 0];
@@ -1054,7 +1118,7 @@ class FaqIndex {
 
     $vector_items = array_values(array_filter(
       $vector_outcome['items'] ?? [],
-      fn(array $item): bool => $this->urlMatchesCurrentLanguage((string) ($item['parent_url'] ?? $item['url'] ?? '')),
+      fn(array $item): bool => $this->itemMatchesCurrentLanguage($item),
     ));
     $vector_outcome['items'] = $vector_items;
     if (empty($vector_items)) {
@@ -1284,7 +1348,7 @@ class FaqIndex {
 
           $item = $this->buildResultItem($result_item);
           if ($item) {
-            if (!$this->urlMatchesCurrentLanguage((string) ($item['parent_url'] ?? $item['url'] ?? ''))) {
+            if (!$this->itemMatchesCurrentLanguage($item)) {
               continue;
             }
             // Normalize vector score to be comparable with lexical scores.
@@ -1369,6 +1433,7 @@ class FaqIndex {
    */
   protected function searchLegacy(string $query, int $limit) {
     $all_items = $this->loadLegacySearchItems($query, $limit);
+    $all_items = $this->filterItemsByCurrentLanguage($all_items);
 
     // Use enhanced ranking if available.
     if ($this->rankingEnhancer) {
@@ -1589,7 +1654,7 @@ class FaqIndex {
    *   Categories with counts.
    */
   protected function getCategoriesLegacy() {
-    $items = $this->getAllFaqsLegacy();
+    $items = $this->filterItemsByCurrentLanguage($this->getAllFaqsLegacy());
     $categories = [];
 
     foreach ($items as $item) {

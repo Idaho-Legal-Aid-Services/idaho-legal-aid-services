@@ -16,6 +16,22 @@ use Drupal\Core\State\StateInterface;
 class QueueHealthMonitor {
 
   /**
+   * Supported queue/export outcomes tracked in state.
+   */
+  const OUTCOME_KEYS = [
+    'drop_max_depth',
+    'discard_invalid_shape',
+    'discard_missing_enqueued_at',
+    'discard_stale',
+    'discard_disabled',
+    'discard_missing_credentials',
+    'discard_non_retryable_http',
+    'send_success',
+    'send_partial_207',
+    'retryable_suspend',
+  ];
+
+  /**
    * State key for total items drained.
    */
   const STATE_TOTAL_DRAINED = 'ilas_site_assistant.queue_total_drained';
@@ -24,6 +40,16 @@ class QueueHealthMonitor {
    * State key for oldest enqueue timestamp in the queue.
    */
   const STATE_OLDEST_ENQUEUED_AT = 'ilas_site_assistant.queue_oldest_enqueued_at';
+
+  /**
+   * State key prefix for export outcome counters.
+   */
+  const STATE_OUTCOME_COUNTER_PREFIX = 'ilas_site_assistant.queue_export_outcome.';
+
+  /**
+   * State key for last export outcome metadata.
+   */
+  const STATE_LAST_OUTCOME = 'ilas_site_assistant.queue_export_last_outcome';
 
   /**
    * The Drupal queue name for Langfuse export.
@@ -163,6 +189,78 @@ class QueueHealthMonitor {
    */
   public function getTotalDrained(): int {
     return (int) $this->state->get(self::STATE_TOTAL_DRAINED, 0);
+  }
+
+  /**
+   * Records a queue/export outcome and updates the last-outcome snapshot.
+   *
+   * @param string $outcome
+   *   Outcome key from self::OUTCOME_KEYS.
+   * @param array<string, mixed> $metadata
+   *   Scalar-safe metadata for the last outcome snapshot.
+   */
+  public function recordOutcome(string $outcome, array $metadata = []): void {
+    if (!in_array($outcome, self::OUTCOME_KEYS, TRUE)) {
+      return;
+    }
+
+    $stateKey = self::STATE_OUTCOME_COUNTER_PREFIX . $outcome;
+    $current = (int) $this->state->get($stateKey, 0);
+    $this->state->set($stateKey, $current + 1);
+
+    $lastOutcome = [
+      'outcome' => $outcome,
+      'recorded_at' => time(),
+    ];
+    foreach ($metadata as $key => $value) {
+      if (!is_string($key) || $key === '') {
+        continue;
+      }
+      if (is_scalar($value) || $value === NULL) {
+        $lastOutcome[$key] = $value;
+      }
+    }
+
+    $this->state->set(self::STATE_LAST_OUTCOME, $lastOutcome);
+  }
+
+  /**
+   * Returns tracked export outcome counters.
+   *
+   * @return array<string, int>
+   *   Counts keyed by outcome name.
+   */
+  public function getOutcomeCounters(): array {
+    $counters = [];
+    foreach (self::OUTCOME_KEYS as $outcome) {
+      $counters[$outcome] = (int) $this->state->get(self::STATE_OUTCOME_COUNTER_PREFIX . $outcome, 0);
+    }
+
+    return $counters;
+  }
+
+  /**
+   * Returns the last recorded export outcome snapshot.
+   *
+   * @return array<string, mixed>|null
+   *   Last outcome metadata, or NULL if no outcome has been recorded.
+   */
+  public function getLastOutcome(): ?array {
+    $value = $this->state->get(self::STATE_LAST_OUTCOME);
+    return is_array($value) ? $value : NULL;
+  }
+
+  /**
+   * Returns the export outcome summary exposed to status commands.
+   *
+   * @return array<string, mixed>
+   *   Export outcome summary.
+   */
+  public function getExportOutcomeSummary(): array {
+    return [
+      'counters' => $this->getOutcomeCounters(),
+      'last_outcome' => $this->getLastOutcome(),
+    ];
   }
 
   /**

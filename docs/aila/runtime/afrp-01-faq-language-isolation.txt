@@ -1,0 +1,294 @@
+AFRP-01 FAQ Language Isolation Remediation
+==========================================
+
+Prompt ID: AFRP-01
+Roadmap item: Audit-derived remediation -> Retrieval correctness #1
+Verification level tag: Partially Fixed / code-changed / pure-unit-verified / local-runtime-verified / hosted-predeploy-baseline-refreshed
+Created: 2026-03-18
+Last updated: 2026-03-18T21:06:34Z
+
+1. Prior FAQ retrieval state
+----------------------------
+
+Before the AFRP-01 code change:
+
+- Missing lexical FAQ index wiring was not the cause of the sampled bug.
+  `faq_accordion` was configured and enabled in `local`, `dev`, `test`, and
+  `live`.
+- English `eviction` FAQ probes on 2026-03-18 were environment-split:
+  - `dev`: English-only parent URLs
+  - `test`: English-only parent URLs
+  - `local`: mixed-language leak (`/resources/...`, `/es/...`, `/sw/...`,
+    `/nl/...`)
+  - `live`: mixed-language leak (`/resources/...`, `/es/...`, `/sw/...`,
+    `/nl/...`)
+- `GET /assistant/api/faq` browse/category mode leaked mixed-language labels on
+  `local` and `live`, including `Preguntas frecuentes`, `Maswali Yanayoulizwa
+  Mara kwa Mara`, and `Veelgestelde vragen`.
+- Root-cause proof from sampled paragraphs:
+  - `pid 343`: paragraph language `en`, parent node language `en`,
+    parent URL `/resources/evictions`
+  - `pid 641`: paragraph language `en`, parent node language `es`,
+    parent URL `/es/resources/desalojos`
+  - `pid 904`: paragraph language `en`, parent node language `sw`,
+    parent URL `/sw/resources/kufukuzwa`
+  - `pid 1167`: paragraph language `en`, parent node language `nl`,
+    parent URL `/nl/resources/uitzettingen`
+- Conclusion from the baseline: paragraph-level `search_api_language=en` was
+  insufficient for FAQ locale isolation because translated parent nodes still
+  produced translated parent URLs and translated category scopes.
+
+2. Post-change state
+--------------------
+
+Repo change summary:
+
+- `FaqIndex` now applies one shared same-language gate before returning FAQ
+  results from:
+  - lexical Search API search
+  - vector supplementation
+  - legacy fallback search
+  - `getById()`
+  - category aggregation (`getCategories()`, `getCategoriesLegacy()`)
+- The gate validates resolved parent scope, not just paragraph language:
+  - parent URL must match the current request language
+  - parent node language must match when available
+  - unresolved parent scope fails closed
+- `/assistant/api/faq` response shapes stay unchanged.
+- `/assistant/api/message` inherits the same behavior because the controller
+  routes FAQ retrieval through `FaqIndex::search()`.
+
+Local post-change runtime state:
+
+- `FaqIndex->search("eviction", 5)` now returns only English parent URLs:
+  - `faq_343` -> `/resources/evictions`
+  - `faq_346` -> `/resources/evictions`
+- `GET /assistant/api/faq?q=eviction` now returns only English FAQ results in
+  the sampled local runtime:
+  - `faq_343` -> `/resources/evictions`
+- `GET /assistant/api/faq` category mode now returns only English labels in the
+  sampled local runtime:
+  - `Legal Advice Line`
+  - `Resources`
+  - `FAQ`
+  - `Senior Legal Risk Detector`
+- `GET /assistant/api/faq?id=faq_641` now returns HTTP `404` with body
+  `{"error":"FAQ not found"}` in local English runtime.
+
+Hosted current-runtime state after the repo change:
+
+- No Pantheon deploy occurred in this prompt, so hosted post-change behavior is
+  still deployment-gated.
+- Refreshed read-only probes confirm the current hosted runtime split still
+  matches the pre-change baseline:
+  - `dev`: English-only `FaqIndex->search("eviction", 5)` result set
+  - `test`: English-only `FaqIndex->search("eviction", 5)` result set
+  - `live`: mixed-language `FaqIndex->search("eviction", 5)` result set with
+    `/es`, `/sw`, and `/nl` parent URLs still present
+  - `live`: mixed-language category labels still present
+
+3. Verification level tag
+-------------------------
+
+- Verified by execution:
+  - pre-change Search API inventory and direct FAQ probes
+  - post-change local Search API inventory
+  - post-change local `FaqIndex->search("eviction", 5)` probe
+  - post-change local `/assistant/api/faq?q=eviction`
+  - post-change local `/assistant/api/faq`
+  - post-change local `/assistant/api/faq?id=faq_641`
+  - refreshed Pantheon read-only `FaqIndex->search("eviction", 5)` probes for
+    `dev`, `test`, and `live`
+  - refreshed Pantheon read-only `live` category probe
+  - focused pure-unit regression coverage
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-RUNTIME-LOCAL-SAFE`
+  - `VC-RUNTIME-PANTHEON-SAFE` equivalent read-only service probes for FAQ path
+  - `VC-ASSISTANT-SMOKE-LOCAL`
+- Verified by code inspection:
+  - `/assistant/api/faq` search, ID, and categories route through `FaqIndex`
+  - `/assistant/api/message` early FAQ retrieval and FAQ answer-mode retrieval
+    route through `FaqIndex::search()`
+- Blocked / not fully completed:
+  - `VC-FUNCTIONAL` host-shell command failed before the ILAS module tests ran
+    because Drupal BrowserTestBase could not resolve MySQL hostname `db` from
+    the host shell (`SQLSTATE[HY000] [2002] php_network_getaddresses`).
+
+4. FAQ retrieval path map
+-------------------------
+
+Current path by environment for the sampled English `eviction` probe:
+
+- `local`
+  - lexical FAQ index real: yes (`faq_accordion` exists and is enabled)
+  - active query path: lexical Search API branch in `FaqIndex::search()`
+  - language isolation state after fix: same-language only
+  - legacy fallback required for the sampled probe: no
+- `dev`
+  - lexical FAQ index real: yes
+  - active query path: lexical Search API branch
+  - current hosted behavior: same-language only for sampled English probe
+  - post-change code deployed there: no
+- `test`
+  - lexical FAQ index real: yes
+  - active query path: lexical Search API branch
+  - current hosted behavior: same-language only for sampled English probe
+  - post-change code deployed there: no
+- `live`
+  - lexical FAQ index real: yes
+  - active query path: lexical Search API branch
+  - current hosted behavior: mixed-language leak still present on sampled
+    English probe
+  - post-change code deployed there: no
+
+Message-path mapping from code inspection:
+
+- `AssistantApiController::message()` does early FAQ retrieval through
+  `FaqIndex::search()` and also routes FAQ answer-mode retrieval through
+  `FaqIndex::search()`.
+- Therefore the AFRP-01 `FaqIndex` language gate applies to both
+  `/assistant/api/faq` and FAQ retrieval inside `/assistant/api/message`.
+- The generic local assistant smoke queries used in this prompt did not force a
+  FAQ answer-mode path, so message-path runtime proof remains code-backed
+  rather than prompt-backed.
+
+5. Evidence
+-----------
+
+Primary code surfaces:
+
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/FaqLanguageIsolationTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+
+Direct query summaries:
+
+- Local retrieval health snapshot after code change:
+  - `faq_index.index_id=faq_accordion`, `exists=true`, `enabled=true`
+  - `faq_vector_index.index_id=faq_accordion_vector`, `exists=true`,
+    `enabled=true`
+- Local `FaqIndex->search("eviction", 5)` after code change:
+  - `lang=en`
+  - results:
+    - `faq_343` -> `/resources/evictions`
+    - `faq_346` -> `/resources/evictions`
+- Local `GET /assistant/api/faq?q=eviction` after code change:
+  - results:
+    - `faq_343` -> `/resources/evictions`
+- Local `GET /assistant/api/faq` after code change:
+  - categories:
+    - `Legal Advice Line`
+    - `Resources`
+    - `FAQ`
+    - `Senior Legal Risk Detector`
+- Local `GET /assistant/api/faq?id=faq_641` after code change:
+  - HTTP `404`
+  - JSON body `{"error":"FAQ not found"}`
+- `dev` read-only service probe:
+  - `faq_accordion` exists/enabled
+  - sampled English `eviction` results stayed English-only
+- `test` read-only service probe:
+  - `faq_accordion` exists/enabled
+  - sampled English `eviction` results stayed English-only
+- `live` read-only service probe:
+  - `faq_accordion` exists/enabled
+  - sampled English `eviction` results still included:
+    - `faq_641` -> `/es/resources/desalojos`
+    - `faq_904` -> `/sw/resources/kufukuzwa`
+    - `faq_1167` -> `/nl/resources/uitzettingen`
+- `live` read-only category probe:
+  - mixed-language labels still included:
+    - `Maswali Yanayoulizwa Mara kwa Mara`
+    - `Veelgestelde vragen`
+    - `Preguntas frecuentes`
+
+Command summaries:
+
+- `VC-SEARCHAPI-INVENTORY`
+  - `ddev drush search-api:server-list`
+  - `ddev drush search-api:list`
+  - `ddev drush search-api:status faq_accordion`
+  - `ddev drush search-api:status faq_accordion_vector`
+  - `ddev drush search-api:status assistant_resources_vector`
+  - Result: local Search API servers enabled; `faq_accordion` `862/862`;
+    `faq_accordion_vector` `862/862`; `assistant_resources_vector` `152/152`
+- `VC-RUNTIME-LOCAL-SAFE`
+  - `ddev drush status --fields=uri,drupal-version,db-status`
+  - `ddev drush ilas:runtime-truth`
+  - rendered `/assistant` marker probe
+  - Result: local runtime healthy; DDEV site booted successfully
+- Local safe FAQ probes
+  - `ddev drush cr`
+  - `ddev drush php:eval ...FaqIndex->search("eviction", 5)...`
+  - `curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq?q=eviction'`
+  - `curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq'`
+  - `curl -sk -i 'https://ilas-pantheon.ddev.site/assistant/api/faq?id=faq_641'`
+  - Result: English-only search/categories locally; foreign FAQ ID now `404`
+- Pantheon read-only FAQ probes
+  - `terminus remote:drush ... php:eval ...FaqIndex->search("eviction", 5)...`
+  - `terminus remote:drush idaho-legal-aid-services.live -- php:eval ...$faq->getCategories()...`
+  - Result: `dev` / `test` English-only for the sampled query; deployed `live`
+    still mixed-language
+- `VC-ASSISTANT-SMOKE-LOCAL`
+  - canonical local smoke POSTs for `custody forms`, `do you have custody
+    forms`, `where is the Boise office`, `what office helps me in Twin Falls`,
+    `eviction forms or guides`
+  - Result: local assistant still returned the same navigation / clarify /
+    office-detail shapes expected for those queries after the FAQ change
+- Focused pure-unit coverage
+  - `vendor/bin/phpunit -c phpunit.pure.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/FaqLanguageIsolationTest.php`
+  - Result: `6 tests, 10 assertions, OK`
+  - `vendor/bin/phpunit -c phpunit.pure.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+  - Result: `10 tests, 39 assertions, OK`
+- `VC-FUNCTIONAL`
+  - Attempted command:
+    `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.xml --testsuite functional`
+  - Result: blocked in the host shell before module-specific assertions due
+    Drupal BrowserTestBase database-host resolution failure
+    (`SQLSTATE[HY000] [2002] php_network_getaddresses: getaddrinfo for db
+    failed`)
+
+6. Changed files
+----------------
+
+- `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/FaqLanguageIsolationTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/runtime/afrp-01-faq-language-isolation.txt`
+
+7. Residual risks / unknowns
+----------------------------
+
+- Hosted post-change verification remains deployment-gated. The code fix is
+  local in this prompt; `dev`, `test`, and `live` still run the previously
+  deployed code.
+- The sampled assistant smoke queries did not force a FAQ answer-mode path, so
+  `/assistant/api/message` is proven to inherit the fix by controller wiring
+  plus `FaqIndex` runtime proof, not by a dedicated FAQ prompt in the smoke
+  bundle.
+- Non-English locale acceptance is out of scope here. AFRP-01 closes English
+  mixed-language leakage and makes unprovable branches fail closed.
+- `VC-FUNCTIONAL` is blocked by the current host-shell BrowserTestBase database
+  wiring rather than by a demonstrated AFRP-01 assertion failure.
+
+8. Rollback notes
+-----------------
+
+- Revert the `FaqIndex` parent-scope language gate changes if the remediation
+  must be backed out.
+- Revert the AFRP-01 pure-unit regression test and the adjusted degrade
+  contract fixtures.
+- Revert the AFRP-01 documentation/runtime artifact updates if the code change
+  is abandoned.
+
+9. Still-unverified environments
+--------------------------------
+
+- `dev` post-deploy
+- `test` post-deploy
+- `live` post-deploy

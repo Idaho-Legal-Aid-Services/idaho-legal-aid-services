@@ -154,6 +154,54 @@ class QueueHealthMonitorTest extends TestCase {
   }
 
   /**
+   * Tests export outcomes track counters and last-outcome metadata.
+   */
+  public function testRecordOutcomeTracksCountersAndLastOutcome(): void {
+    $factory = $this->buildQueueFactory(0);
+    $state = $this->buildState();
+    $monitor = new QueueHealthMonitor($factory, $state);
+
+    $monitor->recordOutcome('send_partial_207', [
+      'http_status' => 207,
+      'event_count' => 3,
+      'error_count' => 0,
+    ]);
+    $monitor->recordOutcome('send_partial_207', [
+      'http_status' => 207,
+      'event_count' => 9,
+      'error_count' => 1,
+    ]);
+
+    $counters = $monitor->getOutcomeCounters();
+    $this->assertSame(2, $counters['send_partial_207']);
+    $this->assertSame(0, $counters['drop_max_depth']);
+
+    $lastOutcome = $monitor->getLastOutcome();
+    $this->assertNotNull($lastOutcome);
+    $this->assertSame('send_partial_207', $lastOutcome['outcome']);
+    $this->assertSame(207, $lastOutcome['http_status']);
+    $this->assertSame(9, $lastOutcome['event_count']);
+    $this->assertSame(1, $lastOutcome['error_count']);
+    $this->assertArrayHasKey('recorded_at', $lastOutcome);
+  }
+
+  /**
+   * Tests unknown outcomes are ignored.
+   */
+  public function testUnknownOutcomeIgnored(): void {
+    $factory = $this->buildQueueFactory(0);
+    $state = $this->buildState();
+    $monitor = new QueueHealthMonitor($factory, $state);
+
+    $monitor->recordOutcome('unknown_outcome', ['http_status' => 200]);
+
+    foreach ($monitor->getOutcomeCounters() as $count) {
+      $this->assertSame(0, $count);
+    }
+    $this->assertNull($monitor->getLastOutcome());
+  }
+
+  /**
    * Tests stale status when oldest queue item age exceeds SLO max age.
    */
   public function testStaleWhenOldestAgeExceedsThreshold(): void {

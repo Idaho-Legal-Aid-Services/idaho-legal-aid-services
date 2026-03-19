@@ -1,0 +1,201 @@
+AFRP-02 Runtime Truth Remediation
+Date: 2026-03-18
+Verification level tag: repo remediated / hosted expansion deployment pending
+
+Prior runtime-truth posture
+- `drush ilas:runtime-truth` existed, but the deployed helper and admin report were still observability-heavy.
+- Operators could safely prove Langfuse, Sentry, Pinecone, GA, and a few runtime site settings, but they could not safely distinguish stored config from effective runtime behavior for assistant rate limits, conversation-logging invariants, retrieval runtime-only URL status, LLM readiness, or Voyage readiness.
+- Multiple runbook sections still used `config:get ilas_site_assistant.settings ...` as if it were runtime proof for assistant settings. That was storage-only and misleading.
+- Current divergence already existed before edits:
+  - `local`, `dev`, and `test` reported stored `vector_search.enabled=false` with effective `true`.
+  - `local`, `dev`, `test`, and `live` reported stored `langfuse.enabled=false` with effective `true`.
+  - `live` reported stored `google_tag_id=false` with effective `true`.
+
+Post-change posture
+- `RuntimeTruthSnapshotBuilder` now preserves the top-level contract and expands the nested assistant-setting families:
+  - message rate limits
+  - session bootstrap thresholds
+  - read-endpoint rate limits
+  - conversation-logging resolved invariants
+  - LLM provider/model/runtime-ready/cost-control/credential-presence
+  - retrieval IDs plus runtime-only LegalServer URL status
+  - Voyage runtime-ready/API-key/toggle state
+  - prior Langfuse, Sentry, Pinecone, GA, diagnostics-token, and live-debug surfaces
+- The admin report now exposes a broader `Runtime Truth Status` section with grouped tables for:
+  - core assistant controls
+  - retrieval and runtime-only URL status
+  - observability and integration status
+  - stored-vs-effective divergences
+- The runbook now treats `ilas:runtime-truth` as the canonical assistant settings runtime truth path. `config:get` remains storage-only and historical for override-prone assistant settings.
+
+Override-prone settings inventory
+- `rate_limit_per_minute`, `rate_limit_per_hour`
+  - Runtime change path: `web/sites/default/settings.php` live branch override
+- `llm.enabled`
+  - Runtime change path: `web/sites/default/settings.php` live branch hard-force
+- `llm.gemini_api_key_present`
+  - Runtime change path: `ILAS_GEMINI_API_KEY` -> `$settings['ilas_gemini_api_key']`
+- `llm.vertex_service_account_present`
+  - Runtime change path: `ILAS_VERTEX_SA_JSON` -> `$settings['ilas_vertex_sa_json']`
+- `llm.runtime_ready`
+  - Runtime change path: `LlmEnhancer::isEnabled()` over config plus runtime credentials/live gate
+- `vector_search.enabled`
+  - Runtime change path: `ILAS_VECTOR_SEARCH_ENABLED`, Pantheon secret path, private flag file fallback, and live hard-force in `settings.php`
+- `langfuse.enabled`, `langfuse.public_key_present`, `langfuse.secret_key_present`, `langfuse.environment`
+  - Runtime change path: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, Pantheon/env secret overrides in `settings.php`
+- `raven.settings.client_key_present`, `raven.settings.public_dsn_present`, `raven.settings.environment`, `raven.settings.release`
+  - Runtime change path: Sentry DSN/env/release secret wiring in `settings.php`
+- `key.key.pinecone_api_key.key_present`
+  - Runtime change path: `ILAS_PINECONE_API_KEY` secret override in `settings.php`
+- `retrieval.legalserver_online_application_url.present`
+  - Runtime change path: `ILAS_LEGALSERVER_ONLINE_APPLICATION_URL` -> `$settings['ilas_site_assistant_legalserver_online_application_url']`
+- `retrieval.health.status`
+  - Runtime change path: `RetrievalConfigurationService` service-resolved runtime snapshot
+- `conversation_logging.retention_hours`, `conversation_logging.redact_pii`, `conversation_logging.show_user_notice`
+  - Runtime change path: `ConversationLogger` normalization/invariants
+- `voyage.enabled`
+  - Runtime change path: `ILAS_VOYAGE_ENABLED` config override in `settings.php`
+- `voyage.api_key_present`
+  - Runtime change path: `ILAS_VOYAGE_API_KEY` -> `$settings['ilas_voyage_api_key']`
+- `voyage.runtime_ready`
+  - Runtime change path: `VoyageReranker::isEnabled()` over config plus runtime API key
+- `google_tag_id`
+  - Runtime change path: live branch override in `settings.php`
+- `ilas_assistant_diagnostics_token`
+  - Runtime change path: `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` -> runtime site setting
+- `ilas_site_assistant_debug_metadata_force_disable`
+  - Runtime change path: live branch runtime setting in `settings.php`
+
+Stored-versus-effective matrix
+Field | Stored/exported | Local effective | Dev effective | Test effective | Live effective | Source of truth | Notes
+`vector_search.enabled` | `false` | `true` | `true` | `true` | `false` | `settings.php` runtime toggle / live branch | Proven current divergence
+`langfuse.enabled` | `false` | `true` | `true` | `true` | `true` | `settings.php` secret overrides | Proven current divergence
+`langfuse.environment` | `production` | `local` | `pantheon-dev` | `pantheon-test` | `pantheon-live` | `settings.php` secret overrides | Proven current divergence
+`google_tag_id` present | `false` | `false` | `false` | `false` | `true` | live branch in `settings.php` | Proven current divergence on `live`
+`diagnostics_token_present` | runtime-only | `false` | `false` | `false` | `false` | runtime site setting | No sampled environment has the token
+`legalserver_online_application_url` present | runtime-only / absent from export | `false` | not visible on deployed helper | not visible on deployed helper | not visible on deployed helper | runtime site setting | Local expanded helper shows the runtime-only surface; deployed Pantheon helper still predates AFRP-02
+`llm.gemini_api_key_present` | `false` | `true` | not visible on deployed helper | not visible on deployed helper | not visible on deployed helper | runtime site setting | Local expanded helper proves the divergence safely
+`conversation_logging.enabled` | `false` | `false` | not visible on deployed helper | not visible on deployed helper | not visible on deployed helper | config + `ConversationLogger` invariants | Local expanded helper proves the family is now visible
+`voyage.runtime_ready` | `false` | `true` | not visible on deployed helper | not visible on deployed helper | not visible on deployed helper | `VoyageReranker::isEnabled()` | Local expanded helper proves the family is now visible
+
+Verification procedure
+- Local canonical command
+  - `ddev drush status --fields=uri,drupal-version,db-status`
+  - `ddev drush ilas:runtime-truth`
+  - `curl -skL https://ilas-pantheon.ddev.site/assistant | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer|gtag\\(' -n || true`
+- Pantheon canonical read-only command
+  - `for ENV in dev test live; do BASE_URL=$(terminus env:view idaho-legal-aid-services.$ENV --print); echo "=== $ENV ==="; terminus remote:drush idaho-legal-aid-services.$ENV -- status --fields=uri,drupal-version,db-status; terminus remote:drush idaho-legal-aid-services.$ENV -- ilas:runtime-truth; curl -skL "$BASE_URL/assistant" | rg -o 'ilasObservability|environment":"[^"]+"|release":"[^"]+"|browserEnabled|showReportDialog|replaySessionSampleRate":[^,]+|googletagmanager|dataLayer|gtag\\(' -n || true; done`
+- Companion probes
+  - `ddev drush ilas:sentry-probe`
+  - `ddev drush ilas:langfuse-probe --direct`
+
+Command summaries
+- `VC-RUNTIME-LOCAL-SAFE`
+  - Drupal bootstrap succeeded on `https://ilas-pantheon.ddev.site`
+  - Expanded local `ilas:runtime-truth` output now includes the new assistant families without printing any secrets
+  - Local retrieval runtime truth now resolves through `RetrievalConfigurationService`:
+    - configured search indexes report `healthy`
+    - service-area canonical URLs report `healthy`
+    - LegalServer runtime URL remains absent and therefore `degraded`
+  - Local current divergences include:
+    - `llm.gemini_api_key_present=false -> true`
+    - `llm.vertex_service_account_present=false -> true`
+    - `vector_search.enabled=false -> true`
+    - `voyage.enabled=false -> true`
+    - `voyage.api_key_present=false -> true`
+    - `voyage.runtime_ready=false -> true`
+    - Langfuse, Sentry, and Pinecone stored-versus-effective divergences remain visible
+  - `/assistant` HTML still renders `ilasObservability`, `environment":"local"`, `browserEnabled`, `showReportDialog`, `replaySessionSampleRate":0`, and no GA markers
+- `VC-RUNTIME-PANTHEON-SAFE`
+  - `dev`
+    - Release `11e2d11`
+    - Stored `vector_search.enabled=false`; effective `true`
+    - Stored `langfuse.enabled=false`; effective `true`
+    - Sentry/Pinecone runtime presence true
+    - `diagnostics_token_present=false`
+    - `/assistant` marker sample shows `ilasObservability`, `environment":"pantheon-dev"`, `release":"11e2d11"`, `browserEnabled`, `showReportDialog`, `replaySessionSampleRate":0.05`
+  - `test`
+    - Release `test_162`
+    - Stored `vector_search.enabled=false`; effective `true`
+    - Stored `langfuse.enabled=false`; effective `true`
+    - Sentry/Pinecone runtime presence true
+    - `diagnostics_token_present=false`
+    - `/assistant` marker sample shows `ilasObservability`, `environment":"pantheon-test"`, `release":"test_162"`, `browserEnabled`, `showReportDialog`, `replaySessionSampleRate":0.05`
+  - `live`
+    - Release `live_150`
+    - Stored `vector_search.enabled=false`; effective `false`
+    - Stored `langfuse.enabled=false`; effective `true`
+    - Stored `google_tag_id=false`; effective `true`
+    - `diagnostics_token_present=false`
+    - `debug_metadata_force_disable=true`
+    - `/assistant` marker sample shows `ilasObservability`, `environment":"pantheon-live"`, `release":"live_150"`, `browserEnabled`, `showReportDialog`, `replaySessionSampleRate":0.01`
+  - Important qualification
+    - Pantheon is still serving the pre-AFRP-02 helper shape. The command safely distinguishes stored from effective behavior there, but the new nested assistant families are only proven locally until deployment.
+- `VC-SENTRY-PROBE`
+  - Local probe succeeded
+  - Event ID: `fefff70c3c7e4574b5b0645383cf5a00`
+  - Environment: `local`
+  - Timestamp: `2026-03-18T23:43:13+00:00`
+- `VC-LANGFUSE-PROBE-DIRECT`
+  - Local direct probe succeeded with HTTP `207`
+  - Trace ID: `bf95d9a1-ed6a-45a6-9197-d0ec845161dd`
+  - Response summary: `3 succeeded, 0 errors`
+  - Host: `https://us.cloud.langfuse.com`
+
+Evidence
+- Code and service seams
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/AssistantReadEndpointGuard.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VoyageReranker.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- Tests
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthCommandTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SearchAnalyticsReportContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantReadEndpointGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VoyageRerankerContractTest.php`
+- Docs
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/evidence-index.md`
+  - `docs/aila/roadmap.md`
+
+Changed files
+- `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/AssistantReadEndpointGuard.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/VoyageReranker.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantReadEndpointGuardTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/VoyageRerankerContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/SearchAnalyticsReportContractTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+- `docs/aila/runbook.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/roadmap.md`
+
+Residual risks / unknowns
+- Pantheon is still on the pre-AFRP-02 helper/report payload. The expanded assistant families are locally proven but hosted proof of the new nested output is deployment-bound.
+- No deploy was performed in this prompt, so the hosted admin report UI itself was not rechecked after the runtime-truth UI changes.
+- Local `llm.cost_control_summary` is empty because no live budget state was recorded in the sampled runtime; AFRP-02 proves the config surface and runtime-safe output, not a non-zero budget lifecycle.
+- The Langfuse direct probe still returned HTTP `207`. That proves safe API acceptance for AFRP-02 companion validation, but it does not by itself close the stronger SaaS-trust question tracked separately in AFRP-03.
+
+Rollback notes
+- Revert the touched PHP/doc/test files listed above.
+- Clear Drupal caches after rollback so the old report and service wiring are restored.
+- No data migration or config import is required for AFRP-02 rollback.
+
+Still-unverified surfaces
+- Hosted AFRP-02-expanded `ilas:runtime-truth` payload on Pantheon `dev` / `test` / `live`
+- Hosted admin `Runtime Truth Status` UI rendering after deployment
+- Positive diagnostics-token monitoring path in any sampled environment

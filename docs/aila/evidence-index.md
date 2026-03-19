@@ -780,9 +780,11 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php:473-485`
 
 ### CLAIM-081
-- Claim: Langfuse queue enqueue happens in `kernel.terminate` with max queue depth guard.
+- Claim: Langfuse queue enqueue now flushes once per request on
+  `kernel.response` with `kernel.terminate` fallback, while still enforcing the
+  max queue depth guard before enqueue.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php:75-121`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php:83-149`
 
 ### CLAIM-082
 - Claim: Langfuse queue worker `ilas_langfuse_export` runs on cron, enforces max item age, and retries transient failures by suspending queue.
@@ -3730,3 +3732,153 @@ that remained open after 2026-03-13.
   - `docs/aila/runtime/tovr-16-final-consolidation-roadmap.txt`
   - `docs/aila/roadmap.md`
   - `docs/aila/runbook.md`
+
+## AFRP-01 FAQ Language Isolation Remediation (2026-03-18)
+
+### CLAIM-252
+- Claim: AFRP-01 baseline verification showed that wrong-language FAQ answers
+  were not caused by a missing lexical FAQ index: `faq_accordion` was
+  configured and enabled in `local`, `dev`, `test`, and `live`, while sampled
+  English `eviction` probes were English-only on `dev` / `test` but leaked
+  translated parent URLs on `local` and deployed `live`.
+- Evidence:
+  - `docs/aila/runtime/afrp-01-faq-language-isolation.txt`
+  - `docs/aila/current-state.md`
+  - `docs/aila/runbook.md`
+
+### CLAIM-253
+- Claim: AFRP-01 fixes FAQ language isolation in `FaqIndex` by validating
+  same-language scope from resolved parent URL plus parent-node language when
+  available, and by failing closed when that language cannot be proved.
+- Evidence:
+  - `docs/aila/runtime/afrp-01-faq-language-isolation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+
+### CLAIM-254
+- Claim: AFRP-01 applies the same-language gate across every active FAQ branch
+  that could otherwise leak translated results: lexical search, vector
+  supplementation, legacy fallback, `getById()`, and category aggregation.
+  New pure-unit regression coverage fails on mixed-language FAQ results,
+  cross-language FAQ IDs, and foreign-language category labels.
+- Evidence:
+  - `docs/aila/runtime/afrp-01-faq-language-isolation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/FaqLanguageIsolationTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php`
+
+### CLAIM-255
+- Claim: AFRP-01 post-change verification proves local same-language FAQ
+  behavior (`FaqIndex->search("eviction", 5)` English-only, English-only FAQ
+  categories, cross-language FAQ ID returns `404`), while hosted post-change
+  verification remains deployment-gated: sampled `dev` / `test` current runtime
+  stays English-safe for the tested query, and deployed `live` still shows the
+  pre-fix mixed-language leak until this code ships there.
+- Evidence:
+  - `docs/aila/runtime/afrp-01-faq-language-isolation.txt`
+  - `docs/aila/current-state.md`
+
+## AFRP-02 Runtime Truth Remediation (2026-03-18)
+
+### CLAIM-256
+- Claim: AFRP-02 expands the canonical runtime-truth helper and admin report so
+  stored-versus-effective runtime proof now covers assistant message/read/session
+  limits, conversation-logging invariants, retrieval IDs plus runtime-only
+  LegalServer URL health, LLM readiness/cost-control config, Voyage readiness,
+  and the prior observability surfaces without exposing secrets.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeTruthSnapshotBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/AssistantReadEndpointGuard.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VoyageReranker.php`
+  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthSnapshotBuilderTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LoggerInjectionContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantReadEndpointGuardTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VoyageRerankerContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SearchAnalyticsReportContractTest.php`
+
+### CLAIM-257
+- Claim: AFRP-02 updates canonical docs so override-prone assistant settings use
+  `VC-RUNTIME-LOCAL-SAFE` / `VC-RUNTIME-PANTHEON-SAFE` and `ilas:runtime-truth`
+  as the safe runtime proof path, while `config:get` on assistant settings is
+  explicitly downgraded to storage-only historical evidence.
+- Evidence:
+  - `docs/aila/runbook.md`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeTruthDocumentationGuardTest.php`
+
+### CLAIM-258
+- Claim: AFRP-02 archives a 2026-03-18 stored-versus-effective matrix showing
+  current divergence on `vector_search.enabled` (`local` / `dev` / `test` true,
+  `live` false), `langfuse.enabled` (effective `true` everywhere sampled), live
+  `google_tag_id` presence, and `diagnostics_token_present=false` across all
+  sampled environments.
+- Evidence:
+  - `docs/aila/runtime/afrp-02-runtime-truth-remediation.txt`
+
+## AFRP-03 Langfuse Trust Reproof (2026-03-19)
+
+### CLAIM-259
+- Claim: AFRP-03 adds two missing operator-facing trust surfaces without
+  widening the privacy boundary: a sanitized `ilas:langfuse-lookup <trace_id>`
+  command for account-side proof and explicit queue/export outcome counters on
+  `ilas:langfuse-status` covering `drop_max_depth`, `discard_*`,
+  `send_partial_207`, `send_success`, and `retryable_suspend`.
+- Evidence:
+  - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTraceLookupService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseLookupCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseStatusCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/QueueHealthMonitor.php`
+  - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTraceLookupServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseLookupCommandTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+
+### CLAIM-260
+- Claim: AFRP-03 local verification proves trustworthy Langfuse signal rather
+  than transport acceptance alone: fresh local direct, queued, and real
+  assistant request traces all resolve account-side via sanitized lookup, local
+  `sample_rate=1` and `timeout=5` are confirmed from runtime truth/status, and
+  local queue-loss drills explicitly record both max-depth drops and stale-item
+  discards while preserving the metadata-only payload boundary.
+- Evidence:
+  - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
+
+### CLAIM-261
+- Claim: AFRP-03 closes the current hosted Langfuse trace-proof gap on
+  2026-03-19 without relying on inherited TOVR output: fresh Pantheon
+  `dev`/`test`/`live` direct probes and queued probes all resolve account-side,
+  and one hosted `live` real request trace resolves account-side with the
+  expected vector/request metadata fields. The remaining hosted gap is deployment
+  of the AFRP-03 lookup/counter surfaces, not missing current trace evidence.
+- Evidence:
+  - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+  - `docs/aila/current-state.md`
+  - `docs/aila/risk-register.md`
+
+### CLAIM-262
+- Claim: AFRP-03 retains the custom Langfuse exporter instead of migrating to
+  `dropsolid/langfuse-php-sdk`, because the current repo exporter now provides
+  explicit queue-loss accounting and sanitized lookup proof while preserving the
+  metadata-only privacy contract and Drupal queue semantics, and the bundled SDK
+  does not provide a proven reduction in those risks.
+- Evidence:
+  - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
+  - `vendor/dropsolid/langfuse-php-sdk/src/DTO/TraceConfig.php`
+  - `vendor/dropsolid/langfuse-php-sdk/src/Services/Tracing.php`

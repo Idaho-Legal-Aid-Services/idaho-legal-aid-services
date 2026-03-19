@@ -4,12 +4,10 @@ on:
   push:
     branches:
       - master
-      - main
       - 'release/**'
   pull_request:
     branches:
       - master
-      - main
       - 'release/**'
   workflow_dispatch:
 
@@ -30,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
@@ -55,7 +53,7 @@ jobs:
 
       - name: Upload PHPUnit summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: phpunit-summary
           path: promptfoo-evals/output/phpunit-summary.txt
@@ -68,12 +66,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -103,12 +101,12 @@ jobs:
           if [[ "$EVENT_NAME" == "pull_request" && ( "$BRANCH" == "publish/master-active" || "$BRANCH" =~ ^publish/master- ) ]]; then
             HELPER_PR_BLOCKING="true"
           fi
-          if [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
+          if [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" =~ ^release/ ) ]]; then
             PROTECTED_PUSH_BLOCKING="true"
           fi
           if [[ "$HELPER_PR_BLOCKING" == "true" || "$PROTECTED_PUSH_BLOCKING" == "true" ]]; then
             if [[ -z "${ILAS_ASSISTANT_URL:-}" ]]; then
-              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking hosted Promptfoo checks (publish/master-active helper PRs and master/main/release/* pushes)."
+              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking hosted Promptfoo checks (publish/master-active helper PRs and master/release/* pushes)."
               exit 1
             fi
             if [[ "$HELPER_PR_BLOCKING" == "true" ]]; then
@@ -136,8 +134,8 @@ jobs:
               --config promptfooconfig.hosted.yaml \
               --no-deep-eval
           else
-            if [[ "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ]]; then
-              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking branches (master/main/release/*)."
+            if [[ "$BRANCH" == "master" || "$BRANCH" =~ ^release/ ]]; then
+              echo "::error::ILAS_ASSISTANT_URL secret is required for blocking branches (master/release/*)."
               exit 1
             fi
             echo "::warning::ILAS_ASSISTANT_URL missing; running simulated promptfoo gate in advisory mode only (not deploy-proof)."
@@ -156,7 +154,7 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" && ( "$BRANCH" == "publish/master-active" || "$BRANCH" =~ ^publish/master- ) ]] || [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" == "main" || "$BRANCH" =~ ^release/ ) ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && ( "$BRANCH" == "publish/master-active" || "$BRANCH" =~ ^publish/master- ) ]] || [[ "$EVENT_NAME" == "push" && ( "$BRANCH" == "master" || "$BRANCH" =~ ^release/ ) ]]; then
             echo "::notice::Promptfoo gate ran in BLOCKING mode for branch $BRANCH as a hosted GitHub check"
           else
             echo "::notice::Promptfoo gate ran in ADVISORY mode for branch $BRANCH as a hosted GitHub check"
@@ -164,7 +162,7 @@ jobs:
 
       - name: Upload Promptfoo artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: promptfoo-gate-artifacts
           path: |
@@ -178,7 +176,7 @@ jobs:
 
       - name: Upload gate summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gate-summary
           path: promptfoo-evals/output/gate-summary.txt

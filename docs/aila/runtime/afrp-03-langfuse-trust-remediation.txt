@@ -1,0 +1,274 @@
+AFRP-03 Langfuse Trust Reproof
+Date: 2026-03-19
+Verification level tag: Partially Fixed
+
+Prior Langfuse trust posture
+- Fresh HTTP `207`, queue depth, and stored config were available, but those
+  were transport signals, not trustworthy observability proof.
+- Local direct and queued synthetic probes had been shown previously, but the
+  trust gap remained between "accepted by ingestion API" and "visible as a
+  current, privacy-safe trace."
+- Real assistant request-path proof was the weakest surface: a fresh
+  `/assistant/api/message` `request_id` did not reliably resolve account-side
+  during earlier verification attempts.
+- Queue-loss behavior was only implicit. Operators could see queue depth/age,
+  but not explicit counters for max-depth drops, stale discards, invalid-shape
+  discards, or retryable suspensions.
+- Pantheon `dev` / `test` / `live` still exposed the older `ilas:langfuse-status`
+  surface, so hosted proof depended on ad hoc probe output and account-side
+  checks rather than a first-class lookup command.
+
+Post-change posture
+- Repo/runtime now exposes sanitized account-side proof through
+  `ilas:langfuse-lookup <trace_id>`.
+- Local `ilas:langfuse-status` now exposes explicit export outcomes:
+  `drop_max_depth`, `discard_invalid_shape`, `discard_missing_enqueued_at`,
+  `discard_stale`, `discard_disabled`, `discard_missing_credentials`,
+  `discard_non_retryable_http`, `send_success`, `send_partial_207`,
+  `retryable_suspend`.
+- Local direct, queued, and real request-path traces are all freshly re-proven
+  account-side after the AFRP-03 changes.
+- Current hosted Pantheon `dev` / `test` / `live` direct and queued probes are
+  freshly re-proven account-side, and one hosted `live` request-path trace is
+  freshly re-proven account-side with the expected vector/request fields.
+- Queue-loss behavior is now explicitly accounted for in local runtime proof via
+  max-depth and stale-item drills.
+- No privacy-boundary expansion was introduced. Visible Langfuse `input` and
+  `output` remain summary strings only, and the exported metadata remains
+  limited to hashes, buckets, booleans, counts, source classes, and reason
+  codes.
+
+Request-to-export lifecycle summary
+- `AssistantApiController::message()`
+  - starts trace with `request_id` as trace ID
+  - ends trace with minimized output summary and request-path metadata
+- `LangfuseTracer`
+  - buffers trace/span/generation/event payloads
+  - finalizes a single `trace-create` plus observation batch
+- `LangfuseTerminateSubscriber`
+  - flushes once per request on response/terminate
+  - enforces `langfuse.max_queue_depth`
+  - stamps `enqueued_at`
+- Drupal queue `ilas_langfuse_export`
+- `LangfuseExportWorker`
+  - validates shape
+  - enforces `langfuse.max_item_age_seconds`
+  - posts to `POST /api/public/ingestion`
+  - records explicit outcome counters
+- Langfuse SaaS
+  - trace detail: `GET /api/public/traces/{trace_id}`
+  - recent-trace fallback: `GET /api/public/traces?limit=25`
+
+Runtime values confirmed from current truth/status
+- Local effective `langfuse.enabled=true`
+- Local effective `langfuse.sample_rate=1`
+- Local `timeout=5`
+- Local `max_queue_depth=10000` after restore
+- Local `max_item_age_seconds=3600` after restore
+- Pantheon `dev` effective environment: `pantheon-dev`, release `11e2d11`
+- Pantheon `test` effective environment: `pantheon-test`, release `test_162`
+- Pantheon `live` effective environment: `pantheon-live`, release `live_150`
+- Pantheon `dev` / `test` / `live` effective `langfuse.sample_rate=1`
+- Pantheon `dev` / `test` / `live` `timeout=5`
+
+Payload boundary review
+- Visible trace `input` is a minimized summary such as:
+  `hash=... len=1-24 redact=none`
+- Visible trace `output` is a minimized summary such as:
+  `type=navigation reason=navigation_page_match hash=... len=25-99`
+- Request-path metadata fields exported from Drupal and proven visible in trace
+  metadata include:
+  `vector_enabled_effective`, `vector_attempted`, `vector_status`,
+  `vector_result_count`, `lexical_result_count`, `degraded_reason`,
+  `response_type`, `reason_code`, `intent_type`, `is_quick_action`,
+  `fallback_level`, `turn_type`, `duration_ms`, `success`
+- No raw assistant prompt or raw assistant response transcript was intentionally
+  exported during AFRP-03 verification.
+- Langfuse top-level `environment` currently appears as `default`; the true
+  runtime environment remains visible only in minimized metadata
+  (`environment` / `env` keys).
+
+Local verification
+- VC-UNIT equivalent:
+  - Langfuse-focused suite passed:
+    `66 tests, 370 assertions, OK`
+- VC-PURE:
+  - executed as `vendor/bin/phpunit --configuration phpunit.pure.xml`
+  - final result: `2303 tests, 11827 assertions, 11 failures, 1 skipped`
+  - AFRP-03-specific claim-order failure was fixed during this prompt
+  - remaining failures are unrelated:
+    - `QualityGateEnforcementContractTest::testWorkflowTriggersCoverAllBlockingBranches`
+    - 10 `VectorSearchMergeTest` failures
+- Fresh direct synthetic probe
+  - command: `ddev drush ilas:langfuse-probe --direct`
+  - trace ID: `ca8a3108-138a-4fed-befd-5228ad07132d`
+  - immediate transport result: HTTP `207`, `3 succeeded, 0 errors`
+  - account-side proof:
+    - `ddev drush ilas:langfuse-lookup ca8a3108-138a-4fed-befd-5228ad07132d`
+    - result: found after 13 attempts
+- Fresh queued synthetic probe
+  - command: `ddev drush ilas:langfuse-probe`
+  - trace ID: `c5c85fc5-3048-4763-a7e8-6a97f04877ce`
+  - queue export:
+    - `ddev drush queue:run ilas_langfuse_export --items-limit=10`
+    - result: partial success, `3 succeeded, 0 errors`
+  - account-side proof:
+    - `ddev drush ilas:langfuse-lookup c5c85fc5-3048-4763-a7e8-6a97f04877ce`
+    - result: found after 11 attempts
+- Fresh real request-path proof
+  - request: local `/assistant/api/message` with `{"message":"custody forms"}`
+  - request_id / trace ID: `260e066d-639a-4237-8897-26d1797289cf`
+  - queue export:
+    - `ddev drush queue:run ilas_langfuse_export --items-limit=10`
+    - result: partial success, `9 succeeded, 0 errors`
+  - account-side proof:
+    - `ddev drush ilas:langfuse-lookup 260e066d-639a-4237-8897-26d1797289cf`
+    - result: found
+  - verified request-path fields on the resolved trace:
+    - `vector_enabled_effective=true`
+    - `vector_attempted=true`
+    - `vector_status=attempted_without_results`
+    - `lexical_result_count=1`
+    - `response_type=navigation`
+    - `reason_code=navigation_page_match`
+- Local queue-loss drill: max-depth drop
+  - temporary local config: `langfuse.max_queue_depth=0`
+  - request-path trigger request_id: `7338c8ff-88db-4a55-a90b-b1769591bb50`
+  - proof:
+    - queue table remained empty
+    - local `ilas:langfuse-status` showed:
+      - `drop_max_depth=1`
+      - `last_outcome.outcome=drop_max_depth`
+      - `last_outcome.max_depth=0`
+      - `last_outcome.event_count=9`
+  - config restored to `10000`
+- Local queue-loss drill: stale discard
+  - temporary local config: `langfuse.max_item_age_seconds=1`
+  - queued probe trace ID: `e5fb3cb2-9088-415a-b58c-580d8ee71801`
+  - worker result:
+    - `Langfuse export: discarding item aged 9 seconds (max 1), 3 events.`
+  - proof:
+    - local `ilas:langfuse-status` showed:
+      - `discard_stale=1`
+      - `last_outcome.outcome=discard_stale`
+      - `last_outcome.item_age_seconds=9`
+      - `last_outcome.max_age_seconds=1`
+  - config restored to `3600`
+
+Hosted verification on current Pantheon releases
+- Read-only runtime/status proof
+  - `terminus remote:drush idaho-legal-aid-services.dev -- ilas:langfuse-status`
+    - effective environment `pantheon-dev`, release `11e2d11`
+  - `terminus remote:drush idaho-legal-aid-services.test -- ilas:langfuse-status`
+    - effective environment `pantheon-test`, release `test_162`
+  - `terminus remote:drush idaho-legal-aid-services.live -- ilas:langfuse-status`
+    - effective environment `pantheon-live`, release `live_150`
+  - qualification:
+    - hosted command surface is still pre-AFRP-03 and does not yet expose the
+      new `export` outcome section
+- Fresh hosted direct probes
+  - `dev`: `034406a7-194e-41b9-8185-1cfff91ddb04`
+  - `test`: `7e6f108f-0000-435b-9563-b65a16607a35`
+  - `live`: `3e0b2946-f256-4338-a23e-3b64c2e6d065`
+  - transport result on each: HTTP `207`, `3 succeeded, 0 errors`
+  - account-side proof:
+    - all three IDs appeared in recent traces
+    - live direct lookup succeeded:
+      `ddev drush ilas:langfuse-lookup 3e0b2946-f256-4338-a23e-3b64c2e6d065`
+- Fresh hosted queued probes
+  - `dev`: `abc2cac8-ee8a-4c11-8069-d0e10fba100e`
+  - `test`: `f634c2e1-9097-43c0-95fe-982e27d0d164`
+  - `live`: `c599a7db-aaf9-4332-b8fa-678c2c805b71`
+  - hosted queue runs on each env reported:
+    - `Langfuse export: partial success. 3 succeeded, 0 errors.`
+  - account-side proof:
+    - all three IDs appeared in recent traces
+    - live queued lookup succeeded:
+      `ddev drush ilas:langfuse-lookup c599a7db-aaf9-4332-b8fa-678c2c805b71`
+- Fresh hosted real request-path proof (`live`)
+  - request: hosted `/assistant/api/message` with `{"message":"custody forms"}`
+  - request_id / trace ID: `883fac8c-5fa7-4251-af36-9f2ed98a7fa8`
+  - hosted queue run result:
+    - `Langfuse export: partial success. 9 succeeded, 0 errors.`
+  - account-side proof:
+    - recent traces contained `883fac8c-5fa7-4251-af36-9f2ed98a7fa8`
+    - `ddev drush ilas:langfuse-lookup 883fac8c-5fa7-4251-af36-9f2ed98a7fa8`
+      returned found
+  - verified request-path fields on hosted live trace:
+    - `vector_enabled_effective=false`
+    - `vector_attempted=false`
+    - `vector_status=disabled`
+    - `vector_result_count=0`
+    - `lexical_result_count=3`
+    - `response_type=navigation`
+    - `reason_code=navigation_page_match`
+
+Trust-gap conclusion
+- HTTP `207` is necessary but not sufficient.
+- Queue depth moving `0 -> 1 -> 0` is necessary but not sufficient.
+- Trustworthy Langfuse signal now requires:
+  - current runtime truth/status
+  - successful queue drain where applicable
+  - account-side trace proof for the exact trace ID
+- AFRP-03 now provides that proof path locally, and current hosted releases are
+  freshly re-proven account-side on `dev` / `test` / `live`.
+
+Custom exporter decision
+- Keep the custom exporter.
+- Reasoning:
+  - it preserves the metadata-only privacy contract already enforced in
+    `LangfusePayloadContract`
+  - it matches Drupal queue semantics directly
+  - AFRP-03 now adds the missing trust surfaces around lookup and queue-loss
+    accounting without replacing the exporter
+  - inspection of `dropsolid/langfuse-php-sdk` did not produce a proven
+    reduction in the observed trust gaps and did not provide a clear
+    environment-field advantage over the custom path
+
+Changed files
+- `web/modules/custom/ilas_site_assistant/src/Service/QueueHealthMonitor.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTraceLookupService.php`
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseLookupCommands.php`
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseStatusCommands.php`
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+- `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+- `web/modules/custom/ilas_site_assistant/drush.services.yml`
+- `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTraceLookupServiceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseLookupCommandTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+
+Residual risks / unknowns
+- No Pantheon deploy was performed in this prompt, so hosted operator-visible
+  AFRP-03 surfaces (`ilas:langfuse-lookup`, export counters in
+  `ilas:langfuse-status`) are still deployment-gated even though current hosted
+  traces themselves are proven account-side.
+- Langfuse top-level `environment` still resolves to `default`; operators must
+  read minimized metadata `environment` / `env` keys for the true runtime
+  environment until that surface is improved.
+- Trace visibility can lag materially behind ingestion acceptance; the lookup
+  command needed a recent-trace fallback and longer retry window to avoid false
+  negatives on fresh traces.
+- `VC-PURE` remains red on unrelated workflow/vector-merge failures outside
+  AFRP-03 scope.
+
+Rollback notes
+- Revert the changed Langfuse PHP/test/doc files listed above.
+- Clear Drupal caches after rollback.
+- No config import or data migration is required.
+
+Still-unverified surfaces
+- Hosted Pantheon execution of the AFRP-03 lookup/counter surfaces after deploy
+- Hosted queue-loss drills (`drop_max_depth`, `discard_stale`) from deployed
+  Pantheon code
+- Whether Langfuse can expose the real runtime environment as a trustworthy
+  top-level trace field instead of only in minimized metadata

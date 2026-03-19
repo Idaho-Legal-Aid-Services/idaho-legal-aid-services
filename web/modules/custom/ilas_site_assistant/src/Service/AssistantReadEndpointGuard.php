@@ -122,6 +122,21 @@ final class AssistantReadEndpointGuard {
   }
 
   /**
+   * Returns normalized threshold values for every governed read endpoint.
+   *
+   * @return array<string, array{rate_limit_per_minute: int, rate_limit_per_hour: int}>
+   *   Threshold summary keyed by endpoint.
+   */
+  public function getThresholdSummary(): array {
+    $summary = [];
+    foreach (array_keys(self::FLOOD_EVENTS) as $endpoint) {
+      $summary[$endpoint] = $this->getThresholds($endpoint);
+    }
+
+    return $summary;
+  }
+
+  /**
    * Returns active threshold values for the provided endpoint.
    *
    * @return array{rate_limit_per_minute: int, rate_limit_per_hour: int}

@@ -146,7 +146,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
    * FAQ vector unavailable/failure preserves lexical results deterministically.
    */
   public function testFaqVectorUnavailablePreservesLexicalResults(): void {
-    $lexical = [['paragraph_id' => 1, 'id' => 'faq_1', 'score' => 5.0, 'source' => 'lexical']];
+    $lexical = [[
+      'paragraph_id' => 1,
+      'id' => 'faq_1',
+      'score' => 5.0,
+      'source' => 'lexical',
+      'parent_url' => '/resources/evictions',
+      'url' => '/resources/evictions#faq-1',
+      'source_url' => '/resources/evictions#faq-1',
+    ]];
     $faq = new ContractFaqIndex(
       NULL,
       [],
@@ -183,7 +191,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
    */
   public function testFaqDegradedVectorOutcomeSkipsCacheAndBacksOffAcrossRequests(): void {
     $cache = new MemoryBackend(new Time());
-    $lexical = [['paragraph_id' => 1, 'id' => 'faq_1', 'score' => 5.0, 'source' => 'lexical']];
+    $lexical = [[
+      'paragraph_id' => 1,
+      'id' => 'faq_1',
+      'score' => 5.0,
+      'source' => 'lexical',
+      'parent_url' => '/resources/evictions',
+      'url' => '/resources/evictions#faq-1',
+      'source_url' => '/resources/evictions#faq-1',
+    ]];
     $vector_config = ['enabled' => TRUE, 'fallback_threshold' => 2, 'min_lexical_score' => 0];
     $index = new FakeFaqSearchIndex($lexical);
 
@@ -211,7 +227,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
       'elapsed_ms' => 100,
       'cacheable' => TRUE,
       'items' => [
-        ['paragraph_id' => 99, 'id' => 99, 'score' => 90.0, 'source' => 'vector'],
+        [
+          'paragraph_id' => 99,
+          'id' => 99,
+          'score' => 90.0,
+          'source' => 'vector',
+          'parent_url' => '/resources/evictions',
+          'url' => '/resources/evictions#faq-99',
+          'source_url' => '/resources/evictions#faq-99',
+        ],
       ],
     ]]);
 
@@ -228,7 +252,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
    */
   public function testFaqHealthyAndPolicySkippedOutcomesRemainCacheable(): void {
     $healthy_cache = new MemoryBackend(new Time());
-    $lexical = [['paragraph_id' => 1, 'id' => 'faq_1', 'score' => 5.0, 'source' => 'lexical']];
+    $lexical = [[
+      'paragraph_id' => 1,
+      'id' => 'faq_1',
+      'score' => 5.0,
+      'source' => 'lexical',
+      'parent_url' => '/resources/custody',
+      'url' => '/resources/custody#faq-1',
+      'source_url' => '/resources/custody#faq-1',
+    ]];
     $healthy = new CacheAwareFaqIndex(
       $healthy_cache,
       new FakeFaqSearchIndex($lexical),
@@ -240,7 +272,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
         'elapsed_ms' => 125,
         'cacheable' => TRUE,
         'items' => [
-          ['paragraph_id' => 42, 'id' => 42, 'score' => 90.0, 'source' => 'vector'],
+          [
+            'paragraph_id' => 42,
+            'id' => 42,
+            'score' => 90.0,
+            'source' => 'vector',
+            'parent_url' => '/resources/custody',
+            'url' => '/resources/custody#faq-42',
+            'source_url' => '/resources/custody#faq-42',
+          ],
         ],
       ]]
     );
@@ -317,7 +357,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
     $cache = new MemoryBackend(new Time());
     $faq = new CacheAwareFaqIndex(
       $cache,
-      new FakeFaqSearchIndex([['paragraph_id' => 1, 'id' => 'faq_1', 'score' => 5.0, 'source' => 'lexical']]),
+      new FakeFaqSearchIndex([[
+        'paragraph_id' => 1,
+        'id' => 'faq_1',
+        'score' => 5.0,
+        'source' => 'lexical',
+        'parent_url' => '/resources/evictions',
+        'url' => '/resources/evictions#faq-1',
+        'source_url' => '/resources/evictions#faq-1',
+      ]]),
       ['enabled' => TRUE, 'fallback_threshold' => 2, 'min_lexical_score' => 0],
       [[
         'attempted' => TRUE,

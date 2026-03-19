@@ -50,7 +50,15 @@ services:
 
   ilas_site_assistant.runtime_truth_snapshot_builder:
     class: Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder
-    arguments: ['@config.factory', '@config.storage.sync']
+    arguments:
+      - '@config.factory'
+      - '@config.storage.sync'
+      - '@ilas_site_assistant.retrieval_configuration'
+      - '@ilas_site_assistant.session_bootstrap_guard'
+      - '@ilas_site_assistant.read_endpoint_guard'
+      - '@ilas_site_assistant.conversation_logger'
+      - '@ilas_site_assistant.llm_enhancer'
+      - '@ilas_site_assistant.voyage_reranker'
 
   ilas_site_assistant.topic_resolver:
     class: Drupal\ilas_site_assistant\Service\TopicResolver
@@ -186,6 +194,10 @@ services:
   ilas_site_assistant.langfuse_tracer:
     class: Drupal\ilas_site_assistant\Service\LangfuseTracer
     arguments: ['@config.factory', '@logger.channel.ilas_site_assistant']
+
+  ilas_site_assistant.langfuse_trace_lookup:
+    class: Drupal\ilas_site_assistant\Service\LangfuseTraceLookupService
+    arguments: ['@config.factory', '@http_client']
 
   ilas_site_assistant.langfuse_terminate_subscriber:
     class: Drupal\ilas_site_assistant\EventSubscriber\LangfuseTerminateSubscriber

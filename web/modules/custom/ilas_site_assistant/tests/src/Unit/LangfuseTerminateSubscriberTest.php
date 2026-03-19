@@ -278,4 +278,71 @@ class LangfuseTerminateSubscriberTest extends TestCase {
     }
   }
 
+  /**
+   * Tests max-depth drops record an explicit outcome when monitor is available.
+   */
+  public function testDropMaxDepthRecordsOutcomeWhenMonitorAvailable(): void {
+    $payload = [
+      'batch' => [['type' => 'trace-create', 'body' => []]],
+      'metadata' => ['batch_size' => 1],
+    ];
+
+    $mocks = $this->buildSubscriber(
+      tracerActive: TRUE,
+      payload: $payload,
+      queueDepth: 10,
+      maxDepth: 10,
+    );
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'drop_max_depth',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['queue_depth'] ?? NULL) === 10
+            && ($metadata['max_depth'] ?? NULL) === 10
+            && ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $container = new ContainerBuilder();
+    $container->set('ilas_site_assistant.queue_health_monitor', $monitor);
+    Drupal::setContainer($container);
+
+    try {
+      $mocks['subscriber']->onTerminate();
+    }
+    finally {
+      Drupal::setContainer(new ContainerBuilder());
+    }
+  }
+
+  /**
+   * Tests response-phase flush enqueues once and terminate does not duplicate it.
+   */
+  public function testResponseFlushPreventsTerminateDuplicateEnqueue(): void {
+    $payload = [
+      'batch' => [['type' => 'trace-create', 'body' => []]],
+      'metadata' => ['batch_size' => 1],
+    ];
+
+    $mocks = $this->buildSubscriber(
+      tracerActive: TRUE,
+      payload: $payload,
+      queueDepth: 0,
+    );
+
+    $mocks['queue']->expects($this->once())
+      ->method('createItem')
+      ->with($this->callback(function (array $item): bool {
+        return array_key_exists('batch', $item)
+          && array_key_exists('metadata', $item)
+          && array_key_exists('enqueued_at', $item);
+      }));
+
+    $mocks['subscriber']->onResponse();
+    $mocks['subscriber']->onTerminate();
+  }
+
 }

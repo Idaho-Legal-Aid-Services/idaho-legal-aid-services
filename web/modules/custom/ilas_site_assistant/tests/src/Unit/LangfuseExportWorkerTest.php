@@ -2,15 +2,22 @@
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\ilas_site_assistant\Plugin\QueueWorker\LangfuseExportWorker;
+use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\Psr7\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Drupal\Core\Queue\SuspendQueueException;
 
 /**
  * Tests LangfuseExportWorker age-based discard and normal processing.
@@ -89,6 +96,22 @@ class LangfuseExportWorkerTest extends TestCase {
   }
 
   /**
+   * Runs a callback with a mocked queue-health monitor in the Drupal container.
+   */
+  private function withQueueHealthMonitor(QueueHealthMonitor $monitor, callable $callback): void {
+    $container = new ContainerBuilder();
+    $container->set('ilas_site_assistant.queue_health_monitor', $monitor);
+    Drupal::setContainer($container);
+
+    try {
+      $callback();
+    }
+    finally {
+      Drupal::setContainer(new ContainerBuilder());
+    }
+  }
+
+  /**
    * Tests that a recent item is processed normally (HTTP call made).
    */
   public function testRecentItemProcessedNormally(): void {
@@ -125,7 +148,22 @@ class LangfuseExportWorkerTest extends TestCase {
     $mocks['logger']->expects($this->never())
       ->method('info');
 
-    $mocks['worker']->processItem($this->buildPayload(time() - 60));
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'send_partial_207',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['http_status'] ?? NULL) === 207
+            && ($metadata['event_count'] ?? NULL) === 1
+            && ($metadata['success_count'] ?? NULL) === 1
+            && ($metadata['error_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload(time() - 60));
+    });
   }
 
   /**
@@ -140,10 +178,17 @@ class LangfuseExportWorkerTest extends TestCase {
       ->method('warning')
       ->with($this->stringContains('invalid queue item'));
 
-    $mocks['worker']->processItem([
-      'payload' => $this->buildPayload(time() - 60),
-      'enqueued_at' => time(),
-    ]);
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with('discard_invalid_shape', []);
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem([
+        'payload' => $this->buildPayload(time() - 60),
+        'enqueued_at' => time(),
+      ]);
+    });
   }
 
   /**
@@ -158,7 +203,21 @@ class LangfuseExportWorkerTest extends TestCase {
       ->method('notice')
       ->with($this->stringContains('aged'), $this->anything());
 
-    $mocks['worker']->processItem($this->buildPayload(time() - 7200));
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'discard_stale',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 1
+            && ($metadata['max_age_seconds'] ?? NULL) === 3600
+            && (int) ($metadata['item_age_seconds'] ?? 0) >= 7200;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload(time() - 7200));
+    });
   }
 
   /**
@@ -173,7 +232,19 @@ class LangfuseExportWorkerTest extends TestCase {
       ->method('notice')
       ->with($this->stringContains('pre-upgrade'), $this->anything());
 
-    $mocks['worker']->processItem($this->buildPayload());
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'discard_missing_enqueued_at',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload());
+    });
   }
 
   /**
@@ -201,7 +272,20 @@ class LangfuseExportWorkerTest extends TestCase {
       ->method('request')
       ->willReturn(new Response(200));
 
-    $mocks['worker']->processItem($this->buildPayload(time() - 3599));
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'send_success',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['http_status'] ?? NULL) === 200
+            && ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload(time() - 3599));
+    });
   }
 
   /**
@@ -249,6 +333,152 @@ class LangfuseExportWorkerTest extends TestCase {
     );
 
     $worker->processItem($this->buildPayload(time() - 7200));
+  }
+
+  /**
+   * Tests disabled Langfuse items are explicitly accounted for.
+   */
+  public function testDisabledItemRecordsDiscardDisabled(): void {
+    $mocks = $this->buildWorker(langfuseEnabled: FALSE);
+
+    $mocks['httpClient']->expects($this->never())->method('request');
+    $mocks['logger']->expects($this->once())
+      ->method('notice')
+      ->with($this->stringContains('tracing disabled'), $this->anything());
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'discard_disabled',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload(time() - 60));
+    });
+  }
+
+  /**
+   * Tests missing credentials are explicitly accounted for.
+   */
+  public function testMissingCredentialsRecordsDiscardOutcome(): void {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')->willReturnCallback(fn($key) => match ($key) {
+      'langfuse.max_item_age_seconds' => 3600,
+      'langfuse.enabled' => TRUE,
+      'langfuse.host' => 'https://us.cloud.langfuse.com',
+      'langfuse.public_key' => '',
+      'langfuse.secret_key' => '',
+      'langfuse.timeout' => 5.0,
+      default => NULL,
+    });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($config);
+
+    $httpClient = $this->createMock(ClientInterface::class);
+    $httpClient->expects($this->never())->method('request');
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('warning')
+      ->with($this->stringContains('credentials not configured'));
+
+    $worker = new LangfuseExportWorker(
+      [],
+      'ilas_langfuse_export',
+      ['cron' => ['time' => 30]],
+      $configFactory,
+      $httpClient,
+      $logger,
+    );
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'discard_missing_credentials',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($worker): void {
+      $worker->processItem($this->buildPayload(time() - 60));
+    });
+  }
+
+  /**
+   * Tests non-retryable HTTP errors are accounted for and discarded.
+   */
+  public function testNonRetryableHttpErrorRecordsDiscardOutcome(): void {
+    $mocks = $this->buildWorker();
+
+    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/ingestion');
+    $response = new Response(400, [], '{"message":"bad request"}');
+    $exception = new ClientException('bad request', $request, $response);
+
+    $mocks['httpClient']->expects($this->once())
+      ->method('request')
+      ->willThrowException($exception);
+
+    $mocks['logger']->expects($this->once())
+      ->method('error')
+      ->with($this->stringContains('non-retryable error'), $this->anything());
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'discard_non_retryable_http',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['http_status'] ?? NULL) === 400
+            && ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $mocks['worker']->processItem($this->buildPayload(time() - 60));
+    });
+  }
+
+  /**
+   * Tests retryable transport failures are accounted for before suspension.
+   */
+  public function testRetryableTransportFailureRecordsSuspendOutcome(): void {
+    $mocks = $this->buildWorker();
+
+    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/ingestion');
+    $exception = new ConnectException('timeout', $request);
+
+    $mocks['httpClient']->expects($this->once())
+      ->method('request')
+      ->willThrowException($exception);
+
+    $mocks['logger']->expects($this->once())
+      ->method('error')
+      ->with($this->stringContains('retryable error'), $this->anything());
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'retryable_suspend',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['http_status'] ?? NULL) === 0
+            && ($metadata['event_count'] ?? NULL) === 1;
+        }),
+      );
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
+      $this->expectException(SuspendQueueException::class);
+      $mocks['worker']->processItem($this->buildPayload(time() - 60));
+    });
   }
 
 }

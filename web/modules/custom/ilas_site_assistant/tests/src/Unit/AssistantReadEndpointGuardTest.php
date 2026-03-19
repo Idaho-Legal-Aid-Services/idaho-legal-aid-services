@@ -246,6 +246,29 @@ final class AssistantReadEndpointGuardTest extends TestCase {
   }
 
   /**
+   * Threshold summaries normalize configured values for both read endpoints.
+   */
+  public function testThresholdSummaryNormalizesValues(): void {
+    $guard = $this->buildGuard([
+      'suggest' => [
+        'rate_limit_per_minute' => 0,
+        'rate_limit_per_hour' => 7,
+      ],
+      'faq' => [
+        'rate_limit_per_minute' => 3,
+        'rate_limit_per_hour' => 0,
+      ],
+    ]);
+
+    $summary = $guard->getThresholdSummary();
+
+    $this->assertSame(1, $summary['suggest']['rate_limit_per_minute']);
+    $this->assertSame(7, $summary['suggest']['rate_limit_per_hour']);
+    $this->assertSame(3, $summary['faq']['rate_limit_per_minute']);
+    $this->assertSame(1, $summary['faq']['rate_limit_per_hour']);
+  }
+
+  /**
    * Builds a read-endpoint guard with stubbed config.
    */
   private function buildGuard(

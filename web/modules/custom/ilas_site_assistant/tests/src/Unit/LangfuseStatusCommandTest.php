@@ -69,6 +69,7 @@ class LangfuseStatusCommandTest extends TestCase {
     $source = self::readModuleFile('src/Commands/LangfuseStatusCommands.php');
     $this->assertStringContainsString('QueueHealthMonitor', $source);
     $this->assertStringContainsString('getQueueHealthStatus', $source);
+    $this->assertStringContainsString('getExportOutcomeSummary', $source);
   }
 
   /**

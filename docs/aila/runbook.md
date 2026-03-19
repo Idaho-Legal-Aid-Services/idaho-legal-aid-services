@@ -792,7 +792,7 @@ Use this command bundle to verify Phase 2 Entry criterion #1:
 # VC-RUNBOOK-LOCAL
 cd /home/evancurry/idaho-legal-aid-services && \
   ddev drush status && \
-  ddev drush config:get ilas_site_assistant.settings -y && \
+  ddev drush ilas:runtime-truth && \
   ddev drush state:get system.cron_last
 
 # VC-TOGGLE-CHECK
@@ -813,8 +813,9 @@ rg -n "OBS\\[Observability|CI\\[External CI runner|PF\\[Promptfoo harness|CI -->
 ```
 
 Expected P2-ENT-01 verification result:
-- `VC-RUNBOOK-LOCAL` returns successful local runtime status, effective assistant
-  settings visibility, and a concrete `system.cron_last` state value.
+- `VC-RUNBOOK-LOCAL` returns successful local runtime status, assistant settings
+  runtime truth via `ilas:runtime-truth`, and a concrete `system.cron_last`
+  state value.
 - `VC-TOGGLE-CHECK` confirms documented toggle continuity in current-state and
   evidence-index for `llm.enabled`, `vector_search`, flood limits, and
   `conversation_logging`.
@@ -839,7 +840,7 @@ Local (DDEV):
 ```bash
 # VC-RUNBOOK-LOCAL
 ddev drush status --fields=drupal-version,db-status,bootstrap && \
-ddev drush config:get ilas_site_assistant.settings && \
+ddev drush ilas:runtime-truth && \
 ddev drush state:get system.cron_last
 ```
 
@@ -861,9 +862,9 @@ rg -n "vector_search|fallback_gate" \
 ```
 
 Expected P2-ENT-02 verification result:
-- `VC-RUNBOOK-LOCAL` returns successful local runtime status, effective assistant
-  settings visibility including `vector_search` and `fallback_gate.thresholds` blocks,
-  and a concrete `system.cron_last` state value.
+- `VC-RUNBOOK-LOCAL` returns successful local runtime status, assistant settings
+  runtime truth including stored-versus-effective `vector_search` and related
+  assistant controls, and a concrete `system.cron_last` state value.
 - `VC-TOGGLE-CHECK` confirms documented toggle continuity in current-state and
   evidence-index for `llm.enabled`, `vector_search`, flood limits, and
   `conversation_logging`.
@@ -887,12 +888,12 @@ Use this command bundle to verify Phase 2 exit criterion #3:
 # VC-RUNBOOK-LOCAL
 cd /home/evancurry/idaho-legal-aid-services && \
   ddev drush status && \
-  ddev drush config:get ilas_site_assistant.settings -y && \
+  ddev drush ilas:runtime-truth && \
   ddev drush state:get system.cron_last
 
 # VC-RUNBOOK-PANTHEON
 for ENV in dev test live; do
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings -y
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth
 done
 
 # 2) Closure-focused continuity checks.
@@ -2224,6 +2225,39 @@ done
   risks, and final classification in
   `docs/aila/runtime/tovr-08-runtime-truth-verification.txt`.
 
+### AFRP-02 runtime truth expansion
+
+- Canonical assistant settings runtime truth is now `drush ilas:runtime-truth`.
+  `config:get ilas_site_assistant.settings ...` remains useful for storage-only
+  history, but it is not authoritative runtime proof for override-prone or
+  service-normalized assistant settings.
+- The safe runtime-truth surface now covers:
+  - message rate limits
+  - session bootstrap thresholds
+  - read-endpoint rate limits
+  - conversation logging resolved invariants
+  - retrieval IDs plus runtime-only LegalServer URL status
+  - LLM runtime readiness and cost-control config
+  - Voyage runtime readiness
+  - existing Langfuse, Sentry, Pinecone, GA, diagnostics-token, and live-debug
+    surfaces
+- Current 2026-03-18 proof baseline:
+  - `local`, `dev`, and `test` report stored `vector_search.enabled=false`
+    while effective runtime is `true`
+  - `local`, `dev`, `test`, and `live` report stored
+    `langfuse.enabled=false` while effective runtime is `true`
+  - `live` reports stored `google_tag_id=false` while effective runtime is
+    `true`
+  - `diagnostics_token_present=false` in all sampled environments
+- Use the same read-only commands already canonized for TOVR-08:
+  - `VC-RUNTIME-LOCAL-SAFE`
+  - `VC-RUNTIME-PANTHEON-SAFE`
+  - `VC-SENTRY-PROBE`
+  - `VC-LANGFUSE-PROBE-DIRECT`
+- Companion rule:
+  - `/assistant` HTML sampling remains required for browser-only truth such as
+    Sentry browser flags and assistant-route GA suppression.
+
 ### Langfuse runtime override pattern (reference)
 
 Langfuse enablement uses a **secret-gated runtime override** pattern that is
@@ -2253,7 +2287,7 @@ ddev drush ilas:runtime-truth
 # Focused Langfuse status with queue health
 ddev drush ilas:langfuse-status
 
-# Admin UI: /admin/reports/ilas-assistant shows Observability Runtime Status
+# Admin UI: /admin/reports/ilas-assistant shows Runtime Truth Status
 ```
 
 **Common audit pitfall:** Inspecting `config:get ilas_site_assistant.settings
@@ -2742,6 +2776,84 @@ python3 "$HOME/.codex/skills/sentry/scripts/sentry_api.py" \
     rollback notes, and still-unverified surfaces in
     `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`.
 
+### AFRP-01 FAQ language-isolation verification
+
+- Baseline before the remediation:
+  - `faq_accordion` was already configured and enabled in `local`, `dev`,
+    `test`, and `live`; missing lexical index wiring was not the cause of the
+    sampled wrong-language FAQ answers.
+  - English `eviction` FAQ probes on 2026-03-18 stayed English-only on
+    `dev` / `test`, but `local` and deployed `live` leaked translated FAQ
+    parent URLs (`/es`, `/sw`, `/nl`) on the same English request.
+  - The root-cause proof was parent-scope drift, not paragraph-language drift:
+    sampled leaked FAQ paragraphs still carried `search_api_language=en` while
+    resolving to translated parent nodes and translated parent URLs.
+- Required validation commands for the remediation report:
+  - `VC-SEARCHAPI-INVENTORY`
+  - `VC-RUNTIME-LOCAL-SAFE`
+  - `VC-RUNTIME-PANTHEON-SAFE`
+  - `VC-ASSISTANT-SMOKE-LOCAL`
+  - `VC-FUNCTIONAL`
+- Canonical local checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+ddev drush search-api:server-list
+ddev drush search-api:list
+ddev drush search-api:status faq_accordion
+ddev drush search-api:status faq_accordion_vector
+ddev drush search-api:status assistant_resources_vector
+
+ddev drush cr
+
+ddev drush php:eval '$retrieval = \Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot()["retrieval"]; echo json_encode(["env" => "local", "faq_index" => $retrieval["faq_index"], "faq_vector_index" => $retrieval["faq_vector_index"]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+ddev drush php:eval '$faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "parent_url" => $item["parent_url"] ?? NULL, "category" => $item["category"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => "local", "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq?q=eviction' | jq '.results | map({id,parent_url,category})'
+curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq' | jq 'if type=="array" then . elif (.categories? | type)=="array" then .categories else . end'
+curl -sk -i 'https://ilas-pantheon.ddev.site/assistant/api/faq?id=faq_641'
+```
+
+- Canonical Pantheon read-only checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+for ENV in dev test live; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$retrieval = \Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot()["retrieval"]; $faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "parent_url" => $item["parent_url"] ?? NULL, "category" => $item["category"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => getenv("PANTHEON_ENVIRONMENT"), "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "faq_index" => $retrieval["faq_index"], "faq_vector_index" => $retrieval["faq_vector_index"], "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+done
+
+terminus remote:drush idaho-legal-aid-services.live -- php:eval '$faq = \Drupal::service("ilas_site_assistant.faq_index"); echo json_encode(["env" => getenv("PANTHEON_ENVIRONMENT"), "categories" => $faq->getCategories()], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+```
+
+- Decision rules:
+  - Map `/assistant/api/faq` and FAQ-in-message retrieval to the active
+    `FaqIndex` branch before claiming a fix. `AssistantApiController` routes
+    FAQ endpoint search, FAQ endpoint categories, FAQ ID lookups, early message
+    retrieval, and FAQ answer-mode retrieval through `FaqIndex`.
+  - Do not treat `search_api_language` alone as proof of language isolation for
+    FAQ paragraphs.
+  - The remediation is acceptable only if every active FAQ branch enforces
+    same-language scope from resolved parent URL plus parent-node language when
+    available.
+  - If language cannot be proved, return empty-safe degradation or `404`, not a
+    cross-language FAQ.
+  - If the fix is not deployed to Pantheon yet, keep hosted post-change status
+    labeled `Unverified` even if current hosted read-only probes are available.
+- Expected remediation contract:
+  - `FaqIndex::search()` filters cross-language lexical, vector, and legacy FAQ
+    items before return.
+  - `FaqIndex::getById()` fails closed when the resolved FAQ is in another
+    language.
+  - `FaqIndex::getCategories()` and `getCategoriesLegacy()` exclude
+    foreign-language category labels.
+  - `/assistant/api/faq` keeps the existing response shape while returning only
+    same-language results, and `/assistant/api/message` inherits the same
+    filtering because it routes through `FaqIndex::search()`.
+  - Archive the full before/after report, command summaries, path map,
+    residual risks, rollback notes, and still-unverified environments in
+    `docs/aila/runtime/afrp-01-faq-language-isolation.txt`.
+
 ### TOVR-16 final consolidation verification
 
 - Required validation commands for the consolidation report:
@@ -2906,7 +3018,7 @@ gh run view 23165713689 --json databaseId,displayTitle,conclusion,status,headBra
   - `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --filter 'testTrackEndpointRecoveryWithFreshBootstrapToken|testAnonymousMessageRecovery_FreshTokenAfter403|testMetricsEndpointAccessibleToAdmin|testAnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie|testAnonymousSessionBootstrapReuseDoesNotRotateCookie|testAnonymousSessionBootstrapRateLimitBoundsNewSessionsButAllowsReuse' /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php`
   - `node /home/evancurry/idaho-legal-aid-services/web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs`
 - Bootstrap-specific Pantheon read-only checks after deployment:
-  - `for ENV in dev test live; do terminus env:view "idaho-legal-aid-services.$ENV" --print; terminus remote:drush "idaho-legal-aid-services.$ENV" -- status --fields=uri,drupal-version,db-status; terminus remote:drush "idaho-legal-aid-services.$ENV" -- config:get ilas_site_assistant.settings session_bootstrap; terminus remote:drush "idaho-legal-aid-services.$ENV" -- state:get ilas_site_assistant.session_bootstrap.snapshot; done`
+  - `for ENV in dev test live; do terminus env:view "idaho-legal-aid-services.$ENV" --print; terminus remote:drush "idaho-legal-aid-services.$ENV" -- status --fields=uri,drupal-version,db-status; terminus remote:drush "idaho-legal-aid-services.$ENV" -- ilas:runtime-truth; terminus remote:drush "idaho-legal-aid-services.$ENV" -- state:get ilas_site_assistant.session_bootstrap.snapshot; done`
 - Expected contract after the remediation:
   - The bootstrap endpoint remains `GET` and returns `text/plain` CSRF tokens
     on success, with no route or request-shape change for the widget.
@@ -3959,9 +4071,7 @@ Pantheon target-environment contract checks (`dev`, `test`, `live`):
 ```bash
 for ENV in dev test live; do
   echo "=== ${ENV} ==="
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings llm.enabled
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings llm.fallback_on_error
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get ilas_site_assistant.settings vector_search.enabled
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth
 done
 ```
 
@@ -3976,8 +4086,8 @@ Expected reliability matrix result:
 - Controller-level uncaught failures map deterministically to
   `internal_error` with request identity present.
 - Target-environment checks confirm constraints remain in place:
-  `llm.enabled=false`, `llm.fallback_on_error=true`, and
-  `vector_search.enabled=false` on `dev`/`test`/`live`.
+  `llm.enabled=false`, `llm.fallback_on_error=true`, and stored-versus-effective
+  `vector_search.enabled` behavior is visible without exposing secrets.
 
 ### Config parity + drift checks (`IMP-CONF-01`)
 
@@ -4345,6 +4455,24 @@ sed -E \
 
 ### PHARD-02 Langfuse live operationalization verification
 
+- Trust rule:
+  - Treat HTTP `207`, queue depth alone, and stored config alone as transport
+    evidence only. Close the trust gap with account-side trace proof via
+    `ilas:langfuse-lookup` or sanitized recent-trace API matching.
+- Local runtime/status commands:
+  ```bash
+  ddev drush ilas:runtime-truth
+  ddev drush ilas:langfuse-status
+  ddev drush ilas:langfuse-lookup <trace_id>
+  ```
+- Hosted runtime/status commands:
+  ```bash
+  for ENV in dev test live; do
+    terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth
+    terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:langfuse-status
+  done
+  ```
+
 - VC-LANGFUSE-LIVE commands (config + queue depth per env):
   ```bash
   for ENV in dev test live; do
@@ -4364,22 +4492,52 @@ sed -E \
   ```bash
   for ENV in dev test live; do
     terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:langfuse-probe
+    terminus remote:drush "idaho-legal-aid-services.${ENV}" -- queue:run ilas_langfuse_export --items-limit=10
   done
+  ```
+- Hosted real request-path proof (`live` example):
+  ```bash
+  BASE_URL="$(terminus env:view idaho-legal-aid-services.live --print)"
+  COOKIE_JAR="$(mktemp)"
+  TOKEN="$(curl -sk -c "$COOKIE_JAR" "${BASE_URL}assistant/api/session/bootstrap")"
+  curl -sk -b "$COOKIE_JAR" \
+    -H "Content-Type: application/json" \
+    -H "X-CSRF-Token: $TOKEN" \
+    --data '{"message":"custody forms"}' \
+    "${BASE_URL}assistant/api/message"
+  terminus remote:drush idaho-legal-aid-services.live -- queue:run ilas_langfuse_export --items-limit=10
+  rm -f "$COOKIE_JAR"
+  ```
+- Local queue-loss drills (local active config only, restore values afterward):
+  ```bash
+  ddev drush cset ilas_site_assistant.settings langfuse.max_queue_depth 0 -y
+  ddev drush cset ilas_site_assistant.settings langfuse.max_queue_depth 10000 -y
+  ddev drush cset ilas_site_assistant.settings langfuse.max_item_age_seconds 1 -y
+  ddev drush cset ilas_site_assistant.settings langfuse.max_item_age_seconds 3600 -y
   ```
 - Contract test execution:
   ```bash
   vendor/bin/phpunit --configuration phpunit.xml \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTraceLookupServiceTest.php \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseLookupCommandTest.php \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php \
     web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php \
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php \
     web/modules/custom/ilas_site_assistant/tests/src/Unit/Phard02LangfuseLiveAcceptanceTest.php
   ```
 - Expected verification result: Direct probes return exit `0` plus HTTP `207`
   summaries, queued probes store top-level `batch` / `metadata` / `enqueued_at`
   rows (no top-level `payload` wrapper), queue processing logs partial success
   instead of `invalid queue item`, and fresh trace IDs resolve in Langfuse
-  UI/API with metadata-only input/output summaries.
+  UI/API with metadata-only input/output summaries. Local `ilas:langfuse-status`
+  should also expose explicit queue/export outcomes such as `drop_max_depth`,
+  `discard_stale`, and `send_partial_207`.
 - Evidence artifacts:
   - `docs/aila/runtime/phard-02-langfuse-operationalization.txt`
   - `docs/aila/runtime/tovr-04-langfuse-remediation.txt`
+  - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
 
 ### PHARD-06 retrieval contract verification
 
@@ -4616,6 +4774,19 @@ Run this checklist for every future audit cycle that touches assistant routing, 
 6. **Blocking deep-suite gate**
    - Confirm blocking gate covers deep multi-turn suite in addition to abuse-only suite.
    - Archive gate artifacts with pass/fail summary and transcript identifiers.
+
+## 8) Pantheon branch topology
+
+The `origin` (Pantheon) remote maintains two long-lived branches:
+
+| Branch | Purpose |
+|--------|---------|
+| `origin/master` | Active deployment branch. All code changes push here. CI/CD workflows trigger on `master`. |
+| `origin/main` | Pantheon upstream pathway. Receives PHP version updates, Drupal upstream changes, and platform patches via the Pantheon dashboard. |
+
+**Do not delete `origin/main`.** It is managed by Pantheon's upstream system and is required for receiving platform updates. The Pantheon site settings list `main` as the default branch for upstream delivery.
+
+The GitHub Actions quality gate triggers only on `master` (and `release/**`). The `main` branch is not monitored by CI because it carries only upstream scaffolding — not application code.
 
 ---
 

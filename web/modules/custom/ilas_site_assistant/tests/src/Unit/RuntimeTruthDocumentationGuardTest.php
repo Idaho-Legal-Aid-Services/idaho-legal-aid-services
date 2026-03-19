@@ -39,11 +39,13 @@ class RuntimeTruthDocumentationGuardTest extends TestCase {
     $runbook = self::readFile('docs/aila/runbook.md');
 
     $this->assertStringContainsString('### TOVR-08 override-aware runtime truth verification', $runbook);
+    $this->assertStringContainsString('### AFRP-02 runtime truth expansion', $runbook);
     $this->assertStringContainsString('ddev drush ilas:runtime-truth', $runbook);
     $this->assertStringContainsString('terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-truth', $runbook);
     $this->assertStringContainsString('Stored-config-only habits to avoid', $runbook);
     $this->assertStringContainsString('config:get raven.settings', $runbook);
     $this->assertStringContainsString('config:get langfuse.settings', $runbook);
+    $this->assertStringContainsString('assistant settings runtime truth', $runbook);
     $this->assertStringContainsString('assistant_page_suppressed=true', $runbook);
     $this->assertStringContainsString('assistant-route GA suppression', $runbook);
   }
@@ -80,15 +82,18 @@ class RuntimeTruthDocumentationGuardTest extends TestCase {
     $roadmap = self::readFile('docs/aila/roadmap.md');
 
     $this->assertStringContainsString('TOVR-08', $currentState);
+    $this->assertStringContainsString('AFRP-02', $currentState);
     $this->assertStringContainsString('ilas:runtime-truth', $currentState);
     $this->assertStringContainsString('storage-only and historical', $currentState);
 
     $this->assertStringContainsString('### CLAIM-213', $evidenceIndex);
     $this->assertStringContainsString('### CLAIM-214', $evidenceIndex);
     $this->assertStringContainsString('### CLAIM-215', $evidenceIndex);
+    $this->assertStringContainsString('afrp-02-runtime-truth-remediation.txt', $evidenceIndex);
     $this->assertStringContainsString('docs/aila/runtime/tovr-08-runtime-truth-verification.txt', $evidenceIndex);
 
     $this->assertStringContainsString('### TOVR-08 override-aware runtime truth disposition', $roadmap);
+    $this->assertStringContainsString('AFRP-02 runtime truth expansion', $roadmap);
     $this->assertStringContainsString('ilas:runtime-truth', $roadmap);
   }
 
