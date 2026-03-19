@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload PHPUnit summary
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: phpunit-summary
           path: promptfoo-evals/output/phpunit-summary.txt
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload Promptfoo artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: promptfoo-gate-artifacts
           path: |
@@ -176,7 +176,7 @@ jobs:
 
       - name: Upload gate summary
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: gate-summary
           path: promptfoo-evals/output/gate-summary.txt
