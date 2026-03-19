@@ -10,7 +10,7 @@
 form[data-drupal-selector="views-exposed-form-search-page-1"] {
   max-width: 800px;
   margin: 0 auto 2rem;
-  padding: $spacer;
+  padding: $spacer $spacer 2rem;
   background-color: $color-gray-bg;
   border-radius: $border-radius-lg;
   box-shadow: $box-shadow-sm;
@@ -276,7 +276,33 @@ ul.pager__items {
 }
 
 .search-form-wrapper {
-  margin-bottom: 2rem;
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto 2rem;
+
+  // Algolia attribution — centered at the bottom inside the form's visual bounds
+  .algolia-attribution {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
+    color: $color-gray-text;
+    text-decoration: none;
+    z-index: 1;
+
+    &:hover {
+      color: $color-primary;
+    }
+
+    &__logo {
+      height: 1.125rem;
+      width: auto;
+    }
+  }
 }
 
 .search-results {
