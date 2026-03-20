@@ -17,6 +17,6 @@
   },
   "devDependencies": {
     "jest-environment-jsdom": "^30.3.0",
-    "promptfoo": "^0.120.24"
+    "promptfoo": "^0.121.2"
   }
 }
