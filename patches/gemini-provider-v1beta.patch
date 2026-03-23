@@ -1,14 +1,6 @@
 --- a/src/Plugin/AiProvider/GeminiProvider.php
 +++ b/src/Plugin/AiProvider/GeminiProvider.php
-@@ -166,6 +166,7 @@
-   public function embeddingsVectorSize(string $model_id): int {
-     return match ($model_id) {
-       'models/embedding-001', 'models/text-embedding-004' => 768,
-+      'models/gemini-embedding-001' => 3072,
-       default => 0,
-     };
-   }
-@@ -294,6 +295,7 @@
+@@ -497,5 +497,6 @@
        $this->client = \Gemini::factory()
          ->withApiKey($this->apiKey)
          ->withHttpClient($this->httpClient)

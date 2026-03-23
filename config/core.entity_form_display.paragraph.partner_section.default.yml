@@ -17,31 +17,9 @@ targetEntityType: paragraph
 bundle: partner_section
 mode: default
 content:
-  field_partner_section_title:
-    type: string_textfield
-    weight: 0
-    region: content
-    settings:
-      size: 60
-      placeholder: 'e.g., Major Funders'
-    third_party_settings: {  }
-  field_partner_section_desc:
-    type: text_textarea
-    weight: 1
-    region: content
-    settings:
-      rows: 3
-      placeholder: ''
-    third_party_settings: {  }
   field_columns_per_row:
     type: options_select
     weight: 2
-    region: content
-    settings: {  }
-    third_party_settings: {  }
-  field_section_style:
-    type: options_select
-    weight: 3
     region: content
     settings: {  }
     third_party_settings: {  }
@@ -62,6 +40,28 @@ content:
       features:
         collapse_edit_all: collapse_edit_all
         duplicate: duplicate
+    third_party_settings: {  }
+  field_partner_section_desc:
+    type: text_textarea
+    weight: 1
+    region: content
+    settings:
+      rows: 3
+      placeholder: ''
+    third_party_settings: {  }
+  field_partner_section_title:
+    type: string_textfield
+    weight: 0
+    region: content
+    settings:
+      size: 60
+      placeholder: 'e.g., Major Funders'
+    third_party_settings: {  }
+  field_section_style:
+    type: options_select
+    weight: 3
+    region: content
+    settings: {  }
     third_party_settings: {  }
 hidden:
   created: true

@@ -39,6 +39,7 @@ content:
     weight: 0
     region: content
 hidden:
+  field_adept_attachments: true
   field_adept_downloads: true
   field_adept_external_url: true
   field_adept_lesson_number: true

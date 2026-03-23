@@ -1,5 +1,5 @@
 {
-    "_hash": "e5eb241897fb74dd4d514f6ab8799725bb0901b1689318a26557c3125dc71daa",
+    "_hash": "fe2ccbd14b39a6fbd2ff2f8d8eb74e202ed7d2d5cdcc08c9e98c14067eeeaf98",
     "patches": {
         "drupal/core": [
             {
@@ -25,24 +25,12 @@
                 }
             }
         ],
-        "google-gemini-php/client": [
-            {
-                "package": "google-gemini-php/client",
-                "description": "Handle missing description field in v1beta model listing",
-                "url": "patches/gemini-php-model-description-optional.patch",
-                "sha256": "4fc18eff71bee4ce290d211f8a98ba8d3143db19e8d38a9977b4b03e573ed967",
-                "depth": 1,
-                "extra": {
-                    "provenance": "root"
-                }
-            }
-        ],
         "drupal/gemini_provider": [
             {
                 "package": "drupal/gemini_provider",
-                "description": "Use v1beta API for embedding model support + gemini-embedding-001 vector size",
+                "description": "Use v1beta Generative Language API base URL (embeddings / model listing)",
                 "url": "patches/gemini-provider-v1beta.patch",
-                "sha256": "f454f1dd1de2ecdd124e516c9191db9013a6a6cda085ff6e31f55d898c020308",
+                "sha256": "aa0b04b1949cd2085953523065601413ae38a4f362e0838eb6a3ec9bc32ee98e",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"

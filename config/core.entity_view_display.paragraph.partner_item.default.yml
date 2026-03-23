@@ -16,22 +16,12 @@ targetEntityType: paragraph
 bundle: partner_item
 mode: default
 content:
-  field_partner_name:
-    type: string
+  field_partner_description:
+    type: text_default
     label: hidden
-    settings:
-      link_to_entity: false
+    settings: {  }
     third_party_settings: {  }
-    weight: 0
-    region: content
-  field_partner_logo:
-    type: entity_reference_entity_view
-    label: hidden
-    settings:
-      view_mode: default
-      link: false
-    third_party_settings: {  }
-    weight: 1
+    weight: 3
     region: content
   field_partner_link:
     type: link
@@ -45,12 +35,22 @@ content:
     third_party_settings: {  }
     weight: 2
     region: content
-  field_partner_description:
-    type: text_default
+  field_partner_logo:
+    type: entity_reference_entity_view
     label: hidden
-    settings: {  }
+    settings:
+      view_mode: default
+      link: false
     third_party_settings: {  }
-    weight: 3
+    weight: 1
+    region: content
+  field_partner_name:
+    type: string
+    label: hidden
+    settings:
+      link_to_entity: false
+    third_party_settings: {  }
+    weight: 0
     region: content
 hidden:
   search_api_excerpt: true
