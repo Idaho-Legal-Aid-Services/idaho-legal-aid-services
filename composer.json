@@ -109,11 +109,8 @@
             "drupal/tmgmt": {
                 "Fix paragraphs asymmetric translation saving source instead of translated text (https://www.drupal.org/project/tmgmt/issues/3134922)": "patches/tmgmt-paragraphs-3134922-46.patch"
             },
-            "google-gemini-php/client": {
-                "Handle missing description field in v1beta model listing": "patches/gemini-php-model-description-optional.patch"
-            },
             "drupal/gemini_provider": {
-                "Use v1beta API for embedding model support + gemini-embedding-001 vector size": "patches/gemini-provider-v1beta.patch"
+                "Use v1beta Generative Language API base URL (embeddings / model listing)": "patches/gemini-provider-v1beta.patch"
             },
             "drupal/ai_vdb_provider_pinecone": {
                 "Add query-only Pinecone timeout client and config controls": "patches/ai-vdb-provider-pinecone-query-timeouts.patch"

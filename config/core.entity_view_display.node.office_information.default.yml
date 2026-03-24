@@ -44,19 +44,19 @@ content:
     third_party_settings: {  }
     weight: 1
     region: content
-  field_office_hours:
-    type: basic_string
-    label: hidden
-    settings: {  }
-    third_party_settings: {  }
-    weight: 2
-    region: content
   field_office_email:
     type: basic_string
     label: hidden
     settings: {  }
     third_party_settings: {  }
     weight: 4
+    region: content
+  field_office_hours:
+    type: basic_string
+    label: hidden
+    settings: {  }
+    third_party_settings: {  }
+    weight: 2
     region: content
   field_office_location_map:
     type: leaflet_formatter_default

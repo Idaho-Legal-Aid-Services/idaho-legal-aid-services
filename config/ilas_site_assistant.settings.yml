@@ -54,13 +54,11 @@ llm:
   enabled: false
   provider: gemini_api
   model: gemini-1.5-flash
-  api_key: '' # Runtime-only via ILAS_GEMINI_API_KEY; config export must stay blank.
+  api_key: ''
   project_id: ''
   location: us-central1
   max_tokens: 150
   temperature: 0.3
-  enhance_faq: true
-  enhance_resources: true
   enhance_greetings: false
   fallback_on_error: true
   safety_threshold: BLOCK_MEDIUM_AND_ABOVE
@@ -73,19 +71,21 @@ llm:
   global_rate_limit:
     max_per_hour: 500
     window_seconds: 3600
+  enhance_faq: true
+  enhance_resources: true
 fallback_gate:
   thresholds:
     intent_high_conf: 0.85
     intent_medium_conf: 0.65
-    intent_low_conf: 0.40
+    intent_low_conf: 0.4
     retrieval_high_score: 0.75
-    retrieval_medium_score: 0.50
-    retrieval_low_score: 0.30
+    retrieval_medium_score: 0.5
+    retrieval_low_score: 0.3
     retrieval_score_gap_high: 0.25
-    retrieval_score_gap_low: 0.10
+    retrieval_score_gap_low: 0.1
     retrieval_min_results: 1
-    combined_high_conf: 0.80
-    combined_fallback_threshold: 0.50
+    combined_high_conf: 0.8
+    combined_fallback_threshold: 0.5
     short_message_words: 3
     ambiguous_message_words: 2
 retrieval:
@@ -94,6 +94,22 @@ retrieval:
   resource_fallback_index_id: content
   faq_vector_index_id: faq_accordion_vector
   resource_vector_index_id: assistant_resources_vector
+retrieval_contract:
+  policy_version: phard_06_v1
+  enforcement_mode: advisory
+  lexical_priority_boost: 5
+  min_lexical_preserved: 1
+  approved_source_classes:
+    - faq_lexical
+    - faq_vector
+    - resource_lexical
+    - resource_vector
+  primary_source_classes:
+    - faq_lexical
+    - resource_lexical
+  supplement_source_classes:
+    - faq_vector
+    - resource_vector
 vector_search:
   enabled: false
   fallback_threshold: 2
@@ -111,22 +127,6 @@ voyage:
     failure_threshold: 3
     cooldown_seconds: 300
   fallback_on_error: true
-retrieval_contract:
-  policy_version: 'phard_06_v1'
-  enforcement_mode: 'advisory'
-  lexical_priority_boost: 5
-  min_lexical_preserved: 1
-  approved_source_classes:
-    - 'faq_lexical'
-    - 'faq_vector'
-    - 'resource_lexical'
-    - 'resource_vector'
-  primary_source_classes:
-    - 'faq_lexical'
-    - 'resource_lexical'
-  supplement_source_classes:
-    - 'faq_vector'
-    - 'resource_vector'
 safety_alerting:
   enabled: false
   threshold: 20
@@ -142,23 +142,14 @@ history_fallback:
 ab_testing:
   enabled: false
   experiments:
-    - id: welcome_v2
+    -
+      id: welcome_v2
       variants:
         - control
         - expanded_welcome
       allocation:
         - 50
         - 50
-langfuse:
-  enabled: false
-  host: 'https://us.cloud.langfuse.com'
-  public_key: ''
-  secret_key: ''
-  sample_rate: 1.0
-  environment: production
-  timeout: 5.0
-  max_queue_depth: 10000
-  max_item_age_seconds: 3600
 slo:
   availability_target_pct: 99.5
   latency_p95_target_ms: 2000
@@ -169,10 +160,9 @@ slo:
   cron_expected_cadence_seconds: 3600
   queue_max_depth: 10000
   queue_max_age_seconds: 3600
-
 source_governance:
   enabled: true
-  policy_version: 'p2_obj_03_v1'
+  policy_version: p2_obj_03_v1
   observation_window_hours: 24
   stale_ratio_alert_pct: 18.0
   min_observations: 20
@@ -181,30 +171,29 @@ source_governance:
   alert_cooldown_minutes: 60
   source_classes:
     faq_lexical:
-      provenance_label: 'search_api.index.faq_accordion'
+      provenance_label: search_api.index.faq_accordion
       owner_role: 'Content Operations Lead'
       max_age_days: 180
       require_source_url: true
     faq_vector:
-      provenance_label: 'search_api.index.faq_accordion_vector'
+      provenance_label: search_api.index.faq_accordion_vector
       owner_role: 'Content Operations Lead'
       max_age_days: 180
       require_source_url: true
     resource_lexical:
-      provenance_label: 'search_api.index.assistant_resources'
+      provenance_label: search_api.index.assistant_resources
       owner_role: 'Content Operations Lead'
       max_age_days: 180
       require_source_url: true
     resource_vector:
-      provenance_label: 'search_api.index.assistant_resources_vector'
+      provenance_label: search_api.index.assistant_resources_vector
       owner_role: 'Content Operations Lead'
       max_age_days: 180
       require_source_url: true
-
 vector_index_hygiene:
   enabled: true
-  policy_version: 'p2_del_03_v1'
-  refresh_mode: 'incremental'
+  policy_version: p2_del_03_v1
+  refresh_mode: incremental
   refresh_interval_hours: 24
   overdue_grace_minutes: 45
   max_items_per_run: 60
@@ -212,15 +201,14 @@ vector_index_hygiene:
   managed_indexes:
     faq_vector:
       owner_role: 'Content Operations Lead'
-      expected_server_id: 'pinecone_vector'
-      expected_metric: 'cosine_similarity'
+      expected_server_id: pinecone_vector
+      expected_metric: cosine_similarity
       expected_dimensions: 3072
     resource_vector:
       owner_role: 'Content Operations Lead'
-      expected_server_id: 'pinecone_vector'
-      expected_metric: 'cosine_similarity'
+      expected_server_id: pinecone_vector
+      expected_metric: cosine_similarity
       expected_dimensions: 3072
-
 audit_governance:
   audit_domain_classes:
     - legal_advice
@@ -239,10 +227,33 @@ audit_governance:
   signoff_required_permission: 'approve ilas site assistant audit'
   report_retention_days: 365
   signoff_deadline_days: 14
-
+cost_control:
+  daily_call_limit: 5000
+  monthly_call_limit: 100000
+  per_ip_hourly_call_limit: 10
+  per_ip_window_seconds: 3600
+  sample_rate: 1.0
+  cache_hit_rate_target: 0.3
+  cache_stats_window_seconds: 86400
+  manual_kill_switch: false
+  pricing:
+    model: gemini-1.5-flash
+    input_per_1m_tokens: 0.075
+    output_per_1m_tokens: 0.3
+  alert_cooldown_minutes: 60
+langfuse:
+  enabled: false
+  host: 'https://us.cloud.langfuse.com'
+  public_key: ''
+  secret_key: ''
+  sample_rate: 1.0
+  environment: production
+  timeout: 5.0
+  max_queue_depth: 10000
+  max_item_age_seconds: 3600
 review_loop:
   owner_role: 'Content Manager + SRE/Platform Engineer'
-  cadence: 'Weekly'
+  cadence: Weekly
   scope:
     - 'No-answer and generic-answer trends'
     - 'User feedback satisfaction rate and volume'
@@ -250,19 +261,4 @@ review_loop:
     - 'Top content gaps from no-answer fingerprints'
     - 'Grounding refusal frequency'
   escalation_path: 'Content Manager -> Drupal Lead -> Product Owner'
-  artifact_location: 'docs/aila/runtime/phard-05-search-quality-review.txt'
-
-cost_control:
-  daily_call_limit: 5000
-  monthly_call_limit: 100000
-  per_ip_hourly_call_limit: 10
-  per_ip_window_seconds: 3600
-  sample_rate: 1.0
-  cache_hit_rate_target: 0.30
-  cache_stats_window_seconds: 86400
-  manual_kill_switch: false
-  pricing:
-    model: 'gemini-1.5-flash'
-    input_per_1m_tokens: 0.075
-    output_per_1m_tokens: 0.30
-  alert_cooldown_minutes: 60
+  artifact_location: docs/aila/runtime/phard-05-search-quality-review.txt

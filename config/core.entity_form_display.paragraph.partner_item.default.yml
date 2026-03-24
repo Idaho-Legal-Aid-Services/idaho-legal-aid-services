@@ -17,20 +17,13 @@ targetEntityType: paragraph
 bundle: partner_item
 mode: default
 content:
-  field_partner_name:
-    type: string_textfield
-    weight: 0
+  field_partner_description:
+    type: text_textarea
+    weight: 3
     region: content
     settings:
-      size: 60
+      rows: 3
       placeholder: ''
-    third_party_settings: {  }
-  field_partner_logo:
-    type: media_library_widget
-    weight: 1
-    region: content
-    settings:
-      media_types: {  }
     third_party_settings: {  }
   field_partner_link:
     type: link_default
@@ -40,12 +33,19 @@ content:
       placeholder_url: 'https://example.com'
       placeholder_title: ''
     third_party_settings: {  }
-  field_partner_description:
-    type: text_textarea
-    weight: 3
+  field_partner_logo:
+    type: media_library_widget
+    weight: 1
     region: content
     settings:
-      rows: 3
+      media_types: {  }
+    third_party_settings: {  }
+  field_partner_name:
+    type: string_textfield
+    weight: 0
+    region: content
+    settings:
+      size: 60
       placeholder: ''
     third_party_settings: {  }
 hidden:
