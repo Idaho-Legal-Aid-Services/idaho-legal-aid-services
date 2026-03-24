@@ -77,7 +77,7 @@ final class PhaseTwoObjectiveThreeGateTest extends TestCase {
       '### Phase 2 Objective #3 Source Freshness + Provenance Governance Disposition (2026-03-03)',
       $currentState
     );
-    $this->assertStringContainsString('soft alerts only', $currentState);
+    $this->assertStringContainsString('GOVERNANCE_ENFORCEMENT_MATRIX', $currentState);
     $this->assertStringContainsString('[^CLAIM-133]', $currentState);
   }
 

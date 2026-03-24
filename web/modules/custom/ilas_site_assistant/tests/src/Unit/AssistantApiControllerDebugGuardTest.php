@@ -12,11 +12,14 @@ use Drupal\Core\Site\Settings;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\EnvironmentDetector;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -208,6 +211,9 @@ final class AssistantApiControllerDebugGuardTest extends TestCase {
       $flood,
       $cache,
       $logger,
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      environment_detector: new EnvironmentDetector(),
+      pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
     );
   }
 

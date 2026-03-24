@@ -1,0 +1,103 @@
+AFRP-09 Langfuse Operator Truth Remediation
+Date: 2026-03-24
+Verification level tag: repo remediated / local verified / hosted deployment pending
+
+Prior Langfuse runtime-truth posture
+- AFRP-02 (2026-03-18) established general stored-versus-effective runtime truth
+  tooling (`ilas:runtime-truth`, `ilas:langfuse-status`, admin report) and documented
+  the secret-gated override pattern. However, Langfuse-specific operator experience
+  still had gaps:
+  - `ilas:langfuse-probe` guard messages told operators to "Set langfuse.enabled=true
+    in ilas_site_assistant.settings" when the probe failed, which was misleading because
+    enablement depends on secret presence in `settings.php`, not config edits.
+  - Operators who only ran `ilas:langfuse-probe` and saw it fail had no guidance to
+    run `ilas:langfuse-status` for the full stored-vs-effective picture.
+  - `LangfuseTracer::isEnabled()` silently returned FALSE when credentials were absent,
+    with no log entry explaining why tracing was off for a given request.
+  - There was no single-command diagnostic to quickly assess Langfuse readiness without
+    actually sending a probe.
+
+Post-change posture
+- Probe guard messages now reference LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY secrets
+  and suggest `drush ilas:langfuse-status` for override channel inspection. No message
+  tells operators to edit config directly.
+- New `--diagnose` option on `ilas:langfuse-probe` prints a focused readiness JSON
+  report with: verdict (READY, DISABLED_NO_SECRETS, ENABLED_NO_CREDENTIALS), stored
+  and effective enabled state, credential presence booleans, environment label, sample
+  rate, queue health, export outcomes, and an operator-facing suggestion when not ready.
+  No probe is sent, no secrets are leaked.
+- `LangfuseTracer::isEnabled()` now logs a single entry per request when the enabled
+  state resolves: `info` for config_disabled and credentials_absent (operator-actionable),
+  `debug` for sampled_out and active (expected probabilistic behavior).
+- Probe commands are now wired with `RuntimeTruthSnapshotBuilder`, `QueueHealthMonitor`,
+  and `SloDefinitions` for richer diagnostic context.
+- Runbook PHARD-02 section now includes `--diagnose` as the recommended first triage
+  step before probe attempts.
+
+Operator truth-path summary
+- Quick triage: `drush ilas:langfuse-probe --diagnose`
+  Outputs: verdict, stored/effective config, credential presence, environment,
+  sample rate, queue health, export outcomes, actionable suggestion.
+- Full status: `drush ilas:langfuse-status`
+  Outputs: stored config, effective runtime, divergences, override channels,
+  queue health, export outcomes.
+- Connectivity test: `drush ilas:langfuse-probe --direct`
+  Outputs: HTTP status, trace ID, ingestion success/error counts.
+- Account-side proof: `drush ilas:langfuse-lookup <trace_id>`
+  Outputs: sanitized account-side trace metadata.
+
+Gap resolution matrix
+Gap | Prior State | Resolution | Verification
+Probe opaque failures | "Set langfuse.enabled=true" misleading message | Messages reference secrets, suggest langfuse-status | Unit tests verify message content
+No single-command diagnostic | Must know to run langfuse-status separately | --diagnose option with readiness JSON | Unit test verifies JSON schema and verdict
+Silent credential-absence | isEnabled() returns false with no log | info-level log with reason code | Unit test verifies log content
+Sample rate opacity | Effective rate in langfuse-status only | Accepted; debug-level log for sample decisions | Unit test verifies debug log
+Status has no connectivity test | langfuse-status is config-only | Intentionally separate; documented in operator path | No code change; documented
+
+Evidence with file paths and command summaries
+- `LangfuseTracer.php` (lines 160-196): resolution logging added to four paths in isEnabled()
+- `LangfuseProbeCommands.php` (lines 70-82): guard messages updated; (lines 66): --diagnose option added; (lines 274-388): printDiagnosis(), deriveVerdict(), deriveSuggestion() methods added
+- `drush.services.yml` (line 13): snapshot builder, queue health monitor, SLO definitions wired
+- `LangfuseTracerTest.php`: testIsEnabledLogsReasonWhenConfigDisabled, testIsEnabledLogsReasonWhenCredentialsAbsent, testIsEnabledLogsActiveState
+- `LangfuseProbeCommandTest.php`: testProbeGuardMessageMentionsSecretsNotConfigEdit, testProbeGuardMessageSuggestsLangfuseStatus, testProbeCredentialGuardMentionsEnvironmentVariables, testDiagnoseOptionOutputsReadinessJson, testDiagnoseReportsDisabledWhenNoSecrets
+
+Verification commands executed
+- VC-UNIT: PHPUnit unit suite passed (2436 tests, 12194 assertions)
+- VC-DRUPAL-UNIT: drupal-unit suite passed (581 tests, 1529 assertions)
+- VC-GOLDEN-TRANSCRIPT: 7 tests, 307 assertions passed
+- VC-PROMPTFOO-RUNTIME: 16 tests passed
+- Quality gate: PASSED
+
+Changed files
+- web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php
+- web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php
+- web/modules/custom/ilas_site_assistant/drush.services.yml
+- web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTracerTest.php
+- web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php
+- docs/aila/runbook.md
+- docs/aila/runtime/afrp-09-langfuse-operator-truth.txt (this file)
+- docs/aila/evidence-index.md
+
+Residual risks/unknowns
+- Hosted Pantheon deployment pending: AFRP-09 code changes (enhanced probe, --diagnose,
+  resolution logging) are not yet deployed to dev/test/live. Operator experience on
+  hosted environments still shows pre-AFRP-09 probe messages.
+- info-level Langfuse resolution logging fires once per assistant API request. At
+  sample_rate=1.0 on live, this adds one Drupal log entry per request. Volume is
+  acceptable given current traffic levels; reassess if request volume increases
+  significantly.
+- diagnostics_token_present=false in all sampled environments. The monitoring path
+  itself remains unproven in any environment.
+- Langfuse top-level environment still shows "default" in SaaS dashboard; true
+  environment is only visible in trace metadata keys.
+
+Rollback notes
+- Revert the commit to restore prior probe messages and remove resolution logging.
+- No schema, config, or database changes to roll back.
+- drush.services.yml change is additive (new arguments); reverting restores original
+  three-argument constructor.
+
+Still-unverified surfaces
+- Pantheon dev/test/live execution of `ilas:langfuse-probe --diagnose`
+- Pantheon resolution logging in live request watchdog
+- Any environment with diagnostics_token configured

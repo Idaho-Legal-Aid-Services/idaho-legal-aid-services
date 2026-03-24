@@ -1456,7 +1456,7 @@ class ResourceFinder {
       }
       $results = $this->rankingEnhancer->scoreResourceResults($items, $query, $type, $limit);
       if ($this->sourceGovernance) {
-        $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical');
+        $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical', 'entity_query');
       }
       return $results;
     }
@@ -1522,7 +1522,7 @@ class ResourceFinder {
 
     $results = array_slice($results, 0, $limit);
     if ($this->sourceGovernance) {
-      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical');
+      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical', 'entity_query');
     }
     return $results;
   }
@@ -1565,7 +1565,7 @@ class ResourceFinder {
 
     $results = array_slice($results, 0, $limit);
     if ($this->sourceGovernance) {
-      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical');
+      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical', 'entity_query');
     }
     return $results;
   }
@@ -1609,7 +1609,7 @@ class ResourceFinder {
 
     $results = array_slice($results, 0, $limit);
     if ($this->sourceGovernance) {
-      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical');
+      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical', 'entity_query');
     }
     return $results;
   }

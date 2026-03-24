@@ -47,8 +47,8 @@ class AssistantPageController extends ControllerBase {
   public function page() {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
 
-    // Block access when the assistant is disabled (e.g. production).
-    if (!$config->get('enable_global_widget')) {
+    // Block access when the dedicated assistant page is disabled.
+    if (!$config->get('enable_assistant_page')) {
       throw new AccessDeniedHttpException();
     }
     $canonical_urls = ilas_site_assistant_get_canonical_urls();

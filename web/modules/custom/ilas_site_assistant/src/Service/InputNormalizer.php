@@ -22,10 +22,11 @@ class InputNormalizer {
    *
  * Pipeline order:
  * 1. Unicode NFKC normalization
- * 2. Strip invisible formatting (zero-width / soft hyphen)
- * 3. Strip interstitial punctuation (l.e.g.a.l → legal)
- * 4. Collapse evasion spacing (l e g a l → legal)
- * 5. Normalize whitespace (collapse + trim)
+ * 2. Homoglyph substitution (Cyrillic/Greek confusables → Latin)
+ * 3. Strip invisible formatting (zero-width / soft hyphen)
+ * 4. Strip interstitial punctuation (l.e.g.a.l → legal)
+ * 5. Collapse evasion spacing (l e g a l → legal)
+ * 6. Normalize whitespace (collapse + trim)
    *
    * @param string $input
    *   Raw user input (already HTML-sanitized).
@@ -35,6 +36,7 @@ class InputNormalizer {
    */
   public static function normalize(string $input): string {
     $input = self::unicodeNfkc($input);
+    $input = self::stripHomoglyphs($input);
     $input = self::stripInvisibleFormatting($input);
     $input = self::stripInterstitialPunctuation($input);
     $input = self::collapseEvasionSpacing($input);
@@ -62,6 +64,63 @@ class InputNormalizer {
       return $normalized !== FALSE ? $normalized : $input;
     }
     return $input;
+  }
+
+  /**
+   * Replaces visually confusable Cyrillic/Greek characters with Latin.
+   *
+   * Maps the most common homoglyphs from Unicode TR#39 that look identical
+   * to Latin letters in standard fonts. This prevents bypass attacks that
+   * substitute Cyrillic а for Latin a, etc.
+   *
+   * Only covers characters that are visually indistinguishable from Latin
+   * in common web fonts. Safe for Spanish text (no Spanish-specific characters
+   * are in the mapping).
+   *
+   * @param string $input
+   *   The input string.
+   *
+   * @return string
+   *   String with confusable characters replaced by Latin equivalents.
+   */
+  public static function stripHomoglyphs(string $input): string {
+    // Cyrillic and Greek characters visually identical to Latin.
+    // Mapping: confusable → Latin equivalent.
+    static $map = [
+      // Cyrillic lowercase.
+      "\u{0430}" => 'a',  // а → a
+      "\u{0435}" => 'e',  // е → e
+      "\u{043E}" => 'o',  // о → o
+      "\u{0440}" => 'p',  // р → p
+      "\u{0441}" => 'c',  // с → c
+      "\u{0443}" => 'y',  // у → y
+      "\u{0445}" => 'x',  // х → x
+      "\u{0456}" => 'i',  // і → i (Ukrainian)
+      "\u{0458}" => 'j',  // ј → j (Serbian)
+      "\u{04BB}" => 'h',  // һ → h
+      // Cyrillic uppercase.
+      "\u{0410}" => 'A',  // А → A
+      "\u{0412}" => 'B',  // В → B
+      "\u{0415}" => 'E',  // Е → E
+      "\u{041A}" => 'K',  // К → K
+      "\u{041C}" => 'M',  // М → M
+      "\u{041D}" => 'H',  // Н → H
+      "\u{041E}" => 'O',  // О → O
+      "\u{0420}" => 'P',  // Р → P
+      "\u{0421}" => 'C',  // С → C
+      "\u{0422}" => 'T',  // Т → T
+      "\u{0425}" => 'X',  // Х → X
+      // Greek lowercase.
+      "\u{03B1}" => 'a',  // α → a
+      "\u{03B5}" => 'e',  // ε → e
+      "\u{03BF}" => 'o',  // ο → o
+      "\u{03C1}" => 'p',  // ρ → p
+      "\u{03BA}" => 'k',  // κ → k
+      "\u{03BD}" => 'v',  // ν → v
+      "\u{03C4}" => 't',  // τ → t (visual match in some fonts)
+    ];
+
+    return strtr($input, $map);
   }
 
   /**

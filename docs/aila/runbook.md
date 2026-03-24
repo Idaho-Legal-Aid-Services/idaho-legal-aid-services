@@ -4459,6 +4459,16 @@ sed -E \
   - Treat HTTP `207`, queue depth alone, and stored config alone as transport
     evidence only. Close the trust gap with account-side trace proof via
     `ilas:langfuse-lookup` or sanitized recent-trace API matching.
+- Quick readiness triage (no probe sent, AFRP-09):
+  ```bash
+  # Local: prints verdict JSON (READY, DISABLED_NO_SECRETS, etc.)
+  ddev drush ilas:langfuse-probe --diagnose
+
+  # Per-environment:
+  for ENV in dev test live; do
+    terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:langfuse-probe --diagnose
+  done
+  ```
 - Local runtime/status commands:
   ```bash
   ddev drush ilas:runtime-truth

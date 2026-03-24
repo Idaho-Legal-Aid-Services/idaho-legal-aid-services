@@ -226,6 +226,66 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
+   * Tests that before_send preserves message params and formatted text.
+   *
+   * Raven sets all three setMessage() arguments (template, params, formatted).
+   * The scrubEvent() callback must preserve params and scrub formatted text,
+   * not reset them to empty by calling setMessage() with only the template.
+   *
+   * @see https://idaho-legal-aid-services.sentry.io/issues/7356727676/ (PHP-3A)
+   */
+  public function testBeforeSendPreservesMessageParamsAndFormatted(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+
+    $template = '[@cid] Nonce validation failed from @ip [@type] [@class]';
+    $params = [
+      '@cid' => 'EA-abc12345',
+      '@ip' => '203.0.113.42',
+      '@type' => 'invalid_nonce',
+      '@class' => 'likely_browser',
+    ];
+    $formatted = '[EA-abc12345] Nonce validation failed from 203.0.113.42 [invalid_nonce] [likely_browser]';
+
+    $sentryEvent = \Sentry\Event::createEvent();
+    $sentryEvent->setMessage($template, $params, $formatted);
+
+    $result = $callback($sentryEvent, NULL);
+
+    $this->assertNotNull($result);
+    $this->assertSame($params, $result->getMessageParams(), 'Message params must be preserved through scrubEvent()');
+    $this->assertNotNull($result->getMessageFormatted(), 'Formatted message must be preserved through scrubEvent()');
+    $this->assertStringContainsString('EA-abc12345', $result->getMessageFormatted(), 'Formatted message must contain resolved placeholder values');
+    $this->assertSame($template, $result->getMessage(), 'Raw template should pass through unchanged (no PII in template)');
+  }
+
+  /**
+   * Tests that before_send scrubs PII in formatted message while preserving params.
+   */
+  public function testBeforeSendScrubsPiiInFormattedMessage(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+
+    $template = 'Error for user @email';
+    $params = ['@email' => 'john@example.com'];
+    $formatted = 'Error for user john@example.com';
+
+    $sentryEvent = \Sentry\Event::createEvent();
+    $sentryEvent->setMessage($template, $params, $formatted);
+
+    $result = $callback($sentryEvent, NULL);
+
+    $this->assertNotNull($result);
+    $this->assertSame($params, $result->getMessageParams(), 'Params must be preserved even when formatted contains PII');
+    $formattedResult = $result->getMessageFormatted();
+    $this->assertNotNull($formattedResult);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_EMAIL, $formattedResult, 'PII in formatted message must be redacted');
+    $this->assertStringNotContainsString('john@example.com', $formattedResult, 'Raw email must not appear in formatted message');
+  }
+
+  /**
    * Tests that before_send scrubs PII from exception values.
    */
   public function testBeforeSendScrubsExceptionValues(): void {

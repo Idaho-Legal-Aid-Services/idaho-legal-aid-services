@@ -13,6 +13,8 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantSessionBootstrapController;
+use Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard;
+use Drupal\ilas_site_assistant\Service\RequestTrustInspector;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -20,7 +22,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Covers bootstrap-controller resilience when the compiled container is stale.
+ * Covers bootstrap-controller DI wiring via proper container resolution.
  */
 #[Group('ilas_site_assistant')]
 final class AssistantSessionBootstrapControllerTest extends TestCase {
@@ -58,9 +60,9 @@ final class AssistantSessionBootstrapControllerTest extends TestCase {
   }
 
   /**
-   * Controller creation reconstructs the bootstrap guard if the service is absent.
+   * Controller creation resolves the bootstrap guard from the container.
    */
-  public function testCreateReconstructsBootstrapGuardWhenServiceMissing(): void {
+  public function testCreateResolvesBootstrapGuardFromContainer(): void {
     $csrf_token = $this->createMock(CsrfTokenGenerator::class);
     $csrf_token->expects($this->once())
       ->method('get')
@@ -99,14 +101,19 @@ final class AssistantSessionBootstrapControllerTest extends TestCase {
       ->with('ilas_site_assistant.settings')
       ->willReturn($config);
 
+    $guard = new AssistantSessionBootstrapGuard(
+      $config_factory,
+      $flood,
+      new RequestTrustInspector(),
+      $state,
+      $logger,
+      $time,
+    );
+
     $container = new ContainerBuilder();
     $container->set('csrf_token', $csrf_token);
     $container->set('page_cache_kill_switch', $kill_switch);
-    $container->set('config.factory', $config_factory);
-    $container->set('flood', $flood);
-    $container->set('state', $state);
-    $container->set('logger.channel.ilas_site_assistant', $logger);
-    $container->set('datetime.time', $time);
+    $container->set('ilas_site_assistant.session_bootstrap_guard', $guard);
 
     \Drupal::setContainer($container);
 

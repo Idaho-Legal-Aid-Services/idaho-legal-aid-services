@@ -12,11 +12,13 @@ use Drupal\Core\State\StateInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
@@ -195,8 +197,10 @@ final class PostGenerationEnforcementTest extends TestCase {
       flood: $flood,
       conversation_cache: $cache,
       logger: new NullLogger(),
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
       response_grounder: new ResponseGrounder($sourceGovernance),
       source_governance: $sourceGovernance,
+      pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
     );
 
     return [$controller, $analyticsLogger];
@@ -292,6 +296,76 @@ final class PostGenerationEnforcementTest extends TestCase {
     $this->assertArrayNotHasKey('llm_enhanced', $body);
     $this->assertContains('post_gen_safety_weak_grounding', $analytics->eventTypes());
     $this->assertInternalFieldsAreHidden($body);
+  }
+
+  // -----------------------------------------------------------------------
+  // AFRP-10: Governance enforcement behavioral proofs
+  // -----------------------------------------------------------------------
+
+  /**
+   * Proves _all_citations_stale adds freshness_caveat to client response.
+   *
+   * This is the behavioral proof that the all_citations_stale signal is
+   * SOFT-enforced, not merely advisory.
+   */
+  public function testAllCitationsStaleAddsFreshnessCaveatToResponse(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Here is information about housing assistance.',
+      'faq'
+    );
+    $controller->processIntentResponse['_all_citations_stale'] = TRUE;
+    $controller->processIntentResponse['_stale_citation_count'] = 2;
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertArrayHasKey('freshness_caveat', $body, 'Stale citations must produce a freshness_caveat in the response body.');
+    $this->assertNotEmpty($body['freshness_caveat']);
+    $this->assertContains('post_gen_stale_citations', $analytics->eventTypes(), 'Stale citations must fire the post_gen_stale_citations analytics event.');
+    // Original message must NOT be replaced — only caveat added.
+    $this->assertSame('Here is information about housing assistance.', $body['message'] ?? NULL);
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Proves governance metadata is present in normal responses.
+   */
+  public function testGovernanceMetadataInNormalResponse(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Idaho Legal Aid provides housing help.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertArrayHasKey('governance', $body, 'Every normal response must include governance metadata.');
+    $this->assertArrayHasKey('enforcement_mode', $body['governance']);
+    $this->assertArrayHasKey('policy_version', $body['governance']);
+    $this->assertArrayHasKey('status', $body['governance']);
+    $this->assertSame('advisory', $body['governance']['enforcement_mode']);
+  }
+
+  /**
+   * Proves freshness_caveat is NOT added when citations are not stale.
+   */
+  public function testFreshCitationsDoNotProduceFreshnessCaveat(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Here is current housing information.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertArrayNotHasKey('freshness_caveat', $body, 'Fresh citations must NOT produce a freshness_caveat.');
+    $this->assertNotContains('post_gen_stale_citations', $analytics->eventTypes());
   }
 
   /**

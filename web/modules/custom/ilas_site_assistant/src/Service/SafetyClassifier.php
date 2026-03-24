@@ -425,6 +425,14 @@ class SafetyClassifier {
           '/\b(my\s+rights\s+are|violat(e|ed|ing)\s+my\s+rights)\b/i' => 'legal_advice_rights',
           '/\b(how\s+to\s+handle)\b/i' => 'legal_advice_handle',
           '/\b(what\s+do\s+i\s+do\s+about)\b/i' => 'legal_advice_about',
+          // Paraphrase patterns (AFRP-06 G-2).
+          '/\b(ought\s+i\s+to)\b/i' => 'legal_advice_paraphrase_ought',
+          '/\b(would\s+it\s+be\s+(advisable|wise|smart|best)\s+to)\b/i' => 'legal_advice_paraphrase_advisable',
+          '/\b(do\s+you\s+recommend|would\s+you\s+recommend|is\s+it\s+advisable)\b/i' => 'legal_advice_paraphrase_recommend',
+          '/\b(am\s+i\s+better\s+off)\b/i' => 'legal_advice_paraphrase_better_off',
+          '/\b(best\s+course\s+of\s+action|right\s+thing\s+to\s+do)\b/i' => 'legal_advice_paraphrase_course',
+          '/\b(what\s+would\s+you\s+suggest|in\s+my\s+best\s+interest)\b/i' => 'legal_advice_paraphrase_suggest',
+          '/\b(how\s+should\s+i\s+proceed)\b/i' => 'legal_advice_paraphrase_proceed',
         ],
       ],
 

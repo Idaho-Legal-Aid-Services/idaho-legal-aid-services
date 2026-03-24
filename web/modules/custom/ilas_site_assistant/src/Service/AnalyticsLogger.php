@@ -81,25 +81,20 @@ class AnalyticsLogger {
     $date = date('Y-m-d');
 
     try {
-      // Try to update existing record.
-      $updated = $this->database->update('ilas_site_assistant_stats')
+      $this->database->merge('ilas_site_assistant_stats')
+        ->keys([
+          'event_type' => $event_type,
+          'event_value' => $event_value,
+          'date' => $date,
+        ])
+        ->fields([
+          'event_type' => $event_type,
+          'event_value' => $event_value,
+          'date' => $date,
+          'count' => 1,
+        ])
         ->expression('count', 'count + 1')
-        ->condition('event_type', $event_type)
-        ->condition('event_value', $event_value)
-        ->condition('date', $date)
         ->execute();
-
-      // If no record was updated, insert new one.
-      if ($updated === 0) {
-        $this->database->insert('ilas_site_assistant_stats')
-          ->fields([
-            'event_type' => $event_type,
-            'event_value' => $event_value,
-            'count' => 1,
-            'date' => $date,
-          ])
-          ->execute();
-      }
     }
     catch (\Exception $e) {
       // Log error but don't break the user experience.

@@ -425,7 +425,13 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   private static function scrubEvent(\Sentry\Event $sentryEvent, bool $transaction = FALSE): \Sentry\Event {
     $message = $sentryEvent->getMessage();
     if ($message !== NULL && $message !== '') {
-      $sentryEvent->setMessage(PiiRedactor::redact($message));
+      $params = $sentryEvent->getMessageParams();
+      $formatted = $sentryEvent->getMessageFormatted();
+      $sentryEvent->setMessage(
+        PiiRedactor::redact($message),
+        $params,
+        $formatted !== null ? PiiRedactor::redact($formatted) : null
+      );
     }
 
     if ($transaction) {

@@ -27,15 +27,19 @@ class LoggerInjectionContractTest extends TestCase {
 
   public function testAnalyticsLoggerLogsStatsWriteFailuresThroughInjectedLogger(): void {
     $exception = new \Exception('DB connection lost');
-    $update = new class($exception) {
+    $merge = new class($exception) {
 
       public function __construct(private \Exception $exception) {}
 
-      public function expression(string $field, string $expression): self {
+      public function keys(array $keys): self {
         return $this;
       }
 
-      public function condition(string $field, mixed $value, ?string $operator = NULL): self {
+      public function fields(array $fields): self {
+        return $this;
+      }
+
+      public function expression(string $field, string $expression): self {
         return $this;
       }
 
@@ -47,9 +51,9 @@ class LoggerInjectionContractTest extends TestCase {
 
     $database = $this->createMock(Connection::class);
     $database->expects($this->once())
-      ->method('update')
+      ->method('merge')
       ->with('ilas_site_assistant_stats')
-      ->willReturn($update);
+      ->willReturn($merge);
     $database->expects($this->never())->method('insert');
 
     $logger = $this->createMock(LoggerInterface::class);
@@ -93,13 +97,17 @@ class LoggerInjectionContractTest extends TestCase {
       }
 
     };
-    $successfulStatsUpdate = new class {
+    $successfulStatsMerge = new class {
 
-      public function expression(string $field, string $expression): self {
+      public function keys(array $keys): self {
         return $this;
       }
 
-      public function condition(string $field, mixed $value, ?string $operator = NULL): self {
+      public function fields(array $fields): self {
+        return $this;
+      }
+
+      public function expression(string $field, string $expression): self {
         return $this;
       }
 
@@ -110,14 +118,14 @@ class LoggerInjectionContractTest extends TestCase {
     };
 
     $database = $this->createMock(Connection::class);
-    $database->expects($this->exactly(2))
+    $database->expects($this->once())
       ->method('update')
-      ->willReturnCallback(static function (string $table) use ($failedNoAnswerUpdate, $successfulStatsUpdate) {
-        return match ($table) {
-          'ilas_site_assistant_no_answer' => $failedNoAnswerUpdate,
-          'ilas_site_assistant_stats' => $successfulStatsUpdate,
-        };
-      });
+      ->with('ilas_site_assistant_no_answer')
+      ->willReturn($failedNoAnswerUpdate);
+    $database->expects($this->once())
+      ->method('merge')
+      ->with('ilas_site_assistant_stats')
+      ->willReturn($successfulStatsMerge);
     $database->expects($this->never())->method('insert');
 
     $logger = $this->createMock(LoggerInterface::class);

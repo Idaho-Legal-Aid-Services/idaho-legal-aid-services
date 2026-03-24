@@ -8,6 +8,9 @@ ilas_site_assistant.settings:
     enable_global_widget:
       type: boolean
       label: 'Enable global widget'
+    enable_assistant_page:
+      type: boolean
+      label: 'Enable assistant page'
     enable_faq:
       type: boolean
       label: 'Enable FAQ answers'
@@ -411,6 +414,38 @@ ilas_site_assistant.settings:
         min_eligible_turns:
           type: integer
           label: 'Minimum eligible turns needed for fallback (default: 1)'
+    flows:
+      type: mapping
+      label: 'Code-managed assistant flow settings'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable config-backed assistant flows'
+        office_followup:
+          type: mapping
+          label: 'Office follow-up flow settings'
+          mapping:
+            enabled:
+              type: boolean
+              label: 'Enable office follow-up flow'
+            handler:
+              type: string
+              label: 'Office follow-up handler ID'
+            trigger_intents:
+              type: sequence
+              label: 'Intent types that can arm the flow'
+              sequence:
+                type: string
+                label: 'Intent type'
+            require_followup_prompt:
+              type: boolean
+              label: 'Require a response follow-up prompt before arming'
+            max_turns:
+              type: integer
+              label: 'Maximum follow-up turns'
+            ttl_seconds:
+              type: integer
+              label: 'Follow-up state TTL in seconds'
     ab_testing:
       type: mapping
       label: 'A/B testing settings'

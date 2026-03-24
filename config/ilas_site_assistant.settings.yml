@@ -2,6 +2,7 @@ _core:
   default_config_hash: 4_eQdtnPp7JizBul8ADHBdQ1xXv7UedEdHv-GG3ayLA
 disclaimer_text: 'I can help you find information on the Idaho Legal Aid Services website. I cannot provide legal advice.'
 enable_global_widget: true
+enable_assistant_page: true
 enable_faq: true
 enable_resources: true
 enable_logging: true
@@ -139,6 +140,16 @@ history_fallback:
   time_window_sec: 600
   dominance_threshold: 0.5
   min_eligible_turns: 1
+flows:
+  enabled: true
+  office_followup:
+    enabled: true
+    handler: office_followup
+    trigger_intents:
+      - apply
+    require_followup_prompt: true
+    max_turns: 2
+    ttl_seconds: 1800
 ab_testing:
   enabled: false
   experiments:

@@ -131,11 +131,13 @@ class SourceGovernanceService {
    *   Retrieval result item.
    * @param string $source_class
    *   Source class key.
+   * @param string $retrieval_method
+   *   How the data was retrieved ('search_api' or 'entity_query').
    *
    * @return array
    *   Annotated item.
    */
-  public function annotateResult(array $item, string $source_class): array {
+  public function annotateResult(array $item, string $source_class, string $retrieval_method = 'search_api'): array {
     RetrievalContract::assertApprovedSourceClass($source_class);
 
     $policy = $this->getPolicy();
@@ -173,15 +175,19 @@ class SourceGovernanceService {
       $flags[] = 'unknown_freshness';
     }
 
+    $configured_label = (string) ($class_policy['provenance_label'] ?? $source_class);
+    $provenance_label = $this->resolveProvenanceLabel($configured_label, $source_class, $retrieval_method);
+
     $item['source_class'] = $source_class;
     $item['provenance'] = [
       'source_class' => $source_class,
-      'provenance_label' => (string) ($class_policy['provenance_label'] ?? $source_class),
+      'provenance_label' => $provenance_label,
+      'retrieval_method' => $retrieval_method,
       'owner_role' => (string) ($class_policy['owner_role'] ?? 'Content Operations Lead'),
       'policy_version' => (string) ($policy['policy_version'] ?? 'p2_obj_03_v1'),
       'has_source_url' => $has_source_url,
       'source_url_allowed' => $source_url_allowed,
-      'enforcement_mode' => 'advisory',
+      'enforcement_mode' => $this->getEnforcementMode(),
       'retrieval_contract_version' => RetrievalContract::POLICY_VERSION,
     ];
     $item['freshness'] = [
@@ -202,14 +208,16 @@ class SourceGovernanceService {
    *   Retrieval results.
    * @param string $source_class
    *   Source class key.
+   * @param string $retrieval_method
+   *   How the data was retrieved ('search_api' or 'entity_query').
    *
    * @return array
    *   Annotated batch.
    */
-  public function annotateBatch(array $items, string $source_class): array {
+  public function annotateBatch(array $items, string $source_class, string $retrieval_method = 'search_api'): array {
     foreach ($items as $index => $item) {
       if (is_array($item)) {
-        $items[$index] = $this->annotateResult($item, $source_class);
+        $items[$index] = $this->annotateResult($item, $source_class, $retrieval_method);
       }
     }
     return $items;
@@ -241,7 +249,8 @@ class SourceGovernanceService {
       }
 
       $source_class = $this->inferSourceClass($result);
-      $annotated = $this->annotateResult($result, $source_class);
+      $retrieval_method = $result['provenance']['retrieval_method'] ?? 'search_api';
+      $annotated = $this->annotateResult($result, $source_class, $retrieval_method);
       $freshness_status = $annotated['freshness']['status'] ?? 'unknown';
       $flags = $annotated['governance_flags'] ?? [];
 
@@ -273,6 +282,25 @@ class SourceGovernanceService {
       }
       if (in_array('missing_source_url', $flags, TRUE)) {
         $snapshot['by_source_class'][$source_class]['missing_source_url']++;
+      }
+
+      if (!isset($snapshot['by_retrieval_method'][$retrieval_method])) {
+        $snapshot['by_retrieval_method'][$retrieval_method] = [
+          'total' => 0,
+          'stale' => 0,
+          'unknown' => 0,
+          'missing_source_url' => 0,
+        ];
+      }
+      $snapshot['by_retrieval_method'][$retrieval_method]['total']++;
+      if ($freshness_status === 'stale') {
+        $snapshot['by_retrieval_method'][$retrieval_method]['stale']++;
+      }
+      if ($freshness_status === 'unknown') {
+        $snapshot['by_retrieval_method'][$retrieval_method]['unknown']++;
+      }
+      if (in_array('missing_source_url', $flags, TRUE)) {
+        $snapshot['by_retrieval_method'][$retrieval_method]['missing_source_url']++;
       }
     }
 
@@ -314,6 +342,7 @@ class SourceGovernanceService {
       'next_alert_eligible_at' => NULL,
       'cooldown_seconds_remaining' => 0,
       'by_source_class' => [],
+      'by_retrieval_method' => [],
     ];
     $snapshot = $this->applyDerivedSnapshotFields($snapshot, $policy);
     $snapshot['status'] = $this->computeSnapshotStatus($snapshot, $policy);
@@ -432,6 +461,32 @@ class SourceGovernanceService {
   }
 
   /**
+   * Resolves the truthful provenance label based on retrieval method.
+   *
+   * When retrieval uses a non-index method (e.g., entity_query), the label
+   * is corrected to reflect the actual data source rather than falsely
+   * claiming Search API provenance.
+   *
+   * @param string $configured_label
+   *   The provenance label from policy config.
+   * @param string $source_class
+   *   The source class (e.g., faq_lexical).
+   * @param string $retrieval_method
+   *   The actual retrieval method used.
+   *
+   * @return string
+   *   Truthful provenance label.
+   */
+  protected function resolveProvenanceLabel(string $configured_label, string $source_class, string $retrieval_method): string {
+    if (!in_array($retrieval_method, RetrievalContract::NON_INDEX_RETRIEVAL_METHODS, TRUE)) {
+      return $configured_label;
+    }
+
+    $entity_type = str_starts_with($source_class, 'faq_') ? 'paragraph' : 'node';
+    return $entity_type . '.' . $retrieval_method;
+  }
+
+  /**
    * Builds a new empty snapshot.
    */
   protected function newSnapshot(array $policy, int $now): array {
@@ -452,6 +507,7 @@ class SourceGovernanceService {
       'next_alert_eligible_at' => NULL,
       'cooldown_seconds_remaining' => 0,
       'by_source_class' => [],
+      'by_retrieval_method' => [],
       'status' => 'unknown',
       'thresholds' => [
         'stale_ratio_alert_pct' => (float) ($policy['stale_ratio_alert_pct'] ?? 18.0),
@@ -569,6 +625,40 @@ class SourceGovernanceService {
       ]
     );
     $this->state->set(self::ALERT_STATE_KEY, $now);
+  }
+
+  /**
+   * Returns the configured enforcement mode for provenance annotations.
+   *
+   * Reads from retrieval_contract.enforcement_mode in module config.
+   * Falls back to 'advisory' when the value is missing or invalid.
+   *
+   * @return string
+   *   One of 'advisory', 'soft', or 'strict'.
+   */
+  public function getEnforcementMode(): string {
+    $configured = $this->configFactory
+      ->get('ilas_site_assistant.settings')
+      ->get('retrieval_contract.enforcement_mode');
+    if (is_string($configured) && in_array($configured, ['advisory', 'soft', 'strict'], TRUE)) {
+      return $configured;
+    }
+    return 'advisory';
+  }
+
+  /**
+   * Returns a lightweight governance summary for per-response metadata.
+   *
+   * @return array
+   *   Array with enforcement_mode, policy_version, and current status.
+   */
+  public function getGovernanceSummary(): array {
+    $snapshot = $this->getSnapshot();
+    return [
+      'enforcement_mode' => $this->getEnforcementMode(),
+      'policy_version' => RetrievalContract::POLICY_VERSION,
+      'status' => $snapshot['status'] ?? 'unknown',
+    ];
   }
 
 }

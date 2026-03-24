@@ -12,6 +12,7 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -73,14 +74,8 @@ final class OfficeFollowupGuardContractTest extends TestCase {
   /**
    * Builds a controller exposing office follow-up helper methods.
    */
-  private function buildController(?CacheBackendInterface $cache = NULL): OfficeFollowupTestableController {
+  private function buildController(?CacheBackendInterface $cache = NULL, array $flowConfig = []): OfficeFollowupTestableController {
     require_once __DIR__ . '/controller_test_bootstrap.php';
-
-    $configStub = $this->createStub(ImmutableConfig::class);
-    $configStub->method('get')->willReturn(NULL);
-
-    $configFactory = $this->createStub(ConfigFactoryInterface::class);
-    $configFactory->method('get')->willReturn($configStub);
 
     $intentRouter = $this->createStub(IntentRouter::class);
     $intentRouter->method('route')->willReturn(['type' => 'faq', 'confidence' => 0.9]);
@@ -97,6 +92,9 @@ final class OfficeFollowupGuardContractTest extends TestCase {
       $cache = new InMemoryCacheBackend();
     }
 
+    $configFactory = $this->buildFlowConfigFactory($flowConfig);
+    $assistantFlowRunner = new AssistantFlowRunner($configFactory, new OfficeLocationResolver(), $cache);
+
     return new OfficeFollowupTestableController(
       $configFactory,
       $intentRouter,
@@ -108,8 +106,34 @@ final class OfficeFollowupGuardContractTest extends TestCase {
       $fallbackGate,
       $flood,
       $cache,
-      new NullLogger()
+      new NullLogger(),
+      assistant_flow_runner: $assistantFlowRunner,
     );
+  }
+
+  /**
+   * Builds a config factory with office follow-up defaults and overrides.
+   */
+  private function buildFlowConfigFactory(array $flowConfig = []): ConfigFactoryInterface {
+    $defaults = [
+      'flows.enabled' => TRUE,
+      'flows.office_followup.enabled' => TRUE,
+      'flows.office_followup.trigger_intents' => ['apply'],
+      'flows.office_followup.require_followup_prompt' => TRUE,
+      'flows.office_followup.max_turns' => 2,
+      'flows.office_followup.ttl_seconds' => 1800,
+    ];
+
+    $configStub = $this->createStub(ImmutableConfig::class);
+    $configStub->method('get')->willReturnCallback(static function (string $key) use ($defaults, $flowConfig) {
+      $values = $flowConfig + $defaults;
+      return $values[$key] ?? NULL;
+    });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($configStub);
+
+    return $configFactory;
   }
 
   /**
@@ -156,29 +180,34 @@ final class OfficeFollowupGuardContractTest extends TestCase {
   }
 
   /**
-   * Follow-up state uses bounded turn metadata and expires safely.
+   * Follow-up state uses config-backed turn metadata and expires safely.
    */
-  public function testFollowupStateIsBoundedAndExpires(): void {
+  public function testFollowupStateUsesConfiguredTurnBudgetAndTtl(): void {
     $cache = new InMemoryCacheBackend();
-    $controller = $this->buildController($cache);
+    $controller = $this->buildController($cache, [
+      'flows.office_followup.max_turns' => 4,
+      'flows.office_followup.ttl_seconds' => 15,
+    ]);
     $conversationId = '11111111-1111-4111-8111-111111111111';
 
     $controller->exposedSaveOfficeFollowupState($conversationId, [
       'type' => 'office_location',
       'origin_intent' => 'apply',
-      'remaining_turns' => 2,
       'created_at' => time(),
     ]);
     $loaded = $controller->exposedLoadOfficeFollowupState($conversationId);
     $this->assertNotNull($loaded);
-    $this->assertSame(2, $loaded['remaining_turns']);
+    $this->assertSame(4, $loaded['remaining_turns']);
     $this->assertSame('apply', $loaded['origin_intent']);
+    $cached = $cache->get('ilas_conv_followup:' . $conversationId);
+    $this->assertNotFalse($cached);
+    $this->assertSame($loaded['created_at'] + 15, $cached->expire);
 
     $controller->exposedSaveOfficeFollowupState($conversationId, [
       'type' => 'office_location',
       'origin_intent' => 'apply',
       'remaining_turns' => 1,
-      'created_at' => time() - AssistantApiController::CONVERSATION_STATE_TTL - 5,
+      'created_at' => time() - 20,
     ]);
     $this->assertNull($controller->exposedLoadOfficeFollowupState($conversationId));
   }

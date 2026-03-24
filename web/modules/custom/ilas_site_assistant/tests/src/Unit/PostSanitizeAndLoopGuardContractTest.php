@@ -11,6 +11,7 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -140,7 +141,8 @@ class PostSanitizeAndLoopGuardContractTest extends TestCase {
       $fallbackGate,
       $flood,
       $cache,
-      $logger
+      $logger,
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
     );
   }
 

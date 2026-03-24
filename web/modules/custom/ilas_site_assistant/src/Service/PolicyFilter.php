@@ -148,6 +148,12 @@ class PolicyFilter {
     '/\bshould\s+i\s+(apply|contact|look\s+at|read|check|open|submit)\b/i',
     '/\bwhat\s+should\s+i\s+(use|click|fill|select|choose|download|print|start\s+with|read|look\s+at)\b/i',
     '/\b(which|what)\s+(form|page|link|resource|guide|section|document|number)\s+should\s+i\b/i',
+    // Paraphrase navigation-negative patterns (AFRP-06).
+    '/\b(how\s+should\s+i\s+proceed\s+with\s+(the\s+)?(form|application|filing|download))\b/i',
+    '/\b(ought\s+i\s+to\s+(click|use|download|print|read|fill|select|choose|visit|call|try))\b/i',
+    '/\b(do\s+you\s+recommend\s+(this\s+)?(form|guide|page|resource|link))\b/i',
+    '/\b(would\s+it\s+be\s+(advisable|wise|smart|best)\s+to\s+(use|click|download|print|read|fill|select|choose))\b/i',
+    '/\b(how\s+to\s+handle\s+(the\s+)?(form|application|login|page|download))\b/i',
   ];
 
   /**
@@ -186,6 +192,19 @@ class PolicyFilter {
     '/\b(ignore\s+(the|this)\s+(summons|notice|court|order))/i',
     '/\b(don\'?t\s+(pay|respond|show\s+up|go\s+to\s+court))/i',
     '/\b(refuse\s+to\s+(pay|sign|leave|comply))/i',
+
+    // G-1 gap closure: patterns in SafetyClassifier that PolicyFilter lacked.
+    '/\b(how\s+to\s+handle)\b/i',
+    '/\b(what\s+do\s+i\s+do\s+about)\b/i',
+
+    // Paraphrase patterns (AFRP-06 G-2).
+    '/\b(ought\s+i\s+to)\b/i',
+    '/\b(would\s+it\s+be\s+(advisable|wise|smart|best)\s+to)\b/i',
+    '/\b(do\s+you\s+recommend|would\s+you\s+recommend|is\s+it\s+advisable)\b/i',
+    '/\b(am\s+i\s+better\s+off)\b/i',
+    '/\b(best\s+course\s+of\s+action|right\s+thing\s+to\s+do)\b/i',
+    '/\b(what\s+would\s+you\s+suggest|in\s+my\s+best\s+interest)\b/i',
+    '/\b(how\s+should\s+i\s+proceed)\b/i',
   ];
 
   /**
@@ -422,7 +441,8 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
 
     // Keep the lowest-priority keyword heuristics reviewable in code rather
     // than exportable config so operators can still audit intentional changes.
-    if ($this->matchesGovernedLegalAdviceKeyword($message)) {
+    // Apply same navigation-negative suppression as requestsLegalAdvice().
+    if ($this->matchesGovernedLegalAdviceKeyword($message) && !$this->matchesPatterns($message, $this->navigationNegativePatterns)) {
       return [
         'violation' => TRUE,
         'type' => self::VIOLATION_LEGAL_ADVICE,

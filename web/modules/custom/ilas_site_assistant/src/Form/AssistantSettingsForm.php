@@ -180,6 +180,13 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('enable_global_widget'),
     ];
 
+    $form['features']['enable_assistant_page'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable Assistant Page'),
+      '#description' => $this->t('Allow visitors to access the dedicated /assistant page.'),
+      '#default_value' => $config->get('enable_assistant_page'),
+    ];
+
     $form['features']['enable_faq'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enable FAQ Answers'),
@@ -197,7 +204,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['features']['excluded_paths'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Excluded Paths'),
-      '#description' => $this->t('Paths where the widget should not appear. One per line. Use path prefixes (e.g., /admin).'),
+      '#description' => $this->t('Paths where the floating widget should not appear. One per line. Use path prefixes (e.g., /admin).'),
       '#default_value' => implode("\n", $config->get('excluded_paths') ?? []),
       '#rows' => 4,
     ];
@@ -733,6 +740,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     'conversation_logging.retention_hours',
     'conversation_logging.redact_pii',
     'enable_global_widget',
+    'enable_assistant_page',
     'enable_faq',
     'enable_resources',
   ];
@@ -820,6 +828,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       ->set('welcome_message', $form_state->getValue('welcome_message'))
       ->set('escalation_message', $form_state->getValue('escalation_message'))
       ->set('enable_global_widget', $form_state->getValue('enable_global_widget'))
+      ->set('enable_assistant_page', $form_state->getValue('enable_assistant_page'))
       ->set('enable_faq', $form_state->getValue('enable_faq'))
       ->set('enable_resources', $form_state->getValue('enable_resources'))
       ->set('excluded_paths', $excluded_paths)

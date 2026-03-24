@@ -122,6 +122,7 @@ class VertexRuntimeCredentialGuardTest extends TestCase {
       'welcome_message' => 'Welcome',
       'escalation_message' => 'Escalate',
       'enable_global_widget' => TRUE,
+      'enable_assistant_page' => TRUE,
       'enable_faq' => TRUE,
       'enable_resources' => TRUE,
       'excluded_paths' => '',

@@ -7,6 +7,9 @@ namespace Drupal\ilas_site_assistant\Commands;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
+use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
+use Drupal\ilas_site_assistant\Service\SloDefinitions;
 use Drush\Commands\DrushCommands;
 use GuzzleHttp\ClientInterface;
 
@@ -31,17 +34,38 @@ class LangfuseProbeCommands extends DrushCommands {
   protected ClientInterface $httpClient;
 
   /**
+   * The runtime truth snapshot builder.
+   */
+  protected ?RuntimeTruthSnapshotBuilder $snapshotBuilder;
+
+  /**
+   * The queue health monitor.
+   */
+  protected ?QueueHealthMonitor $queueHealthMonitor;
+
+  /**
+   * The SLO definitions.
+   */
+  protected ?SloDefinitions $sloDefinitions;
+
+  /**
    * Constructs a LangfuseProbeCommands.
    */
   public function __construct(
     ConfigFactoryInterface $config_factory,
     QueueFactory $queue_factory,
     ClientInterface $http_client,
+    ?RuntimeTruthSnapshotBuilder $snapshot_builder = NULL,
+    ?QueueHealthMonitor $queue_health_monitor = NULL,
+    ?SloDefinitions $slo_definitions = NULL,
   ) {
     parent::__construct();
     $this->configFactory = $config_factory;
     $this->queueFactory = $queue_factory;
     $this->httpClient = $http_client;
+    $this->snapshotBuilder = $snapshot_builder;
+    $this->queueHealthMonitor = $queue_health_monitor;
+    $this->sloDefinitions = $slo_definitions;
   }
 
   /**
@@ -58,17 +82,24 @@ class LangfuseProbeCommands extends DrushCommands {
    * @command ilas:langfuse-probe
    * @aliases langfuse-probe
    * @option direct POST directly to Langfuse API instead of enqueuing.
+   * @option diagnose Print Langfuse readiness diagnostic without sending a probe.
    * @usage ilas:langfuse-probe
    *   Enqueue a synthetic probe trace and print the trace ID.
    * @usage ilas:langfuse-probe --direct
    *   POST a synthetic probe trace directly to the Langfuse API.
+   * @usage ilas:langfuse-probe --diagnose
+   *   Print Langfuse readiness verdict as JSON (no probe sent).
    */
-  public function langfuseProbe(array $options = ['direct' => FALSE]): int {
+  public function langfuseProbe(array $options = ['direct' => FALSE, 'diagnose' => FALSE]): int {
+    if ($options['diagnose']) {
+      return $this->printDiagnosis();
+    }
+
     $config = $this->configFactory->get('ilas_site_assistant.settings');
 
     // Guard: Langfuse must be enabled.
     if (!$config->get('langfuse.enabled')) {
-      $this->logger()?->error('Langfuse is not enabled. Set langfuse.enabled=true in ilas_site_assistant.settings.');
+      $this->logger()?->error('Langfuse is runtime-disabled. Enablement depends on LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY secrets being present via settings.php. Run `drush ilas:langfuse-status` for the full stored-vs-effective picture.');
       return 1;
     }
 
@@ -76,7 +107,7 @@ class LangfuseProbeCommands extends DrushCommands {
     $publicKey = $config->get('langfuse.public_key') ?? '';
     $secretKey = $config->get('langfuse.secret_key') ?? '';
     if ($publicKey === '' || $secretKey === '') {
-      $this->logger()?->error('Langfuse credentials not configured. Set langfuse.public_key and langfuse.secret_key.');
+      $this->logger()?->error('Langfuse is enabled but credentials are absent at runtime. Ensure LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are available via Pantheon secrets or environment variables. Run `drush ilas:langfuse-status` to inspect override channels.');
       return 1;
     }
 
@@ -255,6 +286,130 @@ class LangfuseProbeCommands extends DrushCommands {
       'successes' => is_array($decoded['successes'] ?? NULL) ? count($decoded['successes']) : 0,
       'errors' => is_array($decoded['errors'] ?? NULL) ? count($decoded['errors']) : 0,
     ];
+  }
+
+  /**
+   * Prints a Langfuse readiness diagnostic as JSON.
+   *
+   * Reports the effective enablement state, credential presence, environment,
+   * sample rate, queue health, and a human-readable verdict without sending
+   * any probe or leaking secrets.
+   *
+   * @return int
+   *   Exit code 0 (always succeeds; the verdict itself may be non-ready).
+   */
+  protected function printDiagnosis(): int {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+
+    $effectiveEnabled = (bool) $config->get('langfuse.enabled');
+    $publicKeyPresent = ($config->get('langfuse.public_key') ?? '') !== '';
+    $secretKeyPresent = ($config->get('langfuse.secret_key') ?? '') !== '';
+    $sampleRate = (float) ($config->get('langfuse.sample_rate') ?? 1.0);
+    $environment = (string) ($config->get('langfuse.environment') ?? 'unknown');
+
+    // Determine stored config state via snapshot builder if available.
+    $storedEnabled = FALSE;
+    if ($this->snapshotBuilder !== NULL) {
+      try {
+        $exported = $this->snapshotBuilder->buildExportedStorage();
+        $storedEnabled = (bool) ($exported['langfuse']['enabled'] ?? FALSE);
+      }
+      catch (\Throwable) {
+        // Fall through with default.
+      }
+    }
+
+    // Derive verdict.
+    $verdict = $this->deriveVerdict($effectiveEnabled, $publicKeyPresent, $secretKeyPresent);
+
+    // Build queue status.
+    $queue = ['depth' => 0, 'status' => 'unknown'];
+    try {
+      $queueBackend = $this->queueFactory->get('ilas_langfuse_export');
+      $queue['depth'] = $queueBackend->numberOfItems();
+      if ($this->queueHealthMonitor !== NULL && $this->sloDefinitions !== NULL) {
+        $health = $this->queueHealthMonitor->getQueueHealthStatus($this->sloDefinitions);
+        $queue['status'] = $health['status'] ?? 'unknown';
+      }
+    }
+    catch (\Throwable) {
+      $queue['status'] = 'error';
+    }
+
+    // Build export outcomes.
+    $exportOutcomes = [];
+    if ($this->queueHealthMonitor !== NULL) {
+      try {
+        $exportOutcomes = $this->queueHealthMonitor->getExportOutcomeSummary();
+      }
+      catch (\Throwable) {
+        // Fall through with empty.
+      }
+    }
+
+    $suggestion = $this->deriveSuggestion($verdict);
+
+    $report = [
+      'verdict' => $verdict,
+      'stored_enabled' => $storedEnabled,
+      'effective_enabled' => $effectiveEnabled,
+      'public_key_present' => $publicKeyPresent,
+      'secret_key_present' => $secretKeyPresent,
+      'environment' => $environment,
+      'sample_rate' => $sampleRate,
+      'queue' => $queue,
+      'export_outcomes' => $exportOutcomes,
+      'suggestion' => $suggestion,
+    ];
+
+    print json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    return 0;
+  }
+
+  /**
+   * Derives a readiness verdict from effective Langfuse state.
+   *
+   * @param bool $effectiveEnabled
+   *   Whether Langfuse is enabled in effective runtime config.
+   * @param bool $publicKeyPresent
+   *   Whether the public key is present.
+   * @param bool $secretKeyPresent
+   *   Whether the secret key is present.
+   *
+   * @return string
+   *   One of: READY, DISABLED_NO_SECRETS, DISABLED_CONFIG,
+   *   ENABLED_NO_CREDENTIALS.
+   */
+  protected function deriveVerdict(bool $effectiveEnabled, bool $publicKeyPresent, bool $secretKeyPresent): string {
+    if (!$effectiveEnabled) {
+      // When disabled at runtime, it's almost always because secrets
+      // are absent (settings.php only enables when both are present).
+      return 'DISABLED_NO_SECRETS';
+    }
+
+    if (!$publicKeyPresent || !$secretKeyPresent) {
+      return 'ENABLED_NO_CREDENTIALS';
+    }
+
+    return 'READY';
+  }
+
+  /**
+   * Returns an operator-facing suggestion for a non-ready verdict.
+   *
+   * @param string $verdict
+   *   The readiness verdict.
+   *
+   * @return string|null
+   *   A suggestion string, or NULL if ready.
+   */
+  protected function deriveSuggestion(string $verdict): ?string {
+    return match ($verdict) {
+      'DISABLED_NO_SECRETS' => 'Langfuse enablement depends on LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY being present via Pantheon secrets or environment variables. Run `drush ilas:langfuse-status` for override channel details.',
+      'ENABLED_NO_CREDENTIALS' => 'Langfuse is enabled but credential injection failed. Check that LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY resolve in _ilas_get_secret(). Run `drush ilas:langfuse-status` to inspect.',
+      'DISABLED_CONFIG' => 'Langfuse is explicitly disabled in effective config despite secrets being present. Check settings.php override logic.',
+      default => NULL,
+    };
   }
 
 }

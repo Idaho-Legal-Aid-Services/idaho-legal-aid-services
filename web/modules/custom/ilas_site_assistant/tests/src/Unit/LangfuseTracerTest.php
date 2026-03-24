@@ -290,4 +290,81 @@ class LangfuseTracerTest extends TestCase {
     $this->assertArrayNotHasKey('parentObservationId', $outerSpan['body']);
   }
 
+  /**
+   * Tests that isEnabled() logs reason when config is disabled.
+   */
+  public function testIsEnabledLogsReasonWhenConfigDisabled(): void {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(fn($key) => match ($key) {
+        'langfuse.enabled' => FALSE,
+        default => NULL,
+      });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($config);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('info')
+      ->with($this->stringContains('config_disabled'));
+
+    $tracer = new LangfuseTracer($configFactory, $logger);
+    $this->assertFalse($tracer->isEnabled());
+  }
+
+  /**
+   * Tests that isEnabled() logs reason when credentials are absent.
+   */
+  public function testIsEnabledLogsReasonWhenCredentialsAbsent(): void {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(fn($key) => match ($key) {
+        'langfuse.enabled' => TRUE,
+        'langfuse.public_key' => '',
+        'langfuse.secret_key' => '',
+        default => NULL,
+      });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($config);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('info')
+      ->with($this->stringContains('credentials_absent'));
+
+    $tracer = new LangfuseTracer($configFactory, $logger);
+    $this->assertFalse($tracer->isEnabled());
+  }
+
+  /**
+   * Tests that isEnabled() logs active state when tracing is enabled.
+   */
+  public function testIsEnabledLogsActiveState(): void {
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(fn($key) => match ($key) {
+        'langfuse.enabled' => TRUE,
+        'langfuse.public_key' => 'pk-test-123',
+        'langfuse.secret_key' => 'sk-test-456',
+        'langfuse.sample_rate' => 1.0,
+        default => NULL,
+      });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($config);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('debug')
+      ->with(
+        $this->stringContains('tracing active'),
+        $this->callback(fn($context) => isset($context['@rate']) && $context['@rate'] === 1.0),
+      );
+
+    $tracer = new LangfuseTracer($configFactory, $logger);
+    $this->assertTrue($tracer->isEnabled());
+  }
+
 }

@@ -133,7 +133,7 @@ class AssistantReportController extends ControllerBase {
     // Top destinations.
     $build['destinations'] = [
       '#type' => 'details',
-      '#title' => $this->t('Top Clicked Destinations'),
+      '#title' => $this->t('Top Resource Links Clicked'),
       '#open' => TRUE,
     ];
 

@@ -11,6 +11,7 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -76,6 +77,7 @@ final class ResponseContractNormalizationTest extends TestCase {
       $flood,
       $cache,
       $logger,
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
       source_governance: $sourceGovernance,
     );
   }

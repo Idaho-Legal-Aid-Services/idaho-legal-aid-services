@@ -199,10 +199,10 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 |---|---|
 | What it is | JS-driven chat UI in two modes: floating global widget and dedicated `/assistant` page mode.[^CLAIM-021][^CLAIM-022][^CLAIM-029] |
 | Where it lives | Module JS/template assets + theme-owned SCSS (`assistant-widget.js`, `assistant-page.html.twig`, `_assistant-widget.scss`).[^CLAIM-030][^CLAIM-031][^CLAIM-032] |
-| Trigger | Global attach from `hook_page_attachments` when enabled/not excluded; page mode via `/assistant` route controller attach.[^CLAIM-015][^CLAIM-022] |
+| Trigger | Global attach from `hook_page_attachments` when `enable_global_widget` is enabled and not excluded; page mode via `/assistant` route controller attach when `enable_assistant_page` is enabled.[^CLAIM-015][^CLAIM-021][^CLAIM-022] |
 | Inputs/outputs | Sends JSON to `/assistant/api/message` and `/assistant/api/track`; renders typed response variants (`faq`, `resources`, `navigation`, `escalation`, etc.).[^CLAIM-024][^CLAIM-026][^CLAIM-049][^CLAIM-050] |
 | State used | Client-side ephemeral UUIDv4 `conversationId`, in-memory `messageHistory`, and `drupalSettings.ilasSiteAssistant` config object.[^CLAIM-023][^CLAIM-024][^CLAIM-029] |
-| Toggles/flags | `enable_global_widget`, `excluded_paths`, `enable_faq`, `enable_resources`, disclaimer/canonical URL settings propagated to JS.[^CLAIM-015][^CLAIM-094] |
+| Toggles/flags | `enable_global_widget`, `enable_assistant_page`, `excluded_paths`, `enable_faq`, `enable_resources`, disclaimer/canonical URL settings propagated to JS.[^CLAIM-015][^CLAIM-021][^CLAIM-094] |
 | Accessibility | Dialog roles/labels, ARIA live log, Escape close, focus trap lifecycle, typing indicator status labels, page template ARIA labels.[^CLAIM-025][^CLAIM-032] |
 | Mobile/desktop rendering | Theme SCSS includes dedicated mobile breakpoints, reduced-motion handling, and high-contrast rules.[^CLAIM-031] |
 | CSP/SecKit implications | CSP enabled with explicit script/style/connect/frame allowlists; Permissions-Policy header is manually set in settings.php.[^CLAIM-100][^CLAIM-101] |
@@ -256,7 +256,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Failure modes | Vector and Search API failures degrade gracefully to empty/legacy paths; FAQ has explicit legacy entity-query fallback. TOVR-11 further hardens the vector branch so degraded/backoff outcomes never poison the normal query cache and vector calls over `MAX_VECTOR_MS` are treated as degraded rather than merged.[^CLAIM-063][^CLAIM-065][^CLAIM-225][^CLAIM-226] |
 | Deterministic degrade outcomes (formalized) | Search API unavailable or query exceptions deterministically route to legacy retrieval in FAQ/resource paths. TOVR-11 adds cache-backed cross-request vector backoff for both services and query-only Pinecone transport timeouts, but embeddings-side timeout separation remains open.[^CLAIM-063][^CLAIM-065][^CLAIM-225][^CLAIM-227][^CLAIM-228] |
 | Observability | Retrieval warnings/info are logged; quality/empty-search conditions flow into analytics/no-answer capture paths.[^CLAIM-085][^CLAIM-047] |
-| Source freshness + provenance governance | Retrieval results now include additive governance metadata (`provenance`, `freshness`, `governance_flags`) across lexical/vector FAQ/resource classes. Governance remains soft alerts only: snapshots and cooldowned warnings are exposed in health/metrics surfaces without stale-result suppression, reranking, or architecture rewrite.[^CLAIM-067][^CLAIM-122][^CLAIM-133] |
+| Source freshness + provenance governance | Retrieval results include additive governance metadata (`provenance`, `freshness`, `governance_flags`) across lexical/vector FAQ/resource classes. Governance operates in three tiers (see `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`): **HARD** enforcement for source-class validation and citation URL sanitization; **SOFT** enforcement where `_requires_review` replaces messages, `_all_citations_stale` adds `freshness_caveat`, and empty citations on citation-required types cap confidence; **ADVISORY** for per-item flags that inform operator dashboards without suppressing results. Retrieval results are never suppressed.[^CLAIM-067][^CLAIM-122][^CLAIM-133] |
 | Retrieval confidence formalization | FallbackGate `confidence` (float 0-1) and `reason_code` are now surfaced as formal response contract fields on all 200-response paths. Non-retrieval deterministic exits (safety/OOS/policy) receive `confidence: 1.0`. ResponseGrounder `sources[]` are formalized as `citations[]` in the response contract, and Promptfoo contract-metadata assertions now gate citation coverage plus low-confidence refusal behavior thresholds in branch-aware CI policy.[^CLAIM-062][^CLAIM-134][^CLAIM-135] |
 
 AFRP-01 addendum (2026-03-18): direct service-level probes showed that
@@ -325,7 +325,8 @@ Values below are taken from install defaults, exported active config, and settin
 
 | Feature | Config key / env var | Install default | Exported active config | Pantheon/live behavior | Notes |
 |---|---|---|---|---|---|
-| Global widget | `enable_global_widget` | `true` | `true` | Verified `true` on dev/test/live | Controls global attach in `hook_page_attachments` | [^CLAIM-015][^CLAIM-093][^CLAIM-094][^CLAIM-119] |
+| Global widget | `enable_global_widget` | `true` | `true` | Existing deployments require post-deploy verification for the split contract | Controls global attach in `hook_page_attachments` only | [^CLAIM-015][^CLAIM-093][^CLAIM-094][^CLAIM-119] |
+| Assistant page | `enable_assistant_page` | `true` | `true` | Existing deployments require post-deploy verification for the split contract | Controls dedicated `/assistant` page access | [^CLAIM-021][^CLAIM-093][^CLAIM-094] |
 | FAQ retrieval | `enable_faq` | `true` | `true` | Verified `true` on dev/test/live | Exposed to JS via `drupalSettings` | [^CLAIM-015][^CLAIM-093][^CLAIM-094][^CLAIM-119] |
 | Resource retrieval | `enable_resources` | `true` | `true` | Verified `true` on dev/test/live | Exposed to JS via `drupalSettings` | [^CLAIM-015][^CLAIM-093][^CLAIM-094][^CLAIM-119] |
 | Flood per-minute | `rate_limit_per_minute` | `15` | `15` | Verified `15` on dev/test/live (`ilas_site_assistant.settings`) | Applied in message endpoint flood checks | [^CLAIM-033][^CLAIM-094][^CLAIM-099][^CLAIM-119] |
@@ -462,10 +463,13 @@ This dated addendum records `P2-OBJ-03` completion for Phase 2 Objective #3:
    config policy, schema coverage, runtime annotations, and guard tests are
    aligned for four source classes (`faq_lexical`, `faq_vector`,
    `resource_lexical`, `resource_vector`).[^CLAIM-067][^CLAIM-133]
-2. Governance behavior is explicitly soft alerts only: stale/unknown/missing
-   provenance conditions are observable via annotations, snapshots, and
-   cooldowned warnings, while retrieval filtering/ranking outputs remain
-   unchanged.[^CLAIM-067][^CLAIM-133]
+2. Governance enforcement is formalized in three tiers via
+   `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`: HARD (source-class
+   validation throws, citation URL sanitization nullifies), SOFT
+   (`_requires_review` replaces message, `_all_citations_stale` adds
+   `freshness_caveat`, weak grounding caps confidence), and ADVISORY
+   (per-item flags for operator monitoring only). Retrieval results are
+   never suppressed.[^CLAIM-067][^CLAIM-133]
 3. Monitoring surfaces now carry governance state in existing contracts:
    health checks include `checks.source_governance`; metrics include nested
    `metrics.source_governance` and `thresholds.source_governance` while
@@ -628,8 +632,9 @@ This dated addendum records `P2-SBD-02` completion for Phase 2 Sprint 5 closure:
 3. Source-governance threshold calibration is applied in both install and active
    config and mirrored in service defaults:
    `stale_ratio_alert_pct=18.0`, `unknown_ratio_degrade_pct=22.0`,
-   `missing_source_url_ratio_degrade_pct=9.0`. Governance remains soft-alert-only
-   with no retrieval filtering/ranking side effects.[^CLAIM-067][^CLAIM-133][^CLAIM-144]
+   `missing_source_url_ratio_degrade_pct=9.0`. Governance enforcement is
+   tiered per `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`; retrieval
+   results are never suppressed.[^CLAIM-067][^CLAIM-133][^CLAIM-144]
 4. Vector-index hygiene threshold calibration is applied in both install and
    active config and mirrored in service defaults:
    `refresh_interval_hours=24`, `overdue_grace_minutes=45`,

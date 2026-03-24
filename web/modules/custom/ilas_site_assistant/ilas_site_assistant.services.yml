@@ -143,6 +143,13 @@ services:
     class: Drupal\ilas_site_assistant\Service\DisambiguationPack
     arguments: ['@cache.default']
 
+  ilas_site_assistant.office_location_resolver:
+    class: Drupal\ilas_site_assistant\Service\OfficeLocationResolver
+
+  ilas_site_assistant.assistant_flow_runner:
+    class: Drupal\ilas_site_assistant\Service\AssistantFlowRunner
+    arguments: ['@config.factory', '@ilas_site_assistant.office_location_resolver', '@cache.ilas_site_assistant']
+
   ilas_site_assistant.turn_classifier:
     class: Drupal\ilas_site_assistant\Service\TurnClassifier
 

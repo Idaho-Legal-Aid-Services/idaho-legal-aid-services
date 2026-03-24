@@ -7,7 +7,6 @@ use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\ilas_site_assistant\Service\AssistantSessionBootstrapGuard;
-use Drupal\ilas_site_assistant\Service\RequestTrustInspector;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,25 +37,7 @@ class AssistantSessionBootstrapController implements ContainerInjectionInterface
     return new static(
       $container->get('csrf_token'),
       $container->get('page_cache_kill_switch'),
-      self::resolveBootstrapGuard($container),
-    );
-  }
-
-  /**
-   * Returns the bootstrap guard from the container or reconstructs it safely.
-   */
-  private static function resolveBootstrapGuard(ContainerInterface $container): AssistantSessionBootstrapGuard {
-    if ($container->has('ilas_site_assistant.session_bootstrap_guard')) {
-      return $container->get('ilas_site_assistant.session_bootstrap_guard');
-    }
-
-    return new AssistantSessionBootstrapGuard(
-      $container->get('config.factory'),
-      $container->get('flood'),
-      $container->has('ilas_site_assistant.request_trust_inspector') ? $container->get('ilas_site_assistant.request_trust_inspector') : new RequestTrustInspector(),
-      $container->get('state'),
-      $container->get('logger.channel.ilas_site_assistant'),
-      $container->get('datetime.time'),
+      $container->get('ilas_site_assistant.session_bootstrap_guard'),
     );
   }
 

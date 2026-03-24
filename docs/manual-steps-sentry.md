@@ -28,7 +28,18 @@
    - browser error spikes
    - assistant-specific failures (`assistant_name:aila`)
 2. Create metric/transaction alerts for latency and error-rate regressions.
-3. Create a cron monitor for Drupal cron and store its monitor ID in `SENTRY_CRON_MONITOR_ID`.
+3. Create a cron monitor for Drupal cron:
+   - **Name:** Website
+   - **Slug:** website
+   - **Schedule type:** crontab
+   - **Schedule:** `0 * * * *` (hourly, matching Pantheon's actual cron cadence)
+   - **Timezone:** UTC
+   - **Check-in margin:** 30 minutes (absorbs Pantheon's ~15 min cron jitter)
+   - **Max runtime:** 5 minutes (typical runs are 3-12s; budget guard allows up to 120s)
+   - **Failure issue threshold:** 3 (alert only after 3 consecutive misses, i.e. ~3 hours without cron)
+   - **Recovery threshold:** 1 (resolve after first successful check-in)
+   - Store the monitor slug in Pantheon runtime secret `SENTRY_CRON_MONITOR_ID`.
+   - The Raven module's cron hook automatically sends in_progress/ok check-ins on every `drush cron` run.
 4. Add a public uptime monitor for the live site homepage.
 
 ## Verification Evidence (PHARD-01)

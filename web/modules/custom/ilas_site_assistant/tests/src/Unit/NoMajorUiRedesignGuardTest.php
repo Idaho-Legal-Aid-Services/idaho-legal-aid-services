@@ -81,18 +81,19 @@ class NoMajorUiRedesignGuardTest extends TestCase {
   // ---------------------------------------------------------------
 
   /**
-   * Install config must contain the three UI feature toggle keys.
+   * Install config must contain the four UI feature toggle keys.
    */
   public function testUiFeatureTogglesExistInInstallConfig(): void {
     $install = self::installConfig();
 
     $this->assertArrayHasKey('enable_global_widget', $install, 'Install config missing enable_global_widget');
+    $this->assertArrayHasKey('enable_assistant_page', $install, 'Install config missing enable_assistant_page');
     $this->assertArrayHasKey('enable_faq', $install, 'Install config missing enable_faq');
     $this->assertArrayHasKey('enable_resources', $install, 'Install config missing enable_resources');
   }
 
   /**
-   * All three UI feature toggles must default to true.
+   * All four UI feature toggles must default to true.
    */
   public function testUiFeatureTogglesEnabledByDefault(): void {
     $install = self::installConfig();
@@ -100,6 +101,10 @@ class NoMajorUiRedesignGuardTest extends TestCase {
     $this->assertTrue(
       $install['enable_global_widget'],
       'enable_global_widget must be true in install defaults',
+    );
+    $this->assertTrue(
+      $install['enable_assistant_page'],
+      'enable_assistant_page must be true in install defaults',
     );
     $this->assertTrue(
       $install['enable_faq'],
@@ -136,7 +141,7 @@ class NoMajorUiRedesignGuardTest extends TestCase {
     $install = self::installConfig();
     $active = self::activeConfig();
 
-    $toggles = ['enable_global_widget', 'enable_faq', 'enable_resources'];
+    $toggles = ['enable_global_widget', 'enable_assistant_page', 'enable_faq', 'enable_resources'];
     foreach ($toggles as $key) {
       $this->assertSame(
         $install[$key],
@@ -173,6 +178,7 @@ class NoMajorUiRedesignGuardTest extends TestCase {
 
     $uiKeys = [
       'enable_global_widget',
+      'enable_assistant_page',
       'enable_faq',
       'enable_resources',
       'excluded_paths',

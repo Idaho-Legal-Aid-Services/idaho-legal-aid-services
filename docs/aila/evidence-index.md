@@ -142,9 +142,11 @@ Evidence precedence used in this audit:
 ## UI / Widget / Theme
 
 ### CLAIM-021
-- Claim: Dedicated `/assistant` page is denied when global widget is disabled.
+- Claim: Dedicated `/assistant` page availability is controlled by `enable_assistant_page`, independently from the floating widget toggle.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantPageController.php:50-53`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantPageController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
 
 ### CLAIM-022
 - Claim: `/assistant` page attaches Aila page library and `drupalSettings` with `pageMode: TRUE`.
@@ -3882,3 +3884,33 @@ that remained open after 2026-03-13.
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfusePayloadContract.php`
   - `vendor/dropsolid/langfuse-php-sdk/src/DTO/TraceConfig.php`
   - `vendor/dropsolid/langfuse-php-sdk/src/Services/Tracing.php`
+
+### CLAIM-263
+- Claim: AFRP-09 eliminates the misleading `ilas:langfuse-probe` guard messages
+  that told operators to "Set langfuse.enabled=true" when Langfuse was disabled,
+  replacing them with messages that reference secret presence and suggest
+  `ilas:langfuse-status` for the full stored-vs-effective picture.
+- Evidence:
+  - `docs/aila/runtime/afrp-09-langfuse-operator-truth.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+
+### CLAIM-264
+- Claim: AFRP-09 adds a `--diagnose` option to `ilas:langfuse-probe` that prints
+  a readiness JSON report (verdict, stored/effective state, credential presence,
+  environment, sample rate, queue health, export outcomes, and actionable
+  suggestion) without sending any probe or leaking secrets.
+- Evidence:
+  - `docs/aila/runtime/afrp-09-langfuse-operator-truth.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+
+### CLAIM-265
+- Claim: AFRP-09 adds per-request resolution logging to `LangfuseTracer::isEnabled()`
+  so operators can see in Drupal logs why Langfuse tracing is disabled for a given
+  request (config_disabled, credentials_absent) at info level, or probabilistic
+  sampling decisions (sampled_out, active) at debug level, without leaking secrets.
+- Evidence:
+  - `docs/aila/runtime/afrp-09-langfuse-operator-truth.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTracerTest.php`

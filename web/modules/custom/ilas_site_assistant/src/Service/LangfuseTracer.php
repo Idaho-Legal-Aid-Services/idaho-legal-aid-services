@@ -159,6 +159,7 @@ class LangfuseTracer {
       $config = $this->configFactory->get('ilas_site_assistant.settings');
       if (!$config->get('langfuse.enabled')) {
         $this->enabled = FALSE;
+        $this->logger->info('Langfuse: tracing disabled for this request (reason=config_disabled).');
         return FALSE;
       }
 
@@ -167,6 +168,7 @@ class LangfuseTracer {
       $secretKey = $config->get('langfuse.secret_key') ?? '';
       if ($publicKey === '' || $secretKey === '') {
         $this->enabled = FALSE;
+        $this->logger->info('Langfuse: tracing disabled for this request (reason=credentials_absent).');
         return FALSE;
       }
 
@@ -174,9 +176,22 @@ class LangfuseTracer {
       $sampleRate = (float) ($config->get('langfuse.sample_rate') ?? 1.0);
       if ($sampleRate < 1.0) {
         $this->enabled = (random_int(1, 10000) / 10000) <= $sampleRate;
+        if (!$this->enabled) {
+          $this->logger->debug('Langfuse: tracing sampled out for this request (sample_rate=@rate).', [
+            '@rate' => $sampleRate,
+          ]);
+        }
+        else {
+          $this->logger->debug('Langfuse: tracing active for this request (sample_rate=@rate).', [
+            '@rate' => $sampleRate,
+          ]);
+        }
       }
       else {
         $this->enabled = TRUE;
+        $this->logger->debug('Langfuse: tracing active for this request (sample_rate=@rate).', [
+          '@rate' => $sampleRate,
+        ]);
       }
     }
     catch (\Throwable $e) {

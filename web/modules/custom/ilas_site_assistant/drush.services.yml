@@ -10,7 +10,7 @@ services:
       - { name: drush.command }
   ilas_site_assistant.langfuse_probe_commands:
     class: \Drupal\ilas_site_assistant\Commands\LangfuseProbeCommands
-    arguments: ['@config.factory', '@queue', '@http_client']
+    arguments: ['@config.factory', '@queue', '@http_client', '@ilas_site_assistant.runtime_truth_snapshot_builder', '@ilas_site_assistant.queue_health_monitor', '@ilas_site_assistant.slo_definitions']
     tags:
       - { name: drush.command }
   ilas_site_assistant.runtime_truth_commands:

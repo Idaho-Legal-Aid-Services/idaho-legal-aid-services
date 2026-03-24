@@ -148,7 +148,10 @@ final class ObservabilityPayloadMinimizer {
 
     return match ($eventType) {
       'chat_open',
-      'no_answer' => '',
+      'no_answer',
+      'grounding_refusal',
+      'post_gen_safety_weak_grounding',
+      'post_gen_stale_citations' => '',
       'resource_click',
       'hotline_click',
       'apply_click',

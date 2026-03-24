@@ -31,6 +31,13 @@ final class PostGenerationLegalAdviceDetector {
     '/you\s+have\s+the\s+right\s+to/i',
     '/you\s+(definitely|clearly|certainly)\s+qualify/i',
     '/you\s+(do|don\'t)\s+qualify\s+for/i',
+    // Paraphrase patterns for LLM output (AFRP-06 G-3).
+    '/it\s+would\s+be\s+(in\s+your\s+interest|advisable|wise|prudent)\s+to\s+(file|sue|appeal|pursue|take)/i',
+    '/the\s+prudent\s+(course|step|action|approach)\s+is\s+to/i',
+    '/filing\s+(a\s+)?(motion|complaint|suit|claim)\s+would\s+(strengthen|improve|help|benefit)/i',
+    '/given\s+the\s+circumstances.{0,40}(appropriate|advisable|recommended)\b/i',
+    '/your\s+(best|strongest|most\s+effective)\s+(option|course|strategy|approach)\s+is/i',
+    '/you\s+(could|might|may)\s+(want\s+to\s+)?(consider\s+)?(fil(e|ing)|su(e|ing)|appeal(ing)?)/i',
   ];
 
   /**

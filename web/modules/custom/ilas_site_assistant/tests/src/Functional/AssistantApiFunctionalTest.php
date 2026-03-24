@@ -707,13 +707,40 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   }
 
   /**
-   * Tests that the assistant page is accessible.
+   * Tests that the assistant page remains accessible when the widget is off.
    */
-  public function testAssistantPageAccessible(): void {
+  public function testAssistantPageAccessibleWhenWidgetDisabled(): void {
     $this->drupalLogin($this->regularUser);
+    $this->setAssistantSurfaceToggles(FALSE, TRUE);
 
     $this->drupalGet('/assistant');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->responseContains('"pageMode":true');
+    $this->assertSession()->responseContains('"ilasSiteAssistant"');
+  }
+
+  /**
+   * Tests that the assistant page returns 403 when the page is disabled.
+   */
+  public function testAssistantPageForbiddenWhenPageDisabled(): void {
+    $this->drupalLogin($this->regularUser);
+    $this->setAssistantSurfaceToggles(TRUE, FALSE);
+
+    $this->drupalGet('/assistant');
+    $this->assertSession()->statusCodeEquals(403);
+    $this->assertSession()->responseNotContains('"pageMode":true');
+  }
+
+  /**
+   * Tests that disabling the widget removes global widget settings.
+   */
+  public function testGlobalWidgetSettingsRemovedWhenWidgetDisabled(): void {
+    $this->drupalLogin($this->regularUser);
+    $this->setAssistantSurfaceToggles(FALSE, TRUE);
+
+    $this->drupalGet('/user');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->responseNotContains('"ilasSiteAssistant"');
   }
 
   /**
@@ -1333,6 +1360,16 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     }
 
     return NULL;
+  }
+
+  /**
+   * Applies widget/page surface toggles for the active test site.
+   */
+  protected function setAssistantSurfaceToggles(bool $enableGlobalWidget, bool $enableAssistantPage): void {
+    \Drupal::configFactory()->getEditable('ilas_site_assistant.settings')
+      ->set('enable_global_widget', $enableGlobalWidget)
+      ->set('enable_assistant_page', $enableAssistantPage)
+      ->save();
   }
 
   /**

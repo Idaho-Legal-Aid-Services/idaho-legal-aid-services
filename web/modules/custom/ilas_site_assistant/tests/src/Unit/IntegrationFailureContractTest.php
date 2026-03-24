@@ -14,6 +14,7 @@ use Drupal\Component\Datetime\TimeInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
@@ -22,6 +23,7 @@ use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -67,6 +69,12 @@ class IntegrationFailureContractTest extends TestCase {
         'enable_logging' => FALSE,
         'langfuse.environment' => 'test',
         'langfuse.enabled' => FALSE,
+        'flows.enabled' => TRUE,
+        'flows.office_followup.enabled' => TRUE,
+        'flows.office_followup.trigger_intents' => ['apply'],
+        'flows.office_followup.require_followup_prompt' => TRUE,
+        'flows.office_followup.max_turns' => 2,
+        'flows.office_followup.ttl_seconds' => 1800,
       ];
       return $values[$key] ?? NULL;
     });
@@ -107,6 +115,8 @@ class IntegrationFailureContractTest extends TestCase {
    *   Optional intent router mock.
    * @param \Drupal\Core\Cache\CacheBackendInterface|null $cache
    *   Optional conversation cache mock.
+   * @param \Drupal\ilas_site_assistant\Service\AssistantFlowRunner|null $assistantFlowRunner
+   *   Optional flow runner mock.
    * @param \Exception|null $processIntentException
    *   If set, processIntent will throw this exception.
    *
@@ -118,6 +128,7 @@ class IntegrationFailureContractTest extends TestCase {
     ?FloodInterface $flood = NULL,
     ?IntentRouter $intentRouter = NULL,
     ?CacheBackendInterface $cache = NULL,
+    ?AssistantFlowRunner $assistantFlowRunner = NULL,
     ?\Exception $processIntentException = NULL,
   ): ContractTestableController {
     $configStub = $this->createStub(ImmutableConfig::class);
@@ -129,6 +140,12 @@ class IntegrationFailureContractTest extends TestCase {
         'enable_logging' => FALSE,
         'langfuse.environment' => 'test',
         'langfuse.enabled' => FALSE,
+        'flows.enabled' => TRUE,
+        'flows.office_followup.enabled' => TRUE,
+        'flows.office_followup.trigger_intents' => ['apply'],
+        'flows.office_followup.require_followup_prompt' => TRUE,
+        'flows.office_followup.max_turns' => 2,
+        'flows.office_followup.ttl_seconds' => 1800,
       ];
       return $values[$key] ?? NULL;
     });
@@ -174,6 +191,10 @@ class IntegrationFailureContractTest extends TestCase {
       $logger = $this->createStub(LoggerInterface::class);
     }
 
+    if ($assistantFlowRunner === NULL) {
+      $assistantFlowRunner = $this->createStub(AssistantFlowRunner::class);
+    }
+
     $controller = new ContractTestableController(
       $configFactory,
       $intentRouter,
@@ -185,7 +206,9 @@ class IntegrationFailureContractTest extends TestCase {
       $fallbackGate,
       $flood,
       $cache,
-      $logger
+      $logger,
+      assistant_flow_runner: $assistantFlowRunner,
+      pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
     );
 
     if ($processIntentException !== NULL) {
@@ -455,6 +478,130 @@ class IntegrationFailureContractTest extends TestCase {
     $this->assertNotEmpty($bodyThree['actions'] ?? []);
   }
 
+  /**
+   * Pending office follow-up decisions are handled through the runner.
+   */
+  public function testPendingOfficeFollowupUsesRunnerDecision(): void {
+    $conversationId = '123e4567-e89b-42d3-a456-426614174111';
+    $intentRouter = $this->createMock(IntentRouter::class);
+    $intentRouter->expects($this->never())->method('route');
+
+    $assistantFlowRunner = $this->createMock(AssistantFlowRunner::class);
+    $assistantFlowRunner->expects($this->once())
+      ->method('evaluatePending')
+      ->with($this->callback(static function (array $context) use ($conversationId): bool {
+        return $context['conversation_id'] === $conversationId
+          && $context['user_message'] === 'boise'
+          && $context['is_location_like'] === TRUE
+          && $context['is_explicit_office_followup'] === FALSE;
+      }))
+      ->willReturn([
+        'status' => 'handled',
+        'flow_id' => 'office_followup',
+        'action' => 'resolve',
+        'state_operation' => 'clear',
+        'state_payload' => [],
+        'office' => [
+          'name' => 'Boise',
+          'address' => '1104 W Royal Blvd, Boise, ID 83706',
+          'phone' => '(208) 345-0106',
+          'hours' => 'Hours may vary. Please call to confirm current office hours.',
+          'url' => '/contact/offices/boise',
+        ],
+      ]);
+    $assistantFlowRunner->expects($this->once())
+      ->method('clearOfficeFollowupState')
+      ->with($conversationId);
+    $assistantFlowRunner->expects($this->never())->method('evaluatePostResponse');
+
+    $controller = $this->buildController(
+      intentRouter: $intentRouter,
+      assistantFlowRunner: $assistantFlowRunner,
+      processIntentException: new \RuntimeException('Pending flow should have returned before routing'),
+    );
+
+    $response = $controller->message($this->buildJsonRequest('boise', [], ['conversation_id' => $conversationId]));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame('office_location', $body['type'] ?? NULL);
+    $this->assertSame('office_followup_resolved', $body['reason_code'] ?? NULL);
+    $this->assertSame('Boise', $body['office']['name'] ?? NULL);
+  }
+
+  /**
+   * Apply responses arm office follow-up through the runner decision contract.
+   */
+  public function testPostResponseOfficeFollowupUsesRunnerDecision(): void {
+    $conversationId = '123e4567-e89b-42d3-a456-426614174112';
+    $intentRouter = $this->createMock(IntentRouter::class);
+    $intentRouter->method('route')->willReturn([
+      'type' => 'apply',
+      'confidence' => 0.92,
+    ]);
+
+    $assistantFlowRunner = $this->createMock(AssistantFlowRunner::class);
+    $assistantFlowRunner->expects($this->once())
+      ->method('evaluatePending')
+      ->with($this->callback(static fn (array $context): bool => $context['conversation_id'] === $conversationId))
+      ->willReturn([
+        'status' => 'continue',
+        'flow_id' => 'office_followup',
+        'action' => 'none',
+        'state_operation' => 'none',
+        'state_payload' => [],
+      ]);
+    $assistantFlowRunner->expects($this->once())
+      ->method('evaluatePostResponse')
+      ->with($this->callback(static function (array $context) use ($conversationId): bool {
+        return $context['conversation_id'] === $conversationId
+          && $context['intent_type'] === 'apply'
+          && $context['has_followup_prompt'] === TRUE;
+      }))
+      ->willReturn([
+        'status' => 'continue',
+        'flow_id' => 'office_followup',
+        'action' => 'arm',
+        'state_operation' => 'save',
+        'state_payload' => [
+          'type' => 'office_location',
+          'origin_intent' => 'apply',
+          'remaining_turns' => 2,
+          'created_at' => 1700000000,
+        ],
+      ]);
+    $assistantFlowRunner->expects($this->once())
+      ->method('saveOfficeFollowupState')
+      ->with($conversationId, [
+        'type' => 'office_location',
+        'origin_intent' => 'apply',
+        'remaining_turns' => 2,
+        'created_at' => 1700000000,
+      ]);
+
+    $controller = $this->buildController(
+      intentRouter: $intentRouter,
+      assistantFlowRunner: $assistantFlowRunner,
+    );
+    $controller->processIntentResponse = [
+      'type' => 'faq',
+      'message' => 'You can apply for help online.',
+      'response_mode' => 'answer',
+      'primary_action' => [],
+      'secondary_actions' => [],
+      'reason_code' => 'apply_stub',
+      'results' => [],
+      'followup' => 'Which office is closest to you?',
+    ];
+
+    $response = $controller->message($this->buildJsonRequest('i need help applying', [], ['conversation_id' => $conversationId]));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame('faq', $body['type'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $body);
+  }
+
   // ─── Test 8: Success response includes request_id ─────────────────────
 
   /**
@@ -542,7 +689,7 @@ class IntegrationFailureContractTest extends TestCase {
    */
   public function testAnalyticsLoggerInternalCatchSwallowsException(): void {
     $database = $this->createMock(Connection::class);
-    $database->method('update')->willThrowException(
+    $database->method('merge')->willThrowException(
       new \Exception('DB connection lost')
     );
 

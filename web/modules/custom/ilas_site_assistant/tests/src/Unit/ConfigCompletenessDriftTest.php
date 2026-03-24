@@ -153,6 +153,40 @@ class ConfigCompletenessDriftTest extends TestCase {
   }
 
   /**
+   * Flow config subtree must stay in install, active config, and schema.
+   */
+  public function testFlowsOfficeFollowupSubKeysComplete(): void {
+    $install = self::installConfig();
+    $active = self::activeConfig();
+    $schema = self::schemaConfig();
+
+    $this->assertArrayHasKey('flows', $install, 'Install config must define flows block');
+    $this->assertArrayHasKey('flows', $active, 'Active config must define flows block');
+
+    $installFlowKeys = $this->flattenKeys($install['flows'], 'flows');
+    $activeFlowKeys = $this->flattenKeys($active['flows'], 'flows');
+
+    $missingFromActive = array_diff($installFlowKeys, $activeFlowKeys);
+    $this->assertEmpty(
+      $missingFromActive,
+      'Active config flows block is missing sub-keys: ' . implode(', ', $missingFromActive),
+    );
+
+    $schemaFlowsMapping = $schema['ilas_site_assistant.settings']['mapping']['flows']['mapping'] ?? [];
+    $this->assertArrayHasKey('enabled', $schemaFlowsMapping, 'Schema flows block must define enabled');
+    $this->assertArrayHasKey('office_followup', $schemaFlowsMapping, 'Schema flows block must define office_followup');
+
+    $officeFollowupInstall = $install['flows']['office_followup'] ?? [];
+    $officeFollowupActive = $active['flows']['office_followup'] ?? [];
+    $officeFollowupSchema = $schemaFlowsMapping['office_followup']['mapping'] ?? [];
+
+    foreach (array_keys($officeFollowupInstall) as $key) {
+      $this->assertArrayHasKey($key, $officeFollowupActive, "Active flows.office_followup missing {$key}");
+      $this->assertArrayHasKey($key, $officeFollowupSchema, "Schema flows.office_followup missing {$key}");
+    }
+  }
+
+  /**
    * Vertex service-account JSON must not be exportable via config anymore.
    */
   public function testVertexServiceAccountJsonIsAbsentFromConfigContracts(): void {

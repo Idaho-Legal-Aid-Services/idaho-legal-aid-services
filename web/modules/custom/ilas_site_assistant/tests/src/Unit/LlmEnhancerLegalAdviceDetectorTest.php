@@ -81,6 +81,18 @@ final class LlmEnhancerLegalAdviceDetectorTest extends TestCase {
       'comma-separated should' => ['You s,h,o,u,l,d stop paying rent until repairs are made.'],
       'apostrophe-separated should' => ["You s'h'o'u'l'd appeal the decision immediately."],
       'zero-width should' => ["You s\u{200B}h\u{200B}o\u{200B}u\u{200B}l\u{200B}d file a motion to dismiss."],
+      // Paraphrase patterns (AFRP-06 G-3).
+      'prudent to file' => ['It would be prudent to file a motion to dismiss in your case.'],
+      'advisable to pursue' => ['It would be advisable to pursue this claim in court.'],
+      'prudent course' => ['The prudent course is to file your answer before the deadline.'],
+      'filing would strengthen' => ['Filing a motion would strengthen your position significantly.'],
+      'given circumstances appropriate' => ['Given the circumstances, filing a motion to dismiss is appropriate.'],
+      'best option is' => ['Your best option is to appeal this decision promptly.'],
+      'strongest approach' => ['Your strongest approach is to file a counterclaim.'],
+      'might want to consider filing' => ['You might want to consider filing a complaint with the court.'],
+      'could consider suing' => ['You could consider suing for breach of the lease agreement.'],
+      'wise to file' => ['It would be wise to file an answer to the complaint.'],
+      'in your interest to sue' => ['It would be in your interest to sue for damages.'],
     ];
   }
 
@@ -91,6 +103,9 @@ final class LlmEnhancerLegalAdviceDetectorTest extends TestCase {
     return [
       'general info' => ['This is general information only. Please contact our Legal Advice Line for advice about your situation.'],
       'resource pointer' => ['Here are some guides on the eviction process and how to contact ILAS for help.'],
+      // Safe paraphrases that should NOT trigger.
+      'general process info' => ['The eviction process typically involves filing a complaint and serving notice.'],
+      'form guidance' => ['You can find the answer form on the Idaho courts website.'],
     ];
   }
 

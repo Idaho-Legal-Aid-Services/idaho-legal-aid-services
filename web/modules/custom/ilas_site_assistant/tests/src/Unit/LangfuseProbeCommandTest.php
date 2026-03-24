@@ -6,10 +6,14 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\Config\StorageInterface;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Queue\QueueInterface;
 use Drupal\ilas_site_assistant\Commands\LangfuseProbeCommands;
 use Drupal\ilas_site_assistant\Service\LangfusePayloadContract;
+use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
+use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
+use Drupal\ilas_site_assistant\Service\SloDefinitions;
 use Drush\Log\DrushLoggerManager;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\Response;
@@ -302,6 +306,138 @@ class LangfuseProbeCommandTest extends TestCase {
   }
 
   /**
+   * Probe guard message references secrets, not config edit instructions.
+   */
+  public function testProbeGuardMessageMentionsSecretsNotConfigEdit(): void {
+    $logger = $this->createMock(DrushLoggerManager::class);
+    $errorMessages = [];
+    $logger->expects($this->once())
+      ->method('error')
+      ->willReturnCallback(function (string $message) use (&$errorMessages): void {
+        $errorMessages[] = $message;
+      });
+
+    $command = $this->buildProbeCommandStub(
+      configValues: [
+        'langfuse.enabled' => FALSE,
+      ],
+      logger: $logger,
+    );
+
+    $result = $command->langfuseProbe();
+
+    $this->assertSame(1, $result);
+    $this->assertCount(1, $errorMessages);
+    $this->assertStringContainsString('LANGFUSE_PUBLIC_KEY', $errorMessages[0]);
+    $this->assertStringContainsString('LANGFUSE_SECRET_KEY', $errorMessages[0]);
+    $this->assertStringNotContainsString('Set langfuse.enabled=true', $errorMessages[0]);
+  }
+
+  /**
+   * Probe guard message suggests ilas:langfuse-status for diagnostics.
+   */
+  public function testProbeGuardMessageSuggestsLangfuseStatus(): void {
+    $logger = $this->createMock(DrushLoggerManager::class);
+    $errorMessages = [];
+    $logger->expects($this->once())
+      ->method('error')
+      ->willReturnCallback(function (string $message) use (&$errorMessages): void {
+        $errorMessages[] = $message;
+      });
+
+    $command = $this->buildProbeCommandStub(
+      configValues: [
+        'langfuse.enabled' => FALSE,
+      ],
+      logger: $logger,
+    );
+
+    $command->langfuseProbe();
+
+    $this->assertStringContainsString('ilas:langfuse-status', $errorMessages[0]);
+  }
+
+  /**
+   * Credential-absent guard references environment variables.
+   */
+  public function testProbeCredentialGuardMentionsEnvironmentVariables(): void {
+    $logger = $this->createMock(DrushLoggerManager::class);
+    $errorMessages = [];
+    $logger->expects($this->once())
+      ->method('error')
+      ->willReturnCallback(function (string $message) use (&$errorMessages): void {
+        $errorMessages[] = $message;
+      });
+
+    $command = $this->buildProbeCommandStub(
+      configValues: [
+        'langfuse.enabled' => TRUE,
+        'langfuse.public_key' => '',
+        'langfuse.secret_key' => '',
+      ],
+      logger: $logger,
+    );
+
+    $result = $command->langfuseProbe();
+
+    $this->assertSame(1, $result);
+    $this->assertStringContainsString('Pantheon secrets or environment variables', $errorMessages[0]);
+    $this->assertStringContainsString('ilas:langfuse-status', $errorMessages[0]);
+  }
+
+  /**
+   * Diagnose option outputs readiness JSON with verdict without probing.
+   */
+  public function testDiagnoseOptionOutputsReadinessJson(): void {
+    $command = $this->buildProbeCommandStub();
+
+    ob_start();
+    $result = $command->langfuseProbe(['direct' => FALSE, 'diagnose' => TRUE]);
+    $output = ob_get_clean();
+
+    $this->assertSame(0, $result);
+
+    $decoded = json_decode($output, TRUE);
+    $this->assertIsArray($decoded);
+    $this->assertArrayHasKey('verdict', $decoded);
+    $this->assertArrayHasKey('stored_enabled', $decoded);
+    $this->assertArrayHasKey('effective_enabled', $decoded);
+    $this->assertArrayHasKey('public_key_present', $decoded);
+    $this->assertArrayHasKey('secret_key_present', $decoded);
+    $this->assertArrayHasKey('environment', $decoded);
+    $this->assertArrayHasKey('sample_rate', $decoded);
+    $this->assertArrayHasKey('queue', $decoded);
+    $this->assertArrayHasKey('suggestion', $decoded);
+    $this->assertSame('READY', $decoded['verdict']);
+    $this->assertNull($decoded['suggestion']);
+  }
+
+  /**
+   * Diagnose reports DISABLED_NO_SECRETS when Langfuse is runtime-disabled.
+   */
+  public function testDiagnoseReportsDisabledWhenNoSecrets(): void {
+    $command = $this->buildProbeCommandStub(
+      configValues: [
+        'langfuse.enabled' => FALSE,
+        'langfuse.public_key' => '',
+        'langfuse.secret_key' => '',
+      ],
+    );
+
+    ob_start();
+    $result = $command->langfuseProbe(['direct' => FALSE, 'diagnose' => TRUE]);
+    $output = ob_get_clean();
+
+    $this->assertSame(0, $result);
+
+    $decoded = json_decode($output, TRUE);
+    $this->assertSame('DISABLED_NO_SECRETS', $decoded['verdict']);
+    $this->assertFalse($decoded['effective_enabled']);
+    $this->assertNotNull($decoded['suggestion']);
+    $this->assertStringContainsString('LANGFUSE_PUBLIC_KEY', $decoded['suggestion']);
+  }
+
+  /**
    * Builds a LangfuseProbeCommands instance with stubbed dependencies.
    */
   private function buildProbeCommandStub(
@@ -309,6 +445,9 @@ class LangfuseProbeCommandTest extends TestCase {
     ?QueueFactory $queueFactory = NULL,
     ?ClientInterface $httpClient = NULL,
     ?DrushLoggerManager $logger = NULL,
+    ?RuntimeTruthSnapshotBuilder $snapshotBuilder = NULL,
+    ?QueueHealthMonitor $queueHealthMonitor = NULL,
+    ?SloDefinitions $sloDefinitions = NULL,
   ): TestableLangfuseProbeCommands {
     $values = $configValues + [
       'langfuse.enabled' => TRUE,
@@ -317,6 +456,7 @@ class LangfuseProbeCommandTest extends TestCase {
       'langfuse.host' => 'https://us.cloud.langfuse.com',
       'langfuse.sample_rate' => 1.0,
       'langfuse.timeout' => 5.0,
+      'langfuse.environment' => 'local',
     ];
 
     $config = $this->createStub(ImmutableConfig::class);
@@ -328,7 +468,14 @@ class LangfuseProbeCommandTest extends TestCase {
     $queueFactory ??= $this->createStub(QueueFactory::class);
     $httpClient ??= $this->createStub(ClientInterface::class);
 
-    $command = new TestableLangfuseProbeCommands($configFactory, $queueFactory, $httpClient);
+    $command = new TestableLangfuseProbeCommands(
+      $configFactory,
+      $queueFactory,
+      $httpClient,
+      $snapshotBuilder,
+      $queueHealthMonitor,
+      $sloDefinitions,
+    );
     $command->testLogger = $logger;
 
     return $command;

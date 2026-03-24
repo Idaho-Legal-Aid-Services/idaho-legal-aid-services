@@ -44,6 +44,8 @@ final class InformationalRiskHeuristics {
     '/\b(was\s+(served|given)|handed\s+me|gave\s+me|served\s+with\s*(papers|summons))\b/i',
     '/\b(this\s+(lawsuit|notice|summons|complaint)|my\s+(answer|lawsuit|summons|complaint|deadline))\b/i',
     '/\bmy\s+(mom|mother|dad|father|friend|brother|sister|husband|wife|partner|spouse|son|daughter|child(ren)?|kid(s)?|parent|grandparent|grandmother|grandfather|boyfriend|girlfriend)(?:\'s|\s+who|\s+is|\s+got|\s+received|\s+was|\s+has|\s+keeps|\s+says)\b/i',
+    // Spanish first-person urgency markers (AFRP-06 G-5).
+    '/\b(me\s+(estan|están)\s+(echando|sacando|corriendo)|me\s+(golpea|pega|amenaza)|tengo\s+miedo|me\s+estafaron|robaron\s+mi\s+identidad)\b/i',
   ];
 
   /**

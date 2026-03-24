@@ -11,6 +11,7 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -130,6 +131,7 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       $this->createStub(FloodInterface::class),
       $this->createStub(CacheBackendInterface::class),
       $this->createStub(LoggerInterface::class),
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
       performance_monitor: $performanceMonitor,
     );
   }

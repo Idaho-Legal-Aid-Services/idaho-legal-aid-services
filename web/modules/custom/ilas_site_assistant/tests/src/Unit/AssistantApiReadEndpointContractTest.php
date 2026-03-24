@@ -12,6 +12,7 @@ use Drupal\Core\Flood\FloodInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\AssistantReadEndpointGuard;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
@@ -461,6 +462,7 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
       $flood,
       $cache,
       $logger,
+      assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
       read_endpoint_guard: $readEndpointGuard,
     );
   }

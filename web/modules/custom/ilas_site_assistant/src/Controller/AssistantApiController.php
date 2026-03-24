@@ -11,6 +11,7 @@ use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
+use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
@@ -76,11 +77,6 @@ class AssistantApiController extends ControllerBase {
    * TTL for conversation cache entries (seconds).
    */
   const CONVERSATION_STATE_TTL = 1800;
-
-  /**
-   * Max turns to keep office follow-up slot-fill active.
-   */
-  const OFFICE_FOLLOWUP_MAX_TURNS = 2;
 
   /**
    * Public API allowlist for FAQ search results.
@@ -308,9 +304,16 @@ class AssistantApiController extends ControllerBase {
   /**
    * The shared environment detector.
    *
-   * @var \Drupal\ilas_site_assistant\Service\EnvironmentDetector
+   * @var \Drupal\ilas_site_assistant\Service\EnvironmentDetector|null
    */
-  protected EnvironmentDetector $environmentDetector;
+  protected ?EnvironmentDetector $environmentDetector;
+
+  /**
+   * The reusable assistant flow runner.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\AssistantFlowRunner
+   */
+  protected AssistantFlowRunner $assistantFlowRunner;
 
   /**
    * The session bootstrap guard/observability service.
@@ -348,6 +351,7 @@ class AssistantApiController extends ControllerBase {
     FloodInterface $flood,
     CacheBackendInterface $conversation_cache,
     LoggerInterface $logger,
+    AssistantFlowRunner $assistant_flow_runner,
     ResponseGrounder $response_grounder = NULL,
     SafetyClassifier $safety_classifier = NULL,
     SafetyResponseTemplates $safety_response_templates = NULL,
@@ -381,6 +385,7 @@ class AssistantApiController extends ControllerBase {
     $this->flood = $flood;
     $this->conversationCache = $conversation_cache;
     $this->logger = $logger;
+    $this->assistantFlowRunner = $assistant_flow_runner;
     $this->responseGrounder = $response_grounder;
     $this->safetyClassifier = $safety_classifier;
     $this->safetyResponseTemplates = $safety_response_templates;
@@ -397,19 +402,29 @@ class AssistantApiController extends ControllerBase {
     $this->retrievalConfiguration = $retrieval_configuration;
     $this->requestTrustInspector = $request_trust_inspector;
     $this->csrfTokenGenerator = $csrf_token_generator;
-    $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
+    $this->environmentDetector = $environment_detector;
     $this->sessionBootstrapGuard = $session_bootstrap_guard;
     $this->readEndpointGuard = $read_endpoint_guard;
     $this->voyageReranker = $voyage_reranker;
-    $this->preRoutingDecisionEngine = $pre_routing_decision_engine ?? new PreRoutingDecisionEngine(
-      $policy_filter,
-      $safety_classifier,
-      $out_of_scope_classifier,
-    );
+    $this->preRoutingDecisionEngine = $pre_routing_decision_engine;
   }
 
   /**
    * {@inheritdoc}
+   *
+   * Service wiring classification (AFRP-05):
+   * - MANDATORY (direct get): config.factory, intent_router, faq_index,
+   *   resource_finder, policy_filter, analytics_logger, llm_enhancer,
+   *   fallback_gate, flood, cache, logger, assistant_flow_runner,
+   *   safety_classifier,
+   *   safety_response_templates, out_of_scope_classifier,
+   *   out_of_scope_response_templates, request_trust_inspector, csrf_token,
+   *   environment_detector, session_bootstrap_guard,
+   *   pre_routing_decision_engine, read_endpoint_guard.
+   * - OPTIONAL (has/get/NULL): response_grounder, performance_monitor,
+   *   conversation_logger, ab_testing, safety_violation_tracker,
+   *   langfuse_tracer, top_intents_pack, source_governance,
+   *   vector_index_hygiene, retrieval_configuration, voyage_reranker.
    */
   public static function create(ContainerInterface $container) {
     return new static(
@@ -424,11 +439,12 @@ class AssistantApiController extends ControllerBase {
       $container->get('flood'),
       $container->get('cache.ilas_site_assistant'),
       $container->get('logger.channel.ilas_site_assistant'),
+      $container->get('ilas_site_assistant.assistant_flow_runner'),
       $container->has('ilas_site_assistant.response_grounder') ? $container->get('ilas_site_assistant.response_grounder') : NULL,
-      $container->has('ilas_site_assistant.safety_classifier') ? $container->get('ilas_site_assistant.safety_classifier') : NULL,
-      $container->has('ilas_site_assistant.safety_response_templates') ? $container->get('ilas_site_assistant.safety_response_templates') : NULL,
-      $container->has('ilas_site_assistant.out_of_scope_classifier') ? $container->get('ilas_site_assistant.out_of_scope_classifier') : NULL,
-      $container->has('ilas_site_assistant.out_of_scope_response_templates') ? $container->get('ilas_site_assistant.out_of_scope_response_templates') : NULL,
+      $container->get('ilas_site_assistant.safety_classifier'),
+      $container->get('ilas_site_assistant.safety_response_templates'),
+      $container->get('ilas_site_assistant.out_of_scope_classifier'),
+      $container->get('ilas_site_assistant.out_of_scope_response_templates'),
       $container->has('ilas_site_assistant.performance_monitor') ? $container->get('ilas_site_assistant.performance_monitor') : NULL,
       $container->has('ilas_site_assistant.conversation_logger') ? $container->get('ilas_site_assistant.conversation_logger') : NULL,
       $container->has('ilas_site_assistant.ab_testing') ? $container->get('ilas_site_assistant.ab_testing') : NULL,
@@ -438,12 +454,12 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.source_governance') ? $container->get('ilas_site_assistant.source_governance') : NULL,
       $container->has('ilas_site_assistant.vector_index_hygiene') ? $container->get('ilas_site_assistant.vector_index_hygiene') : NULL,
       $container->has('ilas_site_assistant.retrieval_configuration') ? $container->get('ilas_site_assistant.retrieval_configuration') : NULL,
-      $container->has('ilas_site_assistant.request_trust_inspector') ? $container->get('ilas_site_assistant.request_trust_inspector') : NULL,
-      $container->has('csrf_token') ? $container->get('csrf_token') : NULL,
-      $container->has('ilas_site_assistant.environment_detector') ? $container->get('ilas_site_assistant.environment_detector') : NULL,
-      $container->has('ilas_site_assistant.session_bootstrap_guard') ? $container->get('ilas_site_assistant.session_bootstrap_guard') : NULL,
-      $container->has('ilas_site_assistant.pre_routing_decision_engine') ? $container->get('ilas_site_assistant.pre_routing_decision_engine') : NULL,
-      $container->has('ilas_site_assistant.read_endpoint_guard') ? $container->get('ilas_site_assistant.read_endpoint_guard') : NULL,
+      $container->get('ilas_site_assistant.request_trust_inspector'),
+      $container->get('csrf_token'),
+      $container->get('ilas_site_assistant.environment_detector'),
+      $container->get('ilas_site_assistant.session_bootstrap_guard'),
+      $container->get('ilas_site_assistant.pre_routing_decision_engine'),
+      $container->get('ilas_site_assistant.read_endpoint_guard'),
       $container->has('ilas_site_assistant.voyage_reranker') ? $container->get('ilas_site_assistant.voyage_reranker') : NULL,
     );
   }
@@ -557,6 +573,19 @@ class AssistantApiController extends ControllerBase {
 
     return $response;
   }
+
+  // ─── ACCEPTABLE DIRECT INSTANTIATION (AFRP-05) ─────────────────────
+  // The following classes are instantiated via `new` in method bodies.
+  // Each is justified and excluded from DI governance:
+  //
+  // - UuidGenerator (~line 588): Drupal core utility, no deps, stateless.
+  // - OfficeLocationResolver (~lines 1351,1522,2932,3453): Stateless data
+  //   resolver with hardcoded office data, no external deps.
+  // - ResponseBuilder (~lines 1735,2879): Lightweight builder scoped to a
+  //   single request, requires runtime data ($canonical_urls, topIntentsPack).
+  // - CacheableMetadata, CacheableJsonResponse, JsonResponse: Framework
+  //   value objects / response classes, always instantiated directly.
+  // ─────────────────────────────────────────────────────────────────────
 
   /**
    * Resolves a correlation ID from the request or generates one.
@@ -1353,34 +1382,29 @@ class AssistantApiController extends ControllerBase {
       'override_risk_category' => $routing_override_intent['risk_category'] ?? NULL,
     ]);
 
-    // Pending follow-up slot-fill: consume only explicit office follow-up
-    // turns or location-like replies. Unrelated turns continue normally.
+    // Pending follow-up slot-fill: the runner owns state and flow-policy
+    // decisions while the controller still owns response construction.
     if ($conversation_id) {
-      $followup_state = $this->loadOfficeFollowupState($conversation_id);
-      if ($followup_state !== NULL) {
-        $resolver = new OfficeLocationResolver();
-        $office = $resolver->resolve($user_message);
-        $is_location_like = $this->isLocationLikeOfficeReply($user_message);
-        $is_explicit_office_followup = $this->isExplicitOfficeFollowupTurn($user_message);
+      $pending_flow_decision = $this->assistantFlowRunner->evaluatePending([
+        'conversation_id' => $conversation_id,
+        'user_message' => $user_message,
+        'is_location_like' => $this->isLocationLikeOfficeReply($user_message),
+        'is_explicit_office_followup' => $this->isExplicitOfficeFollowupTurn($user_message),
+      ]);
 
-        if ($office) {
-          $this->clearOfficeFollowupState($conversation_id);
-          return $this->handleOfficeFollowUp($request, $office, $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
+      if (($pending_flow_decision['status'] ?? 'continue') === 'handled') {
+        $this->applyOfficeFollowupStateDecision($conversation_id, $pending_flow_decision);
+
+        if (($pending_flow_decision['action'] ?? 'none') === 'resolve' && !empty($pending_flow_decision['office'])) {
+          return $this->handleOfficeFollowUp($request, $pending_flow_decision['office'], $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
         }
 
-        if ($is_location_like || $is_explicit_office_followup) {
-          $this->clearOfficeFollowupState($conversation_id);
-          return $this->handleOfficeFollowUpClarify($request, $resolver->getAllOffices(), $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
-        }
-
-        $followup_state['remaining_turns'] = max(0, ((int) ($followup_state['remaining_turns'] ?? 1)) - 1);
-        if ((int) $followup_state['remaining_turns'] > 0) {
-          $this->saveOfficeFollowupState($conversation_id, $followup_state);
-        }
-        else {
-          $this->clearOfficeFollowupState($conversation_id);
+        if (($pending_flow_decision['action'] ?? 'none') === 'clarify' && !empty($pending_flow_decision['offices'])) {
+          return $this->handleOfficeFollowUpClarify($request, $pending_flow_decision['offices'], $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
         }
       }
+
+      $this->applyOfficeFollowupStateDecision($conversation_id, $pending_flow_decision);
     }
 
     // Quick-action short-circuit: when the request comes from a suggestion
@@ -1849,15 +1873,14 @@ class AssistantApiController extends ControllerBase {
       $response['_debug'] = $debug_meta;
     }
 
-    // Set pending follow-up flag when apply intent includes a followup prompt.
     $normalized_intent = ResponseBuilder::normalizeIntentType($intent['type'] ?? 'unknown');
-    if ($conversation_id && $normalized_intent === 'apply' && !empty($response['followup'])) {
-      $this->saveOfficeFollowupState($conversation_id, [
-        'type' => 'office_location',
-        'origin_intent' => $normalized_intent,
-        'remaining_turns' => self::OFFICE_FOLLOWUP_MAX_TURNS,
-        'created_at' => time(),
+    if ($conversation_id) {
+      $post_response_flow_decision = $this->assistantFlowRunner->evaluatePostResponse([
+        'conversation_id' => $conversation_id,
+        'intent_type' => $normalized_intent,
+        'has_followup_prompt' => !empty($response['followup']),
       ]);
+      $this->applyOfficeFollowupStateDecision($conversation_id, $post_response_flow_decision);
     }
 
     // Store conversation turn in cache for multi-turn continuity.
@@ -1951,6 +1974,11 @@ class AssistantApiController extends ControllerBase {
       $response['turn_type'] = $turn_type;
     }
     $response = $this->assembleContractFields($response, $gate_decision, 'normal');
+
+    // Attach governance summary to every normal response.
+    if ($this->sourceGovernance) {
+      $response['governance'] = $this->sourceGovernance->getGovernanceSummary();
+    }
 
     // PHARD-03: Refuse when answerable + low confidence + no citations.
     $is_citation_required = in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE);
@@ -2282,7 +2310,7 @@ class AssistantApiController extends ControllerBase {
    * Returns TRUE when running in Pantheon live environment.
    */
   protected function isLiveEnvironment(): bool {
-    return $this->environmentDetector->isLiveEnvironment();
+    return $this->environmentDetector?->isLiveEnvironment() ?? false;
   }
 
   /**
@@ -3871,12 +3899,15 @@ class AssistantApiController extends ControllerBase {
       'weak_grounding_detected' => FALSE,
       'stale_citations_caveat_added' => FALSE,
       'llm_artifacts_stripped' => FALSE,
+      'enforcement_actions' => [],
     ];
     $safe_fallback = $this->getPostGenerationSafeFallback();
 
     // Check 1: _requires_review flag from ResponseGrounder.
+    // Enforcement: SOFT — replaces message with safe fallback.
     if (!empty($response['_requires_review'])) {
       $meta['review_flag_triggered'] = TRUE;
+      $meta['enforcement_actions'][] = 'requires_review';
       $this->logger->warning(
         '[@request_id] Post-generation safety: _requires_review flag set, replacing final response content',
         ['@request_id' => $request_id]
@@ -3887,8 +3918,11 @@ class AssistantApiController extends ControllerBase {
     }
 
     // Check 2: Weak grounding — answerable type without citations.
+    // Enforcement: SOFT — logged; confidence downgrade applied separately
+    // in assembleContractFields().
     if (!empty($response['_grounding_weak'])) {
       $meta['weak_grounding_detected'] = TRUE;
+      $meta['enforcement_actions'][] = 'grounding_weak';
       $this->logger->warning(
         '[@request_id] Post-generation safety: grounding weak, type=@type reason=@reason',
         ['@request_id' => $request_id, '@type' => $response['type'] ?? 'unknown', '@reason' => $response['_grounding_weak_reason'] ?? 'unknown']
@@ -3897,10 +3931,12 @@ class AssistantApiController extends ControllerBase {
     }
 
     // Check 3: Stale citations caveat.
+    // Enforcement: SOFT — adds freshness_caveat to response body.
     if (!empty($response['_all_citations_stale'])) {
       $response['freshness_caveat'] = 'Some of the information cited may not reflect the most recent updates. Please verify details by contacting our office or checking our website directly.';
       $this->analyticsLogger->log('post_gen_stale_citations', $request_id);
       $meta['stale_citations_caveat_added'] = TRUE;
+      $meta['enforcement_actions'][] = 'all_citations_stale';
     }
 
     $meta['llm_artifacts_stripped'] = array_key_exists('llm_summary', $response)
@@ -4170,64 +4206,40 @@ class AssistantApiController extends ControllerBase {
    * Loads pending office follow-up state for a conversation.
    */
   protected function loadOfficeFollowupState(string $conversation_id): ?array {
-    $cached = $this->conversationCache->get('ilas_conv_followup:' . $conversation_id);
-    if (!$cached || !is_array($cached->data)) {
-      return NULL;
-    }
-
-    $data = $cached->data;
-    if (($data['type'] ?? '') !== 'office_location') {
-      return NULL;
-    }
-
-    $created_at = (int) ($data['created_at'] ?? $data['timestamp'] ?? 0);
-    $remaining_turns = (int) ($data['remaining_turns'] ?? 1);
-    if ($created_at <= 0) {
-      $this->clearOfficeFollowupState($conversation_id);
-      return NULL;
-    }
-
-    if ((time() - $created_at) > self::CONVERSATION_STATE_TTL || $remaining_turns <= 0) {
-      $this->clearOfficeFollowupState($conversation_id);
-      return NULL;
-    }
-
-    return [
-      'type' => 'office_location',
-      'origin_intent' => $data['origin_intent'] ?? 'apply',
-      'remaining_turns' => $remaining_turns,
-      'created_at' => $created_at,
-    ];
+    return $this->assistantFlowRunner->loadOfficeFollowupState($conversation_id);
   }
 
   /**
    * Persists office follow-up state with bounded lifecycle metadata.
    */
   protected function saveOfficeFollowupState(string $conversation_id, array $state): void {
-    $created_at = (int) ($state['created_at'] ?? time());
-    if ($created_at <= 0) {
-      $created_at = time();
-    }
-
-    $payload = [
-      'type' => 'office_location',
-      'origin_intent' => $state['origin_intent'] ?? 'apply',
-      'remaining_turns' => max(0, (int) ($state['remaining_turns'] ?? self::OFFICE_FOLLOWUP_MAX_TURNS)),
-      'created_at' => $created_at,
-    ];
-
-    $this->conversationCache->set(
-      'ilas_conv_followup:' . $conversation_id,
-      $payload,
-      $created_at + self::CONVERSATION_STATE_TTL
-    );
+    $this->assistantFlowRunner->saveOfficeFollowupState($conversation_id, $state);
   }
 
   /**
    * Clears pending office follow-up state for a conversation.
    */
   protected function clearOfficeFollowupState(string $conversation_id): void {
-    $this->conversationCache->delete('ilas_conv_followup:' . $conversation_id);
+    $this->assistantFlowRunner->clearOfficeFollowupState($conversation_id);
+  }
+
+  /**
+   * Applies the runner's office follow-up state operation.
+   */
+  protected function applyOfficeFollowupStateDecision(string $conversation_id, array $decision): void {
+    if ($conversation_id === '') {
+      return;
+    }
+
+    $state_operation = (string) ($decision['state_operation'] ?? 'none');
+    if ($state_operation === 'clear') {
+      $this->clearOfficeFollowupState($conversation_id);
+      return;
+    }
+
+    if ($state_operation === 'save' && !empty($decision['state_payload']) && is_array($decision['state_payload'])) {
+      $this->saveOfficeFollowupState($conversation_id, $decision['state_payload']);
+    }
   }
 
   /**
@@ -4923,6 +4935,7 @@ class AssistantApiController extends ControllerBase {
         'next_alert_eligible_at' => $source_governance['next_alert_eligible_at'] ?? NULL,
         'cooldown_seconds_remaining' => $source_governance['cooldown_seconds_remaining'] ?? 0,
         'by_source_class' => $source_governance['by_source_class'] ?? [],
+        'by_retrieval_method' => $source_governance['by_retrieval_method'] ?? [],
       ];
       $response['thresholds']['source_governance'] = $source_governance['thresholds'] ?? [];
     }

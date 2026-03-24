@@ -759,7 +759,7 @@ class FaqIndex {
     $item['source'] = 'lexical';
 
     if ($this->sourceGovernance) {
-      $item = $this->sourceGovernance->annotateResult($item, 'faq_lexical');
+      $item = $this->sourceGovernance->annotateResult($item, 'faq_lexical', 'entity_query');
     }
 
     return $item;
@@ -1439,7 +1439,7 @@ class FaqIndex {
     if ($this->rankingEnhancer) {
       $items = $this->rankingEnhancer->scoreFaqResults($all_items, $query, $limit);
       if ($this->sourceGovernance) {
-        $items = $this->sourceGovernance->annotateBatch($items, 'faq_lexical');
+        $items = $this->sourceGovernance->annotateBatch($items, 'faq_lexical', 'entity_query');
       }
       return $items;
     }
@@ -1490,7 +1490,7 @@ class FaqIndex {
 
     $results = array_slice($results, 0, $limit);
     if ($this->sourceGovernance) {
-      $results = $this->sourceGovernance->annotateBatch($results, 'faq_lexical');
+      $results = $this->sourceGovernance->annotateBatch($results, 'faq_lexical', 'entity_query');
     }
     return $results;
   }
