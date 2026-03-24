@@ -18,4 +18,3 @@ translatable: false
 indexes: {  }
 persist_with_no_fields: false
 custom_storage: false
-
