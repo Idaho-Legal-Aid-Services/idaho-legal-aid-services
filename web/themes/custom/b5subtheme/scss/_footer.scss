@@ -171,6 +171,20 @@ footer {
   }
 }
 
+/* Hotline row: phone number centered, logo positioned beside it */
+.footer-hotline-row {
+  position: relative;
+  text-align: center;
+}
+
+.footer-helpdesk-logo {
+  display: inline-block;
+  vertical-align: middle;
+  height: 20px;
+  width: auto;
+  margin-left: 0.75rem;
+}
+
 /* Footer Links Spacing */
 .footer-links li {
   margin-bottom: 0.5rem;
@@ -195,10 +209,10 @@ footer {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .footer-social a {
-  margin-right: 1rem;
   font-size: 1.5rem;
   color: $color-primary; /* Brand blue color */
   transition: color 0.3s ease, transform 0.2s ease; /* Smooth transition for hover */
@@ -207,11 +221,6 @@ footer {
     color: darken($color-primary, 10%); /* Darker blue on hover */
     transform: translateY(-2px); /* Subtle lift effect */
   }
-}
-
-/* Remove margin from last social icon */
-.footer-social a:last-child {
-  margin-right: 0;
 }
 
 .footer-accreditations {
