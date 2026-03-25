@@ -310,6 +310,10 @@ endpoint's per-IP abuse controls. Throttled responses preserve the active body
 shape (`results` / `count`, `categories`, or `faq: null`) and include `error`,
 `type = "rate_limit"`, and `request_id`.
 
+Successful search results expose only `id`, `question`, `answer`, and `url`.
+Browse mode (`GET /assistant/api/faq`) returns `categories` items with only
+`name` and `count`.
+
 **Response:**
 ```json
 {

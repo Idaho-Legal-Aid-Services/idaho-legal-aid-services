@@ -1,0 +1,128 @@
+AFRP-16 Runtime Diagnostics Hardening
+======================================
+Date: 2026-03-25
+Verification level: L0:Unverified (config inspection only, no probes sent)
+
+Prior diagnostics posture
+-------------------------
+Operators needed to run multiple commands to assess assistant environment health:
+  - `ilas:runtime-truth` for stored-vs-effective config divergences
+  - `ilas:langfuse-status` for Langfuse queue and config health
+  - `search-api:server-list`, `search-api:list`, `search-api:status` for index inventory
+  - `ilas:sentry-probe` for Sentry connectivity
+  - `ilas:langfuse-probe --direct` for Langfuse ingestion
+  - Manual correlation of multiple JSON outputs to determine overall health
+
+Missing indexes, disabled credentials, and override-driven toggles required combining
+scattered data from different command outputs. No single artifact answered "is this
+environment healthy, and what proof do I have?"
+
+Post-change diagnostics posture
+-------------------------------
+Single command: `ilas:runtime-diagnostics`
+Output: unified jq-parseable JSON artifact containing:
+  - schema_version (semver, currently 1.0.0)
+  - timestamp (ISO-8601)
+  - environment (effective environment, Pantheon env, classification)
+  - runtime_truth_summary (divergence count and field list)
+  - diagnostics_matrix (~25 rows, each with fact_key, category, current_value,
+    source, proof_level, proof_level_label, static_proof_ceiling,
+    verification_command, assertion)
+  - integration_status (sentry, langfuse, pinecone, voyage with proof levels)
+  - credential_inventory (boolean-only, 10 credentials)
+  - retrieval_inventory (index/server health from RetrievalConfigurationService)
+  - degraded_mode_state (overall status, active degradations, feature gates off,
+    missing credentials, failed facts)
+  - verification_commands (VC-* aliases with command strings)
+
+Exit code: 0 = no fail assertions, 1 = any fail assertion (enables CI/script gating)
+
+Assertion semantics:
+  - pass: fact is in healthy/expected state
+  - fail: required fact is broken (e.g., required index missing)
+  - degraded: non-ideal but allowed-degraded-mode applies
+  - skipped: feature gate off, check does not apply
+
+Runtime-diagnostics matrix
+--------------------------
+Fact categories (from ObservabilityProofTaxonomy::FACT_CATEGORIES):
+  toggle, credential, index, server, integration, url, slo
+
+Diagnostic facts covered:
+  Toggle: llm.enabled, llm.runtime_ready, vector_search.enabled,
+    langfuse.enabled, voyage.enabled, voyage.runtime_ready
+  Credential: llm.gemini_api_key_present, llm.vertex_service_account_present,
+    langfuse.public_key_present, langfuse.secret_key_present,
+    sentry.client_key_present, sentry.public_dsn_present,
+    pinecone.api_key_present, voyage.api_key_present,
+    diagnostics_token_present
+  Index: retrieval.faq_index, retrieval.resource_index,
+    retrieval.resource_fallback_index, retrieval.faq_vector_index,
+    retrieval.resource_vector_index
+  Server: retrieval.database_server, retrieval.pinecone_vector_server
+  URL: retrieval.service_area_urls, retrieval.legalserver_url
+  SLO: cron.health, queue.health
+
+Proof-strength matrix by tool
+-----------------------------
+| Tool                        | Max proof           | Purpose                         |
+|-----------------------------|---------------------|---------------------------------|
+| ilas:runtime-diagnostics    | L0:Unverified       | Unified machine-checkable diag  |
+| ilas:runtime-truth          | L0:Unverified       | Stored-vs-effective snapshot    |
+| ilas:sentry-probe           | L1:Transport        | Sentry connectivity             |
+| ilas:langfuse-probe --direct| L3:PayloadAcceptance| Langfuse direct ingestion       |
+| ilas:langfuse-probe (queued)| L2:QueueDrain       | Langfuse queue drain            |
+| ilas:langfuse-lookup        | L4:AccountSide      | Account-side trace verification |
+| ilas:langfuse-status        | L1:Transport        | Langfuse config/queue health    |
+
+Evidence with file paths and command summaries
+----------------------------------------------
+New files:
+  - web/modules/custom/ilas_site_assistant/src/Service/RuntimeDiagnosticsMatrixBuilder.php
+  - web/modules/custom/ilas_site_assistant/src/Commands/RuntimeDiagnosticsCommands.php
+  - web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeDiagnosticsMatrixContractTest.php
+
+Modified files:
+  - web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php
+    (added TOOL_RUNTIME_DIAGNOSTICS, FACT_CATEGORIES, ASSERTION_* constants)
+  - web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml
+    (registered RuntimeDiagnosticsMatrixBuilder service)
+  - web/modules/custom/ilas_site_assistant/drush.services.yml
+    (registered RuntimeDiagnosticsCommands drush command)
+  - web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php
+    (added 4 tests for AFRP-16 constants)
+  - docs/aila/runbook.md (added AFRP-16 section)
+  - docs/aila/evidence-index.md (added CLAIM-273, CLAIM-274, CLAIM-275)
+  - docs/aila/current-state.md (updated diagnostics posture)
+  - docs/aila/roadmap.md (added AFRP-16 disposition)
+
+Verification commands executed:
+  - VC-PURE: vendor/bin/phpunit -c phpunit.pure.xml (2507 tests, 13260 assertions, OK)
+  - VC-UNIT filter: --filter RuntimeDiagnosticsMatrixContractTest|ObservabilityProofTaxonomyTest
+    (32 tests, 653 assertions, OK)
+
+Residual risks/unknowns
+------------------------
+1. Diagnostics token not provisioned (diagnostics_token_present=false everywhere).
+   Machine-auth HTTP path remains operationally unproven. Drush-based diagnostics
+   work without the token.
+2. Proof levels for all diagnostic facts default to L0:Unverified because the
+   runtime-diagnostics command reads config only. Raising proof levels requires
+   running probes (ilas:sentry-probe, ilas:langfuse-probe --direct, etc.) and
+   is outside the scope of this command.
+3. Pinecone live readiness still blocked (gate + acceptance + timeout separation).
+4. Sentry browser source maps remain unverified (L1 only).
+5. Cron/queue sustained-load behavior unobserved (B-04, outside audit scope).
+
+Rollback notes
+--------------
+All changes are additive (new service, new command, new constants, new tests).
+Rollback: revert the commit. No data migration or config export changes required.
+
+Still-unverified surfaces
+-------------------------
+- Langfuse account-side proof (requires manual Langfuse UI lookup, L4)
+- Sentry browser JS original-source resolution (bundle source maps unverified)
+- Diagnostics token provisioning on Pantheon (operationally unproven)
+- Pinecone live enablement readiness (blocked on gate/acceptance/timeout)
+- Cron/queue sustained-load behavior (open, outside audit scope)

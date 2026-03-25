@@ -6,6 +6,7 @@ use Drupal\Core\Access\CsrfRequestHeaderAccessCheck;
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
@@ -81,12 +82,17 @@ class AssistantApiController extends ControllerBase {
   /**
    * Public API allowlist for FAQ search results.
    */
-  private const FAQ_SEARCH_PUBLIC_FIELDS = ['id', 'question', 'answer', 'url', 'score', 'source'];
+  private const FAQ_SEARCH_PUBLIC_FIELDS = ['id', 'question', 'answer', 'url'];
 
   /**
    * Public API allowlist for FAQ ID lookup results.
    */
   private const FAQ_ID_PUBLIC_FIELDS = ['id', 'question', 'answer', 'url'];
+
+  /**
+   * Public API allowlist for FAQ category browse results.
+   */
+  private const FAQ_CATEGORY_PUBLIC_FIELDS = ['name', 'count'];
 
   /**
    * Safe fallback for post-generation safety replacement.
@@ -1990,6 +1996,12 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('grounding_refusal', $request_id ?? '');
     }
 
+    if (($response['reason_code'] ?? '') === 'resource_results_fallback_index' && empty($response['degraded_notice'])) {
+      $response['degraded_notice'] = (string) $this->t('These matches come from our broader site content because the dedicated assistant resource index is unavailable right now.');
+      $response['disclaimer'] = $response['disclaimer'] ?? $response['degraded_notice'];
+      $response['caveat'] = $response['caveat'] ?? $response['degraded_notice'];
+    }
+
     $retrieval_trace = $this->collectRetrievalTraceMetadata($response);
     $this->langfuseTracer?->addEvent('request.complete', [
       'intent_type' => $intent['type'] ?? 'unknown',
@@ -2034,6 +2046,62 @@ class AssistantApiController extends ControllerBase {
       $this->classifyScenario($intent['type'] ?? 'unknown'),
     );
 
+    }
+    catch (RetrievalDependencyUnavailableException $e) {
+      $this->logger->warning(
+        '[@request_id] Retrieval dependency unavailable in message pipeline: reason=@reason_code service=@service dependency=@dependency_key failure=@failure_code',
+        $this->buildRetrievalUnavailableLogContext($e, $request_id),
+      );
+
+      $response = $this->buildRetrievalUnavailableMessageResponse(
+        $e,
+        $request_id,
+        isset($intent) ? ($intent['type'] ?? NULL) : NULL,
+      );
+      $response = $this->assembleContractFields($response, [
+        'confidence' => 1.0,
+        'reason_code' => $response['reason_code'] ?? NULL,
+      ], 'normal');
+      if ($this->sourceGovernance) {
+        $response['governance'] = $this->sourceGovernance->getGovernanceSummary();
+      }
+
+      $retrieval_trace = $this->collectRetrievalTraceMetadata($response);
+      $this->langfuseTracer?->addEvent('retrieval.unavailable', [
+        'service' => $e->getService(),
+        'reason_code' => $e->getReasonCode(),
+      ] + $retrieval_trace, 'WARNING');
+      $langfuse_output = $this->buildLangfuseOutputPayload(
+        (string) ($response['message'] ?? ''),
+        (string) ($response['type'] ?? 'navigation'),
+        $response['reason_code'] ?? NULL,
+      );
+      $this->langfuseTracer?->endTrace(
+        output: $langfuse_output['display'],
+        metadata: array_merge(
+          [
+            'success' => FALSE,
+            'degraded' => TRUE,
+            'duration_ms' => (microtime(TRUE) - $start_time) * 1000,
+          ],
+          $retrieval_trace,
+          $langfuse_output['metadata'],
+        ),
+      );
+
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_MESSAGE,
+        $response,
+        200,
+        [],
+        $request_id,
+        FALSE,
+        'message.' . ($response['reason_code'] ?? 'retrieval_unavailable'),
+        FALSE,
+        TRUE,
+        'retrieval',
+      );
     }
     catch (\Throwable $e) {
       $error_telemetry = TelemetrySchema::normalize(
@@ -2622,6 +2690,7 @@ class AssistantApiController extends ControllerBase {
     $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_SUGGEST);
     $query = (string) $request->query->get('q', '');
     $type = (string) $request->query->get('type', 'all');
+    $faq_retrieval_unavailable = FALSE;
     $cache_meta = new CacheableMetadata();
     $cache_meta->setCacheContexts(['url.query_args:q', 'url.query_args:type']);
     $cache_meta->setCacheTags(['node_list']);
@@ -2651,20 +2720,35 @@ class AssistantApiController extends ControllerBase {
         }
 
         if ($type === 'all' || $type === 'faq') {
-          $faqs = $this->faqIndex->search($query, 3);
-          foreach ($faqs as $faq) {
-            $suggestions[] = [
-              'type' => 'faq',
-              'label' => $faq['question'],
-              'id' => $faq['id'],
-            ];
+          try {
+            $faqs = $this->faqIndex->search($query, 3);
+            foreach ($faqs as $faq) {
+              $suggestions[] = [
+                'type' => 'faq',
+                'label' => $faq['question'],
+                'id' => $faq['id'],
+              ];
+            }
+          }
+          catch (RetrievalDependencyUnavailableException $e) {
+            if ($e->getService() !== 'faq') {
+              throw $e;
+            }
+
+            $faq_retrieval_unavailable = TRUE;
+            $this->logger->warning(
+              '[@request_id] suggest endpoint suppressed FAQ suggestions due to retrieval dependency loss: reason=@reason_code service=@service dependency=@dependency_key failure=@failure_code',
+              $this->buildRetrievalUnavailableLogContext($e, $request_id),
+            );
           }
         }
       }
 
-      $response = new CacheableJsonResponse([
+      $response_body = [
         'suggestions' => array_slice($suggestions, 0, 6),
-      ], 200, self::SECURITY_HEADERS);
+      ];
+
+      $response = new CacheableJsonResponse($response_body, 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(300);
       $response->addCacheableDependency($cache_meta);
       return $this->monitoredCacheableResponse(
@@ -2672,7 +2756,11 @@ class AssistantApiController extends ControllerBase {
         PerformanceMonitor::ENDPOINT_SUGGEST,
         $response,
         TRUE,
-        strlen($query) < 2 ? 'suggest.short_query_empty' : 'suggest.success',
+        strlen($query) < 2
+          ? 'suggest.short_query_empty'
+          : ($faq_retrieval_unavailable ? 'suggest.partial_faq_unavailable' : 'suggest.success'),
+        FALSE,
+        $faq_retrieval_unavailable,
       );
     }
     catch (\Throwable $e) {
@@ -2777,7 +2865,7 @@ class AssistantApiController extends ControllerBase {
         );
       }
 
-      $categories = $this->faqIndex->getCategories();
+      $categories = $this->filterFaqCategoriesForPublicApi($this->faqIndex->getCategories());
       $response = new CacheableJsonResponse(['categories' => $categories], 200, self::SECURITY_HEADERS);
       $cache_meta->setCacheMaxAge(300);
       $response->addCacheableDependency($cache_meta);
@@ -2787,6 +2875,25 @@ class AssistantApiController extends ControllerBase {
         $response,
         TRUE,
         'faq.categories_success',
+      );
+    }
+    catch (RetrievalDependencyUnavailableException $e) {
+      $this->logger->warning(
+        '[@request_id] faq endpoint unavailable due to retrieval dependency loss: reason=@reason_code service=@service dependency=@dependency_key failure=@failure_code',
+        $this->buildRetrievalUnavailableLogContext($e, $request_id),
+      );
+
+      return $this->monitoredJsonResponse(
+        $request,
+        PerformanceMonitor::ENDPOINT_FAQ,
+        $this->buildFaqUnavailableBody($faq_mode, $request_id),
+        503,
+        [],
+        $request_id,
+        FALSE,
+        'faq.unavailable',
+        FALSE,
+        TRUE,
       );
     }
     catch (\Throwable $e) {
@@ -2848,6 +2955,21 @@ class AssistantApiController extends ControllerBase {
    */
   private function filterFaqForPublicApi(array $item, array $allowed_fields): array {
     return array_intersect_key($item, array_flip($allowed_fields));
+  }
+
+  /**
+   * Strips internal fields from FAQ category browse results.
+   */
+  private function filterFaqCategoriesForPublicApi(array $categories): array {
+    $allowed_fields = array_flip(self::FAQ_CATEGORY_PUBLIC_FIELDS);
+
+    return array_values(array_map(static function (array $item) use ($allowed_fields): array {
+      $filtered = array_intersect_key($item, $allowed_fields);
+      if (array_key_exists('count', $filtered)) {
+        $filtered['count'] = (int) $filtered['count'];
+      }
+      return $filtered;
+    }, array_values(array_filter($categories, 'is_array'))));
   }
 
   /**
@@ -3855,6 +3977,8 @@ class AssistantApiController extends ControllerBase {
         break;
     }
 
+    $response = $this->applyResourceFallbackDisclosure($response);
+
     // Chip enrichment: if the response doesn't already have topic_suggestions,
     // look up chips from the Top Intents Pack and add as suggestions.
     if (empty($response['topic_suggestions']) && $this->topIntentsPack) {
@@ -3895,9 +4019,11 @@ class AssistantApiController extends ControllerBase {
   protected function enforcePostGenerationSafety(array $response, string $request_id): array {
     $meta = [
       'review_flag_triggered' => FALSE,
+      'legal_advice_scan_triggered' => FALSE,
       'message_replaced' => FALSE,
       'weak_grounding_detected' => FALSE,
       'stale_citations_caveat_added' => FALSE,
+      'freshness_enforcement_applied' => FALSE,
       'llm_artifacts_stripped' => FALSE,
       'enforcement_actions' => [],
     ];
@@ -3915,6 +4041,26 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('post_gen_safety_review_flag', $request_id);
       $response['message'] = $safe_fallback;
       $meta['message_replaced'] = TRUE;
+    }
+
+    // Check 1b: Independent legal-advice scan on final message text.
+    // Uses full 41-pattern PostGenerationLegalAdviceDetector with
+    // InputNormalizer (handles Unicode evasion, homoglyphs, interstitial
+    // punctuation). Runs regardless of whether ResponseGrounder was invoked.
+    // AFRP-18: Closes gap where _requires_review flag is never set when
+    // grounding is skipped or ResponseGrounder's 4 patterns miss.
+    if (!$meta['message_replaced'] && !empty($response['message'])) {
+      if (PostGenerationLegalAdviceDetector::containsLegalAdvice((string) $response['message'])) {
+        $meta['legal_advice_scan_triggered'] = TRUE;
+        $meta['enforcement_actions'][] = 'post_gen_legal_advice_scan';
+        $this->logger->warning(
+          '[@request_id] Post-generation safety: legal advice detected in final message by PostGenerationLegalAdviceDetector',
+          ['@request_id' => $request_id]
+        );
+        $this->analyticsLogger->log('post_gen_safety_legal_advice_scan', $request_id);
+        $response['message'] = $safe_fallback;
+        $meta['message_replaced'] = TRUE;
+      }
     }
 
     // Check 2: Weak grounding — answerable type without citations.
@@ -3937,6 +4083,29 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('post_gen_stale_citations', $request_id);
       $meta['stale_citations_caveat_added'] = TRUE;
       $meta['enforcement_actions'][] = 'all_citations_stale';
+    }
+
+    // Check 4: AFRP-20 freshness enforcement for citation-required types.
+    // Enforcement: SOFT — logs enforcement, adds freshness_caveat when all
+    // citations are non-fresh (stale or unknown), caps confidence downstream
+    // via _freshness_confidence_cap in assembleContractFields().
+    if (!empty($response['_freshness_enforcement'])) {
+      $meta['freshness_enforcement_applied'] = TRUE;
+      $meta['freshness_enforcement_level'] = $response['_freshness_enforcement'];
+      $meta['enforcement_actions'][] = 'freshness_enforcement:' . $response['_freshness_enforcement'];
+      $this->logger->info(
+        '[@request_id] Freshness enforcement: level=@level',
+        ['@request_id' => $request_id, '@level' => $response['_freshness_enforcement']]
+      );
+      // Add freshness caveat for all-non-fresh if not already set by Check 3.
+      if ($response['_freshness_enforcement'] === 'all_non_fresh' && empty($response['freshness_caveat'])) {
+        $response['freshness_caveat'] = 'Some of the information cited may not reflect the most recent updates. Please verify details by contacting our office or checking our website directly.';
+        $meta['stale_citations_caveat_added'] = TRUE;
+      }
+      $this->analyticsLogger->log('freshness_enforcement_' . $response['_freshness_enforcement'], $request_id);
+      // Strip _freshness_enforcement after use; _freshness_confidence_cap
+      // is consumed later by assembleContractFields().
+      unset($response['_freshness_enforcement']);
     }
 
     $meta['llm_artifacts_stripped'] = array_key_exists('llm_summary', $response)
@@ -4435,6 +4604,149 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Builds safe log context for typed retrieval dependency failures.
+   */
+  protected function buildRetrievalUnavailableLogContext(RetrievalDependencyUnavailableException $exception, string $request_id): array {
+    $context = $exception->getContext();
+    return [
+      '@request_id' => $request_id,
+      '@reason_code' => $exception->getReasonCode(),
+      '@service' => $exception->getService(),
+      '@dependency_key' => (string) ($context['dependency_key'] ?? 'unknown_dependency'),
+      '@failure_code' => (string) ($context['failure_code'] ?? 'unknown_failure'),
+      '@index_id' => (string) ($context['index_id'] ?? $context['primary_index_id'] ?? ''),
+      '@fallback_index_id' => (string) ($context['fallback_index_id'] ?? ''),
+    ];
+  }
+
+  /**
+   * Builds the degraded /message response for retrieval dependency loss.
+   */
+  protected function buildRetrievalUnavailableMessageResponse(
+    RetrievalDependencyUnavailableException $exception,
+    string $request_id,
+    ?string $intent_type = NULL,
+  ): array {
+    $canonical_urls = ilas_site_assistant_get_canonical_urls();
+    $service = $exception->getService();
+    $browse_url = $canonical_urls['resources'] ?? $canonical_urls['services'] ?? '/';
+    $browse_label = (string) $this->t('Browse Resources');
+
+    if ($service === 'faq') {
+      $browse_url = $canonical_urls['faq'] ?? $canonical_urls['services'] ?? '/';
+      $browse_label = (string) $this->t('Browse FAQs');
+    }
+    elseif ($intent_type === 'forms') {
+      $browse_url = $canonical_urls['forms'] ?? $browse_url;
+      $browse_label = (string) $this->t('Browse Forms');
+    }
+    elseif ($intent_type === 'guides') {
+      $browse_url = $canonical_urls['guides'] ?? $browse_url;
+      $browse_label = (string) $this->t('Browse Guides');
+    }
+
+    $message = $service === 'faq'
+      ? $this->t('I can’t search our FAQ index right now. You can browse the FAQ page, apply for help, or call our Legal Advice Line.')
+      : $this->t('I can’t search our resource index right now. You can browse the site resources, apply for help, or call our Legal Advice Line.');
+
+    return [
+      'type' => 'navigation',
+      'response_mode' => 'navigate',
+      'message' => (string) $message,
+      'reason_code' => $exception->getReasonCode(),
+      'primary_action' => [
+        'label' => $browse_label,
+        'url' => $browse_url,
+      ],
+      'secondary_actions' => [
+        [
+          'label' => $this->t('Apply for Help'),
+          'url' => $canonical_urls['apply'] ?? '/',
+        ],
+        [
+          'label' => $this->t('Call Legal Advice Line'),
+          'url' => $canonical_urls['hotline'] ?? '/',
+        ],
+      ],
+      'actions' => $this->getEscalationActions(),
+      'request_id' => $request_id,
+    ];
+  }
+
+  /**
+   * Builds the unavailable /faq response body for the active read mode.
+   */
+  protected function buildFaqUnavailableBody(string $mode, string $request_id): array {
+    $response = [
+      'error' => 'FAQ retrieval is temporarily unavailable.',
+      'type' => 'unavailable',
+      'error_code' => 'faq_retrieval_unavailable',
+      'request_id' => $request_id,
+    ];
+
+    switch ($mode) {
+      case 'id':
+        $response['faq'] = NULL;
+        break;
+
+      case 'query':
+        $response['results'] = [];
+        $response['count'] = 0;
+        break;
+
+      default:
+        $response['categories'] = [];
+        break;
+    }
+
+    return $response;
+  }
+
+  /**
+   * Returns TRUE when the response uses the explicit resource fallback index.
+   */
+  protected function responseUsesResourceFallback(array $response): bool {
+    foreach (($response['results'] ?? []) as $result) {
+      if (is_array($result) && (($result['lexical_index_mode'] ?? '') === 'fallback')) {
+        return TRUE;
+      }
+    }
+
+    if ($this->resourceFinder && method_exists($this->resourceFinder, 'getLastLexicalResolution')) {
+      $resolution = $this->resourceFinder->getLastLexicalResolution();
+      return is_array($resolution) && (($resolution['mode'] ?? '') === 'fallback');
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Makes content-index fallback behavior explicit in user-facing responses.
+   */
+  protected function applyResourceFallbackDisclosure(array $response): array {
+    if (!$this->responseUsesResourceFallback($response) || empty($response['results'])) {
+      return $response;
+    }
+
+    $result_label = match ((string) ($response['type'] ?? 'resources')) {
+      'forms' => (string) $this->t('form-related'),
+      'guides' => (string) $this->t('guide-related'),
+      default => (string) $this->t('resource'),
+    };
+    $notice = (string) $this->t('These matches come from our broader site content because the dedicated assistant resource index is unavailable right now.');
+
+    $response['reason_code'] = 'resource_results_fallback_index';
+    $response['message'] = (string) $this->t('I found broader @label matches from our general site index:', [
+      '@label' => $result_label,
+    ]);
+    $response['degraded_notice'] = $notice;
+    $response['disclaimer'] = $notice;
+    $response['caveat'] = $notice;
+
+    return $response;
+  }
+
+  /**
    * Sanitizes user input.
    */
   protected function sanitizeInput(string $input) {
@@ -4823,8 +5135,9 @@ class AssistantApiController extends ControllerBase {
 
     // Queue health check.
     if ($container && $container->has('ilas_site_assistant.queue_health_monitor') && $sloDefinitions) {
-      $queueHealth = $container->get('ilas_site_assistant.queue_health_monitor')
-        ->getQueueHealthStatus($sloDefinitions);
+      $queueMonitor = $container->get('ilas_site_assistant.queue_health_monitor');
+      $queueHealth = $queueMonitor->getQueueHealthStatus($sloDefinitions);
+      $queueHealth['export'] = $queueMonitor->getExportOutcomeSummary();
       $checks['queue'] = $queueHealth;
       if ($queueHealth['status'] !== 'healthy') {
         $status = 'degraded';
@@ -4914,8 +5227,9 @@ class AssistantApiController extends ControllerBase {
 
     // Add queue metrics if available.
     if ($container && $container->has('ilas_site_assistant.queue_health_monitor') && $sloDefinitions) {
-      $response['queue'] = $container->get('ilas_site_assistant.queue_health_monitor')
-        ->getQueueHealthStatus($sloDefinitions);
+      $queueMonitor = $container->get('ilas_site_assistant.queue_health_monitor');
+      $response['queue'] = $queueMonitor->getQueueHealthStatus($sloDefinitions);
+      $response['queue']['export'] = $queueMonitor->getExportOutcomeSummary();
     }
 
     if ($this->sourceGovernance) {
@@ -5022,6 +5336,14 @@ class AssistantApiController extends ControllerBase {
         && empty($response['citations'])
         && !empty($response['results'])) {
       $response['confidence'] = min($response['confidence'], 0.3);
+    }
+
+    // AFRP-20: Apply freshness enforcement confidence cap.
+    // Set by ResponseGrounder::enforceFreshnessPolicy() for citation-required
+    // types with stale or unknown-freshness citations.
+    if (isset($response['_freshness_confidence_cap'])) {
+      $response['confidence'] = min($response['confidence'], (float) $response['_freshness_confidence_cap']);
+      unset($response['_freshness_confidence_cap']);
     }
 
     // decision_reason: human-readable string from reason codes or path defaults.

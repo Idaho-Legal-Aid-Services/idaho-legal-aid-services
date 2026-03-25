@@ -237,9 +237,193 @@ final class PostGenerationEnforcementTest extends TestCase {
           'question' => 'Housing help',
           'answer' => 'Read the guide for more information.',
           'url' => '/faq/housing-help',
+          'freshness' => ['status' => 'fresh'],
         ],
       ],
     ];
+  }
+
+  // -----------------------------------------------------------------------
+  // AFRP-18: Independent post-generation legal-advice scan
+  // -----------------------------------------------------------------------
+
+  /**
+   * Legal advice caught by independent scan when grounding is skipped.
+   *
+   * Proves GAP G2 is closed: responses without results skip
+   * ResponseGrounder, so _requires_review is never set. The independent
+   * PostGenerationLegalAdviceDetector scan must still catch legal advice.
+   */
+  public function testLegalAdviceCaughtByIndependentScanWhenGrounderSkipped(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = [
+      'type' => 'faq',
+      'message' => 'It would be advisable to file a motion to dismiss.',
+      'response_mode' => 'answer',
+      'primary_action' => [],
+      'secondary_actions' => [],
+      'reason_code' => 'test',
+      'results' => [],
+    ];
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertNotContains('post_gen_safety_review_flag', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Statute citation patterns caught by independent scan.
+   *
+   * Proves GAP G3 is closed: ResponseGrounder's 4 patterns miss statute
+   * citations, but PostGenerationLegalAdviceDetector catches them.
+   */
+  public function testStatuteCitationCaughtByIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Under Idaho Code section 6-321, you have the right to withhold rent.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Outcome prediction patterns caught by independent scan.
+   */
+  public function testOutcomePredictionCaughtByIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Your chances of winning this case are quite good.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Qualification assertion patterns caught by independent scan.
+   */
+  public function testQualificationAssertionCaughtByIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'You definitely qualify for legal aid based on your income.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Action prescription patterns caught by independent scan.
+   */
+  public function testActionPrescriptionCaughtByIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'I would advise you to file for divorce immediately.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Safe messages must pass through the independent scan unchanged.
+   */
+  public function testSafeMessagePassesThroughIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'Idaho Legal Aid Services provides free legal help to eligible Idahoans. Contact our office for more information.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(
+      'Idaho Legal Aid Services provides free legal help to eligible Idahoans. Contact our office for more information.',
+      $body['message'] ?? NULL
+    );
+    $this->assertNotContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertNotContains('post_gen_safety_review_flag', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Obfuscated legal advice is caught via InputNormalizer integration.
+   *
+   * Uses 4+ letter words for obfuscation since InputNormalizer's threshold
+   * requires 4+ single letters separated by punctuation to trigger
+   * normalization (preserving legitimate abbreviations like "U.S.").
+   */
+  public function testObfuscatedLegalAdviceCaughtByIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    $controller->processIntentResponse = $this->buildResponse(
+      'I w.o.u.l.d a.d.v.i.s.e you to file a motion.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
+  }
+
+  /**
+   * Review flag takes precedence; independent scan does not double-fire.
+   *
+   * When both ResponseGrounder's _requires_review flag AND the independent
+   * PostGenerationLegalAdviceDetector would match, Check 1 fires first and
+   * Check 1b is skipped (guarded by !$meta['message_replaced']).
+   */
+  public function testReviewFlagTakesPrecedenceOverIndependentScan(): void {
+    [$controller, $analytics] = $this->buildController();
+    // This message matches ResponseGrounder's 4 patterns AND PGLAD's 41.
+    $controller->processIntentResponse = $this->buildResponse(
+      'You should file a complaint with the court.',
+      'faq'
+    );
+
+    $response = $controller->message($this->buildRequest());
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(self::SAFE_FALLBACK, $body['message'] ?? NULL);
+    $this->assertContains('post_gen_safety_review_flag', $analytics->eventTypes());
+    $this->assertNotContains('post_gen_safety_legal_advice_scan', $analytics->eventTypes());
+    $this->assertInternalFieldsAreHidden($body);
   }
 
   // -----------------------------------------------------------------------
@@ -386,6 +570,9 @@ final class PostGenerationEnforcementTest extends TestCase {
     $this->assertArrayNotHasKey('weak_grounding_detected', $body);
     $this->assertArrayNotHasKey('stale_citations_caveat_added', $body);
     $this->assertArrayNotHasKey('llm_artifacts_stripped', $body);
+    $this->assertArrayNotHasKey('legal_advice_scan_triggered', $body);
+    $this->assertArrayNotHasKey('_freshness_enforcement', $body);
+    $this->assertArrayNotHasKey('_freshness_confidence_cap', $body);
   }
 
   /**

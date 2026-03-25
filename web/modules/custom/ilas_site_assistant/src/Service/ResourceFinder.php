@@ -6,6 +6,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\search_api\Entity\Index;
@@ -106,6 +107,27 @@ class ResourceFinder {
   protected $index;
 
   /**
+   * Current lexical index selection mode.
+   *
+   * @var string|null
+   */
+  protected ?string $lexicalIndexMode = NULL;
+
+  /**
+   * Latest lexical index selection details for the current request.
+   *
+   * @var array<string, mixed>
+   */
+  protected array $lastLexicalResolution = [
+    'mode' => 'unknown',
+    'index_id' => '',
+    'reason' => 'not_evaluated',
+    'degraded' => FALSE,
+    'primary_failure_code' => NULL,
+    'fallback_failure_code' => NULL,
+  ];
+
+  /**
    * Request-local retrieval telemetry summaries for observability traces.
    *
    * @var array<int, array<string, mixed>>
@@ -195,6 +217,22 @@ class ResourceFinder {
   }
 
   /**
+   * Filters built resource items to the current language context.
+   *
+   * @param array $resources
+   *   Built resource candidates keyed by node ID.
+   *
+   * @return array
+   *   The subset whose resolved URLs match the current request language.
+   */
+  protected function filterResourcesByCurrentLanguage(array $resources): array {
+    return array_filter(
+      $resources,
+      fn(array $resource): bool => $this->urlMatchesCurrentLanguage((string) ($resource['url'] ?? '')),
+    );
+  }
+
+  /**
    * Gets the Search API index.
    *
    * Tries the dedicated assistant_resources index first. Falls back to the
@@ -204,17 +242,52 @@ class ResourceFinder {
    *   The index or NULL if not available.
    */
   protected function getIndex() {
-    if ($this->index === NULL) {
-      // Try dedicated assistant resources index first.
-      $index_id = $this->retrievalConfiguration?->getResourceIndexId();
-      $this->index = $index_id ? Index::load($index_id) : NULL;
-      if (!$this->index || !$this->index->status()) {
-        // Fall back to generic content index.
-        $fallback_index_id = $this->retrievalConfiguration?->getResourceFallbackIndexId();
-        $this->index = $fallback_index_id ? Index::load($fallback_index_id) : NULL;
-      }
+    if ($this->lexicalIndexMode !== NULL) {
+      return $this->index;
     }
-    return $this->index;
+
+    if ($this->hasRetrievalConfiguration() && !$this->retrievalConfiguration->isResourceEnabled()) {
+      $this->setLexicalResolution('inactive', NULL, 'resources_disabled', FALSE);
+      $this->index = NULL;
+      return NULL;
+    }
+
+    $primary_snapshot = $this->getDependencySnapshot('resource_index');
+    $primary_index_id = $this->retrievalConfiguration?->getResourceIndexId();
+    $primary_index = $primary_index_id ? Index::load($primary_index_id) : NULL;
+    if ($this->isDependencyHealthy($primary_index, $primary_snapshot)) {
+      $this->index = $primary_index;
+      $this->setLexicalResolution('primary', $primary_index_id, 'primary_index_available', FALSE, $primary_snapshot, []);
+      return $this->index;
+    }
+
+    $fallback_snapshot = $this->getDependencySnapshot('resource_fallback_index');
+    $fallback_index_id = $this->retrievalConfiguration?->getResourceFallbackIndexId();
+    $fallback_index = $fallback_index_id ? Index::load($fallback_index_id) : NULL;
+    if ($this->isDependencyHealthy($fallback_index, $fallback_snapshot)) {
+      $this->index = $fallback_index;
+      $this->setLexicalResolution(
+        'fallback',
+        $fallback_index_id,
+        'primary_index_unavailable',
+        TRUE,
+        $primary_snapshot,
+        $fallback_snapshot,
+      );
+      return $this->index;
+    }
+
+    $this->index = NULL;
+    $this->setLexicalResolution(
+      'unavailable',
+      NULL,
+      'required_lexical_indexes_unavailable',
+      TRUE,
+      $primary_snapshot,
+      $fallback_snapshot,
+    );
+
+    return NULL;
   }
 
   /**
@@ -224,9 +297,19 @@ class ResourceFinder {
    *   TRUE if using the dedicated index, FALSE if using fallback.
    */
   public function isUsingDedicatedIndex(): bool {
-    $index = $this->getIndex();
-    $configured_index_id = $this->retrievalConfiguration?->getResourceIndexId();
-    return $index && $configured_index_id !== NULL && $index->id() === $configured_index_id;
+    $this->getIndex();
+    return $this->lexicalIndexMode === 'primary';
+  }
+
+  /**
+   * Returns the current lexical index selection details.
+   *
+   * @return array<string, mixed>
+   *   Lexical resolution details.
+   */
+  public function getLastLexicalResolution(): array {
+    $this->getIndex();
+    return $this->lastLexicalResolution;
   }
 
   /**
@@ -237,7 +320,7 @@ class ResourceFinder {
    */
   public function isIndexAvailable() {
     $index = $this->getIndex();
-    return $index && $index->status();
+    return $index && $index->status() && !$this->isDependencyUnavailable();
   }
 
   /**
@@ -462,7 +545,45 @@ class ResourceFinder {
    *   Array of matching resources.
    */
   protected function findByType(string $query, ?string $type, int $limit) {
+    $index = $this->getIndex();
+    if ($this->lexicalIndexMode === NULL) {
+      if ($index && $index->status()) {
+        $this->setLexicalResolution(
+          $this->isUsingDedicatedIndex() ? 'primary' : 'fallback',
+          method_exists($index, 'id') ? (string) $index->id() : NULL,
+          $this->isUsingDedicatedIndex() ? 'primary_index_available' : 'primary_index_unavailable',
+          !$this->isUsingDedicatedIndex(),
+        );
+      }
+      elseif ($this->hasRetrievalConfiguration() && !$this->retrievalConfiguration->isResourceEnabled()) {
+        $this->setLexicalResolution('inactive', NULL, 'resources_disabled', FALSE);
+      }
+      else {
+        $this->setLexicalResolution('unavailable', NULL, 'required_lexical_indexes_unavailable', TRUE);
+      }
+    }
+
+    if ($this->isDependencyUnavailable()) {
+      $this->recordRetrievalTelemetry(
+        $query,
+        $type,
+        [],
+        [
+          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+          'should_attempt' => FALSE,
+          'reason' => 'resource_retrieval_unavailable',
+          'lexical_degraded_reason' => 'resource_retrieval_unavailable',
+        ],
+        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'resource_retrieval_unavailable'),
+        'dependency_unavailable',
+      );
+      throw $this->buildResourceDependencyUnavailableException();
+    }
+
     $cache_key = $this->buildQueryCacheKey($query, $type, $limit);
+    if ($cache_key && ($this->lexicalIndexMode ?? 'primary') !== 'primary') {
+      $cache_key .= ':' . $this->lexicalIndexMode;
+    }
     if ($cache_key) {
       $cached = $this->cache->get($cache_key);
       if ($cached) {
@@ -474,6 +595,9 @@ class ResourceFinder {
             'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
             'should_attempt' => NULL,
             'reason' => 'query_cache_hit',
+            'lexical_degraded_reason' => ($this->lexicalIndexMode ?? 'primary') === 'fallback'
+              ? 'resource_primary_index_unavailable'
+              : NULL,
           ],
           $this->buildVectorOutcome(FALSE, 'cached', 'query_cache_hit'),
           'query_cache',
@@ -483,11 +607,15 @@ class ResourceFinder {
       }
     }
 
-    $index = $this->getIndex();
-
     // Use Search API if available.
     if ($index && $index->status()) {
       $search_payload = $this->findByTypeSearchApi($query, $type, $limit);
+      if (($this->lexicalIndexMode ?? 'primary') === 'fallback') {
+        $search_payload['decision'] = ($search_payload['decision'] ?? []) + [
+          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+          'lexical_degraded_reason' => 'resource_primary_index_unavailable',
+        ];
+      }
       $results = $search_payload['items'];
       if ($cache_key && $this->isVectorOutcomeCacheable($search_payload['vector_outcome'])) {
         $this->cache->set($cache_key, $results, time() + self::QUERY_CACHE_TTL, [
@@ -501,7 +629,7 @@ class ResourceFinder {
         $results,
         $search_payload['decision'] ?? NULL,
         $search_payload['vector_outcome'] ?? NULL,
-        'search_api',
+        ($this->lexicalIndexMode ?? 'primary') === 'fallback' ? 'search_api_fallback' : 'search_api',
       );
       return $results;
     }
@@ -597,6 +725,9 @@ class ResourceFinder {
     }
 
     $vector_outcome = $vector_outcome ?? $this->buildVectorOutcome(FALSE, 'not_evaluated', 'not_evaluated');
+    $lexical_degraded_reason = isset($decision['lexical_degraded_reason']) && is_string($decision['lexical_degraded_reason'])
+      ? $decision['lexical_degraded_reason']
+      : NULL;
     $this->retrievalTelemetry[] = [
       'service' => 'resource',
       'path' => $path,
@@ -609,9 +740,9 @@ class ResourceFinder {
       'vector_attempted' => (bool) ($vector_outcome['attempted'] ?? FALSE),
       'vector_status' => (string) ($vector_outcome['status'] ?? 'not_evaluated'),
       'vector_decision_reason' => $decision['reason'] ?? 'not_evaluated',
-      'degraded_reason' => in_array(($vector_outcome['status'] ?? ''), ['degraded', 'backoff'], TRUE)
+      'degraded_reason' => $lexical_degraded_reason ?? (in_array(($vector_outcome['status'] ?? ''), ['degraded', 'backoff'], TRUE)
         ? ($vector_outcome['reason'] ?? 'degraded')
-        : NULL,
+        : NULL),
       'vector_elapsed_ms' => isset($vector_outcome['elapsed_ms']) ? (int) $vector_outcome['elapsed_ms'] : NULL,
       'result_count' => count($items),
       'lexical_result_count' => $lexical_result_count,
@@ -636,6 +767,7 @@ class ResourceFinder {
   protected function findByTypeSearchApi(string $query, ?string $type, int $limit) {
     $index = $this->getIndex();
     $using_dedicated = $this->isUsingDedicatedIndex();
+    $lexical_index_mode = $using_dedicated ? 'primary' : 'fallback';
 
     try {
       $search_query = $index->query();
@@ -681,6 +813,7 @@ class ResourceFinder {
           $item = $this->buildResourceItem($node);
           $item['type'] = $resource_type;
           $item['score'] = $result_item->getScore() ?? 0;
+          $item['lexical_index_mode'] = $lexical_index_mode;
 
           // Relevance check: only needed for the generic content index to
           // filter out false positives from boilerplate/footer content.
@@ -791,6 +924,91 @@ class ResourceFinder {
     }
 
     return $item;
+  }
+
+  /**
+   * Returns TRUE when the retrieval configuration service is available.
+   */
+  protected function hasRetrievalConfiguration(): bool {
+    return $this->retrievalConfiguration !== NULL;
+  }
+
+  /**
+   * Returns one resource dependency snapshot when available.
+   *
+   * @return array<string, mixed>
+   *   Dependency snapshot.
+   */
+  protected function getDependencySnapshot(string $dependency_key): array {
+    if (!$this->hasRetrievalConfiguration()) {
+      return [];
+    }
+
+    return $this->retrievalConfiguration->getRetrievalDependency($dependency_key);
+  }
+
+  /**
+   * Returns TRUE when the candidate dependency is usable.
+   */
+  protected function isDependencyHealthy($index, array $snapshot): bool {
+    if ($snapshot !== [] && !empty($snapshot['active']) && ($snapshot['status'] ?? 'degraded') !== 'healthy') {
+      return FALSE;
+    }
+
+    return $index && $index->status();
+  }
+
+  /**
+   * Records the current lexical selection mode.
+   */
+  protected function setLexicalResolution(
+    string $mode,
+    ?string $index_id,
+    string $reason,
+    bool $degraded,
+    array $primary_snapshot = [],
+    array $fallback_snapshot = [],
+  ): void {
+    $this->lexicalIndexMode = $mode;
+    $this->lastLexicalResolution = [
+      'mode' => $mode,
+      'index_id' => $index_id ?? '',
+      'reason' => $reason,
+      'degraded' => $degraded,
+      'primary_failure_code' => $primary_snapshot['failure_code'] ?? NULL,
+      'fallback_failure_code' => $fallback_snapshot['failure_code'] ?? NULL,
+    ];
+  }
+
+  /**
+   * Returns TRUE when neither primary nor fallback lexical retrieval is usable.
+   */
+  protected function isDependencyUnavailable(): bool {
+    return $this->lexicalIndexMode === 'unavailable';
+  }
+
+  /**
+   * Builds the typed resource dependency-unavailable exception.
+   */
+  protected function buildResourceDependencyUnavailableException(): RetrievalDependencyUnavailableException {
+    $primary_snapshot = $this->getDependencySnapshot('resource_index');
+    $fallback_snapshot = $this->getDependencySnapshot('resource_fallback_index');
+    $context = [
+      'dependency_key' => 'resource_index',
+      'classification' => (string) ($primary_snapshot['classification'] ?? 'required'),
+      'failure_code' => (string) ($this->lastLexicalResolution['reason'] ?? 'required_lexical_indexes_unavailable'),
+      'primary_index_id' => (string) ($primary_snapshot['index_id'] ?? ''),
+      'fallback_index_id' => (string) ($fallback_snapshot['index_id'] ?? ''),
+      'primary_failure_code' => (string) ($primary_snapshot['failure_code'] ?? 'index_unavailable'),
+      'fallback_failure_code' => (string) ($fallback_snapshot['failure_code'] ?? 'index_unavailable'),
+      'server_id' => (string) ($primary_snapshot['server_id'] ?? ''),
+    ];
+
+    return new RetrievalDependencyUnavailableException(
+      'resource',
+      'resource_retrieval_unavailable',
+      $context,
+    );
   }
 
   /**
@@ -1435,6 +1653,7 @@ class ResourceFinder {
     $topic = $this->topicResolver->resolveFromText($query);
     $topic_id = $topic ? (int) $topic['id'] : NULL;
     $resources = $this->loadLegacyResourceCandidates($query, $limit, $topic_id);
+    $resources = $this->filterResourcesByCurrentLanguage($resources);
 
     // Use enhanced ranking if available.
     if ($this->rankingEnhancer) {
@@ -1544,6 +1763,7 @@ class ResourceFinder {
     }
 
     $resources = $this->loadLegacyResourceCandidates('', $limit, $topic_id);
+    $resources = $this->filterResourcesByCurrentLanguage($resources);
     $results = [];
 
     foreach ($resources as $resource) {
@@ -1587,6 +1807,7 @@ class ResourceFinder {
     }
 
     $resources = $this->loadLegacyResourceCandidates('', $limit, NULL, $service_area_id);
+    $resources = $this->filterResourcesByCurrentLanguage($resources);
     $results = [];
 
     foreach ($resources as $resource) {
@@ -1639,6 +1860,7 @@ class ResourceFinder {
     $entity_query = $node_storage->getQuery()
       ->condition('type', 'resource')
       ->condition('status', 1)
+      ->condition('langcode', $this->getCurrentLanguage())
       ->accessCheck(TRUE)
       ->sort('changed', 'DESC')
       ->range(0, $candidate_limit);

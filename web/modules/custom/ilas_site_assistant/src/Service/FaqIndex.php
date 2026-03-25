@@ -6,6 +6,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\search_api\Entity\Index;
@@ -254,6 +255,104 @@ class FaqIndex {
   }
 
   /**
+   * Returns TRUE when the retrieval configuration service is available.
+   */
+  protected function hasRetrievalConfiguration(): bool {
+    return isset($this->retrievalConfiguration);
+  }
+
+  /**
+   * Returns the governed FAQ dependency snapshot when available.
+   *
+   * @return array<string, mixed>
+   *   Dependency snapshot.
+   */
+  protected function getFaqDependencySnapshot(): array {
+    if (!$this->hasRetrievalConfiguration()) {
+      return [];
+    }
+
+    return $this->retrievalConfiguration->getRetrievalDependency('faq_index');
+  }
+
+  /**
+   * Returns TRUE when FAQ lexical retrieval is currently active.
+   */
+  protected function isFaqDependencyActive(): bool {
+    $snapshot = $this->getFaqDependencySnapshot();
+    if ($snapshot === []) {
+      return TRUE;
+    }
+
+    return (bool) ($snapshot['active'] ?? TRUE);
+  }
+
+  /**
+   * Returns TRUE when FAQ lexical retrieval is usable.
+   */
+  protected function isFaqDependencyAvailable($index): bool {
+    if (!$this->isFaqDependencyActive()) {
+      return TRUE;
+    }
+
+    if ($this->getFaqDependencySnapshot() !== []
+      && ($this->getFaqDependencySnapshot()['status'] ?? 'degraded') !== 'healthy') {
+      return FALSE;
+    }
+
+    return $index && $index->status();
+  }
+
+  /**
+   * Builds the typed FAQ dependency-unavailable exception.
+   */
+  protected function buildFaqDependencyUnavailableException(string $operation): RetrievalDependencyUnavailableException {
+    $snapshot = $this->getFaqDependencySnapshot();
+    $context = [
+      'dependency_key' => (string) ($snapshot['dependency_key'] ?? 'faq_index'),
+      'classification' => (string) ($snapshot['classification'] ?? 'required'),
+      'failure_code' => (string) ($snapshot['failure_code'] ?? 'index_unavailable'),
+      'index_id' => (string) ($snapshot['index_id'] ?? ''),
+      'server_id' => (string) ($snapshot['server_id'] ?? ''),
+      'operation' => $operation,
+    ];
+
+    return new RetrievalDependencyUnavailableException(
+      'faq',
+      'faq_retrieval_unavailable',
+      $context,
+    );
+  }
+
+  /**
+   * Throws when FAQ lexical retrieval is unavailable.
+   */
+  protected function assertFaqDependencyAvailable(string $operation, ?string $query = NULL, ?string $type = NULL): void {
+    $index = $this->getIndex();
+    if ($this->isFaqDependencyAvailable($index)) {
+      return;
+    }
+
+    if ($query !== NULL) {
+      $this->recordRetrievalTelemetry(
+        $query,
+        $type,
+        [],
+        [
+          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+          'should_attempt' => FALSE,
+          'reason' => 'faq_retrieval_unavailable',
+          'lexical_degraded_reason' => 'faq_retrieval_unavailable',
+        ],
+        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'faq_retrieval_unavailable'),
+        'dependency_unavailable',
+      );
+    }
+
+    throw $this->buildFaqDependencyUnavailableException($operation);
+  }
+
+  /**
    * Checks if Search API index is available and usable.
    *
    * @return bool
@@ -261,7 +360,7 @@ class FaqIndex {
    */
   public function isIndexAvailable() {
     $index = $this->getIndex();
-    return $index && $index->status();
+    return $this->isFaqDependencyAvailable($index);
   }
 
   /**
@@ -278,6 +377,8 @@ class FaqIndex {
    *   Array of matching items with deep-link URLs.
    */
   public function search(string $query, int $limit = 5, ?string $type = NULL) {
+    $this->assertFaqDependencyAvailable('search', $query, $type);
+
     $cache_key = $this->buildQueryCacheKey($query, $limit, $type);
     if ($cache_key) {
       $cached = $this->cache->get($cache_key);
@@ -301,22 +402,8 @@ class FaqIndex {
 
     $index = $this->getIndex();
 
-    // Fall back to legacy method if index not available.
     if (!$index || !$index->status()) {
-      $results = $this->searchLegacy($query, $limit);
-      $this->recordRetrievalTelemetry(
-        $query,
-        $type,
-        $results,
-        [
-          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
-          'should_attempt' => FALSE,
-          'reason' => 'lexical_index_unavailable',
-        ],
-        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'lexical_index_unavailable'),
-        'legacy',
-      );
-      return $results;
+      throw $this->buildFaqDependencyUnavailableException('search');
     }
 
     try {
@@ -470,6 +557,9 @@ class FaqIndex {
     }
 
     $vector_outcome = $vector_outcome ?? $this->buildVectorOutcome(FALSE, 'not_evaluated', 'not_evaluated');
+    $lexical_degraded_reason = isset($decision['lexical_degraded_reason']) && is_string($decision['lexical_degraded_reason'])
+      ? $decision['lexical_degraded_reason']
+      : NULL;
     $this->retrievalTelemetry[] = [
       'service' => 'faq',
       'path' => $path,
@@ -482,9 +572,9 @@ class FaqIndex {
       'vector_attempted' => (bool) ($vector_outcome['attempted'] ?? FALSE),
       'vector_status' => (string) ($vector_outcome['status'] ?? 'not_evaluated'),
       'vector_decision_reason' => $decision['reason'] ?? 'not_evaluated',
-      'degraded_reason' => in_array(($vector_outcome['status'] ?? ''), ['degraded', 'backoff'], TRUE)
+      'degraded_reason' => $lexical_degraded_reason ?? (in_array(($vector_outcome['status'] ?? ''), ['degraded', 'backoff'], TRUE)
         ? ($vector_outcome['reason'] ?? 'degraded')
-        : NULL,
+        : NULL),
       'vector_elapsed_ms' => isset($vector_outcome['elapsed_ms']) ? (int) $vector_outcome['elapsed_ms'] : NULL,
       'result_count' => count($items),
       'lexical_result_count' => $lexical_result_count,
@@ -684,6 +774,8 @@ class FaqIndex {
    *   Item data or NULL if not found.
    */
   public function getById(string $id) {
+    $this->assertFaqDependencyAvailable('get_by_id');
+
     // Extract paragraph ID from faq_123 format.
     if (preg_match('/^faq_(\d+)$/', $id, $matches)) {
       $paragraph_id = $matches[1];
@@ -772,10 +864,12 @@ class FaqIndex {
    *   Array of category names with counts.
    */
   public function getCategories() {
+    $this->assertFaqDependencyAvailable('get_categories');
+
     $index = $this->getIndex();
 
     if (!$index || !$index->status()) {
-      return $this->getCategoriesLegacy();
+      throw $this->buildFaqDependencyUnavailableException('get_categories');
     }
 
     // Get all items and group by parent.

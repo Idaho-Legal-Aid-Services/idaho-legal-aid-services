@@ -598,12 +598,13 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeEntryCriteriaOneGateTest.php`
 
 ### CLAIM-066
-- Claim: Pinecone Search API server is configured with Gemini chat model, Gemini embedding model, 3072 dimensions, and cosine similarity.
+- Claim: Pinecone Search API is configured through two Search API servers, `pinecone_vector_faq` and `pinecone_vector_resources`, which share Pinecone index `ilas-assistant` but use distinct collections/namespaces (`faq_accordion_vector`, `assistant_resources_vector`) with Gemini chat/embedding models, 3072 dimensions, and cosine similarity.
 - Evidence:
-  - `config/search_api.server.pinecone_vector.yml:11-29`
+  - `config/search_api.server.pinecone_vector_faq.yml:11-29`
+  - `config/search_api.server.pinecone_vector_resources.yml:11-29`
 
 ### CLAIM-067
-- Claim: Vector indexes exist for FAQ paragraphs and resource nodes on `pinecone_vector` server.
+- Claim: Vector indexes exist for FAQ paragraphs and resource nodes on split Search API servers (`pinecone_vector_faq`, `pinecone_vector_resources`) and corresponding Pinecone collections (`faq_accordion_vector`, `assistant_resources_vector`).
 - Evidence:
   - `config/search_api.index.faq_accordion_vector.yml:10-82`
   - `config/search_api.index.assistant_resources_vector.yml:10-67`
@@ -1664,7 +1665,7 @@ Evidence precedence used in this audit:
   Phase 2 scope constraints are preserved: no live LLM enablement, no retrieval
   architecture redesign, no platform migration.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (`assembleContractFields()` method + 5 call sites)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (`assembleContractFields()` method + current 200-response branch coverage, including retrieval-unavailable degradation)
   - `web/modules/custom/ilas_site_assistant/src/Service/FallbackGate.php` (`getReasonCodeDescriptions()` with 13 REASON_* constants)
   - `web/modules/custom/ilas_site_assistant/src/Service/ResponseGrounder.php` (`sources[]` production in `groundResponse()`)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoDeliverableOneGateTest.php`
@@ -3266,7 +3267,8 @@ that remained open after 2026-03-13.
   "unregistered callers" error.
 - Evidence:
   - `docs/aila/runtime/tovr-09-pinecone-inventory.txt`
-  - `config/search_api.server.pinecone_vector.yml`
+  - `config/search_api.server.pinecone_vector_faq.yml`
+  - `config/search_api.server.pinecone_vector_resources.yml`
   - `config/search_api.index.faq_accordion_vector.yml`
   - `config/search_api.index.assistant_resources_vector.yml`
   - `config/key.key.gemini_api_key.yml`
@@ -3325,7 +3327,8 @@ that remained open after 2026-03-13.
   `ProviderProxy` unregistered-callers error.
 - Evidence:
   - `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`
-  - `config/search_api.server.pinecone_vector.yml`
+  - `config/search_api.server.pinecone_vector_faq.yml`
+  - `config/search_api.server.pinecone_vector_resources.yml`
   - `config/search_api.index.faq_accordion_vector.yml`
   - `config/search_api.index.assistant_resources_vector.yml`
   - `web/modules/custom/ilas_site_assistant/src/Service/RetrievalConfigurationService.php`
@@ -3569,7 +3572,8 @@ that remained open after 2026-03-13.
 - Evidence:
   - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
   - `config/core.extension.yml`
-  - `config/search_api.server.pinecone_vector.yml`
+  - `config/search_api.server.pinecone_vector_faq.yml`
+  - `config/search_api.server.pinecone_vector_resources.yml`
   - `config/ai_vdb_provider_pinecone.settings.yml`
   - `config/key.key.pinecone_api_key.yml`
   - `web/modules/contrib/ai/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php`
@@ -3914,3 +3918,167 @@ that remained open after 2026-03-13.
   - `docs/aila/runtime/afrp-09-langfuse-operator-truth.txt`
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTracerTest.php`
+
+### CLAIM-266
+- Claim: AFRP-12 defines a formal observability-proof taxonomy with 7 named levels
+  (L0:Unverified through L6:Ownership) separating transport reachability from
+  trustworthy signal coverage. The taxonomy is implemented as frozen constants in
+  `ObservabilityProofTaxonomy.php` with `TOOL_MAX_PROOF` ceilings per tool and
+  `CLAIM_MIN_PROOF` minimums per report claim class, enforced by contract tests
+  in `ObservabilityProofTaxonomyTest.php`.
+- Evidence:
+  - `docs/aila/runtime/afrp-12-observability-proof-standard.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php`
+
+### CLAIM-267
+- Claim: AFRP-12 updates Sentry and Langfuse probe commands to emit their achievable
+  proof level in output, preventing operators and reports from conflating transport
+  success with account-side signal coverage. Sentry probe declares L1:Transport,
+  Langfuse direct probe declares L3:PayloadAcceptance, and Langfuse queued probe
+  declares L2:QueueDrain. Error paths and diagnose mode declare L0:Unverified.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php`
+
+### CLAIM-268
+- Claim: AFRP-12 contract tests enforce that report claims of "operational" require
+  L4:AccountSide proof minimum and "fully_operationalized" requires L6:Ownership
+  proof, preventing future proof-level inflation. Tests also verify probe commands
+  reference their declared taxonomy ceiling in source code and that documentation
+  artifacts (runbook, current-state, evidence-index) reference the proof taxonomy.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php`
+
+## AFRP-14 Resource Language Isolation Remediation (2026-03-25)
+
+### CLAIM-269
+- Claim: AFRP-14 identifies three ResourceFinder legacy fallback paths lacking
+  language isolation: `findByTypeLegacy()`, `findByTopic()`, and
+  `findByServiceArea()`. All three use `loadLegacyResourceCandidates()` which
+  queried nodes without a `langcode` condition and returned results without
+  URL-based language validation.
+- Evidence:
+  - `docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+
+### CLAIM-270
+- Claim: AFRP-14 fixes resource language isolation with defense-in-depth:
+  a query-level `langcode` condition in `loadLegacyResourceCandidates()` and
+  a `filterResourcesByCurrentLanguage()` post-filter in each of the three
+  calling methods. This mirrors the FaqIndex AFRP-01 pattern.
+- Evidence:
+  - `docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+
+### CLAIM-271
+- Claim: AFRP-14 also closes a subtle injection vector where `findByTopic()`
+  (called from `findByTypeSearchApi()` at line 826 for sparse-result topic boost)
+  could inject unfiltered foreign-language resources into an otherwise
+  language-safe lexical Search API flow.
+- Evidence:
+  - `docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
+
+### CLAIM-272
+- Claim: AFRP-14 pure-unit regression coverage (6 tests, 9 assertions) proves
+  that cross-language resource leakage is caught in all three legacy paths and
+  that all-foreign-language inputs return empty results (fail closed). Full
+  unit suite (2486 tests) passes with no regressions.
+- Evidence:
+  - `docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ResourceLanguageIsolationTest.php`
+
+## AFRP-16 Runtime Diagnostics Hardening (2026-03-25)
+
+### CLAIM-273
+- Claim: `RuntimeDiagnosticsMatrixBuilder` produces a unified, machine-checkable
+  JSON artifact combining runtime truth, retrieval health, credential presence,
+  and AFRP-12 proof-level annotations so operators can answer "is this
+  environment healthy, and what proof do I have?" from a single command
+  (`ilas:runtime-diagnostics`).
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeDiagnosticsMatrixBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/RuntimeDiagnosticsCommands.php`
+  - `docs/aila/runtime/afrp-16-runtime-diagnostics-hardening.txt`
+
+### CLAIM-274
+- Claim: The diagnostics matrix output schema is contract-locked by 14 unit
+  tests (653+ assertions) covering top-level keys, row shape, assertion values,
+  proof-level validity, secret leak prevention, credential boolean-only
+  invariant, feature-gate skip semantics, missing-required-index fail semantics,
+  and healthy-state zero-fail invariant.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeDiagnosticsMatrixContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php`
+
+### CLAIM-275
+- Claim: `ObservabilityProofTaxonomy` extended with AFRP-16 constants:
+  `TOOL_RUNTIME_DIAGNOSTICS` (ceiling L0:Unverified), `FACT_CATEGORIES`
+  (7 categories), and four `ASSERTION_*` constants. All constants are
+  contract-tested and referenced by the diagnostics command source.
+- Evidence:
+  - `web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php`
+
+## AFRP-17 Langfuse Queue-Loss Operationalization (2026-03-25)
+
+### CLAIM-276
+- Claim: AFRP-17 upgrades Langfuse queue-loss accounting from raw occurrence
+  counters to structured operator-facing state. `QueueHealthMonitor` now tracks
+  per-outcome aggregate queue-item/event totals, classifies outcomes by policy
+  (`alertable_loss`, `informational_loss`, `retry_only`, `success`), exposes
+  `action_required`, and adds explicit terminate-side enqueue-failure
+  accounting (`drop_enqueue_failure`) without widening the payload boundary or
+  adding a dead-letter queue.
+- Evidence:
+  - `docs/aila/runtime/afrp-17-langfuse-queue-loss-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/QueueHealthMonitor.php`
+  - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+  - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+
+### CLAIM-277
+- Claim: AFRP-17 makes Langfuse queue loss operator-actionable across repo-owned
+  surfaces. `SloAlertService` now emits cooldowned warnings for new alertable
+  loss outcomes, `ilas:langfuse-status` and `ilas:langfuse-probe --diagnose`
+  expose the structured export summary, `/assistant/api/health` and
+  `/assistant/api/metrics` expose the same summary under `queue.export`, and
+  the admin report includes action-required plus loss totals while preserving
+  top-level health degradation based only on queue depth/age.
+- Evidence:
+  - `docs/aila/runtime/afrp-17-langfuse-queue-loss-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseStatusCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
+
+### CLAIM-278
+- Claim: AFRP-17 validation proves the new queue-loss contract locally. The
+  targeted PHPUnit suite and full `VC-PURE`/`VC-UNIT` runs pass, and a clean
+  local stale-item drill (`langfuse.max_item_age_seconds=1`, synthetic queued
+  batch, `queue:run`) records `discard_stale` with `queue_items=1`,
+  `event_count=1`, `lost_event_count=1`, and `action_required=true`. Exact
+  local `ilas:langfuse-status` / `ilas:langfuse-probe --diagnose` reruns now
+  succeed after follow-up hardening isolated
+  `runtime_diagnostics_commands` from missing-builder bootstrap failures.
+- Evidence:
+  - `docs/aila/runtime/afrp-17-langfuse-queue-loss-remediation.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/RuntimeDiagnosticsCommands.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeDiagnosticsCommandsTest.php`

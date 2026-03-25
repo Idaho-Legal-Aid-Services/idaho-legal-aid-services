@@ -30,6 +30,11 @@ class SloAlertService {
   const STATE_PREFIX = 'ilas_site_assistant.slo_alert_last_';
 
   /**
+   * State key prefix for per-outcome queue-loss alert totals.
+   */
+  const STATE_QUEUE_LOSS_TOTAL_PREFIX = 'ilas_site_assistant.slo_alert_queue_loss_total_';
+
+  /**
    * The SLO definitions service.
    *
    * @var \Drupal\ilas_site_assistant\Service\SloDefinitions
@@ -210,6 +215,8 @@ class SloAlertService {
       ]);
       $this->recordAlert('queue');
     }
+
+    $this->checkQueueLossAlerts();
   }
 
   /**
@@ -234,6 +241,41 @@ class SloAlertService {
    */
   protected function recordAlert(string $type): void {
     $this->state->set(self::STATE_PREFIX . $type, time());
+  }
+
+  /**
+   * Emits per-outcome alerts for newly observed alertable queue loss.
+   */
+  protected function checkQueueLossAlerts(): void {
+    if ($this->queueHealthMonitor === NULL) {
+      return;
+    }
+
+    $lossOutcomes = $this->queueHealthMonitor->getActionableLossOutcomes();
+    foreach ($lossOutcomes as $outcome => $summary) {
+      $currentQueueItems = (int) ($summary['queue_items'] ?? 0);
+      $lastAlertedQueueItems = (int) $this->state->get(self::STATE_QUEUE_LOSS_TOTAL_PREFIX . $outcome, 0);
+
+      if ($currentQueueItems <= $lastAlertedQueueItems) {
+        continue;
+      }
+
+      $alertType = 'queue_loss_' . $outcome;
+      if (!$this->cooldownElapsed($alertType)) {
+        continue;
+      }
+
+      $this->logger->warning('SLO violation: queue loss outcome @outcome detected (@new new batches, @total total batches, @events lost events)', [
+        '@outcome' => $outcome,
+        '@new' => $currentQueueItems - $lastAlertedQueueItems,
+        '@total' => $currentQueueItems,
+        '@events' => (int) ($summary['event_count'] ?? 0),
+        '@slo_dimension' => 'queue_loss',
+      ]);
+
+      $this->state->set(self::STATE_QUEUE_LOSS_TOTAL_PREFIX . $outcome, $currentQueueItems);
+      $this->recordAlert($alertType);
+    }
   }
 
 }

@@ -1,0 +1,250 @@
+AFRP-15 — Anonymous Read Endpoint Contract Minimization
+=======================================================
+Date: 2026-03-25
+Prerequisite: AFRP-04
+
+1. Prior Anonymous Read Contract
+--------------------------------
+
+Supported compatibility scope for this remediation:
+
+  - Repo-proven callers/tooling only
+  - Published README examples
+  - No compatibility guarantee for undocumented anonymous fields
+
+Anonymous API read surfaces in scope:
+
+  a) GET /assistant/api/session/bootstrap
+     - 200 body: raw CSRF token text
+     - 200 headers: text/plain; charset=UTF-8, Cache-Control: no-store, private,
+       X-Content-Type-Options: nosniff
+     - 429 body: plain-text throttle message
+     - 429 headers: Retry-After, text/plain; charset=UTF-8,
+       Cache-Control: no-store, private, X-Content-Type-Options: nosniff
+     - Caller proof:
+       - assistant-widget.js fetchCsrfToken() consumes response.text()
+       - functional bootstrap tests assert token + cookie continuity
+
+  b) GET /assistant/api/suggest
+     - 200 body: {"suggestions":[{"type","label","id"}]}
+     - Additional 200-path metadata existed in one degraded-success case:
+       reason_code=request_id on FAQ dependency loss
+     - 429 body: {"suggestions":[],"error", "type":"rate_limit","request_id"}
+     - 429 header: Retry-After
+     - Caller proof:
+       - README example documents only type/label/id
+       - no shipped frontend code calls /suggest directly
+       - runbook/runtime probes treat it as public anonymous JSON
+
+  c) GET /assistant/api/faq
+     - Query mode 200 body previously returned:
+       results[] = {id, question, answer, url, source}
+       count
+     - ID mode 200 body returned:
+       faq = {id, question, answer, url}
+     - Category mode 200 body returned whatever FaqIndex::getCategories()
+       emitted; runtime sample was {name, count}, but the controller did not
+       explicitly lock that DTO
+     - 404 ID mode body: {"error":"FAQ not found"}
+     - 429 body: endpoint-shaped empty payload + error/type/request_id
+     - 503 unavailable body: endpoint-shaped empty payload +
+       error/type/error_code/request_id
+     - Caller proof:
+       - README example documents only id/question/answer/url for search mode
+       - no shipped frontend code calls /faq directly
+       - runbook/runtime probes treat it as public anonymous JSON
+
+Pre-edit runtime capture summary:
+
+  - bootstrap 200:
+    status=200
+    headers: Cache-Control=no-store, private; Content-Type=text/plain;
+    X-Content-Type-Options=nosniff
+    body preview: raw token text
+
+  - suggest 200:
+    status=200
+    body keys: suggestions
+    item keys observed: type, label, id
+
+  - faq query 200:
+    status=200
+    body keys: results, count
+    item keys observed: id, answer, question, url, source
+
+  - faq categories 200:
+    status=200
+    body keys: categories
+    item keys observed: name, count
+
+  - faq id 200:
+    status=200
+    body keys: faq
+    item keys observed: id, answer, question, url
+
+Pre-edit throttle/unavailable shape proof source:
+
+  - AssistantApiReadEndpointContractTest.php
+  - AssistantApiFunctionalTest.php
+
+
+2. Post-Change Contract
+-----------------------
+
+Final anonymous read contract:
+
+  a) GET /assistant/api/session/bootstrap
+     - Unchanged by AFRP-15
+     - 200: raw token text only
+     - 429: plain-text throttle message only
+
+  b) GET /assistant/api/suggest
+     - 200 success: {"suggestions":[{"type","label","id"}]}
+     - 200 short-query/degraded success: {"suggestions":[]}
+     - FAQ dependency-loss success no longer exposes reason_code/request_id
+     - 429 unchanged: suggestions/error/type/request_id + Retry-After
+
+  c) GET /assistant/api/faq
+     - Query mode 200:
+       results[] = {id, question, answer, url}
+       count
+     - ID mode 200:
+       faq = {id, question, answer, url}
+     - Category mode 200:
+       categories[] = {name, count}
+     - 404 unchanged:
+       {"error":"FAQ not found"}
+     - 429 unchanged:
+       endpoint-shaped empty payload + error/type/request_id
+     - 503 unchanged:
+       endpoint-shaped empty payload + error/type/error_code/request_id
+
+Post-edit runtime capture summary:
+
+  - bootstrap 200:
+    status=200
+    headers still show text/plain; Cache-Control=no-store, private;
+    X-Content-Type-Options=nosniff
+
+  - suggest 200:
+    status=200
+    body now remains suggestions-only
+
+  - faq query 200:
+    status=200
+    body now returns results[] = {id, answer, question, url} + count
+    source metadata no longer present
+
+  - faq categories 200:
+    status=200
+    body returns categories[] = {name, count}
+
+  - faq id 200:
+    status=200
+    body remains faq = {id, answer, question, url}
+
+
+3. Evidence
+-----------
+
+Implementation files:
+
+  - web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+    - FAQ_SEARCH_PUBLIC_FIELDS reduced to id/question/answer/url
+    - suggest() no longer emits 200-path reason_code/request_id
+    - faq() category mode now filters category DTO explicitly
+    - new helper: filterFaqCategoriesForPublicApi()
+
+  - web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php
+    - suggest success contract locked to type/label/id only
+    - FAQ degraded-success suggest case locked to suggestions-only
+    - FAQ search contract locked to id/question/answer/url only
+    - FAQ category contract locked to name/count only
+    - score/source added to denied public FAQ field coverage
+
+  - web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
+    - bootstrap/suggest/faq anonymous GET tests now assert content-type,
+      cache/security headers, and minimal field shapes
+    - new FAQ category accessibility contract test
+
+  - web/modules/custom/ilas_site_assistant/README.md
+    - FAQ public DTO documentation now explicitly states the minimal
+      query-mode and category-mode fields
+
+  - docs/aila/runbook.md
+    - FAQ verification snippets updated to inspect only the minimal public
+      anonymous DTO instead of parent_url/category internals
+
+Validation commands executed:
+
+  - Unit:
+    vendor/bin/phpunit --configuration phpunit.xml \
+      web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php
+    Result: OK (40 tests, 187 assertions)
+
+  - Unit:
+    vendor/bin/phpunit --configuration phpunit.xml \
+      web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantSessionBootstrapControllerTest.php
+    Result: OK (1 test, 12 assertions)
+
+  - Cache clear:
+    ddev drush cr
+    Result: success
+
+  - Functional targeted slice:
+    ddev exec bash -lc "vendor/bin/phpunit --configuration /var/www/html/phpunit.xml \
+      /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php \
+      --filter 'test(AnonymousSessionBootstrapEndpointReturnsTokenAndSetsCookie|AnonymousSessionBootstrapReuseDoesNotRotateCookie|AnonymousSessionBootstrapRateLimitBoundsNewSessionsButAllowsReuse|SuggestEndpointAccessible|FaqEndpointAccessible|FaqCategoriesEndpointAccessible|SuggestEndpointRateLimitAppliesToRepeatedGetRequests|FaqEndpointRateLimitAppliesToRepeatedGetRequests)'"
+    Result: OK, but there were issues (8 tests, 124 assertions, 9 PHPUnit deprecations)
+
+  - Widget hardening:
+    node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs
+    Result: assistant-widget-hardening: pass=172 fail=0
+
+  - Local smoke:
+    VC-ASSISTANT-SMOKE-LOCAL message-flow command against DDEV
+    Result: 5/5 synthetic prompts returned 200 JSON responses through
+    /assistant/api/message
+
+
+4. Changed Files
+----------------
+
+  - web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+  - web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiReadEndpointContractTest.php
+  - web/modules/custom/ilas_site_assistant/tests/src/Functional/AssistantApiFunctionalTest.php
+  - web/modules/custom/ilas_site_assistant/README.md
+  - docs/aila/runbook.md
+  - docs/aila/runtime/afrp-15-anonymous-read-endpoint-contract-minimization.txt
+
+
+5. Residual Risks / Unknowns
+----------------------------
+
+  - The shipped widget still does not consume /suggest or /faq directly, so the
+    public contract remains doc-and-tooling governed rather than browser-UI
+    governed.
+  - Direct curl captures in this run focused on success shapes. Throttle and
+    unavailable shapes remain covered by unit/functional tests rather than
+    fresh raw HTTP captures.
+  - BrowserTestBase normalizes GET Cache-Control differently
+    (must-revalidate/no-cache/private) than the direct DDEV runtime
+    (no-store/private), so the functional assertion is intentionally written
+    against the stable security intent rather than one exact cache string.
+
+
+6. Rollback Notes
+-----------------
+
+  - Revert the AssistantApiController DTO changes together with the unit and
+    functional contract tests, README, runbook snippet updates, and this
+    runtime report.
+  - No schema or config rollback is required.
+
+
+7. Still-Unverified Surfaces
+----------------------------
+
+  - Pantheon/dev/test/live post-deploy proof of the minimized anonymous DTOs
+  - Any third-party consumer outside repo tooling and README-documented usage
+  - Fresh raw HTTP capture of 429/503 read-endpoint shapes after deployment

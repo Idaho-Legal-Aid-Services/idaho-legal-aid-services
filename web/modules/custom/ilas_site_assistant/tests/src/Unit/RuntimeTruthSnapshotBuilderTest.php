@@ -7,8 +7,12 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Config\MemoryStorage;
+use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Site\Settings;
+use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
+use Drupal\search_api\IndexInterface;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
@@ -313,6 +317,161 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
       'settings.php runtime toggle -> private flag file',
       $vectorDivergence[0]['authoritative_source'],
     );
+  }
+
+  /**
+   * Retrieval health sanitization retains dependency classifications and gates.
+   */
+  public function testBuildSnapshotRetainsRetrievalDependencyMetadata(): void {
+    new Settings([
+      'ilas_site_assistant_legalserver_online_application_url' => 'https://example.com/intake?pid=60&h=test',
+    ]);
+
+    $syncStorage = new MemoryStorage();
+    $syncStorage->write('ilas_site_assistant.settings', [
+      'llm' => [
+        'enabled' => FALSE,
+      ],
+      'vector_search' => [
+        'enabled' => FALSE,
+      ],
+      'langfuse' => [
+        'enabled' => FALSE,
+        'public_key' => '',
+        'secret_key' => '',
+        'environment' => '',
+        'sample_rate' => 0.0,
+      ],
+    ]);
+    $syncStorage->write('key.key.pinecone_api_key', [
+      'key_provider_settings' => [
+        'key_value' => '',
+      ],
+    ]);
+
+    $retrievalConfig = [
+      'faq_index_id' => 'faq_accordion',
+      'resource_index_id' => 'assistant_resources',
+      'resource_fallback_index_id' => 'content',
+      'faq_vector_index_id' => 'faq_accordion_vector',
+      'resource_vector_index_id' => 'assistant_resources_vector',
+    ];
+
+    $retrievalServiceConfig = $this->createStub(ImmutableConfig::class);
+    $retrievalServiceConfig->method('get')->willReturnCallback(static function (string $key) use ($retrievalConfig) {
+      return match ($key) {
+        'retrieval' => $retrievalConfig,
+        'canonical_urls' => [
+          'service_areas' => [
+            'housing' => '/legal-help/housing',
+            'family' => '/legal-help/family',
+            'seniors' => '/legal-help/seniors',
+            'health' => '/legal-help/health',
+            'consumer' => '/legal-help/consumer',
+            'civil_rights' => '/legal-help/civil-rights',
+          ],
+        ],
+        'enable_faq' => TRUE,
+        'enable_resources' => TRUE,
+        'vector_search.enabled' => FALSE,
+        default => NULL,
+      };
+    });
+
+    $retrievalServiceFactory = $this->createStub(ConfigFactoryInterface::class);
+    $retrievalServiceFactory->method('get')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($retrievalServiceConfig);
+
+    $enabledDatabaseIndex = $this->createMock(IndexInterface::class);
+    $enabledDatabaseIndex->method('status')->willReturn(TRUE);
+    $enabledDatabaseIndex->method('getServerId')->willReturn('database');
+
+    $disabledDatabaseIndex = $this->createMock(IndexInterface::class);
+    $disabledDatabaseIndex->method('status')->willReturn(FALSE);
+    $disabledDatabaseIndex->method('getServerId')->willReturn('database');
+
+    $enabledFaqVectorIndex = $this->createMock(IndexInterface::class);
+    $enabledFaqVectorIndex->method('status')->willReturn(TRUE);
+    $enabledFaqVectorIndex->method('getServerId')->willReturn('pinecone_vector_faq');
+
+    $enabledResourceVectorIndex = $this->createMock(IndexInterface::class);
+    $enabledResourceVectorIndex->method('status')->willReturn(TRUE);
+    $enabledResourceVectorIndex->method('getServerId')->willReturn('pinecone_vector_resources');
+
+    $indexStorage = $this->createMock(EntityStorageInterface::class);
+    $indexStorage->method('load')->willReturnCallback(static function (string $id) use ($enabledDatabaseIndex, $disabledDatabaseIndex, $enabledFaqVectorIndex, $enabledResourceVectorIndex) {
+      return match ($id) {
+        'faq_accordion', 'assistant_resources' => $enabledDatabaseIndex,
+        'content' => $disabledDatabaseIndex,
+        'faq_accordion_vector' => $enabledFaqVectorIndex,
+        'assistant_resources_vector' => $enabledResourceVectorIndex,
+        default => NULL,
+      };
+    });
+
+    $enabledServer = new class {
+      public function status(): bool {
+        return TRUE;
+      }
+    };
+
+    $serverStorage = $this->createMock(EntityStorageInterface::class);
+    $serverStorage->method('load')->willReturnCallback(static function (string $id) use ($enabledServer) {
+      return match ($id) {
+        'database', 'pinecone_vector_faq', 'pinecone_vector_resources' => $enabledServer,
+        default => NULL,
+      };
+    });
+
+    $entityTypeManager = $this->createMock(EntityTypeManagerInterface::class);
+    $entityTypeManager->method('getStorage')->willReturnCallback(static function (string $entityTypeId) use ($indexStorage, $serverStorage) {
+      return match ($entityTypeId) {
+        'search_api_index' => $indexStorage,
+        'search_api_server' => $serverStorage,
+        default => throw new \InvalidArgumentException('Unexpected storage request: ' . $entityTypeId),
+      };
+    });
+
+    $retrievalConfiguration = new RetrievalConfigurationService(
+      $retrievalServiceFactory,
+      $entityTypeManager,
+    );
+
+    $builder = new RuntimeTruthSnapshotBuilder(
+      $this->buildConfigFactory([
+        'ilas_site_assistant.settings' => [
+          'llm.enabled' => FALSE,
+          'vector_search.enabled' => FALSE,
+          'langfuse.enabled' => FALSE,
+          'langfuse.public_key' => '',
+          'langfuse.secret_key' => '',
+          'langfuse.environment' => '',
+          'langfuse.sample_rate' => 0.0,
+        ],
+        'raven.settings' => [],
+        'key.key.pinecone_api_key' => [
+          'key_provider_settings' => [
+            'key_value' => '',
+          ],
+        ],
+      ]),
+      $syncStorage,
+      $retrievalConfiguration,
+    );
+
+    $snapshot = $builder->buildSnapshot();
+    $health = $snapshot['effective_runtime']['retrieval']['health'];
+
+    $this->assertSame('required', $health['retrieval']['database_server']['classification']);
+    $this->assertSame('server', $health['retrieval']['database_server']['dependency_type']);
+    $this->assertTrue($health['retrieval']['database_server']['active']);
+    $this->assertArrayNotHasKey('machine_name_valid', $health['retrieval']['database_server']);
+    $this->assertSame('feature_gated', $health['retrieval']['faq_vector_index']['classification']);
+    $this->assertFalse($health['retrieval']['faq_vector_index']['active']);
+    $this->assertSame('faq_accordion_vector', $health['retrieval']['faq_vector_index']['index_id']);
+    $this->assertSame('explicit_content_fallback', $health['retrieval']['resource_fallback_index']['allowed_degraded_mode']);
+    $this->assertSame('index_disabled', $health['retrieval']['resource_fallback_index']['failure_code']);
   }
 
   /**

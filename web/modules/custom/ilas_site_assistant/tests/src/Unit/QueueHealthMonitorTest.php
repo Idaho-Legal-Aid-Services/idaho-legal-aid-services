@@ -164,11 +164,13 @@ class QueueHealthMonitorTest extends TestCase {
     $monitor->recordOutcome('send_partial_207', [
       'http_status' => 207,
       'event_count' => 3,
+      'success_count' => 3,
       'error_count' => 0,
     ]);
     $monitor->recordOutcome('send_partial_207', [
       'http_status' => 207,
       'event_count' => 9,
+      'success_count' => 8,
       'error_count' => 1,
     ]);
 
@@ -176,12 +178,25 @@ class QueueHealthMonitorTest extends TestCase {
     $this->assertSame(2, $counters['send_partial_207']);
     $this->assertSame(0, $counters['drop_max_depth']);
 
+    $totals = $monitor->getOutcomeTotals();
+    $this->assertSame(12, $totals['send_partial_207']['event_count']);
+    $this->assertSame(11, $totals['send_partial_207']['success_count']);
+    $this->assertSame(1, $totals['send_partial_207']['error_count']);
+    $this->assertSame(1, $totals['send_partial_207']['lost_event_count']);
+
+    $summary = $monitor->getExportOutcomeSummary();
+    $this->assertTrue($summary['action_required']);
+    $this->assertSame('alertable_loss', $summary['policies']['send_partial_207']['classification']);
+    $this->assertSame(2, $summary['alertable_loss_totals']['occurrences']);
+    $this->assertSame(1, $summary['alertable_loss_totals']['event_count']);
+
     $lastOutcome = $monitor->getLastOutcome();
     $this->assertNotNull($lastOutcome);
     $this->assertSame('send_partial_207', $lastOutcome['outcome']);
     $this->assertSame(207, $lastOutcome['http_status']);
     $this->assertSame(9, $lastOutcome['event_count']);
     $this->assertSame(1, $lastOutcome['error_count']);
+    $this->assertTrue($lastOutcome['actionable']);
     $this->assertArrayHasKey('recorded_at', $lastOutcome);
   }
 
@@ -199,6 +214,44 @@ class QueueHealthMonitorTest extends TestCase {
       $this->assertSame(0, $count);
     }
     $this->assertNull($monitor->getLastOutcome());
+  }
+
+  /**
+   * Tests informational loss remains visible without triggering action_required.
+   */
+  public function testInformationalLossIsTrackedWithoutActionRequired(): void {
+    $factory = $this->buildQueueFactory(0);
+    $state = $this->buildState();
+    $monitor = new QueueHealthMonitor($factory, $state);
+
+    $monitor->recordOutcome('discard_disabled', [
+      'event_count' => 4,
+    ]);
+
+    $summary = $monitor->getExportOutcomeSummary();
+    $this->assertFalse($summary['action_required']);
+    $this->assertSame(1, $summary['informational_loss_totals']['occurrences']);
+    $this->assertSame(4, $summary['informational_loss_totals']['event_count']);
+    $this->assertSame(0, $summary['alertable_loss_totals']['occurrences']);
+  }
+
+  /**
+   * Tests alertable enqueue failures are exposed through the actionable map.
+   */
+  public function testDropEnqueueFailureIsActionable(): void {
+    $factory = $this->buildQueueFactory(0);
+    $state = $this->buildState();
+    $monitor = new QueueHealthMonitor($factory, $state);
+
+    $monitor->recordOutcome('drop_enqueue_failure', [
+      'event_count' => 2,
+      'flush_stage' => 'terminate',
+    ]);
+
+    $actionable = $monitor->getActionableLossOutcomes();
+    $this->assertArrayHasKey('drop_enqueue_failure', $actionable);
+    $this->assertSame(1, $actionable['drop_enqueue_failure']['occurrences']);
+    $this->assertSame(2, $actionable['drop_enqueue_failure']['event_count']);
   }
 
   /**

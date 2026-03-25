@@ -97,13 +97,20 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
    */
   public static function getSubscribedEvents(): array {
     // Soft dependency guard: if Raven is not installed, subscribe to nothing.
-    if (!class_exists('Drupal\raven\Event\OptionsAlter')) {
+    if (!static::hasRavenOptionsAlterEvent()) {
       return [];
     }
 
     return [
       'Drupal\raven\Event\OptionsAlter' => 'onOptionsAlter',
     ];
+  }
+
+  /**
+   * Returns TRUE when Raven's OptionsAlter event class is available.
+   */
+  protected static function hasRavenOptionsAlterEvent(): bool {
+    return class_exists('Drupal\raven\Event\OptionsAlter');
   }
 
   /**

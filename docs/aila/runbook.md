@@ -229,8 +229,9 @@ Use deterministic unit contracts to verify dependency-failure degrade behavior
 without enabling live LLM output paths.
 
 ```bash
-# Retrieval dependency failures: Search API unavailable/query exceptions and
-# vector unavailable paths degrade to legacy/lexical outputs.
+# Retrieval dependency failures: missing required lexical dependencies return
+# explicit degraded/unavailable outputs, vector-only loss remains lexical-
+# preserved, and generic query exceptions still use legacy fallback paths.
 ddev exec vendor/bin/phpunit \
   --configuration /var/www/html/phpunit.xml \
   /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit/DependencyFailureDegradeContractTest.php
@@ -243,8 +244,11 @@ ddev exec vendor/bin/phpunit \
 ```
 
 Expected contract result:
-- Retrieval dependency failures do not throw uncaught exceptions and degrade to
-  stable legacy/lexical outputs.
+- Missing required retrieval dependencies do not silently switch to legacy or
+  entity-query outputs; they return deterministic explicit degraded or
+  unavailable responses.
+- Generic Search API query exceptions still degrade to stable legacy outputs,
+  and vector-only loss remains lexical-preserved.
 - LLM dependency failures degrade to deterministic non-LLM response behavior
   when `llm.fallback_on_error=true`.
 - Controller-level uncaught failures remain controlled `500 internal_error`.
@@ -2298,10 +2302,13 @@ the authoritative state.
 ### TOVR-09 Pinecone environment inventory verification
 
 - Baseline before the investigation:
-  - Repo config already defined `pinecone_vector`,
-    `faq_accordion_vector`, and `assistant_resources_vector`, but prior docs
-    still lacked one current per-environment answer for secret presence, index
-    enablement, index population, queryability, and runtime gating.
+  - Repo config already defined split Search API servers
+    `pinecone_vector_faq` and `pinecone_vector_resources`, plus the managed
+    vector indexes `faq_accordion_vector` and
+    `assistant_resources_vector`, but prior docs still lacked one current
+    per-environment answer for secret presence, index enablement, index
+    population, queryability, runtime gating, and the shared Pinecone-index
+    mapping (`ilas-assistant` with per-index collections/namespaces).
   - The production audit still described Pinecone as disabled and partially
     unverified.
 - Required verification commands for the inventory report:
@@ -2321,6 +2328,8 @@ ddev drush search-api:server-list
 ddev drush search-api:list
 ddev drush search-api:status faq_accordion_vector
 ddev drush search-api:status assistant_resources_vector
+ddev drush ilas:vector-status faq_vector --probe-now
+ddev drush ilas:vector-status resource_vector --probe-now
 ddev drush search-api:search faq_accordion_vector custody
 ddev drush search-api:search assistant_resources_vector eviction
 ddev drush config:status
@@ -2340,6 +2349,8 @@ for ENV in dev test live; do
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:list
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status faq_accordion_vector
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status assistant_resources_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-status faq_vector --probe-now
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-status resource_vector --probe-now
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search faq_accordion_vector custody
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search assistant_resources_vector eviction
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$c=Drupal::config("ilas_site_assistant.settings"); echo json_encode(["vector_search" => $c->get("vector_search"), "retrieval" => $c->get("retrieval")], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
@@ -2387,6 +2398,9 @@ ddev drush search-api:server-list
 ddev drush search-api:list
 ddev drush search-api:status faq_accordion_vector
 ddev drush search-api:status assistant_resources_vector
+ddev drush ilas:vector-status
+ddev drush ilas:vector-status faq_vector --probe-now
+ddev drush ilas:vector-status resource_vector --probe-now
 ddev drush search-api:search faq_accordion_vector custody
 ddev drush search-api:search assistant_resources_vector eviction
 ddev drush ilas:runtime-truth
@@ -2409,6 +2423,8 @@ for ENV in dev test live; do
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:list
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status faq_accordion_vector
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:status assistant_resources_vector
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-status faq_vector --probe-now
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-status resource_vector --probe-now
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search faq_accordion_vector custody
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- search-api:search assistant_resources_vector eviction
   terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$r=Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot(); echo "RETRIEVAL\n"; echo json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL; $v=Drupal::service("ilas_site_assistant.vector_index_hygiene")->getSnapshot(); echo "VECTOR\n"; echo json_encode($v, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
@@ -2446,6 +2462,66 @@ done
 - Archive the executed command summaries, integrity matrix, residual risks, and
   still-unverified surfaces in
   `docs/aila/runtime/tovr-10-pinecone-index-integrity.txt`.
+
+### Pinecone vector status + resume/rebuild workflow
+
+- Architecture truth:
+  - Search API servers are `pinecone_vector_faq` and
+    `pinecone_vector_resources`.
+  - Search API vector indexes are `faq_accordion_vector` and
+    `assistant_resources_vector`.
+  - Both Search API servers target the same Pinecone index
+    `ilas-assistant`, but each uses its own collection/namespace:
+    `faq_accordion_vector` or `assistant_resources_vector`.
+- Safe default:
+  - `ilas:vector-backfill` resumes without clearing, processes one small batch
+    by default, and is safe to rerun until the tracker reaches zero remaining
+    items.
+  - Full rebuild is explicit and requires `--clear-first`.
+
+1. Inspect status and live queryability.
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+ddev drush ilas:vector-status
+ddev drush ilas:vector-status faq_vector --probe-now
+ddev drush ilas:vector-status resource_vector --probe-now
+```
+
+2. Resume a partial backfill without clearing.
+
+```bash
+ddev drush ilas:vector-backfill faq_vector --batch-size=5 --max-batches=1
+ddev drush ilas:vector-backfill resource_vector --batch-size=5 --max-batches=1
+```
+
+3. Pace a longer resume after quota interruptions.
+
+```bash
+ddev drush ilas:vector-backfill faq_vector --batch-size=2 --until-complete --sleep-seconds=65
+ddev drush ilas:vector-backfill resource_vector --batch-size=2 --until-complete --sleep-seconds=65
+```
+
+4. Full rebuild only when explicitly intended.
+
+```bash
+ddev drush ilas:vector-backfill faq_vector --clear-first --until-complete --sleep-seconds=65
+ddev drush ilas:vector-backfill resource_vector --clear-first --until-complete --sleep-seconds=65
+```
+
+5. Verify completion and queryability afterward.
+
+```bash
+ddev drush ilas:vector-status faq_vector --probe-now
+ddev drush ilas:vector-status resource_vector --probe-now
+```
+
+- Hosted Pantheon use:
+  - `ilas:vector-status` with `--probe-now` is safe for `dev` / `test` / `live`
+    read-only verification.
+  - Do not run `ilas:vector-backfill --clear-first` on hosted environments
+    unless the change window explicitly approves a rebuild.
 
 ### TOVR-11 Pinecone retrieval integration hardening verification
 
@@ -2567,6 +2643,24 @@ ddev drush cr
 ddev drush config:get ilas_site_assistant.settings retrieval
 ddev drush config:get key.key.gemini_api_key
 ddev drush config:get ai_vdb_provider_pinecone.settings
+
+# Safe resume-first backfills. Search API limits count indexed items, while the
+# contextual chunking strategy can fan one item into multiple Gemini embedding
+# requests. These values are intentionally conservative for the current
+# free-tier RPM cap and can be revisited after billing or a higher tier.
+ddev drush ilas:vector-backfill faq_vector --batch-size=5 --max-batches=1
+sleep 65
+ddev drush ilas:vector-backfill resource_vector --batch-size=5 --max-batches=1
+
+# Emergency fallback if Gemini still reports RPM exhaustion or the backfill is
+# repeatedly interrupted by quota.
+ddev drush ilas:vector-backfill faq_vector --batch-size=2 --max-batches=1
+sleep 65
+ddev drush ilas:vector-backfill resource_vector --batch-size=2 --max-batches=1
+
+# Queryability verification after resume or rebuild.
+ddev drush ilas:vector-status faq_vector --probe-now
+ddev drush ilas:vector-status resource_vector --probe-now
 
 # Enable via runtime env only.
 printf '\nILAS_VECTOR_SEARCH_ENABLED=1\n' >> .ddev/.env
@@ -2808,8 +2902,8 @@ ddev drush search-api:status assistant_resources_vector
 ddev drush cr
 
 ddev drush php:eval '$retrieval = \Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot()["retrieval"]; echo json_encode(["env" => "local", "faq_index" => $retrieval["faq_index"], "faq_vector_index" => $retrieval["faq_vector_index"]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
-ddev drush php:eval '$faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "parent_url" => $item["parent_url"] ?? NULL, "category" => $item["category"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => "local", "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
-curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq?q=eviction' | jq '.results | map({id,parent_url,category})'
+ddev drush php:eval '$faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "question" => $item["question"] ?? NULL, "url" => $item["url"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => "local", "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq?q=eviction' | jq '.results | map({id,question,url})'
 curl -sk 'https://ilas-pantheon.ddev.site/assistant/api/faq' | jq 'if type=="array" then . elif (.categories? | type)=="array" then .categories else . end'
 curl -sk -i 'https://ilas-pantheon.ddev.site/assistant/api/faq?id=faq_641'
 ```
@@ -2820,7 +2914,7 @@ curl -sk -i 'https://ilas-pantheon.ddev.site/assistant/api/faq?id=faq_641'
 cd /home/evancurry/idaho-legal-aid-services
 
 for ENV in dev test live; do
-  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$retrieval = \Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot()["retrieval"]; $faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "parent_url" => $item["parent_url"] ?? NULL, "category" => $item["category"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => getenv("PANTHEON_ENVIRONMENT"), "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "faq_index" => $retrieval["faq_index"], "faq_vector_index" => $retrieval["faq_vector_index"], "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- php:eval '$retrieval = \Drupal::service("ilas_site_assistant.retrieval_configuration")->getHealthSnapshot()["retrieval"]; $faq = \Drupal::service("ilas_site_assistant.faq_index"); $items = array_map(static fn(array $item): array => ["id" => $item["id"] ?? NULL, "question" => $item["question"] ?? NULL, "url" => $item["url"] ?? NULL], $faq->search("eviction", 5)); echo json_encode(["env" => getenv("PANTHEON_ENVIRONMENT"), "lang" => \Drupal::languageManager()->getCurrentLanguage()->getId(), "faq_index" => $retrieval["faq_index"], "faq_vector_index" => $retrieval["faq_vector_index"], "items" => $items], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
 done
 
 terminus remote:drush idaho-legal-aid-services.live -- php:eval '$faq = \Drupal::service("ilas_site_assistant.faq_index"); echo json_encode(["env" => getenv("PANTHEON_ENVIRONMENT"), "categories" => $faq->getCategories()], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);'
@@ -2848,11 +2942,34 @@ terminus remote:drush idaho-legal-aid-services.live -- php:eval '$faq = \Drupal:
   - `FaqIndex::getCategories()` and `getCategoriesLegacy()` exclude
     foreign-language category labels.
   - `/assistant/api/faq` keeps the existing response shape while returning only
-    same-language results, and `/assistant/api/message` inherits the same
-    filtering because it routes through `FaqIndex::search()`.
+    same-language results, and its anonymous DTO stays minimal:
+    `results[] = {id, question, answer, url}`, `faq = {id, question, answer, url}`,
+    `categories[] = {name, count}`.
+  - `/assistant/api/message` inherits the same retrieval filtering because it
+    routes through `FaqIndex::search()`.
   - Archive the full before/after report, command summaries, path map,
     residual risks, rollback notes, and still-unverified environments in
     `docs/aila/runtime/afrp-01-faq-language-isolation.txt`.
+
+### AFRP-14 Resource language-isolation verification
+
+- Scope: Extends AFRP-01 language isolation to all ResourceFinder legacy
+  fallback paths (`findByTypeLegacy`, `findByTopic`, `findByServiceArea`).
+- Required validation commands:
+  - `VC-PURE`: `vendor/bin/phpunit -c phpunit.pure.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/ResourceLanguageIsolationTest.php`
+  - `VC-UNIT`: `vendor/bin/phpunit -c phpunit.pure.xml --group ilas_site_assistant web/modules/custom/ilas_site_assistant/tests/src/Unit/`
+  - `VC-FUNCTIONAL`, `VC-ASSISTANT-SMOKE-LOCAL`, `VC-ASSISTANT-SMOKE-PANTHEON` (require runtime)
+- Decision rules:
+  - Do not treat `search_api_language` alone as proof of language isolation for
+    resources (same principle as AFRP-01 for FAQ paragraphs).
+  - Every legacy ResourceFinder path must apply both query-level `langcode`
+    filtering and `filterResourcesByCurrentLanguage()` URL post-filter.
+  - `findByTopic()` is also called from `findByTypeSearchApi()` for sparse-result
+    boost — language isolation there prevents cross-language injection into the
+    Search API lexical flow.
+  - If language cannot be proved, return empty-safe degradation, not a
+    cross-language resource.
+- Report artifact: `docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt`
 
 ### TOVR-16 final consolidation verification
 
@@ -3597,8 +3714,9 @@ rg -n "citations_added" \
 ```
 
 Expected Deliverable #1 result:
-- `assembleContractFields` appears exactly 6 times: 1 method definition + 5 call sites
-  (safety, OOS, policy, repeated-message, normal pipeline).
+- `assembleContractFields` covers the current 200-response branches: safety,
+  repeated-message escalation, OOS, policy, normal pipeline, and retrieval-
+  unavailable degraded navigation.
 - Contract fields `confidence`, `citations`, `decision_reason` are set in the
   method body and present on all 200-response paths.
 - Contract normalization clamps confidence to finite `[0,1]` values and safely
@@ -4079,8 +4197,9 @@ Capture sanitized outputs in:
 - `docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt`
 
 Expected reliability matrix result:
-- Retrieval dependency failures map deterministically to `legacy_fallback` and
-  `lexical_preserved` classes.
+- Retrieval dependency failures map deterministically to `explicit_degraded`
+  and `lexical_preserved`, with `legacy_fallback` reserved for non-dependency
+  lexical query failures.
 - LLM dependency failures map deterministically to `original_preserved` when
   fallback is enabled (`llm.fallback_on_error=true`).
 - Controller-level uncaught failures map deterministically to
@@ -4543,11 +4662,139 @@ sed -E \
   instead of `invalid queue item`, and fresh trace IDs resolve in Langfuse
   UI/API with metadata-only input/output summaries. Local `ilas:langfuse-status`
   should also expose explicit queue/export outcomes such as `drop_max_depth`,
-  `discard_stale`, and `send_partial_207`.
+  `discard_stale`, `drop_enqueue_failure`, and `send_partial_207`.
 - Evidence artifacts:
   - `docs/aila/runtime/phard-02-langfuse-operationalization.txt`
   - `docs/aila/runtime/tovr-04-langfuse-remediation.txt`
   - `docs/aila/runtime/afrp-03-langfuse-trust-remediation.txt`
+
+### AFRP-17 Langfuse queue-loss operationalization verification
+
+- AFRP-17 adds structured queue-loss accounting on top of the AFRP-03 counters:
+  - `ilas:langfuse-status` and `ilas:langfuse-probe --diagnose` now expose
+    `counters`, `totals`, `last_outcome`, `action_required`, `policies`,
+    `alertable_loss_totals`, and `informational_loss_totals`.
+  - `/assistant/api/health` and `/assistant/api/metrics` expose the same summary
+    under `queue.export`, while top-level health still keys only off queue
+    depth/age.
+  - `SloAlertService` now emits cooldowned warnings for new alertable loss
+    outcomes instead of relying on queue depth/age alone.
+- Clean local stale-item drill (safe because it uses metadata-only queue items):
+  ```bash
+  ddev drush php:eval 'use Drupal\ilas_site_assistant\Service\QueueHealthMonitor; $state=\Drupal::state(); $state->delete(QueueHealthMonitor::STATE_TOTAL_DRAINED); $state->delete(QueueHealthMonitor::STATE_LAST_OUTCOME); $state->delete(QueueHealthMonitor::STATE_OLDEST_ENQUEUED_AT); foreach (QueueHealthMonitor::OUTCOME_KEYS as $outcome) { $state->delete(QueueHealthMonitor::STATE_OUTCOME_COUNTER_PREFIX . $outcome); $state->delete(QueueHealthMonitor::STATE_OUTCOME_TOTAL_PREFIX . $outcome); }'
+  ddev drush cset ilas_site_assistant.settings langfuse.max_item_age_seconds 1 -y
+  ddev drush php:eval '$q=\Drupal::queue("ilas_langfuse_export"); $q->createItem(["batch" => [["type" => "trace-create", "body" => ["id" => "afrp17-stale"]]], "metadata" => ["batch_size" => 1, "sdk_name" => "afrp17", "sdk_version" => "1.0.0"], "enqueued_at" => time() - 10]);'
+  ddev drush queue:run ilas_langfuse_export --items-limit=1
+  ddev drush php:eval '$m=\Drupal::service("ilas_site_assistant.queue_health_monitor"); echo json_encode($m->getExportOutcomeSummary(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;'
+  ddev drush cset ilas_site_assistant.settings langfuse.max_item_age_seconds 3600 -y
+  ```
+- Expected AFRP-17 drill result:
+  - `discard_stale` counter increments.
+  - `discard_stale` totals show `queue_items=1`, `event_count=1`,
+    `lost_event_count=1`.
+  - `last_outcome` carries `classification=alertable_loss`,
+    `severity=warning`, and `actionable=true`.
+  - `action_required=true` and `alertable_loss_totals` reflects the stale loss.
+  - Queue depth returns to `0` after the worker drains the synthetic item.
+- Evidence artifact:
+  - `docs/aila/runtime/afrp-17-langfuse-queue-loss-remediation.txt`
+
+### AFRP-12 Observability proof taxonomy
+
+AFRP-12 eliminates the observability-proof illusion that treats HTTP reachability or probe success as equivalent to trustworthy production signal coverage. The formal proof taxonomy is defined in `ObservabilityProofTaxonomy.php` and enforced by `ObservabilityProofTaxonomyTest.php`.
+
+- Proof levels (defined in `web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php`):
+  - L0:Unverified — No probe or check executed; default for unproven claims.
+  - L1:Transport — HTTP connection or SDK call succeeded.
+  - L2:QueueDrain — Queue item dequeued and processed by worker.
+  - L3:PayloadAcceptance — Remote API accepted the payload (e.g., HTTP 207).
+  - L4:AccountSide — Trace/event findable in SaaS dashboard or API.
+  - L5:Alertability — Alerts route to a channel and fire on threshold.
+  - L6:Ownership — Named responder, review cadence, triage SLA documented.
+
+- Minimum proof for report claims:
+  - "Transport healthy": L1 or above.
+  - "Queue healthy": L2 or above.
+  - "Signal trusted" or "Operational": L4 or above (account-side proof required).
+  - "Fully operationalized": L6 (all proof levels satisfied).
+
+- Current tool ceiling:
+
+  | Tool | Max proof | To reach L4+ |
+  |---|---|---|
+  | `ilas:sentry-probe` | L1:Transport | No account-side lookup exists; verify in Sentry UI manually |
+  | `ilas:langfuse-probe --direct` | L3:PayloadAcceptance | Follow with `ilas:langfuse-lookup <trace_id>` |
+  | `ilas:langfuse-probe` (queued) | L2:QueueDrain | Run `queue:run` then `ilas:langfuse-lookup <trace_id>` |
+  | `ilas:langfuse-lookup` | L4:AccountSide | This IS the account-side proof |
+  | `ilas:langfuse-status` | L1:Transport | Config/queue health only; not delivery proof |
+  | `ilas:langfuse-probe --diagnose` | L0:Unverified | Informational readiness check only |
+
+- Enforcement: `ObservabilityProofTaxonomyTest.php` contract tests prevent weakening the taxonomy constants, verify that probe commands emit their proof-level ceiling, and assert that documentation references the taxonomy.
+
+- Evidence artifacts:
+  - `docs/aila/runtime/afrp-12-observability-proof-standard.txt`
+
+### AFRP-16 Runtime diagnostics hardening
+
+AFRP-16 delivers `ilas:runtime-diagnostics` — a unified, machine-checkable diagnostic command that composes runtime truth, retrieval health, credential inventory, and AFRP-12 proof-level annotations into a single jq-parseable JSON artifact. Each runtime fact receives an assertion (`pass`/`fail`/`degraded`/`skipped`) and a proof-level annotation.
+
+- Tool ceiling: L0:Unverified (config inspection only, no probes sent).
+- Exit code: 0 if no `fail` assertions, 1 if any `fail` assertion exists.
+
+Verification commands:
+
+```bash
+# VC-RUNTIME-DIAGNOSTICS: Full unified diagnostics artifact.
+ddev drush ilas:runtime-diagnostics
+
+# Check for failing assertions only.
+ddev drush ilas:runtime-diagnostics | jq '.diagnostics_matrix[] | select(.assertion == "fail")'
+
+# Credential inventory only.
+ddev drush ilas:runtime-diagnostics --section=credentials
+
+# Integration status with proof levels.
+ddev drush ilas:runtime-diagnostics --section=integrations
+
+# Retrieval inventory.
+ddev drush ilas:runtime-diagnostics --section=retrieval
+
+# Degraded-mode state summary.
+ddev drush ilas:runtime-diagnostics --section=degraded
+```
+
+Operational note: after editing `web/modules/custom/ilas_site_assistant/drush.services.yml`,
+`web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml`, or
+`web/modules/custom/ilas_site_assistant/src/Commands/RuntimeDiagnosticsCommands.php`,
+run `ddev drush cr` before validating custom Drush commands. That rebuilds the
+merged Drupal/Drush container and avoids stale service-definition failures.
+
+For Pantheon environments:
+
+```bash
+for ENV in dev test live; do
+  echo "=== ${ENV} ==="
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:runtime-diagnostics
+done
+```
+
+Updated tool ceiling table (extends AFRP-12):
+
+| Tool | Max proof | Purpose |
+|---|---|---|
+| `ilas:runtime-diagnostics` | L0:Unverified | Unified machine-checkable diagnostic (reads config + service state) |
+| `ilas:runtime-truth` | L0:Unverified | Stored-vs-effective config snapshot |
+| `ilas:sentry-probe` | L1:Transport | Sentry connectivity |
+| `ilas:langfuse-probe --direct` | L3:PayloadAcceptance | Langfuse direct ingestion |
+| `ilas:langfuse-probe` (queued) | L2:QueueDrain | Langfuse queue drain |
+| `ilas:langfuse-lookup` | L4:AccountSide | Account-side trace verification |
+
+- Implementation:
+  - `web/modules/custom/ilas_site_assistant/src/Service/RuntimeDiagnosticsMatrixBuilder.php`
+  - `web/modules/custom/ilas_site_assistant/src/Commands/RuntimeDiagnosticsCommands.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeDiagnosticsMatrixContractTest.php`
+- Evidence artifacts:
+  - `docs/aila/runtime/afrp-16-runtime-diagnostics-hardening.txt`[^CLAIM-273][^CLAIM-274][^CLAIM-275]
 
 ### PHARD-06 retrieval contract verification
 

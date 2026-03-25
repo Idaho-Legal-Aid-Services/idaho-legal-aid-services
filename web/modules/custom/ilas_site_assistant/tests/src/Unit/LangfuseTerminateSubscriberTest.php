@@ -36,6 +36,8 @@ class LangfuseTerminateSubscriberTest extends TestCase {
    *   Configured max queue depth.
    * @param \Throwable|null $tracerException
    *   Optional exception for getTracePayload() to throw.
+   * @param \Throwable|null $queueCreateException
+   *   Optional exception for queue createItem() to throw.
    *
    * @return array
    *   Keyed array with 'subscriber', 'queue', 'logger' mocks.
@@ -46,6 +48,7 @@ class LangfuseTerminateSubscriberTest extends TestCase {
     int $queueDepth = 0,
     int $maxDepth = 10000,
     ?\Throwable $tracerException = NULL,
+    ?\Throwable $queueCreateException = NULL,
   ): array {
     $tracer = $this->createMock(LangfuseTracer::class);
     $tracer->method('isActive')->willReturn($tracerActive);
@@ -59,6 +62,9 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
     $queue = $this->createMock(QueueInterface::class);
     $queue->method('numberOfItems')->willReturn($queueDepth);
+    if ($queueCreateException !== NULL) {
+      $queue->method('createItem')->willThrowException($queueCreateException);
+    }
 
     $queueFactory = $this->createMock(QueueFactory::class);
     $queueFactory->method('get')->with('ilas_langfuse_export')->willReturn($queue);
@@ -343,6 +349,45 @@ class LangfuseTerminateSubscriberTest extends TestCase {
 
     $mocks['subscriber']->onResponse();
     $mocks['subscriber']->onTerminate();
+  }
+
+  /**
+   * Tests terminate-time enqueue failures become explicit queue-loss outcomes.
+   */
+  public function testTerminateEnqueueFailureRecordsExplicitOutcome(): void {
+    $payload = [
+      'batch' => [['type' => 'trace-create', 'body' => []]],
+      'metadata' => ['batch_size' => 1],
+    ];
+
+    $mocks = $this->buildSubscriber(
+      tracerActive: TRUE,
+      payload: $payload,
+      queueDepth: 0,
+      queueCreateException: new \RuntimeException('Queue backend failed'),
+    );
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with(
+        'drop_enqueue_failure',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 1
+            && ($metadata['flush_stage'] ?? NULL) === 'terminate';
+        }),
+      );
+
+    $container = new ContainerBuilder();
+    $container->set('ilas_site_assistant.queue_health_monitor', $monitor);
+    Drupal::setContainer($container);
+
+    try {
+      $mocks['subscriber']->onTerminate();
+    }
+    finally {
+      Drupal::setContainer(new ContainerBuilder());
+    }
   }
 
 }

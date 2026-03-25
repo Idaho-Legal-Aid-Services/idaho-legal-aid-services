@@ -84,10 +84,9 @@ employment_application.status_update:
 employment_application.delete:
   path: '/admin/employment-applications/{id}/delete'
   defaults:
-    _controller: '\Drupal\employment_application\Controller\EmploymentApplicationController::deleteApplication'
+    _form: '\Drupal\employment_application\Form\ApplicationDeleteForm'
   requirements:
     _permission: 'administer employment applications'
-    _method: 'POST'
     id: \d+
   options:
     _admin_route: TRUE

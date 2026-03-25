@@ -3,7 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
-    - search_api.server.pinecone_vector
+    - search_api.server.pinecone_vector_faq
   module:
     - paragraphs
     - search_api
@@ -76,8 +76,8 @@ tracker_settings:
   default:
     indexing_order: fifo
 options:
-  cron_limit: 50
+  cron_limit: 5
   delete_on_fail: true
   index_directly: true
   track_changes_in_references: true
-server: pinecone_vector
+server: pinecone_vector_faq

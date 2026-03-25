@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\Commands;
 
 use Drupal\ilas_site_assistant\EventSubscriber\SentryOptionsSubscriber;
+use Drupal\ilas_site_assistant\Service\ObservabilityProofTaxonomy;
 use Drush\Commands\DrushCommands;
 
 /**
@@ -56,6 +57,7 @@ class SentryProbeCommands extends DrushCommands {
 
     if ($eventId === NULL) {
       $this->logger()->error('Sentry captureMessage returned null. The event may have been dropped by a before_send callback or sampling.');
+      $this->logger()->notice(sprintf('Proof level: %s', ObservabilityProofTaxonomy::LEVEL_L0_UNVERIFIED));
       return 1;
     }
 
@@ -63,6 +65,7 @@ class SentryProbeCommands extends DrushCommands {
     $this->logger()->notice(sprintf('Environment: %s', $context['environment']));
     $this->logger()->notice(sprintf('Release: %s', $context['release'] ?: 'none'));
     $this->logger()->notice(sprintf('Timestamp: %s', $timestamp));
+    $this->logger()->notice(sprintf('Proof level: %s (transport reachability only; no account-side verification available for Sentry — verify in Sentry UI)', ObservabilityProofTaxonomy::LEVEL_L1_TRANSPORT));
 
     return 0;
   }

@@ -204,7 +204,7 @@ final class PhaseTwoSprintFiveGateTest extends TestCase {
 
       $this->assertSame(24, $config['vector_index_hygiene']['refresh_interval_hours']);
       $this->assertSame(45, $config['vector_index_hygiene']['overdue_grace_minutes']);
-      $this->assertSame(60, $config['vector_index_hygiene']['max_items_per_run']);
+      $this->assertSame(5, $config['vector_index_hygiene']['max_items_per_run']);
       $this->assertSame(60, $config['vector_index_hygiene']['alert_cooldown_minutes']);
     }
 
@@ -212,7 +212,7 @@ final class PhaseTwoSprintFiveGateTest extends TestCase {
     $this->assertStringContainsString("'unknown_ratio_degrade_pct' => 22.0", $sourceGovernanceService);
     $this->assertStringContainsString("'missing_source_url_ratio_degrade_pct' => 9.0", $sourceGovernanceService);
     $this->assertStringContainsString("'overdue_grace_minutes' => 45", $vectorService);
-    $this->assertStringContainsString("'max_items_per_run' => 60", $vectorService);
+    $this->assertStringContainsString("'max_items_per_run' => 5", $vectorService);
   }
 
 }

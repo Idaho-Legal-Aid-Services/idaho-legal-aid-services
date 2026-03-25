@@ -1,0 +1,205 @@
+## Executive Summary
+
+- Verification level tag: `L5:Alertability` for repo-owned queue-loss surfaces,
+  with a clean local queued stale-item drill proving `L2:QueueDrain` on the
+  worker path.
+- Prior posture: Langfuse queue-loss state was partially counted but mostly
+  non-actionable. Queue health/SLO alerting only reacted to queue depth/age,
+  `send_partial_207` only preserved rejected-event counts on the most recent
+  batch, and terminate-side enqueue failures were warning-log only.
+- Post-change posture: queue-loss outcomes are now policy-classified,
+  aggregate-counted, surfaced in status/probe/health/metrics/admin report
+  views, and warning-alerted when new alertable loss occurs. No dead-letter
+  queue or payload widening was introduced.
+- Residual gap: hosted Pantheon surfaces still need deploy/reproof. The
+  earlier local custom-Drush blocker was mitigated by isolating
+  `runtime_diagnostics_commands` from missing-builder bootstrap failures and
+  rebuilding caches.
+
+## Source of Truth / Files inspected
+
+- `web/modules/custom/ilas_site_assistant/HOSTILE_AUDIT_REPORT.md`
+- `web/modules/custom/ilas_site_assistant/PRODUCTION_AUDIT_2026.md`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/QueueHealthMonitor.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php`
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseStatusCommands.php`
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
+
+## Findings
+
+### Prior Langfuse queue-loss posture
+
+- `drop_max_depth`: counted in state and logged, but not classified or alerted.
+- `discard_invalid_shape`: logged and batch-counted only.
+- `discard_missing_enqueued_at`: logged and batch-counted only.
+- `discard_stale`: logged and batch-counted only.
+- `discard_disabled`: logged and batch-counted only.
+- `discard_missing_credentials`: logged and batch-counted only.
+- `discard_non_retryable_http`: logged/error-counted only.
+- `send_partial_207`: counted only as a batch outcome; aggregate rejected-event
+  totals were not retained.
+- `retryable_suspend`: counted only as a batch outcome; visible only if an
+  operator inspected status/probe output or queue depth/age later degraded.
+- terminate-side enqueue/payload exception: warning-log only; no queue-loss
+  counter or operator summary.
+
+### Post-change posture
+
+- Queue-loss outcomes are now classified as `alertable_loss`,
+  `informational_loss`, `retry_only`, or `success`.
+- Aggregate per-outcome totals now retain queue-item/event counts plus
+  `lost_queue_items` / `lost_event_count`.
+- `drop_enqueue_failure` now captures terminal enqueue failures from
+  `LangfuseTerminateSubscriber`.
+- `send_partial_207` now counts rejected events as partial loss and becomes
+  alertable only when `error_count > 0`.
+- `SloAlertService` now emits cooldowned warnings for new alertable queue-loss
+  outcomes without making historical queue-loss counters turn `/health` sticky
+  red.
+- `/assistant/api/health` and `/assistant/api/metrics` now expose the same
+  summary under `queue.export`.
+- Admin/report output now exposes action-required state plus alertable and
+  informational loss totals.
+
+### Loss-path accounting matrix
+
+| Loss path | Prior posture | Post-change posture | Final policy |
+|---|---|---|---|
+| `drop_max_depth` | Counter + log only | Structured summary + queue-loss alert | Alertable |
+| `drop_enqueue_failure` | Log only | Structured summary + queue-loss alert | Alertable |
+| `discard_invalid_shape` | Log + raw counter only | Structured summary + queue-loss alert | Alertable |
+| `discard_missing_enqueued_at` | Log + raw counter only | Structured summary + queue-loss alert | Alertable |
+| `discard_stale` | Log + raw counter only | Structured summary + queue-loss alert | Alertable |
+| `discard_disabled` | Log + raw counter only | Structured summary only | Informational |
+| `discard_missing_credentials` | Log + raw counter only | Structured summary + queue-loss alert | Alertable |
+| `discard_non_retryable_http` | Log + raw counter only | Structured summary + queue-loss alert | Alertable |
+| `send_partial_207` rejected events | Last batch metadata only | Aggregate rejected-event totals + queue-loss alert | Alertable when `error_count > 0` |
+| `retryable_suspend` | Log + raw counter only | Structured summary only | Informational retry |
+
+### Validation evidence
+
+- `VC-UNIT`: passed.
+  - Command: `ddev exec vendor/bin/phpunit --configuration /var/www/html/phpunit.xml --group ilas_site_assistant /var/www/html/web/modules/custom/ilas_site_assistant/tests/src/Unit`
+  - Result: `OK (2513 tests, 13298 assertions)`
+- Targeted AFRP-17 unit suite: passed.
+  - Command: `vendor/bin/phpunit --configuration phpunit.xml web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
+  - Result: `OK (63 tests, 347 assertions)`
+- `VC-PURE`: passed.
+  - Command: `vendor/bin/phpunit --configuration /home/evancurry/idaho-legal-aid-services/phpunit.pure.xml`
+  - Result: `OK (2513 tests, 13298 assertions)`
+  - Note: command emitted `Failed to build runtime truth snapshot: sync config missing` during one test path, but PHPUnit still passed cleanly.
+- `VC-RUNTIME-LOCAL-SAFE`: partial.
+  - `ddev drush status --fields=uri,drupal-version,db-status` passed:
+    - `Site URI=https://ilas-pantheon.ddev.site`
+    - `Drupal version=11.3.3`
+    - `Database=Connected`
+  - `curl -skL https://ilas-pantheon.ddev.site/assistant` still rendered the
+    expected minimized observability markers:
+    - `ilasObservability`
+    - `environment":"local"`
+    - `browserEnabled`
+    - `showReportDialog`
+    - `replaySessionSampleRate":0`
+  - Exact custom-command reruns now passed after `ddev drush cr` plus
+    runtime-diagnostics bootstrap isolation:
+    - `ddev drush ilas:langfuse-status`
+    - `ddev drush ilas:langfuse-probe --diagnose`
+    - Result: both commands completed successfully and exposed the structured
+      export summary with the local `discard_stale` outcome still marked
+      `action_required=true`.
+- `VC-LANGFUSE-PROBE-QUEUED`: partial fallback validation.
+  - The exact custom-command bootstrap path is no longer blocked, but this
+    validation run still relied on the worker-path fallback rather than a fresh
+    queued `ilas:langfuse-probe` rerun.
+  - Local worker-path fallback succeeded:
+    - Reset queue-health state.
+    - Set `langfuse.max_item_age_seconds=1`.
+    - Queued one synthetic metadata-only Langfuse batch.
+    - Ran `ddev drush queue:run ilas_langfuse_export --items-limit=1`.
+    - Worker output: `Langfuse export: discarding item aged 21 seconds (max 1), 1 events.`
+    - Final summary:
+      - `discard_stale.counter=1`
+      - `discard_stale.queue_items=1`
+      - `discard_stale.event_count=1`
+      - `discard_stale.lost_event_count=1`
+      - `last_outcome.classification=alertable_loss`
+      - `last_outcome.severity=warning`
+      - `action_required=true`
+      - `alertable_loss_totals.occurrences=1`
+      - Queue depth returned to `0`
+
+### Changed files
+
+- `web/modules/custom/ilas_site_assistant/src/Service/QueueHealthMonitor.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php`
+- `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
+- `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
+- `web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
+- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/QueueHealthMonitorTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/SloAlertServiceTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseExportWorkerTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseTerminateSubscriberTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseStatusCommandsOutputTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
+- `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
+- `docs/aila/current-state.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runbook.md`
+- `docs/aila/risk-register.md`
+- `docs/aila/runtime/afrp-17-langfuse-queue-loss-remediation.txt`
+
+### Rollback notes
+
+- Revert the AFRP-17 PHP/test/doc files listed above.
+- Run `ddev drush cr`.
+- If local validation changed active config during testing, restore
+  `langfuse.max_item_age_seconds` to `3600`.
+
+## Recommendation
+
+- Keep the fixed repo-owned outcome policy and no-DLQ decision. The queue-loss
+  gap is now closed with bounded accounting plus alerting, without retaining
+  extra payload data.
+- Deploy AFRP-17 to Pantheon and rerun hosted `ilas:langfuse-status`,
+  `ilas:langfuse-probe --diagnose`, and hosted queue-loss drills so the hosted
+  operator surface matches the repo-side behavior.
+
+## Scope boundaries
+
+- No dead-letter queue was introduced.
+- No raw Langfuse payload widening or troubleshooting-only payload retention was
+  added.
+- Queue depth/age remain the only conditions that make top-level health
+  degrade; historical queue-loss counters do not.
+
+## Risks / Unknowns
+
+- Hosted Pantheon parity for the new AFRP-17 structured export summary remains
+  unverified until deploy.
+- The clean local drill proved `discard_stale`; hosted and local runtime proof
+  for `drop_enqueue_failure`, `drop_max_depth`, and partial-`207` rejected
+  events still relies on repo tests rather than a live queue drill in this run.
+
+## Next approved step
+
+- Deploy AFRP-17, rerun hosted Langfuse status/probe/drill validation from the
+  deployed code, and rerun a fresh queued `ilas:langfuse-probe` drill from the
+  hardened code so the hosted command path and hosted queue-drain proof both
+  move from repo-tested to runtime-proven.

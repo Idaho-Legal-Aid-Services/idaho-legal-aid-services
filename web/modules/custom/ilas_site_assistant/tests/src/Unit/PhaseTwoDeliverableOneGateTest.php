@@ -129,18 +129,29 @@ final class PhaseTwoDeliverableOneGateTest extends TestCase {
     $this->assertStringContainsString('max(0.0, min(1.0, $confidence))', $controller);
     $this->assertStringContainsString("['source_url']", $controller);
 
-    // Must be called at all five 200-response paths.
+    // Current 200-response branches must all assemble the contract fields.
     $this->assertSame(
-      5,
-      substr_count($controller, '$this->assembleContractFields('),
-      'assembleContractFields must be called at exactly 5 response paths'
+      2,
+      substr_count($controller, "\$response_data = \$this->assembleContractFields(\$response_data, NULL, 'safety');"),
+      'Safety exits and repeated-message escalation must both assemble contract fields'
     );
-
-    // Path type arguments must cover all expected types.
-    $this->assertStringContainsString("'safety'", $controller);
-    $this->assertStringContainsString("'oos'", $controller);
-    $this->assertStringContainsString("'policy'", $controller);
-    $this->assertStringContainsString("'normal'", $controller);
+    $this->assertStringContainsString(
+      "\$response_data = \$this->assembleContractFields(\$response_data, NULL, 'oos');",
+      $controller
+    );
+    $this->assertStringContainsString(
+      "\$response_data = \$this->assembleContractFields(\$response_data, NULL, 'policy');",
+      $controller
+    );
+    $this->assertStringContainsString(
+      "\$response = \$this->assembleContractFields(\$response, \$gate_decision, 'normal');",
+      $controller
+    );
+    $this->assertMatchesRegularExpression(
+      "/buildRetrievalUnavailableMessageResponse\\([\\s\\S]*?\\\$response = \\\$this->assembleContractFields\\(\\\$response, \\[[\\s\\S]*?'reason_code' => \\\$response\\['reason_code'\\] \\?\\? NULL,[\\s\\S]*?'normal'\\);/",
+      $controller,
+      'Retrieval-unavailable degraded responses must assemble contract fields on the normal 200-response path'
+    );
   }
 
   /**

@@ -1,0 +1,167 @@
+AFRP-14 — Language Isolation Across Fallback Retrieval Paths
+=============================================================
+Date: 2026-03-25
+Prerequisite: AFRP-01 (FAQ language isolation), AFRP-13
+
+1. Prior Fallback Language-Isolation State
+------------------------------------------
+
+Three ResourceFinder legacy retrieval paths lacked language filtering:
+
+  a) findByTypeLegacy() — ResourceFinder.php:1636
+     Triggered when Search API is unavailable. Calls loadLegacyResourceCandidates()
+     which runs an entity query on node type 'resource' WITHOUT langcode condition.
+     Results returned WITHOUT urlMatchesCurrentLanguage() post-filter.
+     Risk: Cross-language resource results when Search API is down.
+
+  b) findByTopic() — ResourceFinder.php:1743
+     Public method always using loadLegacyResourceCandidates(). No language filter.
+     Also called from findByTypeSearchApi() (line 826) for sparse-result topic boost,
+     meaning unfiltered foreign-language results could enter an otherwise
+     language-safe lexical Search API flow.
+     Risk: Cross-language resources in topic-based lookups and topic boost.
+
+  c) findByServiceArea() — ResourceFinder.php:1786
+     Public method always using loadLegacyResourceCandidates(). No language filter.
+     Risk: Cross-language resources in service-area lookups.
+
+Root cause: loadLegacyResourceCandidates() (line 1834) queried nodes without
+a langcode condition and returned built resources via buildIndexedResource()
+without URL-based language validation.
+
+All FaqIndex paths were already safe (AFRP-01):
+  - Lexical: search_api_language + filterItemsByCurrentLanguage()
+  - Vector: search_api_language + itemMatchesCurrentLanguage()
+  - Legacy: filterItemsByCurrentLanguage() (line 1530)
+  - Categories: filterItemsByCurrentLanguage() (line 1751)
+
+ResourceFinder lexical and vector Search API paths were already safe:
+  - Lexical: search_api_language condition (line 768)
+  - Vector: urlMatchesCurrentLanguage() post-filter (line 1316)
+
+
+2. Post-Change State
+--------------------
+
+Defense-in-depth fix applied (mirrors FaqIndex AFRP-01 pattern):
+
+  Layer 1 — Query-level: Added ->condition('langcode', $this->getCurrentLanguage())
+  to the entity query in loadLegacyResourceCandidates(). Prevents loading
+  wrong-language nodes at the database level.
+
+  Layer 2 — Post-filter: Added filterResourcesByCurrentLanguage() method and
+  applied it in findByTypeLegacy(), findByTopic(), and findByServiceArea()
+  after loadLegacyResourceCandidates() returns. Validates resolved URLs
+  match the current language prefix (catches Drupal translation edge cases).
+
+
+3. Verification Level Tag
+-------------------------
+
+  code-changed / pure-unit-verified
+
+
+4. Branch-by-Branch Language Matrix
+------------------------------------
+
+  #  | Path                    | Service        | Query Filter          | Post-Filter                          | Status
+  ---|-------------------------|----------------|-----------------------|--------------------------------------|---------------------------
+  1  | Lexical Search API      | FaqIndex       | search_api_language   | filterItemsByCurrentLanguage()       | Safe (AFRP-01)
+  2  | Vector supplement       | FaqIndex       | search_api_language   | itemMatchesCurrentLanguage()         | Safe (AFRP-01)
+  3  | Legacy fallback         | FaqIndex       | —                     | filterItemsByCurrentLanguage()       | Safe (AFRP-01)
+  4  | Legacy categories       | FaqIndex       | —                     | filterItemsByCurrentLanguage()       | Safe (AFRP-01)
+  5  | Lexical Search API      | ResourceFinder | search_api_language   | —                                    | Safe (existing)
+  6  | Vector supplement       | ResourceFinder | —                     | urlMatchesCurrentLanguage()          | Safe (existing)
+  7  | findByTypeLegacy()      | ResourceFinder | langcode              | filterResourcesByCurrentLanguage()   | Fixed (AFRP-14)
+  8  | findByTopic()           | ResourceFinder | langcode              | filterResourcesByCurrentLanguage()   | Fixed (AFRP-14)
+  9  | findByServiceArea()     | ResourceFinder | langcode              | filterResourcesByCurrentLanguage()   | Fixed (AFRP-14)
+  10 | Topic boost (Search API)| ResourceFinder | langcode              | filterResourcesByCurrentLanguage()   | Fixed (AFRP-14, via #8)
+
+
+5. Evidence
+-----------
+
+  Source files modified:
+    web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php
+
+  New method:
+    filterResourcesByCurrentLanguage() — after line 217
+
+  Entity query change:
+    loadLegacyResourceCandidates() — added ->condition('langcode', ...)
+
+  Post-filter calls added:
+    findByTypeLegacy() — after loadLegacyResourceCandidates()
+    findByTopic() — after loadLegacyResourceCandidates()
+    findByServiceArea() — after loadLegacyResourceCandidates()
+
+  Test file created:
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/ResourceLanguageIsolationTest.php
+    6 test methods, all passing:
+      - testFindByTypeLegacyDropsForeignLanguageResources
+      - testFindByTopicDropsForeignLanguageResources
+      - testFindByServiceAreaDropsForeignLanguageResources
+      - testFindByTypeLegacyReturnsEmptyWhenOnlyForeignLanguage
+      - testFindByTopicReturnsEmptyWhenOnlyForeignLanguage
+      - testFindByServiceAreaReturnsEmptyWhenOnlyForeignLanguage
+
+  VC-PURE:
+    vendor/bin/phpunit -c phpunit.pure.xml \
+      web/modules/custom/ilas_site_assistant/tests/src/Unit/ResourceLanguageIsolationTest.php
+    Result: OK (6 tests, 9 assertions)
+
+  VC-UNIT:
+    vendor/bin/phpunit -c phpunit.pure.xml --group ilas_site_assistant \
+      web/modules/custom/ilas_site_assistant/tests/src/Unit/
+    Result: OK (2486 tests, 12646 assertions)
+
+  Regression checks:
+    FaqLanguageIsolationTest — OK
+    VectorSearchMergeTest — OK
+    RetrievalColdStartGuardTest — OK
+
+
+6. Changed Files
+----------------
+
+  Modified:
+    web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php
+
+  Created:
+    web/modules/custom/ilas_site_assistant/tests/src/Unit/ResourceLanguageIsolationTest.php
+    docs/aila/runtime/afrp-14-language-isolation-fallback-retrieval.txt
+
+
+7. Residual Risks / Unknowns
+-----------------------------
+
+  a) Pinecone vector namespace: Vector index language partitioning is not verified
+     at the index configuration level. Currently covered by urlMatchesCurrentLanguage()
+     post-filter on vector results, but query-level namespace isolation is unverified.
+
+  b) Cache key does not include language: buildQueryCacheKey() in ResourceFinder uses
+     PiiRedactor::redactForStorage() on the query but does not include the current
+     language code. If the same query hash is cached for EN, an ES request could
+     receive EN results from cache. Pre-existing; outside AFRP-14 scope.
+
+  c) Drupal entity query langcode edge cases: If a resource node exists only in ES
+     (no EN translation), the langcode=en entity query condition should exclude it.
+     The URL post-filter is the safety net for any Drupal translation fallback quirks.
+
+
+8. Rollback Notes
+-----------------
+
+  Revert the three post-filter lines and the langcode condition in
+  loadLegacyResourceCandidates(). filterResourcesByCurrentLanguage() can remain
+  as dead code or be removed. No schema changes or config changes to reverse.
+
+
+9. Still-Unverified Surfaces
+-----------------------------
+
+  - VC-FUNCTIONAL (requires full Drupal bootstrap)
+  - VC-ASSISTANT-SMOKE-LOCAL (requires running assistant instance)
+  - VC-ASSISTANT-SMOKE-PANTHEON (requires hosted deployment)
+  - Pinecone vector namespace design (requires index configuration access)
+  - Query cache language collision (pre-existing, separate remediation)

@@ -11,6 +11,7 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Flood\FloodInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\AssistantReadEndpointGuard;
@@ -91,9 +92,15 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
 
     $this->assertSame(200, $response->getStatusCode());
     $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame(['suggestions'], array_keys($body));
     $this->assertCount(2, $body['suggestions']);
     $this->assertSame('topic', $body['suggestions'][0]['type']);
     $this->assertSame('faq', $body['suggestions'][1]['type']);
+    foreach ($body['suggestions'] as $suggestion) {
+      $keys = array_keys($suggestion);
+      sort($keys);
+      $this->assertSame(['id', 'label', 'type'], $keys);
+    }
   }
 
   /**
@@ -182,6 +189,40 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame(['suggestions' => []], json_decode($response->getContent(), TRUE));
+  }
+
+  /**
+   * FAQ dependency loss suppresses only FAQ suggestions.
+   */
+  public function testSuggestFaqDependencyUnavailableSuppressesOnlyFaqSuggestions(): void {
+    $intentRouter = $this->createStub(IntentRouter::class);
+    $intentRouter->method('suggestTopics')->willReturn([
+      ['name' => 'Housing', 'id' => '75'],
+    ]);
+
+    $faqIndex = $this->createMock(FaqIndex::class);
+    $faqIndex->expects($this->once())
+      ->method('search')
+      ->willThrowException(new RetrievalDependencyUnavailableException('faq', 'faq_retrieval_unavailable'));
+
+    $controller = $this->buildController(
+      intentRouter: $intentRouter,
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+
+    $response = $controller->suggest(Request::create('/assistant/api/suggest?q=housing&type=all', 'GET'));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame(['suggestions'], array_keys($body));
+    $this->assertCount(1, $body['suggestions']);
+    $this->assertSame('topic', $body['suggestions'][0]['type']);
+    $keys = array_keys($body['suggestions'][0]);
+    sort($keys);
+    $this->assertSame(['id', 'label', 'type'], $keys);
+    $this->assertArrayNotHasKey('reason_code', $body);
+    $this->assertArrayNotHasKey('request_id', $body);
   }
 
   /**
@@ -274,6 +315,33 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
   }
 
   /**
+   * FAQ dependency loss returns a 503 unavailable body for ID lookups.
+   */
+  public function testFaqIdDependencyUnavailableReturns503(): void {
+    $faqIndex = $this->createMock(FaqIndex::class);
+    $faqIndex->expects($this->once())
+      ->method('getById')
+      ->willThrowException(new RetrievalDependencyUnavailableException('faq', 'faq_retrieval_unavailable'));
+
+    $controller = $this->buildController(
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+
+    $response = $controller->faq(Request::create('/assistant/api/faq?id=faq_55', 'GET'));
+
+    $this->assertSame(503, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame([
+      'error' => 'FAQ retrieval is temporarily unavailable.',
+      'type' => 'unavailable',
+      'error_code' => 'faq_retrieval_unavailable',
+      'request_id' => $body['request_id'],
+      'faq' => NULL,
+    ], $body);
+  }
+
+  /**
    * FAQ query exceptions still degrade to empty search results.
    */
   public function testFaqQueryExceptionFallsBackToEmptyResults(): void {
@@ -297,6 +365,30 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
   }
 
   /**
+   * FAQ dependency loss returns a 503 unavailable body for searches.
+   */
+  public function testFaqQueryDependencyUnavailableReturns503(): void {
+    $faqIndex = $this->createMock(FaqIndex::class);
+    $faqIndex->expects($this->once())
+      ->method('search')
+      ->willThrowException(new RetrievalDependencyUnavailableException('faq', 'faq_retrieval_unavailable'));
+
+    $controller = $this->buildController(
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+
+    $response = $controller->faq(Request::create('/assistant/api/faq?q=eviction', 'GET'));
+
+    $this->assertSame(503, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame([], $body['results']);
+    $this->assertSame(0, $body['count']);
+    $this->assertSame('unavailable', $body['type']);
+    $this->assertSame('faq_retrieval_unavailable', $body['error_code']);
+  }
+
+  /**
    * FAQ category exceptions still degrade to the empty category list.
    */
   public function testFaqCategoryExceptionFallsBackToEmptyCategories(): void {
@@ -314,6 +406,29 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
 
     $this->assertSame(200, $response->getStatusCode());
     $this->assertSame(['categories' => []], json_decode($response->getContent(), TRUE));
+  }
+
+  /**
+   * FAQ dependency loss returns a 503 unavailable body for categories.
+   */
+  public function testFaqCategoriesDependencyUnavailableReturns503(): void {
+    $faqIndex = $this->createMock(FaqIndex::class);
+    $faqIndex->expects($this->once())
+      ->method('getCategories')
+      ->willThrowException(new RetrievalDependencyUnavailableException('faq', 'faq_retrieval_unavailable'));
+
+    $controller = $this->buildController(
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+
+    $response = $controller->faq(Request::create('/assistant/api/faq', 'GET'));
+
+    $this->assertSame(503, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame([], $body['categories']);
+    $this->assertSame('unavailable', $body['type']);
+    $this->assertSame('faq_retrieval_unavailable', $body['error_code']);
   }
 
   /**
@@ -536,7 +651,7 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
     $result = $body['results'][0];
     $keys = array_keys($result);
     sort($keys);
-    $this->assertSame(['answer', 'id', 'question', 'score', 'source', 'url'], $keys);
+    $this->assertSame(['answer', 'id', 'question', 'url'], $keys);
     foreach (self::DENIED_FAQ_FIELDS as $field) {
       $this->assertArrayNotHasKey($field, $result, "Internal field '{$field}' leaked into search response");
     }
@@ -562,9 +677,41 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
     $keys = array_keys($faq);
     sort($keys);
     $this->assertSame(['answer', 'id', 'question', 'url'], $keys);
-    foreach (['score', 'source', ...self::DENIED_FAQ_FIELDS] as $field) {
+    foreach (self::DENIED_FAQ_FIELDS as $field) {
       $this->assertArrayNotHasKey($field, $faq, "Field '{$field}' should not appear in ID lookup response");
     }
+  }
+
+  /**
+   * FAQ category browse responses contain only the public field allowlist.
+   */
+  public function testFaqCategoriesResponseContainsOnlyPublicFields(): void {
+    $faqIndex = $this->createStub(FaqIndex::class);
+    $faqIndex->method('getCategories')->willReturn([
+      [
+        'name' => 'Housing',
+        'count' => '3',
+        'internal' => 'hidden',
+      ],
+    ]);
+
+    $controller = $this->buildController(
+      faqIndex: $faqIndex,
+      readEndpointGuard: $this->buildReadGuard(),
+    );
+
+    $response = $controller->faq(Request::create('/assistant/api/faq', 'GET'));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertCount(1, $body['categories']);
+    $category = $body['categories'][0];
+    $keys = array_keys($category);
+    sort($keys);
+    $this->assertSame(['count', 'name'], $keys);
+    $this->assertSame('Housing', $category['name']);
+    $this->assertSame(3, $category['count']);
+    $this->assertArrayNotHasKey('internal', $category);
   }
 
   /**
@@ -577,8 +724,6 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
       'question' => 'Test?',
       'answer' => 'Yes.',
       'url' => '/test',
-      'score' => 0.95,
-      'source' => 'lexical',
       $field => $value,
     ];
 
@@ -614,6 +759,8 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
       'category' => ['category', 'Housing'],
       'parent_url' => ['parent_url', '/legal-topics/housing'],
       'source_url' => ['source_url', '/node/123'],
+      'score' => ['score', 0.95],
+      'source' => ['source', 'lexical'],
       'updated_at' => ['updated_at', '2026-01-15'],
       'answer_snippet' => ['answer_snippet', 'Snippet...'],
       'vector_score' => ['vector_score', 0.87],
@@ -629,7 +776,8 @@ final class AssistantApiReadEndpointContractTest extends TestCase {
    */
   private const DENIED_FAQ_FIELDS = [
     'paragraph_id', 'type', 'full_answer', 'title', 'body', 'anchor',
-    'category', 'parent_url', 'source_url', 'updated_at', 'answer_snippet',
+    'category', 'parent_url', 'source_url', 'score', 'source',
+    'updated_at', 'answer_snippet',
     'vector_score', 'source_class', 'provenance', 'freshness', 'governance_flags',
   ];
 

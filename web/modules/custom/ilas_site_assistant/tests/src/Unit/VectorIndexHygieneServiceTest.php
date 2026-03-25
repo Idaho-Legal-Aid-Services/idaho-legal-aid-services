@@ -12,6 +12,9 @@ use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\search_api\IndexInterface;
+use Drupal\search_api\Item\ItemInterface;
+use Drupal\search_api\Query\QueryInterface;
+use Drupal\search_api\Query\ResultSetInterface;
 use Drupal\search_api\ServerInterface;
 use Drupal\search_api\Tracker\TrackerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -66,21 +69,40 @@ final class VectorIndexHygieneServiceTest extends TestCase {
       'policy_version' => 'p2_del_03_v1',
       'refresh_mode' => 'incremental',
       'refresh_interval_hours' => 24,
+      'probe_interval_hours' => 24,
       'overdue_grace_minutes' => 45,
-      'max_items_per_run' => 60,
+      'max_items_per_run' => 5,
       'alert_cooldown_minutes' => 60,
       'managed_indexes' => [
         'faq_vector' => [
           'owner_role' => 'Content Operations Lead',
-          'expected_server_id' => 'pinecone_vector',
+          'expected_server_id' => 'pinecone_vector_faq',
           'expected_metric' => 'cosine_similarity',
           'expected_dimensions' => 3072,
+          'queryability_probes' => [
+            [
+              'label' => 'faq_custody_canary',
+              'query' => 'custody',
+              'langcode' => 'en',
+              'top_k' => 1,
+              'min_results' => 1,
+            ],
+          ],
         ],
         'resource_vector' => [
           'owner_role' => 'Content Operations Lead',
-          'expected_server_id' => 'pinecone_vector',
+          'expected_server_id' => 'pinecone_vector_resources',
           'expected_metric' => 'cosine_similarity',
           'expected_dimensions' => 3072,
+          'queryability_probes' => [
+            [
+              'label' => 'resource_eviction_canary',
+              'query' => 'eviction',
+              'langcode' => 'en',
+              'top_k' => 1,
+              'min_results' => 1,
+            ],
+          ],
         ],
       ],
     ];
@@ -164,14 +186,19 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     int $totalItems = 100,
     int $indexedItems = 80,
     int $remainingItems = 20,
-    string $serverId = 'pinecone_vector',
+    string $serverId = 'pinecone_vector_faq',
     string $metric = 'cosine_similarity',
     int $dimensions = 3072,
+    array $probeScores = [0.91],
+    ?TrackerInterface $trackerOverride = NULL,
+    ?QueryInterface $queryOverride = NULL,
   ): IndexInterface {
-    $tracker = $this->createMock(TrackerInterface::class);
-    $tracker->method('getTotalItemsCount')->willReturn($totalItems);
-    $tracker->method('getIndexedItemsCount')->willReturn($indexedItems);
-    $tracker->method('getRemainingItemsCount')->willReturn($remainingItems);
+    $tracker = $trackerOverride ?? $this->createMock(TrackerInterface::class);
+    if (!$trackerOverride instanceof TrackerInterface) {
+      $tracker->method('getTotalItemsCount')->willReturn($totalItems);
+      $tracker->method('getIndexedItemsCount')->willReturn($indexedItems);
+      $tracker->method('getRemainingItemsCount')->willReturn($remainingItems);
+    }
 
     $server = $this->createMock(ServerInterface::class);
     $server->method('getBackendConfig')->willReturn([
@@ -184,8 +211,41 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $index->method('getServerId')->willReturn($serverId);
     $index->method('getServerInstanceIfAvailable')->willReturn($server);
     $index->method('getTrackerInstanceIfAvailable')->willReturn($tracker);
+    $index->method('query')->willReturn($queryOverride ?? $this->buildQueryMock($probeScores));
 
     return $index;
+  }
+
+  /**
+   * Builds a Search API query mock that returns deterministic result items.
+   *
+   * @param array<int, float|null> $scores
+   *   Result scores to expose from getResultItems().
+   * @param \Throwable|null $exception
+   *   Optional execute exception.
+   */
+  private function buildQueryMock(array $scores = [0.91], ?\Throwable $exception = NULL): QueryInterface {
+    $resultItems = array_map(function ($score): ItemInterface {
+      $item = $this->createMock(ItemInterface::class);
+      $item->method('getScore')->willReturn($score);
+      return $item;
+    }, $scores);
+
+    $resultSet = $this->createMock(ResultSetInterface::class);
+    $resultSet->method('getResultItems')->willReturn($resultItems);
+
+    $query = $this->createMock(QueryInterface::class);
+    $query->method('keys')->willReturnSelf();
+    $query->method('range')->willReturnSelf();
+    $query->method('addCondition')->willReturnSelf();
+    if ($exception instanceof \Throwable) {
+      $query->method('execute')->willThrowException($exception);
+    }
+    else {
+      $query->method('execute')->willReturn($resultSet);
+    }
+
+    return $query;
   }
 
   public function testDefaultPolicySnapshotContractValues(): void {
@@ -195,8 +255,9 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('p2_del_03_v1', $snapshot['policy_version']);
     $this->assertSame('incremental', $snapshot['refresh_mode']);
     $this->assertSame(24, $snapshot['thresholds']['refresh_interval_hours']);
+    $this->assertSame(24, $snapshot['thresholds']['probe_interval_hours']);
     $this->assertSame(45, $snapshot['thresholds']['overdue_grace_minutes']);
-    $this->assertSame(60, $snapshot['thresholds']['max_items_per_run']);
+    $this->assertSame(5, $snapshot['thresholds']['max_items_per_run']);
     $this->assertSame(60, $snapshot['thresholds']['alert_cooldown_minutes']);
 
     $this->assertArrayHasKey('faq_vector', $snapshot['indexes']);
@@ -207,15 +268,15 @@ final class VectorIndexHygieneServiceTest extends TestCase {
 
   public function testRunScheduledRefreshProcessesDueIndexesIncrementally(): void {
     $faqIndex = $this->buildCompliantIndexMock(100, 80, 20);
-    $resourceIndex = $this->buildCompliantIndexMock(60, 40, 20);
+    $resourceIndex = $this->buildCompliantIndexMock(60, 40, 20, 'pinecone_vector_resources');
 
     $faqIndex->expects($this->once())
       ->method('indexItems')
-      ->with(60)
+      ->with(5)
       ->willReturn(7);
     $resourceIndex->expects($this->once())
       ->method('indexItems')
-      ->with(60)
+      ->with(5)
       ->willReturn(3);
 
     $service = $this->buildService([
@@ -229,13 +290,15 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('healthy', $snapshot['status']);
     $this->assertSame(7, $snapshot['indexes']['faq_vector']['items_processed_last_run']);
     $this->assertSame(3, $snapshot['indexes']['resource_vector']['items_processed_last_run']);
+    $this->assertSame('healthy', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('healthy', $snapshot['indexes']['resource_vector']['probe_status']);
     $this->assertNotEmpty($snapshot['indexes']['faq_vector']['last_refresh_at']);
     $this->assertNotEmpty($snapshot['indexes']['resource_vector']['last_refresh_at']);
   }
 
   public function testRunScheduledRefreshSkipsIndexingWhenNotDue(): void {
     $faqIndex = $this->buildCompliantIndexMock();
-    $resourceIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
 
     $faqIndex->expects($this->never())
       ->method('indexItems');
@@ -286,7 +349,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
       metric: 'dot_product',
       dimensions: 1024
     );
-    $resourceIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
 
     $faqIndex->expects($this->never())->method('indexItems');
     $resourceIndex->expects($this->never())->method('indexItems');
@@ -345,7 +408,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
 
   public function testSnapshotCapturesTrackerCounts(): void {
     $faqIndex = $this->buildCompliantIndexMock(200, 150, 50);
-    $resourceIndex = $this->buildCompliantIndexMock(80, 70, 10);
+    $resourceIndex = $this->buildCompliantIndexMock(80, 70, 10, 'pinecone_vector_resources');
 
     $faqIndex->expects($this->once())->method('indexItems')->willReturn(5);
     $resourceIndex->expects($this->once())->method('indexItems')->willReturn(1);
@@ -364,9 +427,153 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame(60, $snapshot['totals']['remaining_items']);
   }
 
+  public function testRunScheduledRefreshRecordsSuccessfulProbeEvidence(): void {
+    $faqIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->once())->method('indexItems')->willReturn(1);
+    $resourceIndex->expects($this->once())->method('indexItems')->willReturn(1);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ]);
+
+    $service->runScheduledRefresh();
+    $snapshot = $service->getSnapshot();
+
+    $this->assertNotEmpty($snapshot['indexes']['faq_vector']['last_probe_at']);
+    $this->assertSame('healthy', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame(1, $snapshot['indexes']['faq_vector']['probe_passed_count']);
+    $this->assertSame(0, $snapshot['indexes']['faq_vector']['probe_failed_count']);
+    $this->assertSame('faq_custody_canary', $snapshot['indexes']['faq_vector']['probe_evidence'][0]['label']);
+    $this->assertSame(2, $snapshot['totals']['probe_passed_count']);
+    $this->assertSame(0, $snapshot['totals']['probe_failed_count']);
+  }
+
+  public function testFailedProbeDegradesOtherwiseHealthySnapshot(): void {
+    $faqIndex = $this->buildCompliantIndexMock(
+      queryOverride: $this->buildQueryMock([], new \RuntimeException('probe failed')),
+    );
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->once())->method('indexItems')->willReturn(1);
+    $resourceIndex->expects($this->once())->method('indexItems')->willReturn(1);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ]);
+
+    $service->runScheduledRefresh();
+    $snapshot = $service->getSnapshot();
+
+    $this->assertSame('failed', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('healthy', $snapshot['indexes']['resource_vector']['probe_status']);
+    $this->assertSame('degraded', $snapshot['indexes']['faq_vector']['status']);
+    $this->assertSame('degraded', $snapshot['status']);
+    $this->assertSame(1, $snapshot['totals']['probe_failed_count']);
+    $this->assertSame(1, $snapshot['totals']['probe_failed_indexes']);
+    $this->assertStringContainsString('RuntimeException: probe failed', (string) $snapshot['indexes']['faq_vector']['probe_error']);
+  }
+
+  public function testRefreshSnapshotSkipsProbeWhenCadenceNotElapsed(): void {
+    $faqIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->never())->method('indexItems');
+    $resourceIndex->expects($this->never())->method('indexItems');
+    $faqIndex->expects($this->never())->method('query');
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ]);
+
+    $now = time();
+    $this->stateStore['ilas_site_assistant.vector_index_hygiene.snapshot'] = [
+      'policy_version' => 'p2_del_03_v1',
+      'recorded_at' => $now,
+      'refresh_mode' => 'incremental',
+      'indexes' => [
+        'faq_vector' => [
+          'index_id' => 'faq_accordion_vector',
+          'last_refresh_at' => $now,
+          'last_probe_at' => $now,
+          'probe_status' => 'healthy',
+          'metadata_status' => 'compliant',
+          'status' => 'healthy',
+        ],
+        'resource_vector' => [
+          'index_id' => 'assistant_resources_vector',
+          'last_refresh_at' => $now,
+          'last_probe_at' => $now,
+          'probe_status' => 'healthy',
+          'metadata_status' => 'compliant',
+          'status' => 'healthy',
+        ],
+      ],
+      'totals' => [],
+      'thresholds' => [],
+    ];
+
+    $snapshot = $service->refreshSnapshot(FALSE, 'faq_vector');
+
+    $this->assertSame($now, $snapshot['indexes']['faq_vector']['last_probe_at']);
+    $this->assertSame('healthy', $snapshot['indexes']['faq_vector']['probe_status']);
+  }
+
+  public function testBackfillIndexReturnsBatchLimitedProgressAndPersistsStopReason(): void {
+    $tracker = $this->createMock(TrackerInterface::class);
+    $tracker->method('getTotalItemsCount')->willReturn(10);
+    $tracker->method('getIndexedItemsCount')->willReturnOnConsecutiveCalls(3, 5, 5);
+    $tracker->method('getRemainingItemsCount')->willReturnOnConsecutiveCalls(7, 5, 5);
+    $faqIndex = $this->buildCompliantIndexMock(10, 3, 7, trackerOverride: $tracker);
+    $faqIndex->expects($this->once())->method('indexItems')->with(2)->willReturn(2);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources'),
+    ]);
+
+    $report = $service->backfillIndex('faq_vector', 2, 1, 0, FALSE, FALSE);
+
+    $this->assertSame('resume', $report['mode']);
+    $this->assertSame(2, $report['processed_this_run']);
+    $this->assertSame('batch_limit_reached', $report['stop_reason']);
+    $this->assertSame(10, $report['total_items']);
+    $this->assertSame(5, $report['indexed_items']);
+    $this->assertSame(5, $report['remaining_items']);
+    $this->assertSame('batch_limit_reached', $report['last_stop_reason']);
+    $snapshot = $service->getSnapshot();
+    $this->assertSame('batch_limit_reached', $snapshot['indexes']['faq_vector']['last_stop_reason']);
+  }
+
+  public function testBackfillIndexCanClearFirstAndRunUntilComplete(): void {
+    $tracker = $this->createMock(TrackerInterface::class);
+    $tracker->method('getTotalItemsCount')->willReturn(4);
+    $tracker->method('getIndexedItemsCount')->willReturnOnConsecutiveCalls(0, 0, 2, 4, 4);
+    $tracker->method('getRemainingItemsCount')->willReturnOnConsecutiveCalls(4, 4, 2, 0, 0);
+    $faqIndex = $this->buildCompliantIndexMock(4, 0, 4, trackerOverride: $tracker);
+    $faqIndex->expects($this->once())->method('clear');
+    $faqIndex->expects($this->exactly(2))->method('indexItems')->with(2)->willReturn(2);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources'),
+    ]);
+
+    $report = $service->backfillIndex('faq_vector', 2, 1, 0, TRUE, TRUE);
+
+    $this->assertSame('rebuild', $report['mode']);
+    $this->assertSame(4, $report['processed_this_run']);
+    $this->assertSame('complete', $report['stop_reason']);
+    $this->assertSame(100.0, $report['percent_complete']);
+  }
+
   public function testExceptionIsolationPreservesSecondIndexProcessing(): void {
     $faqIndex = $this->buildCompliantIndexMock();
-    $resourceIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
 
     $faqIndex->expects($this->once())
       ->method('indexItems')

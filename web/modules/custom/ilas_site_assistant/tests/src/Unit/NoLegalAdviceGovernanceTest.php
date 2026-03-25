@@ -201,6 +201,7 @@ class NoLegalAdviceGovernanceTest extends TestCase {
       'out_of_scope',
       'post_gen_safety_legal_advice',
       'post_gen_safety_review_flag',
+      'post_gen_safety_legal_advice_scan',
     ];
     foreach ($required as $type) {
       $this->assertContains($type, $eventTypes, "Audit domain missing event type: {$type}");

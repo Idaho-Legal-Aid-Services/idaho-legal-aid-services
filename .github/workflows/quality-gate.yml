@@ -48,7 +48,7 @@ jobs:
       - name: Run PHPUnit drupal-unit tests (VC-DRUPAL-UNIT)
         run: vendor/bin/phpunit -c phpunit.xml --testsuite drupal-unit --colors=always
 
-      - name: Run full quality gate (golden transcript only)
+      - name: Run full quality gate (VC-KERNEL + golden transcript + promptfoo runtime)
         run: bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh --skip-phpunit
 
       - name: Upload PHPUnit summary

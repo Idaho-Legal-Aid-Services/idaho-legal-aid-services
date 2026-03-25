@@ -28,6 +28,16 @@ services:
     arguments: ['@ilas_site_assistant.langfuse_trace_lookup']
     tags:
       - { name: drush.command }
+  ilas_site_assistant.runtime_diagnostics_commands:
+    class: \Drupal\ilas_site_assistant\Commands\RuntimeDiagnosticsCommands
+    arguments: ['@service_container']
+    tags:
+      - { name: drush.command }
+  ilas_site_assistant.vector_maintenance_commands:
+    class: \Drupal\ilas_site_assistant\Commands\VectorMaintenanceCommands
+    arguments: ['@ilas_site_assistant.vector_index_hygiene']
+    tags:
+      - { name: drush.command }
   ilas_site_assistant.disambiguation_review_commands:
     class: \Drupal\ilas_site_assistant\Commands\DisambiguationReviewCommands
     arguments: ['@ilas_site_assistant.analytics_logger']

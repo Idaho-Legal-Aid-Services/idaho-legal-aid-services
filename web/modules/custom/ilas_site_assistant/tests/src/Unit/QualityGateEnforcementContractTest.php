@@ -42,6 +42,9 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('--group ilas_site_assistant', $script);
     $this->assertStringContainsString('tests/src/Unit', $script);
     $this->assertStringContainsString('--testsuite drupal-unit', $script);
+    $this->assertStringContainsString('FaqSearchRuntimeRegressionKernelTest.php', $script);
+    $this->assertStringContainsString('vc_kernel', $script);
+    $this->assertStringContainsString('run-host-phpunit.sh', $script);
     $this->assertStringContainsString('npm run test:promptfoo:runtime', $script);
     $this->assertStringContainsString('promptfoo_runtime', $script);
     $this->assertStringContainsString('promptfoo-evals/output', $script);
@@ -97,6 +100,7 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('Run PHPUnit pure-unit tests (VC-PURE)', $workflow);
     $this->assertStringContainsString('phpunit.xml', $workflow);
     $this->assertStringContainsString('--testsuite drupal-unit', $workflow);
+    $this->assertStringContainsString('VC-KERNEL', $workflow);
     $this->assertStringContainsString('run-quality-gate.sh', $workflow);
     $this->assertStringContainsString('upload-artifact', $workflow);
 

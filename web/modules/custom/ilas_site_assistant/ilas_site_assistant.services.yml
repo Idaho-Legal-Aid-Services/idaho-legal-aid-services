@@ -60,6 +60,15 @@ services:
       - '@ilas_site_assistant.llm_enhancer'
       - '@ilas_site_assistant.voyage_reranker'
 
+  ilas_site_assistant.runtime_diagnostics_matrix_builder:
+    class: Drupal\ilas_site_assistant\Service\RuntimeDiagnosticsMatrixBuilder
+    arguments:
+      - '@ilas_site_assistant.runtime_truth_snapshot_builder'
+      - '@ilas_site_assistant.retrieval_configuration'
+      - '@ilas_site_assistant.queue_health_monitor'
+      - '@ilas_site_assistant.cron_health_tracker'
+      - '@ilas_site_assistant.slo_definitions'
+
   ilas_site_assistant.topic_resolver:
     class: Drupal\ilas_site_assistant\Service\TopicResolver
     arguments: ['@entity_type.manager', '@cache.default', '@ilas_site_assistant.retrieval_configuration']

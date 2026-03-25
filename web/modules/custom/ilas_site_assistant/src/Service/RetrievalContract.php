@@ -106,6 +106,11 @@ final class RetrievalContract {
       'action' => 'Status propagated to /health endpoint and response governance metadata.',
       'rationale' => 'Operator awareness; response behavior unchanged for end users.',
     ],
+    'freshness_degraded' => [
+      'level' => self::ENFORCEMENT_SOFT,
+      'action' => 'Confidence capped; freshness_caveat added; freshness_profile visible in response.',
+      'rationale' => 'Citation-required responses must visibly degrade when freshness cannot be confirmed.',
+    ],
   ];
 
   /**

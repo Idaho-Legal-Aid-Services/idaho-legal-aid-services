@@ -628,6 +628,20 @@ class SourceGovernanceService {
   }
 
   /**
+   * Checks whether freshness enforcement is enabled in config.
+   *
+   * @return bool
+   *   TRUE if source_governance.freshness_enforcement.enabled is true.
+   */
+  public function isFreshnessEnforcementEnabled(): bool {
+    $enabled = $this->configFactory
+      ->get('ilas_site_assistant.settings')
+      ->get('source_governance.freshness_enforcement.enabled');
+    // Default to TRUE when config key is missing (fail-closed).
+    return $enabled !== FALSE;
+  }
+
+  /**
    * Returns the configured enforcement mode for provenance annotations.
    *
    * Reads from retrieval_contract.enforcement_mode in module config.

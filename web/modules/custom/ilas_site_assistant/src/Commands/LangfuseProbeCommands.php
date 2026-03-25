@@ -7,6 +7,7 @@ namespace Drupal\ilas_site_assistant\Commands;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\ilas_site_assistant\Service\ObservabilityProofTaxonomy;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
@@ -91,6 +92,8 @@ class LangfuseProbeCommands extends DrushCommands {
    *   Print Langfuse readiness verdict as JSON (no probe sent).
    */
   public function langfuseProbe(array $options = ['direct' => FALSE, 'diagnose' => FALSE]): int {
+    $options = $this->normalizeProbeOptions($options);
+
     if ($options['diagnose']) {
       return $this->printDiagnosis();
     }
@@ -120,6 +123,19 @@ class LangfuseProbeCommands extends DrushCommands {
     }
 
     return $this->enqueuePayload($payload, $traceId);
+  }
+
+  /**
+   * Normalizes sparse Drush option arrays to explicit booleans.
+   *
+   * @return array{direct: bool, diagnose: bool}
+   *   Normalized command options.
+   */
+  protected function normalizeProbeOptions(array $options): array {
+    return [
+      'direct' => !empty($options['direct']),
+      'diagnose' => !empty($options['diagnose']),
+    ];
   }
 
   /**
@@ -235,17 +251,20 @@ class LangfuseProbeCommands extends DrushCommands {
       else {
         $this->logger()?->error(sprintf('Langfuse direct probe returned unexpected HTTP status: %d', $statusCode));
         $this->logger()?->notice(sprintf('Trace ID: %s', $traceId));
+        $this->logger()?->notice(sprintf('Proof level: %s', ObservabilityProofTaxonomy::LEVEL_L0_UNVERIFIED));
         return 1;
       }
     }
     catch (\Throwable $e) {
       $this->logger()?->error(sprintf('Langfuse direct probe failed: %s', $e->getMessage()));
       $this->logger()?->notice(sprintf('Trace ID: %s', $traceId));
+      $this->logger()?->notice(sprintf('Proof level: %s', ObservabilityProofTaxonomy::LEVEL_L0_UNVERIFIED));
       return 1;
     }
 
     $this->logger()?->notice(sprintf('Trace ID: %s', $traceId));
     $this->logger()?->notice(sprintf('Langfuse URL: %s', $host));
+    $this->logger()?->notice(sprintf('Proof level: %s (payload accepted; use ilas:langfuse-lookup %s for L4 account-side proof)', ObservabilityProofTaxonomy::LEVEL_L3_PAYLOAD_ACCEPTANCE, $traceId));
 
     return 0;
   }
@@ -269,6 +288,7 @@ class LangfuseProbeCommands extends DrushCommands {
 
     $this->logger()?->success(sprintf('Langfuse probe enqueued. Trace ID: %s', $traceId));
     $this->logger()?->notice(sprintf('Queue depth: %d -> %d', $depthBefore, $depthAfter));
+    $this->logger()?->notice(sprintf('Proof level: %s (enqueued; run queue:run + ilas:langfuse-lookup %s for L4 account-side proof)', ObservabilityProofTaxonomy::LEVEL_L2_QUEUE_DRAIN, $traceId));
 
     return 0;
   }
@@ -341,6 +361,7 @@ class LangfuseProbeCommands extends DrushCommands {
     if ($this->queueHealthMonitor !== NULL) {
       try {
         $exportOutcomes = $this->queueHealthMonitor->getExportOutcomeSummary();
+        $queue['export'] = $exportOutcomes;
       }
       catch (\Throwable) {
         // Fall through with empty.
@@ -358,8 +379,10 @@ class LangfuseProbeCommands extends DrushCommands {
       'environment' => $environment,
       'sample_rate' => $sampleRate,
       'queue' => $queue,
+      'export' => $exportOutcomes,
       'export_outcomes' => $exportOutcomes,
       'suggestion' => $suggestion,
+      'proof_level' => ObservabilityProofTaxonomy::LEVEL_L0_UNVERIFIED,
     ];
 
     print json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;

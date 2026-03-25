@@ -1,0 +1,198 @@
+AFRP-20 — Enforceable Citation Freshness Policy
+=================================================
+Date:       2026-03-25
+Prompt ID:  AFRP-20
+Roadmap:    Audit-derived remediation → Governance enforcement #2
+
+────────────────────────────────────────────────
+PRIOR PROVENANCE-ENFORCEMENT POSTURE
+────────────────────────────────────────────────
+
+Signal                    Level      Behavior
+─────────────────────     ─────────  ─────────────────────────────────────────
+stale_source (per-item)   ADVISORY   Flag in governance_flags; no response change
+unknown_freshness (item)  ADVISORY   Flag in governance_flags; no response change
+all_citations_stale       SOFT       Adds freshness_caveat text (no confidence change)
+grounding_weak            SOFT       Confidence capped at 0.3; refusal if ≤ 0.5
+Unknown freshness (agg)   NONE       Not counted as non-fresh; no enforcement
+Partial staleness         NONE       No enforcement at all
+enforcement_mode config   DECORATIVE Read from config, never consumed to gate behavior
+
+Gaps:
+  - Per-item freshness flags were purely advisory
+  - All-unknown-freshness citations had ZERO enforcement
+  - Partial staleness (some stale, some fresh) had ZERO enforcement
+  - Stale citations caused only a text caveat, never a confidence downgrade
+  - No structured freshness_profile visible in the response
+
+────────────────────────────────────────────────
+POST-CHANGE POSTURE
+────────────────────────────────────────────────
+
+Signal                    Level         Behavior
+─────────────────────     ────────────  ─────────────────────────────────────────
+stale_source (per-item)   ADVISORY      Unchanged — flag in governance_flags
+unknown_freshness (item)  ADVISORY      Unchanged — flag in governance_flags
+all_citations_stale       SOFT          Unchanged — adds freshness_caveat (Check 3)
+grounding_weak            SOFT          Unchanged — caps confidence at 0.3
+freshness_degraded (NEW)  SOFT (NEW)    Confidence capped; freshness_caveat added;
+                                        freshness_profile visible in response
+Partial staleness (NEW)   SOFT (NEW)    Proportional confidence cap; profile visible
+Unknown freshness (agg)   SOFT (NEW)    Treated as non-fresh; feeds freshness_degraded
+
+────────────────────────────────────────────────
+VERIFICATION LEVEL TAG
+────────────────────────────────────────────────
+
+VC-UNIT:     PASS  (2536 tests, 13592 assertions)
+VC-PURE:     PASS  (581 drupal-unit tests, 1529 assertions)
+VC-KERNEL:   PASS  (9 tests, 230 assertions)
+VC-ASSISTANT-SMOKE-LOCAL: PASS (7 golden transcript + 16 promptfoo runtime)
+
+────────────────────────────────────────────────
+ENFORCEABLE POLICY MATRIX
+────────────────────────────────────────────────
+
+Citation-required types:
+  faq, resources, topic, eligibility, services_overview, search_results
+
+Freshness classification of citations:
+  fresh   — updated_at within max_age_days (180 default)
+  stale   — updated_at exceeds max_age_days
+  unknown — no updated_at resolvable (treated as non-fresh)
+
+Enforcement rules for citation-required responses with sources:
+
+  Condition              Enforcement                    Confidence Cap
+  ────────────────────   ────────────────────────────   ──────────────
+  All fresh              None                           Unchanged
+  Partial non-fresh      partial_non_fresh enforcement  max(0.5, 1.0 - ratio*0.5)
+  All non-fresh          all_non_fresh enforcement      0.5
+  No sources             grounding_weak (existing)      0.3 + refusal at ≤0.5
+
+  "Non-fresh" = stale OR unknown (precautionary principle)
+
+Non-citation-required types (navigation, emergency, escalation, etc.):
+  No freshness enforcement applied. ADVISORY flags only.
+
+────────────────────────────────────────────────
+EVIDENCE: FILES AND TEST SUMMARIES
+────────────────────────────────────────────────
+
+[1] src/Service/RetrievalContract.php
+    Added freshness_degraded to GOVERNANCE_ENFORCEMENT_MATRIX at SOFT level.
+    Tested by: GovernanceEnforcementMatrixContractTest::testEnforcementMatrixCoversResponseLevelSignals
+
+[2] src/Service/ResponseGrounder.php
+    Added enforceFreshnessPolicy() method.
+    Called from groundResponse() for CITATION_REQUIRED_TYPES with sources.
+    Computes freshness_profile, sets _freshness_enforcement, _freshness_confidence_cap.
+    Config-gated via SourceGovernanceService::isFreshnessEnforcementEnabled().
+    Tested by: CitationFreshnessEnforcementTest (10 tests), ResponseGrounderTest (2 new tests)
+
+[3] src/Service/SourceGovernanceService.php
+    Added isFreshnessEnforcementEnabled() method reading
+    source_governance.freshness_enforcement.enabled from config.
+    Defaults to TRUE (fail-closed) when config absent.
+
+[4] src/Controller/AssistantApiController.php
+    enforcePostGenerationSafety(): Added Check 4 — reads _freshness_enforcement,
+    logs enforcement level, adds freshness_caveat when all_non_fresh (idempotent
+    with existing Check 3). Strips _freshness_enforcement after use.
+    assembleContractFields(): After PHARD-03 cap, applies _freshness_confidence_cap.
+    Strips _freshness_confidence_cap after use.
+    Tested by: PostGenerationEnforcementTest (updated assertInternalFieldsAreHidden),
+    CitationFreshnessEnforcementTest (tests 7, 9, 10)
+
+[5] config/install/ilas_site_assistant.settings.yml
+    Added source_governance.freshness_enforcement.enabled: true
+
+[6] config/ilas_site_assistant.settings.yml
+    Added source_governance.freshness_enforcement.enabled: true
+
+[7] config/schema/ilas_site_assistant.schema.yml
+    Added schema for source_governance.freshness_enforcement mapping.
+
+[8] tests/src/Unit/CitationFreshnessEnforcementTest.php (NEW)
+    10 tests proving:
+    1. All fresh → no enforcement, freshness_profile present
+    2. All stale → all_non_fresh, cap 0.5
+    3. All unknown → treated as all non-fresh
+    4. Mixed (1 fresh, 2 stale) → partial_non_fresh, proportional cap
+    5. Non-citation-required → no enforcement or profile
+    6. No sources → grounding_weak, not freshness enforcement
+    7. Coexistence with _all_citations_stale
+    8. Config toggle disabled → no enforcement
+    9. freshness_profile is user-facing (no underscore)
+    10. Internal flags use underscore prefix
+
+[9] tests/src/Unit/GovernanceEnforcementMatrixContractTest.php
+    Added freshness_degraded to response-level signals list.
+
+[10] tests/src/Unit/ResponseGrounderTest.php
+     Added 2 tests for freshness enforcement via groundResponse().
+
+[11] tests/src/Unit/PostGenerationEnforcementTest.php
+     Updated buildResponse() to include freshness metadata (fresh status).
+     Updated assertInternalFieldsAreHidden() to check _freshness_enforcement,
+     _freshness_confidence_cap are stripped.
+
+────────────────────────────────────────────────
+CHANGED FILES
+────────────────────────────────────────────────
+
+ M  web/modules/custom/ilas_site_assistant/src/Service/RetrievalContract.php
+ M  web/modules/custom/ilas_site_assistant/src/Service/ResponseGrounder.php
+ M  web/modules/custom/ilas_site_assistant/src/Service/SourceGovernanceService.php
+ M  web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
+ M  web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml
+ M  config/ilas_site_assistant.settings.yml
+ M  web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
+ A  web/modules/custom/ilas_site_assistant/tests/src/Unit/CitationFreshnessEnforcementTest.php
+ M  web/modules/custom/ilas_site_assistant/tests/src/Unit/GovernanceEnforcementMatrixContractTest.php
+ M  web/modules/custom/ilas_site_assistant/tests/src/Unit/ResponseGrounderTest.php
+ M  web/modules/custom/ilas_site_assistant/tests/src/Unit/PostGenerationEnforcementTest.php
+
+────────────────────────────────────────────────
+RESIDUAL RISKS / UNKNOWNS
+────────────────────────────────────────────────
+
+1. 3-source limit: addCitations() caps at 3 sources. If ordering places
+   all stale sources first, freshness_profile reflects only those 3.
+   Documented as known limitation.
+
+2. Check 3 / Check 4 overlap: Both fire for all-stale-citations.
+   Idempotency guard prevents duplicate caveats. Check 3 can be merged
+   into Check 4 in a future cleanup AFRP.
+
+3. Confidence multiplier aggressiveness: The 0.5 multiplier in the
+   proportional formula (max(0.5, 1.0 - ratio*0.5)) may be too gentle
+   for partial staleness. Tunable in future without API change.
+
+4. Advisory-only paths remaining:
+   - Per-item stale_source and unknown_freshness remain ADVISORY
+     (they annotate items, not responses)
+   - health_degraded snapshot status remains ADVISORY
+   - These are intentional: per-item flags are informational,
+     enforcement operates at response level
+
+────────────────────────────────────────────────
+ROLLBACK NOTES
+────────────────────────────────────────────────
+
+Set source_governance.freshness_enforcement.enabled: false in config
+to disable all freshness enforcement. Effect:
+  - enforceFreshnessPolicy() becomes no-op
+  - No freshness_profile added to responses
+  - No _freshness_enforcement or _freshness_confidence_cap flags set
+  - Existing Check 3 (_all_citations_stale caveat) continues independently
+  - Per-item ADVISORY annotations unaffected
+
+────────────────────────────────────────────────
+STILL-UNVERIFIED SURFACES
+────────────────────────────────────────────────
+
+- Frontend widget rendering of freshness_profile (widget JS not updated)
+- Langfuse trace capture of freshness_enforcement analytics events
+- Production freshness distribution (requires live traffic observation)
+- Interaction with Pantheon environment config overrides

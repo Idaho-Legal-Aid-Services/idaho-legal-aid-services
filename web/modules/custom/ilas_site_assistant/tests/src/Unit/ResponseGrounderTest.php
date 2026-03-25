@@ -764,4 +764,49 @@ class ResponseGrounderTest extends TestCase {
     $this->assertSame(1, $result['_stale_citation_count']);
   }
 
+  // -------------------------------------------------------------------
+  // AFRP-20: Freshness enforcement via groundResponse().
+  // -------------------------------------------------------------------
+
+  /**
+   * Tests that groundResponse() adds freshness_profile for citation-required types.
+   */
+  public function testGroundResponseAddsFreshnessProfileForCitationTypes(): void {
+    $results = [
+      [
+        'title' => 'Guide',
+        'url' => '/resources/guide',
+        'freshness' => ['status' => 'fresh'],
+      ],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'faq'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertArrayHasKey('freshness_profile', $result);
+    $this->assertSame(1, $result['freshness_profile']['fresh']);
+    $this->assertSame(0, $result['freshness_profile']['stale']);
+    $this->assertSame(0, $result['freshness_profile']['unknown']);
+    $this->assertSame(1, $result['freshness_profile']['total']);
+  }
+
+  /**
+   * Tests that stale citations trigger freshness enforcement flags.
+   */
+  public function testGroundResponseSetsFreshnessEnforcementForStale(): void {
+    $results = [
+      [
+        'title' => 'Old Guide',
+        'url' => '/resources/old',
+        'freshness' => ['status' => 'stale'],
+      ],
+    ];
+
+    $response = ['message' => 'Info', 'type' => 'resources'];
+    $result = $this->grounder->groundResponse($response, $results);
+
+    $this->assertSame('all_non_fresh', $result['_freshness_enforcement']);
+    $this->assertSame(0.5, $result['_freshness_confidence_cap']);
+  }
+
 }

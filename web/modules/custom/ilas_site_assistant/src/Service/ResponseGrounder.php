@@ -120,6 +120,12 @@ class ResponseGrounder {
         $response['_grounding_weak'] = TRUE;
         $response['_grounding_weak_reason'] = 'citation_required_type_without_citations';
       }
+
+      // AFRP-20: Enforce freshness policy for citation-required types with sources.
+      if (in_array($type, self::CITATION_REQUIRED_TYPES, TRUE)
+          && !empty($response['sources'])) {
+        $response = $this->enforceFreshnessPolicy($response);
+      }
     }
 
     // Check for and remove potentially invented information.
@@ -203,6 +209,89 @@ class ResponseGrounder {
     }
 
     return $response;
+  }
+
+  /**
+   * Enforces freshness policy for citation-required response types.
+   *
+   * Computes a freshness profile from the response's citations and sets
+   * enforcement flags that downstream pipeline stages (controller) consume
+   * to cap confidence and add caveats. Unknown freshness is treated as
+   * non-fresh (precautionary principle).
+   *
+   * Content is never suppressed — only confidence and caveats change.
+   *
+   * @param array $response
+   *   Response with 'sources' already populated by addCitations().
+   *
+   * @return array
+   *   Response with freshness_profile and optional enforcement flags.
+   */
+  protected function enforceFreshnessPolicy(array $response): array {
+    $sources = $response['sources'] ?? [];
+    if (empty($sources)) {
+      return $response;
+    }
+
+    // Check if freshness enforcement is enabled via config.
+    if ($this->sourceGovernance && !$this->isFreshnessEnforcementEnabled()) {
+      return $response;
+    }
+
+    $fresh = 0;
+    $stale = 0;
+    $unknown = 0;
+
+    foreach ($sources as $source) {
+      match ($source['freshness'] ?? 'unknown') {
+        'fresh' => $fresh++,
+        'stale' => $stale++,
+        default => $unknown++,
+      };
+    }
+
+    $total = count($sources);
+    $response['freshness_profile'] = [
+      'fresh' => $fresh,
+      'stale' => $stale,
+      'unknown' => $unknown,
+      'total' => $total,
+    ];
+
+    // Unknown freshness is treated as non-fresh (precautionary principle).
+    $non_fresh = $stale + $unknown;
+
+    if ($non_fresh === 0) {
+      // All citations fresh — no enforcement needed.
+      return $response;
+    }
+
+    if ($non_fresh === $total) {
+      // All citations are stale or unknown: hard degrade.
+      $response['_freshness_enforcement'] = 'all_non_fresh';
+      $response['_freshness_confidence_cap'] = 0.5;
+    }
+    else {
+      // Some citations non-fresh: proportional degrade.
+      $response['_freshness_enforcement'] = 'partial_non_fresh';
+      $ratio = $non_fresh / $total;
+      $response['_freshness_confidence_cap'] = max(0.5, 1.0 - ($ratio * 0.5));
+    }
+
+    return $response;
+  }
+
+  /**
+   * Checks whether freshness enforcement is enabled in config.
+   *
+   * @return bool
+   *   TRUE if enforcement is enabled or config is unavailable.
+   */
+  protected function isFreshnessEnforcementEnabled(): bool {
+    if (!$this->sourceGovernance) {
+      return TRUE;
+    }
+    return $this->sourceGovernance->isFreshnessEnforcementEnabled();
   }
 
   /**

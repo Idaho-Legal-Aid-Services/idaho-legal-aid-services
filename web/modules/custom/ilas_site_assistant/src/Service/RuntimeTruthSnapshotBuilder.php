@@ -1118,13 +1118,36 @@ class RuntimeTruthSnapshotBuilder {
     $retrievalChecks = [];
     foreach (($health['retrieval'] ?? []) as $key => $check) {
       $check = is_array($check) ? $check : [];
-      $retrievalChecks[$key] = [
+      $sanitized = [
+        'dependency_key' => $this->stringValue($check['dependency_key'] ?? $key),
+        'dependency_type' => $this->stringValue($check['dependency_type'] ?? 'index'),
+        'classification' => $this->stringValue($check['classification'] ?? 'required'),
+        'allowed_degraded_mode' => $this->stringValue($check['allowed_degraded_mode'] ?? 'unknown'),
+        'active' => (bool) ($check['active'] ?? FALSE),
         'configured' => (bool) ($check['configured'] ?? FALSE),
-        'machine_name_valid' => (bool) ($check['machine_name_valid'] ?? FALSE),
         'exists' => (bool) ($check['exists'] ?? FALSE),
         'enabled' => (bool) ($check['enabled'] ?? FALSE),
         'status' => $this->stringValue($check['status'] ?? 'degraded'),
       ];
+
+      if (isset($check['failure_code'])) {
+        $sanitized['failure_code'] = $this->stringValue($check['failure_code']);
+      }
+      if (array_key_exists('index_id', $check)) {
+        $sanitized['index_id'] = $this->stringValue($check['index_id'] ?? '');
+        $sanitized['machine_name_valid'] = (bool) ($check['machine_name_valid'] ?? FALSE);
+      }
+      if (array_key_exists('server_id', $check)) {
+        $sanitized['server_id'] = $this->stringValue($check['server_id'] ?? '');
+      }
+      if (array_key_exists('server_exists', $check)) {
+        $sanitized['server_exists'] = (bool) ($check['server_exists'] ?? FALSE);
+      }
+      if (array_key_exists('server_enabled', $check)) {
+        $sanitized['server_enabled'] = (bool) ($check['server_enabled'] ?? FALSE);
+      }
+
+      $retrievalChecks[$key] = $sanitized;
     }
 
     $serviceAreas = is_array($health['canonical_urls']['service_areas'] ?? NULL) ? $health['canonical_urls']['service_areas'] : [];

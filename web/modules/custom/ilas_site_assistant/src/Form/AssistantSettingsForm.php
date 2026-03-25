@@ -119,6 +119,53 @@ class AssistantSettingsForm extends ConfigFormBase {
   }
 
   /**
+   * Builds the non-secret LegalServer runtime notice.
+   */
+  protected function buildLegalServerRuntimeNotice(bool $runtimeConfigured, ?array $check): string {
+    $summary = $this->formatLegalServerRuntimeSummary($check);
+
+    if ($runtimeConfigured) {
+      return (string) $this->t('Configured via runtime-only setting <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code>. Drupal will not store or export the LegalServer intake URL. Validation: <strong>@summary</strong>.', [
+        '@summary' => $summary,
+      ]);
+    }
+
+    return (string) $this->t('Runtime-only. Set <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code> in Pantheon runtime secrets or local DDEV environment settings. Drupal will not accept or export the LegalServer intake URL. Current validation: <strong>@summary</strong>.', [
+      '@summary' => $summary,
+    ]);
+  }
+
+  /**
+   * Summarizes LegalServer runtime validation without exposing the URL.
+   */
+  protected function formatLegalServerRuntimeSummary(?array $check): string {
+    if (!is_array($check)) {
+      return 'unavailable';
+    }
+
+    if (empty($check['configured'])) {
+      return 'missing';
+    }
+
+    $issues = [];
+    if (empty($check['https'])) {
+      $issues[] = 'non_https';
+    }
+
+    $requiredQueryKeys = is_array($check['required_query_keys'] ?? NULL)
+      ? $check['required_query_keys']
+      : [];
+    if (empty($requiredQueryKeys['pid'])) {
+      $issues[] = 'missing_pid';
+    }
+    if (empty($requiredQueryKeys['h'])) {
+      $issues[] = 'missing_h';
+    }
+
+    return $issues === [] ? 'healthy' : implode(', ', $issues);
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
@@ -133,6 +180,9 @@ class AssistantSettingsForm extends ConfigFormBase {
       : (is_array($config->get('retrieval')) ? $config->get('retrieval') : []);
     $legalserver_runtime_url = $this->retrievalConfiguration
       ? $this->retrievalConfiguration->getLegalServerOnlineApplicationUrl()
+      : NULL;
+    $legalserver_runtime_check = $this->retrievalConfiguration
+      ? ($this->retrievalConfiguration->getHealthSnapshot()['canonical_urls']['legalserver_intake_url'] ?? NULL)
       : NULL;
 
     $form['general'] = [
@@ -355,9 +405,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['urls']['legalserver_online_application_runtime_notice'] = [
       '#type' => 'item',
       '#title' => $this->t('LegalServer Online Application URL'),
-      '#markup' => $legalserver_runtime_url
-        ? $this->t('Configured via runtime-only setting <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code>. Drupal will not store or export the LegalServer intake URL.')
-        : $this->t('Runtime-only. Set <code>ILAS_LEGALSERVER_ONLINE_APPLICATION_URL</code> in Pantheon runtime secrets or local DDEV environment settings. Drupal will not accept or export the LegalServer intake URL.'),
+      '#markup' => $this->buildLegalServerRuntimeNotice($legalserver_runtime_url !== NULL, $legalserver_runtime_check),
     ];
 
     $form['content'] = [
@@ -424,7 +472,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['vector_search'] = [
       '#type' => 'details',
       '#title' => $this->t('Vector Search Enhancement'),
-      '#description' => $this->t('Supplements lexical search with semantic vector search via Pinecone when lexical results are sparse. Requires the pinecone_vector Search API server and vector indexes to be configured and indexed.'),
+      '#description' => $this->t('Supplements lexical search with semantic vector search via Pinecone when lexical results are sparse. Requires the dedicated <code>pinecone_vector_faq</code> and <code>pinecone_vector_resources</code> Search API servers plus the vector indexes to be configured and indexed.'),
       '#open' => FALSE,
     ];
 

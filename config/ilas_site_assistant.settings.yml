@@ -201,25 +201,42 @@ source_governance:
       owner_role: 'Content Operations Lead'
       max_age_days: 180
       require_source_url: true
+  freshness_enforcement:
+    enabled: true
 vector_index_hygiene:
   enabled: true
   policy_version: p2_del_03_v1
   refresh_mode: incremental
   refresh_interval_hours: 24
+  probe_interval_hours: 24
   overdue_grace_minutes: 45
-  max_items_per_run: 60
+  max_items_per_run: 5
   alert_cooldown_minutes: 60
   managed_indexes:
     faq_vector:
       owner_role: 'Content Operations Lead'
-      expected_server_id: pinecone_vector
+      expected_server_id: pinecone_vector_faq
       expected_metric: cosine_similarity
       expected_dimensions: 3072
+      queryability_probes:
+        -
+          label: faq_custody_canary
+          query: custody
+          langcode: en
+          top_k: 1
+          min_results: 1
     resource_vector:
       owner_role: 'Content Operations Lead'
-      expected_server_id: pinecone_vector
+      expected_server_id: pinecone_vector_resources
       expected_metric: cosine_similarity
       expected_dimensions: 3072
+      queryability_probes:
+        -
+          label: resource_eviction_canary
+          query: eviction
+          langcode: en
+          top_k: 1
+          min_results: 1
 audit_governance:
   audit_domain_classes:
     - legal_advice
@@ -233,6 +250,7 @@ audit_governance:
     - out_of_scope
     - post_gen_safety_legal_advice
     - post_gen_safety_review_flag
+    - post_gen_safety_legal_advice_scan
   report_cadence_days: 30
   report_required_permission: 'view ilas site assistant reports'
   signoff_required_permission: 'approve ilas site assistant audit'

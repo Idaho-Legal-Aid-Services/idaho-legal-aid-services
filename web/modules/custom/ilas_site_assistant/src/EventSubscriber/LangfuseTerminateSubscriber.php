@@ -91,23 +91,29 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
    * Enqueues trace data during the response event when available.
    */
   public function onResponse(): void {
-    $this->flushTracePayload();
+    $this->flushTracePayload(FALSE);
   }
 
   /**
    * Falls back to terminate-time enqueue if response-time flush did not occur.
    */
   public function onTerminate(): void {
-    $this->flushTracePayload();
+    $this->flushTracePayload(TRUE);
   }
 
   /**
    * Flushes the current trace payload into the export queue once per request.
+   *
+   * @param bool $finalAttempt
+   *   TRUE when this is the terminate-time fallback. Only final failures are
+   *   counted as queue loss so response-time failures can still recover.
    */
-  private function flushTracePayload(): void {
+  private function flushTracePayload(bool $finalAttempt): void {
     if ($this->flushed || !$this->tracer->isActive()) {
       return;
     }
+
+    $payload = NULL;
 
     try {
       $payload = $this->tracer->getTracePayload();
@@ -149,6 +155,14 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
+
+      if ($finalAttempt) {
+        $this->recordOutcome('drop_enqueue_failure', [
+          'event_count' => is_array($payload['batch'] ?? NULL) ? count($payload['batch']) : 0,
+          'flush_stage' => 'terminate',
+        ]);
+        $this->flushed = TRUE;
+      }
     }
   }
 

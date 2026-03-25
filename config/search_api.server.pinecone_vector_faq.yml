@@ -1,20 +1,20 @@
-uuid: f8a1c3e7-9b2d-4f6a-8e5c-1d7b3a9f2e4d
+uuid: 1f6b8d9a-0b26-45dd-9f3d-c0ae5a52e5f1
 langcode: en
 status: true
 dependencies:
   module:
     - ai_search
     - ai_vdb_provider_pinecone
-id: pinecone_vector
-name: 'Pinecone Vector Search'
-description: 'AI Search backend using Pinecone for semantic vector search.'
+id: pinecone_vector_faq
+name: 'Pinecone Vector Search (FAQ)'
+description: 'AI Search backend using Pinecone for FAQ semantic vector search.'
 backend: search_api_ai_search
 backend_config:
   chat_model: gemini__models/gemini-2.0-flash
   database: pinecone
   database_settings:
     database_name: ilas-assistant
-    collection: default
+    collection: faq_accordion_vector
     metric: cosine_similarity
   embeddings_engine: gemini__models/gemini-embedding-001
   embeddings_engine_configuration:

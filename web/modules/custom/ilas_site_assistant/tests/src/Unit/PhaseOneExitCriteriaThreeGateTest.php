@@ -99,6 +99,7 @@ final class PhaseOneExitCriteriaThreeGateTest extends TestCase {
       'docs/aila/runtime/phase1-exit3-reliability-failure-matrix.txt',
       $runbook,
     );
+    $this->assertStringContainsString('explicit_degraded', $runbook);
     $this->assertStringContainsString('legacy_fallback', $runbook);
     $this->assertStringContainsString('lexical_preserved', $runbook);
     $this->assertStringContainsString('original_preserved', $runbook);

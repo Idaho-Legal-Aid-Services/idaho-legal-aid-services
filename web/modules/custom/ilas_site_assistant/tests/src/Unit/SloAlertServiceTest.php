@@ -114,7 +114,7 @@ class SloAlertServiceTest extends TestCase {
   /**
    * Builds a QueueHealthMonitor that will report the given status.
    */
-  private function buildQueueMonitor(string $queueStatus): QueueHealthMonitor {
+  private function buildQueueMonitor(string $queueStatus, array $actionableLosses = []): QueueHealthMonitor {
     $monitor = $this->createMock(QueueHealthMonitor::class);
 
     $monitor->method('getQueueHealthStatus')
@@ -124,6 +124,8 @@ class SloAlertServiceTest extends TestCase {
         'max_depth' => 10000,
         'utilization_pct' => $queueStatus === 'backlogged' ? 90.0 : 1.0,
       ]);
+    $monitor->method('getActionableLossOutcomes')
+      ->willReturn($actionableLosses);
 
     return $monitor;
   }
@@ -299,6 +301,37 @@ class SloAlertServiceTest extends TestCase {
       ->with(
         $this->stringContains('queue is'),
         $this->callback($this->hasSloDimension('queue'))
+      );
+
+    $alert = new SloAlertService($slo, $logger, $state, NULL, NULL, $queueMonitor);
+    $alert->checkQueueSlo();
+  }
+
+  /**
+   * Tests that checkQueueSlo emits queue-loss warnings for actionable loss.
+   */
+  public function testQueueLossViolation(): void {
+    $slo = $this->buildSlo();
+    $state = $this->buildState();
+    $queueMonitor = $this->buildQueueMonitor('healthy', [
+      'discard_stale' => [
+        'occurrences' => 1,
+        'queue_items' => 1,
+        'event_count' => 3,
+        'severity' => 'warning',
+      ],
+    ]);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('warning')
+      ->with(
+        $this->stringContains('queue loss outcome @outcome'),
+        $this->callback(function ($context): bool {
+          return is_array($context)
+            && ($context['@slo_dimension'] ?? NULL) === 'queue_loss'
+            && ($context['@outcome'] ?? NULL) === 'discard_stale';
+        })
       );
 
     $alert = new SloAlertService($slo, $logger, $state, NULL, NULL, $queueMonitor);

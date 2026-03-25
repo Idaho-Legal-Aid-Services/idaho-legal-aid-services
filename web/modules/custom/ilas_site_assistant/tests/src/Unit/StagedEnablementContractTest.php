@@ -129,11 +129,7 @@ class StagedEnablementContractTest extends TestCase {
    * Tests that SentryOptionsSubscriber returns empty events without Raven.
    */
   public function testSentrySubscriberNoopWithoutRaven(): void {
-    if (class_exists('Drupal\raven\Event\OptionsAlter')) {
-      $this->markTestSkipped('Raven is installed; cannot test no-Raven path.');
-    }
-
-    $events = SentryOptionsSubscriber::getSubscribedEvents();
+    $events = NoRavenSentryOptionsSubscriber::getSubscribedEvents();
     $this->assertEmpty($events, 'Without Raven, subscriber must return empty event map');
   }
 
@@ -176,6 +172,20 @@ class StagedEnablementContractTest extends TestCase {
         "SLO key '{$key}' has type '{$actualType}', expected '{$expectedType}'",
       );
     }
+  }
+
+}
+
+/**
+ * Test-only Sentry subscriber that forces the no-Raven branch.
+ */
+final class NoRavenSentryOptionsSubscriber extends SentryOptionsSubscriber {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected static function hasRavenOptionsAlterEvent(): bool {
+    return FALSE;
   }
 
 }

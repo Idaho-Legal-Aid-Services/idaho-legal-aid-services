@@ -8,12 +8,38 @@ use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Guards against retrieval request paths regressing to corpus-sized cold loads.
  */
 #[Group('ilas_site_assistant')]
 final class RetrievalColdStartGuardTest extends TestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+
+    $container = new ContainerBuilder();
+    $container->set('logger.factory', new class {
+      public function get(string $channel): NullLogger {
+        return new NullLogger();
+      }
+    });
+
+    \Drupal::setContainer($container);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function tearDown(): void {
+    \Drupal::unsetContainer();
+    parent::tearDown();
+  }
 
   /**
    * Resource sparse-result topic fill must not use full resource preload.
@@ -52,11 +78,33 @@ final class RetrievalColdStartGuardTest extends TestCase {
   }
 
   /**
-   * Resource legacy fallback must not use full resource preload.
+   * Resource query-failure fallback must not use full resource preload.
    */
   public function testResourceLegacyFallbackUsesBoundedCandidates(): void {
+    $failing_index = new class {
+      public function status(): bool {
+        return TRUE;
+      }
+      public function query(): object {
+        return new class {
+          public function keys(string $query): self {
+            return $this;
+          }
+          public function addCondition(string $field, string|int $value): self {
+            return $this;
+          }
+          public function range(int $start, int $length): self {
+            return $this;
+          }
+          public function execute(): object {
+            throw new \RuntimeException('Simulated Search API query failure');
+          }
+        };
+      }
+    };
+
     $finder = new ColdStartGuardResourceFinder(
-      NULL,
+      $failing_index,
       ['id' => 44, 'name' => 'Eviction'],
       [],
       [
@@ -109,14 +157,39 @@ final class RetrievalColdStartGuardTest extends TestCase {
   }
 
   /**
-   * FAQ legacy fallback must not use full FAQ preload.
+   * FAQ query-failure fallback must not use full FAQ preload.
    */
   public function testFaqLegacyFallbackUsesBoundedCandidates(): void {
-    $faq = new ColdStartGuardFaqIndex([
-      'faq_10' => $this->buildFaqItem('faq_10', 'Eviction notice', 'Eviction notice deadlines and service rules.'),
-      'faq_11' => $this->buildFaqItem('faq_11', 'Housing repairs', 'Repair requests and notice templates.'),
-      'faq_12' => $this->buildFaqItem('faq_12', 'Consumer debt', 'Debt collection rights.'),
-    ]);
+    $failing_index = new class {
+      public function status(): bool {
+        return TRUE;
+      }
+      public function query(): object {
+        return new class {
+          public function keys(string $query): self {
+            return $this;
+          }
+          public function range(int $start, int $length): self {
+            return $this;
+          }
+          public function addCondition(string $field, string $value): self {
+            return $this;
+          }
+          public function execute(): object {
+            throw new \RuntimeException('Simulated Search API query failure');
+          }
+        };
+      }
+    };
+
+    $faq = new ColdStartGuardFaqIndex(
+      [
+        'faq_10' => $this->buildFaqItem('faq_10', 'Eviction notice', 'Eviction notice deadlines and service rules.'),
+        'faq_11' => $this->buildFaqItem('faq_11', 'Housing repairs', 'Repair requests and notice templates.'),
+        'faq_12' => $this->buildFaqItem('faq_12', 'Consumer debt', 'Debt collection rights.'),
+      ],
+      $failing_index,
+    );
 
     $results = $faq->search('eviction', 2);
 
@@ -341,6 +414,7 @@ class ColdStartGuardFaqIndex extends FaqIndex {
    */
   public function __construct(
     private array $legacy_candidates,
+    private ?object $testIndex = NULL,
   ) {}
 
   /**
@@ -361,7 +435,7 @@ class ColdStartGuardFaqIndex extends FaqIndex {
    * {@inheritdoc}
    */
   protected function getIndex() {
-    return NULL;
+    return $this->testIndex;
   }
 
   /**

@@ -196,7 +196,7 @@ class LangfuseProbeCommandTest extends TestCase {
       ->willReturnCallback(function (string $message) use (&$successMessages): void {
         $successMessages[] = $message;
       });
-    $logger->expects($this->once())
+    $logger->expects($this->exactly(2))
       ->method('notice')
       ->willReturnCallback(function (string $message) use (&$noticeMessages): void {
         $noticeMessages[] = $message;
@@ -212,7 +212,8 @@ class LangfuseProbeCommandTest extends TestCase {
     $this->assertSame(0, $result);
     $this->assertCount(1, $successMessages);
     $this->assertStringContainsString('Langfuse probe enqueued.', $successMessages[0]);
-    $this->assertSame(['Queue depth: 10 -> 11'], $noticeMessages);
+    $this->assertSame('Queue depth: 10 -> 11', $noticeMessages[0]);
+    $this->assertStringContainsString('Proof level: L2:QueueDrain', $noticeMessages[1]);
   }
 
   /**
@@ -246,7 +247,7 @@ class LangfuseProbeCommandTest extends TestCase {
       ->willReturnCallback(function (string $message) use (&$successMessages): void {
         $successMessages[] = $message;
       });
-    $logger->expects($this->exactly(3))
+    $logger->expects($this->exactly(4))
       ->method('notice')
       ->willReturnCallback(function (string $message) use (&$noticeMessages): void {
         $noticeMessages[] = $message;
@@ -267,7 +268,8 @@ class LangfuseProbeCommandTest extends TestCase {
     $this->assertCount(1, $successMessages);
     $this->assertStringContainsString('HTTP status: 207', $successMessages[0]);
     $this->assertContains('Langfuse direct probe partial success: 1 succeeded, 2 errors', $noticeMessages);
-    $this->assertCount(3, $noticeMessages);
+    $this->assertCount(4, $noticeMessages);
+    $this->assertStringContainsString('Proof level: L3:PayloadAcceptance', $noticeMessages[3]);
   }
 
   /**
@@ -407,9 +409,72 @@ class LangfuseProbeCommandTest extends TestCase {
     $this->assertArrayHasKey('environment', $decoded);
     $this->assertArrayHasKey('sample_rate', $decoded);
     $this->assertArrayHasKey('queue', $decoded);
+    $this->assertArrayHasKey('export', $decoded);
     $this->assertArrayHasKey('suggestion', $decoded);
     $this->assertSame('READY', $decoded['verdict']);
     $this->assertNull($decoded['suggestion']);
+  }
+
+  /**
+   * Diagnose includes the structured export summary when the monitor exists.
+   */
+  public function testDiagnoseIncludesStructuredExportSummary(): void {
+    $queueMonitor = $this->createMock(QueueHealthMonitor::class);
+    $queueMonitor->method('getQueueHealthStatus')
+      ->willReturn([
+        'status' => 'healthy',
+        'depth' => 0,
+      ]);
+    $queueMonitor->method('getExportOutcomeSummary')
+      ->willReturn([
+        'counters' => ['discard_stale' => 1],
+        'totals' => [
+          'discard_stale' => [
+            'queue_items' => 1,
+            'event_count' => 2,
+            'success_count' => 0,
+            'error_count' => 0,
+            'lost_queue_items' => 1,
+            'lost_event_count' => 2,
+            'actionable' => TRUE,
+          ],
+        ],
+        'last_outcome' => ['outcome' => 'discard_stale'],
+        'action_required' => TRUE,
+        'policies' => [
+          'discard_stale' => [
+            'classification' => 'alertable_loss',
+            'severity' => 'warning',
+            'requires_error_count' => FALSE,
+            'actionable' => TRUE,
+          ],
+        ],
+        'alertable_loss_totals' => [
+          'occurrences' => 1,
+          'queue_items' => 1,
+          'event_count' => 2,
+        ],
+        'informational_loss_totals' => [
+          'occurrences' => 0,
+          'queue_items' => 0,
+          'event_count' => 0,
+        ],
+      ]);
+
+    $command = $this->buildProbeCommandStub(
+      queueHealthMonitor: $queueMonitor,
+      sloDefinitions: $this->createStub(SloDefinitions::class),
+    );
+
+    ob_start();
+    $result = $command->langfuseProbe(['diagnose' => TRUE]);
+    $output = ob_get_clean();
+
+    $this->assertSame(0, $result);
+    $decoded = json_decode($output, TRUE);
+    $this->assertTrue($decoded['export']['action_required']);
+    $this->assertSame(1, $decoded['export']['alertable_loss_totals']['occurrences']);
+    $this->assertSame('discard_stale', $decoded['queue']['export']['last_outcome']['outcome']);
   }
 
   /**
@@ -435,6 +500,22 @@ class LangfuseProbeCommandTest extends TestCase {
     $this->assertFalse($decoded['effective_enabled']);
     $this->assertNotNull($decoded['suggestion']);
     $this->assertStringContainsString('LANGFUSE_PUBLIC_KEY', $decoded['suggestion']);
+  }
+
+  /**
+   * Diagnose mode accepts sparse option arrays without warnings.
+   */
+  public function testDiagnoseOptionWorksWithSparseOptionArray(): void {
+    $command = $this->buildProbeCommandStub();
+
+    ob_start();
+    $result = $command->langfuseProbe(['diagnose' => TRUE]);
+    $output = ob_get_clean();
+
+    $this->assertSame(0, $result);
+    $decoded = json_decode($output, TRUE);
+    $this->assertIsArray($decoded);
+    $this->assertSame('READY', $decoded['verdict'] ?? NULL);
   }
 
   /**

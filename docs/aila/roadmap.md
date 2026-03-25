@@ -415,7 +415,7 @@ Explicit mapping:
 ### Phase 2 Deliverable #1 disposition (2026-03-03)
 1. Key deliverable #1 is closed as implemented: `/assistant/api/message` 200-response contract now includes `confidence` (float 0-1), `citations[]` (formalized from ResponseGrounder sources), and `decision_reason` (human-readable string from FallbackGate reason codes or path-specific defaults). (Refs: current-state §4B, §4D; evidence-index CLAIM-134; runbook §4)
 2. Request-id normalization is verified complete (IMP-REL-02): `resolveCorrelationId()` validates UUID4, rejects invalid, and generates fallback — no additional changes needed. (Refs: current-state §4B; evidence-index CLAIM-035, CLAIM-134; runbook §4)
-3. Contract fields are injected at all five 200-response paths (safety, OOS, policy, repeated-message, normal pipeline) via `assembleContractFields()`. Error responses (4xx/5xx) are excluded and retain their minimal shape. (Refs: evidence-index CLAIM-134; runbook §4)
+3. Contract fields are injected across the current 200-response branches via `assembleContractFields()`: safety exit, repeated-message escalation, OOS exit, policy exit, normal pipeline completion, and retrieval-unavailable degraded navigation. Error responses (4xx/5xx) are excluded and retain their minimal shape. (Refs: evidence-index CLAIM-134; runbook §4)
 4. Langfuse grounding span bug fixed: citation field check now uses `sources` (produced by ResponseGrounder) rather than `citations` (populated later by contract assembly). (Refs: evidence-index CLAIM-134)
 5. Scope boundaries remain unchanged: no live production LLM enablement in Phase 2 and No broad platform migration outside current Pantheon baseline. (Refs: current-state §1, §5; evidence-index CLAIM-115, CLAIM-119, CLAIM-134; runbook §3)
 
@@ -743,3 +743,10 @@ This addendum captures regression classes observed in production transcript revi
 - New Relic AILA integration retired (TOVR-06)
 
 Full closure memo: [`docs/aila/runtime/raud-28-audit-closure-memo.md`](aila/runtime/raud-28-audit-closure-memo.md)
+
+### AFRP-16 Runtime diagnostics hardening (2026-03-25)
+
+1. AFRP-02 delivered `RuntimeTruthSnapshotBuilder` + `ilas:runtime-truth` to surface stored-vs-effective config divergences. AFRP-12 delivered the `ObservabilityProofTaxonomy` (L0-L6). However, operators still had to run multiple commands and mentally correlate output to determine environment health and proof coverage.
+2. AFRP-16 delivers `RuntimeDiagnosticsMatrixBuilder` + `ilas:runtime-diagnostics` — a unified, jq-parseable JSON artifact that composes runtime truth, retrieval dependency health, credential inventory, and proof-level annotations into a single machine-checkable diagnostic. Each runtime fact receives a `pass`/`fail`/`degraded`/`skipped` assertion.
+3. `ObservabilityProofTaxonomy` extended with `TOOL_RUNTIME_DIAGNOSTICS` (L0 ceiling), `FACT_CATEGORIES`, and `ASSERTION_*` constants. Contract-locked by 14 tests.
+4. Disposition: **Fixed** (CLAIM-273, CLAIM-274, CLAIM-275).

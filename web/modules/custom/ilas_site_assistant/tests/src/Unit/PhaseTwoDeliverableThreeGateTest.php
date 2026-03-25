@@ -151,7 +151,7 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
       $this->assertSame('incremental', $policy['refresh_mode']);
       $this->assertSame(24, $policy['refresh_interval_hours']);
       $this->assertSame(45, $policy['overdue_grace_minutes']);
-      $this->assertSame(60, $policy['max_items_per_run']);
+      $this->assertSame(5, $policy['max_items_per_run']);
       $this->assertSame(60, $policy['alert_cooldown_minutes']);
 
       $managed = $policy['managed_indexes'];
@@ -159,12 +159,16 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
       $this->assertArrayNotHasKey('index_id', $managed['faq_vector']);
       $this->assertArrayNotHasKey('index_id', $managed['resource_vector']);
 
-      foreach ($managed as $indexPolicy) {
-        $this->assertSame('Content Operations Lead', $indexPolicy['owner_role']);
-        $this->assertSame('pinecone_vector', $indexPolicy['expected_server_id']);
-        $this->assertSame('cosine_similarity', $indexPolicy['expected_metric']);
-        $this->assertSame(3072, $indexPolicy['expected_dimensions']);
-      }
+      $this->assertSame('Content Operations Lead', $managed['faq_vector']['owner_role']);
+      $this->assertSame('pinecone_vector_faq', $managed['faq_vector']['expected_server_id']);
+      $this->assertSame('cosine_similarity', $managed['faq_vector']['expected_metric']);
+      $this->assertSame(3072, $managed['faq_vector']['expected_dimensions']);
+
+      $this->assertSame('Content Operations Lead', $managed['resource_vector']['owner_role']);
+      $this->assertSame('pinecone_vector_resources', $managed['resource_vector']['expected_server_id']);
+      $this->assertSame('cosine_similarity', $managed['resource_vector']['expected_metric']);
+      $this->assertSame(3072, $managed['resource_vector']['expected_dimensions']);
+      $this->assertNotSame($managed['faq_vector']['expected_server_id'], $managed['resource_vector']['expected_server_id']);
 
       $this->assertSame('faq_accordion_vector', $config['retrieval']['faq_vector_index_id']);
       $this->assertSame('assistant_resources_vector', $config['retrieval']['resource_vector_index_id']);
@@ -178,6 +182,11 @@ final class PhaseTwoDeliverableThreeGateTest extends TestCase {
     $this->assertArrayHasKey('alert_cooldown_minutes', $schemaMapping);
     $managedMapping = $schemaMapping['managed_indexes']['mapping'] ?? [];
     $this->assertSame(['faq_vector', 'resource_vector'], array_keys($managedMapping));
+
+    $faqVectorIndex = self::readYaml('config/search_api.index.faq_accordion_vector.yml');
+    $resourceVectorIndex = self::readYaml('config/search_api.index.assistant_resources_vector.yml');
+    $this->assertSame(5, $faqVectorIndex['options']['cron_limit'] ?? NULL);
+    $this->assertSame(5, $resourceVectorIndex['options']['cron_limit'] ?? NULL);
 
     $this->assertStringContainsString('ilas_site_assistant.vector_index_hygiene:', $services);
     $this->assertStringContainsString('VectorIndexHygieneService', $services);

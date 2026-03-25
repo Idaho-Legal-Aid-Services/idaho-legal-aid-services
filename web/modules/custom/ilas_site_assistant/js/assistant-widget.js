@@ -206,6 +206,7 @@
     messageHistory: [],
     conversationId: null,
     csrfTokenPromise: null,
+    _displayMessages: [],
     _focusTrapHandler: null,
     _focusTrapElement: null,
 
@@ -223,6 +224,101 @@
         var r = Math.random() * 16 | 0;
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
       });
+    },
+
+    /**
+     * Save widget state to sessionStorage for cross-navigation persistence.
+     *
+     * Stores conversation ID, display messages, and panel open/close state.
+     * Wrapped in try/catch for private browsing and quota-exceeded safety.
+     */
+    saveState: function () {
+      try {
+        var state = {
+          v: 1,
+          conversationId: this.conversationId,
+          messages: this._displayMessages || [],
+          isOpen: this.isOpen,
+          savedAt: Date.now()
+        };
+        sessionStorage.setItem('ilas_assistant_state', JSON.stringify(state));
+      } catch (e) {
+        // sessionStorage unavailable (private browsing, quota exceeded).
+      }
+    },
+
+    /**
+     * Load and validate stored widget state from sessionStorage.
+     *
+     * Returns the parsed state object or null if missing, stale (>30 min),
+     * corrupt, or schema-incompatible. Removes stale entries on detection.
+     *
+     * @return {Object|null} Validated state or null.
+     */
+    loadState: function () {
+      try {
+        var raw = sessionStorage.getItem('ilas_assistant_state');
+        if (!raw) return null;
+
+        var state = JSON.parse(raw);
+
+        // Schema version check.
+        if (!state || state.v !== 1) return null;
+
+        // Staleness check: 30 minutes (matches server CONVERSATION_STATE_TTL).
+        if (!state.savedAt || (Date.now() - state.savedAt) > 1800000) {
+          sessionStorage.removeItem('ilas_assistant_state');
+          return null;
+        }
+
+        // Validate conversationId is UUID v4.
+        if (!state.conversationId || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(state.conversationId)) {
+          return null;
+        }
+
+        // Validate messages is an array.
+        if (!Array.isArray(state.messages)) return null;
+
+        return state;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    /**
+     * Remove stored widget state from sessionStorage.
+     *
+     * Called on session expiry to prevent restoring a stale conversation.
+     */
+    clearState: function () {
+      try {
+        sessionStorage.removeItem('ilas_assistant_state');
+      } catch (e) {
+        // Ignore.
+      }
+    },
+
+    /**
+     * Replay saved messages into the DOM from a restored state.
+     *
+     * Uses addMessage() which handles DOM creation, scroll management,
+     * event rebinding on suggestion/recovery buttons, and messageHistory
+     * rebuild for user messages. Feedback thumbs are omitted because the
+     * original request IDs are no longer available.
+     *
+     * @param {Array} messages - Array of {role, content, isHtml} objects.
+     */
+    restoreMessages: function (messages) {
+      var maxRestore = 50;
+      var count = 0;
+      for (var i = 0; i < messages.length && count < maxRestore; i++) {
+        var msg = messages[i];
+        if (!msg || !msg.role || typeof msg.content !== 'string') continue;
+        if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+
+        this.addMessage(msg.role, msg.content, !!msg.isHtml);
+        count++;
+      }
     },
 
     /**
@@ -273,7 +369,16 @@
     init: function (config) {
       this.config = config;
       this.isPageMode = config.pageMode || false;
-      this.conversationId = this.generateConversationId();
+      this._displayMessages = [];
+
+      // Attempt to restore previous conversation from sessionStorage.
+      var restored = this.loadState();
+
+      if (restored) {
+        this.conversationId = restored.conversationId;
+      } else {
+        this.conversationId = this.generateConversationId();
+      }
 
       if (this.isPageMode) {
         this.initPageMode();
@@ -282,7 +387,16 @@
       }
 
       this.bindEvents();
-      this.showWelcomeMessage();
+
+      if (restored && restored.messages.length > 0) {
+        this.restoreMessages(restored.messages);
+        // Restore panel open state for widget mode.
+        if (!this.isPageMode && restored.isOpen) {
+          this.openPanel();
+        }
+      } else {
+        this.showWelcomeMessage();
+      }
     },
 
     /**
@@ -514,6 +628,7 @@
       toggle.setAttribute('aria-expanded', 'true');
       this.widget.classList.add('is-open');
       this.isOpen = true;
+      this.saveState();
 
       // Warn if offline on open.
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -543,6 +658,7 @@
       toggle.setAttribute('aria-expanded', 'false');
       this.widget.classList.remove('is-open');
       this.isOpen = false;
+      this.saveState();
 
       // Remove focus trap to prevent listener accumulation.
       this.destroyFocusTrap();
@@ -656,6 +772,9 @@
           self.setSendingState(false);
           self.hideTyping();
           self.handleResponse(response);
+          if (self.isOpen || self.isPageMode) {
+            safeFocus(self.inputField);
+          }
         })
         .catch(function (error) {
           self.isSending = false;
@@ -666,6 +785,9 @@
             self.addRecoveryMessage(error, message);
           } else {
             self.addMessage('assistant', self.getErrorMessage(error));
+            if (self.isOpen || self.isPageMode) {
+              safeFocus(self.inputField);
+            }
           }
           console.error('ILAS Assistant API error:', error);
         });
@@ -768,6 +890,9 @@
           self.setSendingState(false);
           self.hideTyping();
           self.handleResponse(response);
+          if (self.isOpen || self.isPageMode) {
+            safeFocus(self.inputField);
+          }
         })
         .catch(function (error) {
           self.isSending = false;
@@ -778,6 +903,9 @@
             self.addRecoveryMessage(error, message);
           } else {
             self.addMessage('assistant', self.getErrorMessage(error));
+            if (self.isOpen || self.isPageMode) {
+              safeFocus(self.inputField);
+            }
           }
         });
     },
@@ -1363,6 +1491,20 @@
         });
       });
 
+      // Track display message for session persistence.
+      if (this._displayMessages) {
+        this._displayMessages.push({
+          role: sender,
+          content: content,
+          isHtml: !!isHtml
+        });
+        // Cap at 50 to prevent unbounded growth.
+        if (this._displayMessages.length > 50) {
+          this._displayMessages = this._displayMessages.slice(-50);
+        }
+        this.saveState();
+      }
+
       return messageEl;
     },
 
@@ -1682,6 +1824,7 @@
         case 'csrf_expired':
         case 'session_expired':
           recoveryText = Drupal.t('Your secure session has expired. Refresh page to restart your secure session.');
+          this.clearState();
           break;
         default:
           recoveryText = Drupal.t('Your session could not be verified. Refresh the page to start a new secure session.');
@@ -1765,6 +1908,9 @@
           self.setSendingState(false);
           self.hideTyping();
           self.handleResponse(response);
+          if (self.isOpen || self.isPageMode) {
+            safeFocus(self.inputField);
+          }
         })
         .catch(function (error) {
           self.isSending = false;
@@ -1775,6 +1921,9 @@
             self.addRecoveryMessage(error, messageText);
           } else {
             self.addMessage('assistant', self.getErrorMessage(error));
+            if (self.isOpen || self.isPageMode) {
+              safeFocus(self.inputField);
+            }
           }
           console.error('ILAS Assistant retry error:', error);
         });

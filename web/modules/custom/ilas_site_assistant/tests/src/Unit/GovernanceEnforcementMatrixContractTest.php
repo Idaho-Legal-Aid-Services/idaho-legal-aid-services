@@ -153,6 +153,7 @@ final class GovernanceEnforcementMatrixContractTest extends TestCase {
       'all_citations_stale',
       'grounding_weak',
       'health_degraded',
+      'freshness_degraded',
     ];
     $matrix_keys = array_keys(RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX);
 

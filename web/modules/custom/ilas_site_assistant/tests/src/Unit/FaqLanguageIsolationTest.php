@@ -4,15 +4,42 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Guards FAQ retrieval against mixed-language leakage.
  */
 #[Group('ilas_site_assistant')]
 final class FaqLanguageIsolationTest extends TestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+
+    $container = new ContainerBuilder();
+    $container->set('logger.factory', new class {
+      public function get(string $channel): NullLogger {
+        return new NullLogger();
+      }
+    });
+
+    \Drupal::setContainer($container);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function tearDown(): void {
+    \Drupal::unsetContainer();
+    parent::tearDown();
+  }
 
   /**
    * English lexical FAQ search drops foreign-language URLs.
@@ -119,6 +146,36 @@ final class FaqLanguageIsolationTest extends TestCase {
   }
 
   /**
+   * Required FAQ dependency loss still fail-closes public read/search paths.
+   */
+  public function testRequiredFaqDependencyLossThrowsOnPublicPaths(): void {
+    $faq = new LanguageIsolationFaqIndex(
+      dependency_snapshot: [
+        'dependency_key' => 'faq_index',
+        'classification' => 'required',
+        'active' => TRUE,
+        'status' => 'degraded',
+        'failure_code' => 'index_unavailable',
+      ],
+    );
+
+    foreach ([
+      static fn(LanguageIsolationFaqIndex $index): mixed => $index->search('eviction', 5),
+      static fn(LanguageIsolationFaqIndex $index): mixed => $index->getById('faq_343'),
+      static fn(LanguageIsolationFaqIndex $index): mixed => $index->getCategories(),
+    ] as $operation) {
+      try {
+        $operation($faq);
+        $this->fail('Expected retrieval dependency loss to throw.');
+      }
+      catch (RetrievalDependencyUnavailableException $exception) {
+        $this->assertSame('faq', $exception->getService());
+        $this->assertSame('faq_retrieval_unavailable', $exception->getReasonCode());
+      }
+    }
+  }
+
+  /**
    * Builds one FAQ payload.
    */
   private function buildFaqItem(
@@ -159,8 +216,19 @@ final class LanguageIsolationFaqIndex extends FaqIndex {
     private array $legacy_items = [],
     private array $legacy_all_items = [],
     array $paragraph_items = [],
+    private array $dependency_snapshot = [
+      'dependency_key' => 'faq_index',
+      'classification' => 'required',
+      'active' => TRUE,
+      'status' => 'healthy',
+      'failure_code' => NULL,
+    ],
   ) {
-    $this->index = $index_items === [] ? NULL : new LanguageIsolationSearchIndex($index_items);
+    $this->index = match (TRUE) {
+      $index_items !== [] => new LanguageIsolationSearchIndex($index_items),
+      $legacy_items !== [] || $legacy_all_items !== [] => new LanguageIsolationFailingSearchIndex(),
+      default => new LanguageIsolationSearchIndex([]),
+    };
     $this->languageManager = new class {
       public function getCurrentLanguage(): object {
         return new class {
@@ -237,6 +305,13 @@ final class LanguageIsolationFaqIndex extends FaqIndex {
   /**
    * {@inheritdoc}
    */
+  protected function getFaqDependencySnapshot(): array {
+    return $this->dependency_snapshot;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   protected function buildResultItem($result_item) {
     return $result_item->getPayload();
   }
@@ -280,6 +355,37 @@ final class LanguageIsolationSearchIndex {
 
   public function query(): LanguageIsolationSearchQuery {
     return new LanguageIsolationSearchQuery($this->items);
+  }
+
+}
+
+/**
+ * Fake Search API index that forces the legacy fallback path.
+ */
+final class LanguageIsolationFailingSearchIndex {
+
+  public function status(): bool {
+    return TRUE;
+  }
+
+  public function query(): object {
+    return new class {
+      public function keys(string $query): self {
+        return $this;
+      }
+
+      public function range(int $start, int $length): self {
+        return $this;
+      }
+
+      public function addCondition(string $field, string|int $value): self {
+        return $this;
+      }
+
+      public function execute(): object {
+        throw new \RuntimeException('Simulated Search API lexical query failure');
+      }
+    };
   }
 
 }

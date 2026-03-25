@@ -602,6 +602,13 @@ ilas_site_assistant.settings:
                 require_source_url:
                   type: boolean
                   label: 'Whether resource vector source must include source URL'
+        freshness_enforcement:
+          type: mapping
+          label: 'AFRP-20 citation freshness enforcement policy'
+          mapping:
+            enabled:
+              type: boolean
+              label: 'Enable enforceable freshness policy for citation-required responses'
     vector_index_hygiene:
       type: mapping
       label: 'Vector index hygiene and refresh monitoring settings'
@@ -618,6 +625,9 @@ ilas_site_assistant.settings:
         refresh_interval_hours:
           type: integer
           label: 'Refresh cadence in hours'
+        probe_interval_hours:
+          type: integer
+          label: 'Semantic queryability probe cadence in hours'
         overdue_grace_minutes:
           type: integer
           label: 'Additional grace minutes before overdue state'
@@ -647,6 +657,28 @@ ilas_site_assistant.settings:
                 expected_dimensions:
                   type: integer
                   label: 'Expected embedding dimensions'
+                queryability_probes:
+                  type: sequence
+                  label: 'Cheap semantic queryability canaries for FAQ vectors'
+                  sequence:
+                    type: mapping
+                    label: 'FAQ vector queryability probe'
+                    mapping:
+                      label:
+                        type: string
+                        label: 'Probe label'
+                      query:
+                        type: string
+                        label: 'Semantic canary query'
+                      langcode:
+                        type: string
+                        label: 'Optional language filter'
+                      top_k:
+                        type: integer
+                        label: 'Maximum query results to fetch'
+                      min_results:
+                        type: integer
+                        label: 'Minimum result count required to pass'
             resource_vector:
               type: mapping
               label: 'Resource vector index hygiene policy'
@@ -663,6 +695,28 @@ ilas_site_assistant.settings:
                 expected_dimensions:
                   type: integer
                   label: 'Expected embedding dimensions'
+                queryability_probes:
+                  type: sequence
+                  label: 'Cheap semantic queryability canaries for resource vectors'
+                  sequence:
+                    type: mapping
+                    label: 'Resource vector queryability probe'
+                    mapping:
+                      label:
+                        type: string
+                        label: 'Probe label'
+                      query:
+                        type: string
+                        label: 'Semantic canary query'
+                      langcode:
+                        type: string
+                        label: 'Optional language filter'
+                      top_k:
+                        type: integer
+                        label: 'Maximum query results to fetch'
+                      min_results:
+                        type: integer
+                        label: 'Minimum result count required to pass'
     audit_governance:
       type: mapping
       label: 'Audit governance configuration'

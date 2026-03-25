@@ -1,0 +1,105 @@
+AFRP-12 Observability Proof Standard
+Date: 2026-03-24
+Verification level tag: repo remediated / local verified / hosted deployment pending
+
+Prior observability-proof standard
+- No formal taxonomy existed. Reports used ad hoc terms ("working", "operational",
+  "Unverified") without defining what evidence backs each claim.
+- HTTP 207 from a Langfuse direct probe, queue depth movement from an enqueued
+  probe, and Sentry SDK exit code 0 were all treated as interchangeable evidence
+  of "observability is working."
+- AFRP-03 proved "HTTP 207 is necessary but not sufficient" and added account-side
+  lookup (`ilas:langfuse-lookup`), but that insight was confined to a single
+  runtime artifact rather than encoded as a reusable, enforceable standard.
+- Reports could (and did) collapse transport reachability, queue drain, payload
+  acceptance, account-side visibility, alertability, and ownership into one vague
+  "working" claim with no way to detect or prevent that conflation.
+- Sentry probe had no account-side verification at all (exit code 0 was the
+  strongest evidence).
+
+Post-change observability-proof taxonomy
+- Formal taxonomy defined in `ObservabilityProofTaxonomy.php` with 7 named levels:
+  L0:Unverified  — No probe or check executed; default for unproven claims.
+  L1:Transport   — HTTP connection or SDK call succeeded.
+  L2:QueueDrain  — Queue item dequeued and processed by worker.
+  L3:PayloadAcceptance — Remote API accepted the payload (e.g., HTTP 207).
+  L4:AccountSide — Trace/event findable in SaaS dashboard or API.
+  L5:Alertability — Alerts route to a channel and fire on threshold.
+  L6:Ownership   — Named responder, review cadence, triage SLA documented.
+- Each level is strictly stronger than the one below it.
+- `TOOL_MAX_PROOF` map locks the ceiling each tool can achieve.
+- `CLAIM_MIN_PROOF` map locks the minimum proof required for report claims.
+- Contract tests in `ObservabilityProofTaxonomyTest.php` enforce that:
+  - "operational" claims require L4 (account-side) minimum.
+  - "fully_operationalized" claims require L6 (ownership) minimum.
+  - Probe commands reference their declared ceiling in source code.
+  - Documentation references the proof taxonomy.
+
+Proof-strength matrix by tool
+| Tool                          | Max proof level     | What it actually proves                    |
+|-------------------------------|---------------------|--------------------------------------------|
+| ilas:sentry-probe             | L1:Transport        | SDK call succeeded; exit code 0            |
+| ilas:langfuse-probe --direct  | L3:PayloadAcceptance| Langfuse API accepted payload (HTTP 207)   |
+| ilas:langfuse-probe (queued)  | L2:QueueDrain       | Item enqueued; depth changed               |
+| ilas:langfuse-lookup          | L4:AccountSide      | Trace visible in Langfuse API              |
+| ilas:langfuse-status          | L1:Transport        | Config/queue health snapshot               |
+| ilas:langfuse-probe --diagnose| L0:Unverified       | Informational readiness check; no probe    |
+
+Current Sentry proof posture
+- Transport (L1): Sentry probe emits synthetic message; exit code 0 confirms
+  SDK call succeeded. Probe output now declares "Proof level: L1:Transport".
+- Account-side (L4): No programmatic account-side lookup exists for Sentry.
+  Operators must verify in Sentry UI manually. PHARD-01 artifact documents
+  manual account-side proof but it is not enforceable by tooling.
+- Alertability (L5): PHARD-01 artifact documents live AILA alert rules, but
+  no probe can verify alert delivery.
+- Ownership (L6): PHARD-01 artifact documents Evan Curry as owner, but no
+  probe can verify review cadence or triage SLA.
+- Overall Sentry proof ceiling from tooling: L1:Transport.
+
+Current Langfuse proof posture
+- Transport (L1): `ilas:langfuse-status` reports config and queue health.
+- Queue drain (L2): Queued probe enqueues item; depth change confirms.
+  Probe output now declares "Proof level: L2:QueueDrain".
+- Payload acceptance (L3): Direct probe gets HTTP 207 from Langfuse API.
+  Probe output now declares "Proof level: L3:PayloadAcceptance".
+- Account-side (L4): `ilas:langfuse-lookup <trace_id>` proves trace visibility.
+  This is the strongest tooling-enforceable proof surface for Langfuse.
+- Alertability (L5): No probe can verify Langfuse alert delivery.
+- Ownership (L6): No probe can verify review cadence or triage SLA.
+- Overall Langfuse proof ceiling from tooling: L4:AccountSide (via lookup).
+
+Changed files
+- web/modules/custom/ilas_site_assistant/src/Service/ObservabilityProofTaxonomy.php (NEW)
+- web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php (EDIT)
+- web/modules/custom/ilas_site_assistant/src/Commands/LangfuseProbeCommands.php (EDIT)
+- web/modules/custom/ilas_site_assistant/tests/src/Unit/ObservabilityProofTaxonomyTest.php (NEW)
+- docs/aila/runtime/afrp-12-observability-proof-standard.txt (NEW)
+- docs/aila/runbook.md (EDIT)
+- docs/aila/current-state.md (EDIT)
+- docs/aila/evidence-index.md (EDIT)
+
+Residual risks and unknowns
+- Sentry has no programmatic account-side lookup command. L4 proof for Sentry
+  requires manual UI verification and cannot be enforced by contract tests.
+- L5 (alertability) is documented in PHARD-01/PHARD-02 artifacts but not
+  enforceable by any current tooling for either Sentry or Langfuse.
+- L6 (ownership) is documented but not enforceable. Named responder and triage
+  SLA are organizational commitments, not code-testable properties.
+- Hosted Pantheon environments still run pre-AFRP-12 probe commands until deploy.
+- Langfuse top-level `environment` field still resolves to `default` rather than
+  the true runtime environment (known from AFRP-03).
+
+Rollback notes
+- Remove `ObservabilityProofTaxonomy.php` and its test.
+- Revert the proof-level notice lines in `SentryProbeCommands.php` and
+  `LangfuseProbeCommands.php`.
+- Revert documentation additions in runbook, current-state, evidence-index.
+- No DI, queue, or transport changes to revert.
+
+Still-unverified surfaces
+- Sentry account-side visibility (L4): no programmatic lookup.
+- Sentry alertability (L5): no probe can verify.
+- Langfuse alertability (L5): no probe can verify.
+- Sentry ownership (L6): documented only.
+- Langfuse ownership (L6): documented only.

@@ -422,9 +422,13 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $response = $this->getJson('/assistant/api/suggest?q=housing&type=all');
 
     $this->assertEquals(200, $response->getStatusCode());
+    $this->assertReadJsonHeaders($response);
 
     $data = json_decode($response->getBody(), TRUE);
-    $this->assertArrayHasKey('suggestions', $data);
+    $this->assertSame(['suggestions'], array_keys($data));
+    foreach ($data['suggestions'] as $suggestion) {
+      $this->assertSuggestionPublicFields($suggestion);
+    }
   }
 
   /**
@@ -434,10 +438,29 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $response = $this->getJson('/assistant/api/faq?q=eviction');
 
     $this->assertEquals(200, $response->getStatusCode());
+    $this->assertReadJsonHeaders($response);
 
     $data = json_decode($response->getBody(), TRUE);
-    $this->assertArrayHasKey('results', $data);
-    $this->assertArrayHasKey('count', $data);
+    $this->assertSame(['results', 'count'], array_keys($data));
+    foreach ($data['results'] as $result) {
+      $this->assertFaqResultPublicFields($result);
+    }
+  }
+
+  /**
+   * Tests that FAQ category browse remains anonymously accessible.
+   */
+  public function testFaqCategoriesEndpointAccessible(): void {
+    $response = $this->getJson('/assistant/api/faq');
+
+    $this->assertEquals(200, $response->getStatusCode());
+    $this->assertReadJsonHeaders($response);
+
+    $data = json_decode($response->getBody(), TRUE);
+    $this->assertSame(['categories'], array_keys($data));
+    foreach ($data['categories'] as $category) {
+      $this->assertFaqCategoryPublicFields($category);
+    }
   }
 
   /**
@@ -455,6 +478,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $limited = $this->getJson('/assistant/api/suggest?q=tenant&type=all');
 
     $this->assertEquals(429, $limited->getStatusCode(), 'Second suggest request must be rate limited with a 1/min threshold');
+    $this->assertReadJsonHeaders($limited, TRUE);
     $this->assertSame('60', $limited->getHeader('Retry-After')[0] ?? NULL);
     $body = json_decode($limited->getBody(), TRUE);
     $this->assertSame([], $body['suggestions'] ?? NULL);
@@ -478,6 +502,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $limited = $this->getJson('/assistant/api/faq?q=tenant');
 
     $this->assertEquals(429, $limited->getStatusCode(), 'Second FAQ request must be rate limited with a 1/min threshold');
+    $this->assertReadJsonHeaders($limited, TRUE);
     $this->assertSame('60', $limited->getHeader('Retry-After')[0] ?? NULL);
     $body = json_decode($limited->getBody(), TRUE);
     $this->assertSame([], $body['results'] ?? NULL);
@@ -1119,6 +1144,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->assertNotEmpty($cookies->toArray(), 'Bootstrap endpoint must issue a session cookie');
     $this->assertStringContainsString('text/plain', $response->getHeader('Content-Type')[0] ?? '');
     $this->assertStringContainsString('no-store', $response->getHeader('Cache-Control')[0] ?? '');
+    $this->assertStringContainsString('private', $response->getHeader('Cache-Control')[0] ?? '');
     $this->assertEquals('nosniff', $response->getHeader('X-Content-Type-Options')[0] ?? '');
   }
 
@@ -1162,6 +1188,8 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->assertSame('60', $limited->getHeader('Retry-After')[0] ?? NULL);
     $this->assertStringContainsString('text/plain', $limited->getHeader('Content-Type')[0] ?? '');
     $this->assertStringContainsString('no-store', $limited->getHeader('Cache-Control')[0] ?? '');
+    $this->assertStringContainsString('private', $limited->getHeader('Cache-Control')[0] ?? '');
+    $this->assertEquals('nosniff', $limited->getHeader('X-Content-Type-Options')[0] ?? '');
     $this->assertSame([], $cold_cookies->toArray(), 'Rate-limited bootstrap requests must not mint a new anonymous session cookie');
 
     $reused = $this->requestBootstrap($established_cookies);
@@ -1329,6 +1357,51 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     }
 
     return $this->getHttpClient()->get($this->buildUrl($path) . $query, $options);
+  }
+
+  /**
+   * Asserts the common anonymous JSON read headers.
+   */
+  protected function assertReadJsonHeaders($response, bool $expect_correlation = FALSE): void {
+    $this->assertStringContainsString('application/json', $response->getHeader('Content-Type')[0] ?? '');
+    $cache_control = $response->getHeader('Cache-Control')[0] ?? '';
+    $this->assertStringContainsString('private', $cache_control);
+    $this->assertTrue(
+      str_contains($cache_control, 'no-store') || str_contains($cache_control, 'no-cache'),
+      'Anonymous JSON reads must send an explicit private no-cache/no-store directive',
+    );
+    $this->assertSame('nosniff', $response->getHeader('X-Content-Type-Options')[0] ?? '');
+
+    if ($expect_correlation) {
+      $this->assertNotEmpty($response->getHeader('X-Correlation-ID')[0] ?? NULL);
+    }
+  }
+
+  /**
+   * Asserts the public suggest item contract.
+   */
+  protected function assertSuggestionPublicFields(array $suggestion): void {
+    $keys = array_keys($suggestion);
+    sort($keys);
+    $this->assertSame(['id', 'label', 'type'], $keys);
+  }
+
+  /**
+   * Asserts the public FAQ result contract.
+   */
+  protected function assertFaqResultPublicFields(array $result): void {
+    $keys = array_keys($result);
+    sort($keys);
+    $this->assertSame(['answer', 'id', 'question', 'url'], $keys);
+  }
+
+  /**
+   * Asserts the public FAQ category contract.
+   */
+  protected function assertFaqCategoryPublicFields(array $category): void {
+    $keys = array_keys($category);
+    sort($keys);
+    $this->assertSame(['count', 'name'], $keys);
   }
 
   /**

@@ -10,6 +10,8 @@ use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Access\CsrfTokenGenerator;
+use Drupal\Core\Render\Markup;
+use Drupal\Core\Url;
 use Drupal\Core\Cache\CacheableJsonResponse;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Flood\FloodInterface;
@@ -2021,7 +2023,7 @@ class EmploymentApplicationController extends ControllerBase {
     ];
 
     $build['meta'] = [
-      '#markup' => '<div style="background:#f8f9fa;padding:15px;border-left:4px solid #2c5aa0;margin-bottom:20px;">'
+      '#markup' => Markup::create('<div style="background:#f8f9fa;padding:15px;border-left:4px solid #2c5aa0;margin-bottom:20px;">'
         . '<strong>Application ID:</strong> ' . htmlspecialchars($application->application_id, ENT_QUOTES, 'UTF-8') . '<br>'
         . '<strong>Submitted:</strong> ' . date('F j, Y \a\t g:i A', $application->submitted) . '<br>'
         . '<strong>Status:</strong> '
@@ -2029,7 +2031,7 @@ class EmploymentApplicationController extends ControllerBase {
         . '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '">'
         . '<select name="status" onchange="this.form.submit()">' . $statusOptions . '</select>'
         . '</form>'
-        . '</div>',
+        . '</div>'),
     ];
 
     $build['personal_heading'] = ['#markup' => '<h3>Personal Information</h3>'];
@@ -2096,12 +2098,12 @@ class EmploymentApplicationController extends ControllerBase {
     }
 
     // Delete action.
+    $build['delete_separator'] = ['#markup' => '<hr>'];
     $build['delete'] = [
-      '#markup' => '<hr><form method="post" action="/admin/employment-applications/' . $id . '/delete" '
-        . 'onsubmit="return confirm(\'Are you sure you want to permanently delete this application and all associated files?\');">'
-        . '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '">'
-        . '<button type="submit" class="button button--danger">Delete Application</button>'
-        . '</form>',
+      '#type' => 'link',
+      '#title' => $this->t('Delete Application'),
+      '#url' => Url::fromRoute('employment_application.delete', ['id' => $id]),
+      '#attributes' => ['class' => ['button', 'button--danger']],
     ];
 
     $build['#attached'] = ['library' => ['system/admin']];
@@ -2132,64 +2134,6 @@ class EmploymentApplicationController extends ControllerBase {
     $this->messenger()->addStatus('Application status updated to "' . self::ALLOWED_STATUSES[$newStatus] . '".');
 
     return new \Symfony\Component\HttpFoundation\RedirectResponse('/admin/employment-applications/' . $id);
-  }
-
-  /**
-   * Deletes an application and its associated files.
-   */
-  public function deleteApplication(int $id, Request $request): Response {
-    $csrfToken = $request->request->get('csrf_token', '');
-    if (!$this->csrfToken->validate($csrfToken, 'employment_application_admin')) {
-      throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Invalid CSRF token.');
-    }
-
-    $application = $this->database->select('employment_applications', 'ea')
-      ->fields('ea')
-      ->condition('id', $id)
-      ->execute()
-      ->fetchObject();
-
-    if (!$application) {
-      throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Application not found.');
-    }
-
-    // Delete associated files.
-    $fileData = json_decode($application->file_data, TRUE);
-    if (is_array($fileData)) {
-      foreach ($fileData as $fieldFiles) {
-        if (!is_array($fieldFiles)) {
-          continue;
-        }
-        foreach ($fieldFiles as $fileRef) {
-          $fid = $fileRef['fid'] ?? NULL;
-          if ($fid) {
-            $file = File::load($fid);
-            if ($file) {
-              $uri = $file->getFileUri();
-              $realPath = $this->fileSystem->realpath($uri);
-              if ($realPath && file_exists($realPath)) {
-                $this->fileSystem->delete($uri);
-              }
-              $file->delete();
-            }
-          }
-        }
-      }
-    }
-
-    // Delete DB record.
-    $this->database->delete('employment_applications')
-      ->condition('id', $id)
-      ->execute();
-
-    $this->appLogger->info('Application deleted: @id by user @uid', [
-      '@id' => $application->application_id,
-      '@uid' => \Drupal::currentUser()->id(),
-    ]);
-
-    $this->messenger()->addStatus('Application "' . $application->application_id . '" has been deleted.');
-
-    return new \Symfony\Component\HttpFoundation\RedirectResponse('/admin/employment-applications');
   }
 
   /**

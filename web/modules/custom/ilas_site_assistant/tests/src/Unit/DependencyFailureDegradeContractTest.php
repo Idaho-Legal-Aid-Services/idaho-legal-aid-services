@@ -6,6 +6,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Component\Datetime\Time;
 use Drupal\Core\Cache\MemoryBackend;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
 use PHPUnit\Framework\Attributes\Group;
@@ -44,16 +45,20 @@ class DependencyFailureDegradeContractTest extends TestCase {
   }
 
   /**
-   * Search API unavailable in FAQ path degrades to legacy retrieval.
+   * Missing FAQ lexical dependency now throws the typed unavailable signal.
    */
-  public function testFaqSearchApiUnavailableFallsBackToLegacy(): void {
-    $legacy = [['id' => 'faq_1', 'score' => 10.0, 'source' => 'legacy']];
-    $faq = new ContractFaqIndex(NULL, $legacy);
+  public function testFaqSearchApiUnavailableThrowsUnavailableSignal(): void {
+    $faq = new ContractFaqIndex(NULL, [['id' => 'faq_1', 'score' => 10.0, 'source' => 'legacy']]);
 
-    $result = $faq->search('eviction notice', 3);
+    $this->expectException(RetrievalDependencyUnavailableException::class);
+    $this->expectExceptionMessage('faq retrieval dependency unavailable');
 
-    $this->assertSame($legacy, $result);
-    $this->assertSame(1, $faq->legacyCallCount);
+    try {
+      $faq->search('eviction notice', 3);
+    }
+    finally {
+      $this->assertSame(0, $faq->legacyCallCount);
+    }
   }
 
   /**
@@ -92,16 +97,20 @@ class DependencyFailureDegradeContractTest extends TestCase {
   }
 
   /**
-   * Search API unavailable in resource path degrades to legacy retrieval.
+   * Missing resource lexical dependencies now throw the typed unavailable signal.
    */
-  public function testResourceSearchApiUnavailableFallsBackToLegacy(): void {
-    $legacy = [['id' => 101, 'score' => 9.0, 'source' => 'legacy']];
-    $finder = new ContractResourceFinder(NULL, $legacy);
+  public function testResourceSearchApiUnavailableThrowsUnavailableSignal(): void {
+    $finder = new ContractResourceFinder(NULL, [['id' => 101, 'score' => 9.0, 'source' => 'legacy']]);
 
-    $result = $finder->findResources('forms');
+    $this->expectException(RetrievalDependencyUnavailableException::class);
+    $this->expectExceptionMessage('resource retrieval dependency unavailable');
 
-    $this->assertSame($legacy, $result);
-    $this->assertSame(1, $finder->legacyCallCount);
+    try {
+      $finder->findResources('forms');
+    }
+    finally {
+      $this->assertSame(0, $finder->legacyCallCount);
+    }
   }
 
   /**

@@ -110,35 +110,53 @@ class EmploymentApplicationCommands extends DrushCommands {
 
     $deleted = 0;
     $filesDeleted = 0;
+    $logger = \Drupal::logger('employment_application');
 
     foreach ($results as $row) {
+      // Collect file URIs before DB changes.
+      $physicalFiles = [];
       $fileData = json_decode($row->file_data, TRUE);
-      if (is_array($fileData)) {
-        foreach ($fileData as $fieldFiles) {
-          if (!is_array($fieldFiles)) {
-            continue;
-          }
-          foreach ($fieldFiles as $fileRef) {
-            $fid = $fileRef['fid'] ?? NULL;
-            if ($fid) {
-              $file = File::load($fid);
-              if ($file) {
-                $uri = $file->getFileUri();
-                $realPath = $this->fileSystem->realpath($uri);
-                if ($realPath && file_exists($realPath)) {
-                  $this->fileSystem->delete($uri);
+
+      // Transaction: DB operations first (reversible via rollback).
+      $transaction = $this->database->startTransaction();
+      try {
+        if (is_array($fileData)) {
+          foreach ($fileData as $fieldFiles) {
+            if (!is_array($fieldFiles)) {
+              continue;
+            }
+            foreach ($fieldFiles as $fileRef) {
+              $fid = $fileRef['fid'] ?? NULL;
+              if ($fid) {
+                $file = File::load($fid);
+                if ($file) {
+                  $physicalFiles[] = $file->getFileUri();
+                  $file->delete();
                 }
-                $file->delete();
-                $filesDeleted++;
               }
             }
           }
         }
+
+        $this->database->delete('employment_applications')
+          ->condition('id', $row->id)
+          ->execute();
+
+        // Commit.
+        unset($transaction);
+      }
+      catch (\Throwable $e) {
+        $transaction->rollBack();
+        $this->logger()->error("Failed to purge application {$row->application_id}: {$e->getMessage()}");
+        continue;
       }
 
-      $this->database->delete('employment_applications')
-        ->condition('id', $row->id)
-        ->execute();
+      // Outside transaction: best-effort secure deletion of physical files.
+      foreach ($physicalFiles as $uri) {
+        _employment_application_secure_delete_file($this->fileSystem, $uri, $logger);
+      }
+
+      $filesDeleted += count($physicalFiles);
       $deleted++;
     }
 

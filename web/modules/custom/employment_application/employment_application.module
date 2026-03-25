@@ -35,6 +35,53 @@ function employment_application_mail($key, &$message, $params) {
 }
 
 /**
+ * Best-effort secure deletion of a file.
+ *
+ * Overwrites file content with random bytes before unlinking. This is
+ * defense-in-depth; effectiveness depends on the underlying filesystem
+ * and storage layer (SSDs, journaling, NFS may retain old data).
+ *
+ * @param \Drupal\Core\File\FileSystemInterface $fileSystem
+ *   The file system service.
+ * @param string $uri
+ *   The file URI (e.g. private://employment-applications/2025-03/file.pdf).
+ * @param \Psr\Log\LoggerInterface $logger
+ *   Logger for warnings on failure.
+ */
+function _employment_application_secure_delete_file(
+  \Drupal\Core\File\FileSystemInterface $fileSystem,
+  string $uri,
+  \Psr\Log\LoggerInterface $logger,
+): void {
+  try {
+    $realPath = $fileSystem->realpath($uri);
+    if (!$realPath || !file_exists($realPath)) {
+      return;
+    }
+
+    // Overwrite file content before unlinking.
+    $size = filesize($realPath);
+    if ($size > 0) {
+      $handle = fopen($realPath, 'wb');
+      if ($handle) {
+        // Cap at 10MB to prevent memory issues. App files are typically <5MB.
+        fwrite($handle, random_bytes(min($size, 10 * 1024 * 1024)));
+        fflush($handle);
+        fclose($handle);
+      }
+    }
+
+    $fileSystem->delete($uri);
+  }
+  catch (\Throwable $e) {
+    $logger->warning('Secure file deletion failed for @uri: @error', [
+      '@uri' => $uri,
+      '@error' => $e->getMessage(),
+    ]);
+  }
+}
+
+/**
  * Implements hook_cron().
  *
  * Purges employment applications older than the configured retention period.
@@ -62,34 +109,53 @@ function employment_application_cron() {
 
     $count = 0;
     foreach ($results as $row) {
-      // Delete associated files.
+      // Collect file URIs before DB changes.
+      $physicalFiles = [];
       $fileData = json_decode($row->file_data, TRUE);
-      if (is_array($fileData)) {
-        foreach ($fileData as $fieldFiles) {
-          if (!is_array($fieldFiles)) {
-            continue;
-          }
-          foreach ($fieldFiles as $fileRef) {
-            $fid = $fileRef['fid'] ?? NULL;
-            if ($fid) {
-              $file = \Drupal\file\Entity\File::load($fid);
-              if ($file) {
-                $uri = $file->getFileUri();
-                $realPath = $fileSystem->realpath($uri);
-                if ($realPath && file_exists($realPath)) {
-                  $fileSystem->delete($uri);
+
+      // Transaction: DB operations first (reversible via rollback).
+      $transaction = $database->startTransaction();
+      try {
+        if (is_array($fileData)) {
+          foreach ($fileData as $fieldFiles) {
+            if (!is_array($fieldFiles)) {
+              continue;
+            }
+            foreach ($fieldFiles as $fileRef) {
+              $fid = $fileRef['fid'] ?? NULL;
+              if ($fid) {
+                $file = \Drupal\file\Entity\File::load($fid);
+                if ($file) {
+                  $physicalFiles[] = $file->getFileUri();
+                  $file->delete();
                 }
-                $file->delete();
               }
             }
           }
         }
+
+        // Delete DB record.
+        $database->delete('employment_applications')
+          ->condition('id', $row->id)
+          ->execute();
+
+        // Commit.
+        unset($transaction);
+      }
+      catch (\Throwable $e) {
+        $transaction->rollBack();
+        $logger->error('Failed to purge application @id: @error', [
+          '@id' => $row->application_id,
+          '@error' => $e->getMessage(),
+        ]);
+        continue;
       }
 
-      // Delete DB record.
-      $database->delete('employment_applications')
-        ->condition('id', $row->id)
-        ->execute();
+      // Outside transaction: best-effort secure deletion of physical files.
+      foreach ($physicalFiles as $uri) {
+        _employment_application_secure_delete_file($fileSystem, $uri, $logger);
+      }
+
       $count++;
     }
 

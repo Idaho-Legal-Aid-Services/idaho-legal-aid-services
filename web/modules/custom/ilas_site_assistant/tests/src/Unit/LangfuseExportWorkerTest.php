@@ -181,7 +181,12 @@ class LangfuseExportWorkerTest extends TestCase {
     $monitor = $this->createMock(QueueHealthMonitor::class);
     $monitor->expects($this->once())
       ->method('recordOutcome')
-      ->with('discard_invalid_shape', []);
+      ->with(
+        'discard_invalid_shape',
+        $this->callback(function (array $metadata): bool {
+          return ($metadata['event_count'] ?? NULL) === 0;
+        }),
+      );
 
     $this->withQueueHealthMonitor($monitor, function () use ($mocks): void {
       $mocks['worker']->processItem([

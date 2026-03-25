@@ -82,7 +82,9 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
     // Validate payload structure.
     if (!is_array($data) || empty($data['batch']) || !is_array($data['batch'])) {
       $this->logger->warning('Langfuse export: invalid queue item, discarding.');
-      $this->recordOutcome('discard_invalid_shape');
+      $this->recordOutcome('discard_invalid_shape', [
+        'event_count' => is_array($data['batch'] ?? NULL) ? count($data['batch']) : 0,
+      ]);
       $this->recordDrain(1);
       return;
     }
@@ -186,6 +188,7 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
         ]);
         $this->recordOutcome('send_success', [
           'event_count' => count($data['batch']),
+          'success_count' => count($data['batch']),
           'http_status' => $statusCode,
         ]);
         $this->recordDrain(1);

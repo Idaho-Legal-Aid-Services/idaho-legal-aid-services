@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\EventSubscriber\AssistantApiResponseMonitorSubscriber;
+use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
@@ -90,7 +91,7 @@ class IntegrationFailureContractTest extends TestCase {
       }
 
     });
-    $container->set('string_translation', $this->createStub(TranslationInterface::class));
+    $container->set('string_translation', new \Drupal\Tests\ilas_site_assistant\Support\PassThroughTranslation());
     $container->set('config.factory', $configFactory);
 
     \Drupal::setContainer($container);
@@ -113,6 +114,10 @@ class IntegrationFailureContractTest extends TestCase {
    *   Optional flood mock.
    * @param \Drupal\ilas_site_assistant\Service\IntentRouter|null $intentRouter
    *   Optional intent router mock.
+   * @param \Drupal\ilas_site_assistant\Service\FaqIndex|null $faqIndex
+   *   Optional FAQ index mock.
+   * @param \Drupal\ilas_site_assistant\Service\ResourceFinder|null $resourceFinder
+   *   Optional resource finder mock.
    * @param \Drupal\Core\Cache\CacheBackendInterface|null $cache
    *   Optional conversation cache mock.
    * @param \Drupal\ilas_site_assistant\Service\AssistantFlowRunner|null $assistantFlowRunner
@@ -127,6 +132,8 @@ class IntegrationFailureContractTest extends TestCase {
     ?LoggerInterface $logger = NULL,
     ?FloodInterface $flood = NULL,
     ?IntentRouter $intentRouter = NULL,
+    ?FaqIndex $faqIndex = NULL,
+    ?ResourceFinder $resourceFinder = NULL,
     ?CacheBackendInterface $cache = NULL,
     ?AssistantFlowRunner $assistantFlowRunner = NULL,
     ?\Exception $processIntentException = NULL,
@@ -137,6 +144,7 @@ class IntegrationFailureContractTest extends TestCase {
         'rate_limit_per_minute' => 15,
         'rate_limit_per_hour' => 120,
         'enable_faq' => TRUE,
+        'enable_resources' => TRUE,
         'enable_logging' => FALSE,
         'langfuse.environment' => 'test',
         'langfuse.enabled' => FALSE,
@@ -166,10 +174,12 @@ class IntegrationFailureContractTest extends TestCase {
       ]);
     }
 
-    $faqIndex = $this->createStub(FaqIndex::class);
-    $faqIndex->method('search')->willReturn([]);
+    if ($faqIndex === NULL) {
+      $faqIndex = $this->createStub(FaqIndex::class);
+      $faqIndex->method('search')->willReturn([]);
+    }
 
-    $resourceFinder = $this->createStub(ResourceFinder::class);
+    $resourceFinder ??= $this->createStub(ResourceFinder::class);
     $policyFilter = $this->createStub(PolicyFilter::class);
     $policyFilter->method('check')->willReturn(['passed' => TRUE, 'violation' => FALSE]);
 
@@ -619,6 +629,72 @@ class IntegrationFailureContractTest extends TestCase {
     $this->assertTrue($response->headers->has('X-Correlation-ID'));
   }
 
+  /**
+   * Message retrieval dependency loss degrades explicitly instead of 500ing.
+   */
+  public function testMessageRetrievalDependencyUnavailableReturnsDegradedNavigation(): void {
+    $controller = $this->buildController(
+      processIntentException: new RetrievalDependencyUnavailableException('resource', 'resource_retrieval_unavailable'),
+    );
+
+    $response = $controller->message($this->buildJsonRequest());
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame('navigation', $body['type'] ?? NULL);
+    $this->assertSame('resource_retrieval_unavailable', $body['reason_code'] ?? NULL);
+    $this->assertEquals(1.0, $body['confidence'] ?? NULL);
+    $this->assertSame([], $body['citations'] ?? NULL);
+    $this->assertSame('resource_retrieval_unavailable', $body['decision_reason'] ?? NULL);
+    $this->assertArrayHasKey('request_id', $body);
+    $this->assertNotEmpty($body['actions'] ?? []);
+  }
+
+  /**
+   * Content-index fallback results are marked as explicitly degraded.
+   */
+  public function testMessageResourceFallbackResultsUseExplicitDegradedReasonCode(): void {
+    $intentRouter = $this->createMock(IntentRouter::class);
+    $intentRouter->method('route')->willReturn([
+      'type' => 'resources',
+      'confidence' => 0.95,
+    ]);
+
+    $faqIndex = $this->createStub(FaqIndex::class);
+    $faqIndex->method('search')->willReturn([]);
+
+    $resourceFinder = $this->createMock(ResourceFinder::class);
+    $resourceFinder->expects($this->once())
+      ->method('findResources')
+      ->willReturn([
+        [
+          'id' => 101,
+          'title' => 'Eviction guide',
+          'url' => '/node/101',
+          'source_url' => '/node/101',
+          'source' => 'lexical',
+          'lexical_index_mode' => 'fallback',
+        ],
+      ]);
+    $resourceFinder->method('getLastLexicalResolution')->willReturn([
+      'mode' => 'fallback',
+    ]);
+
+    $controller = $this->buildController(
+      intentRouter: $intentRouter,
+      faqIndex: $faqIndex,
+      resourceFinder: $resourceFinder,
+    );
+    $controller->deferToParentProcessIntent = TRUE;
+
+    $response = $controller->message($this->buildJsonRequest('eviction help'));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $body = json_decode($response->getContent(), TRUE);
+    $this->assertSame('resource_results_fallback_index', $body['reason_code'] ?? NULL);
+    $this->assertArrayHasKey('degraded_notice', $body);
+  }
+
   // ─── Test 9: Failure mode matrix (@dataProvider) ──────────────────────
 
   /**
@@ -632,9 +708,9 @@ class IntegrationFailureContractTest extends TestCase {
    */
   public static function failureModeProvider(): array {
     return [
-      'faq_search_api_unavailable' => ['faq', 'search_api_unavailable', 200, 'legacy_fallback'],
+      'faq_search_api_unavailable' => ['faq', 'search_api_unavailable', 200, 'explicit_degraded'],
       'faq_search_api_query_timeout' => ['faq', 'search_api_query_timeout', 200, 'legacy_fallback'],
-      'resource_search_api_unavailable' => ['resource', 'search_api_unavailable', 200, 'legacy_fallback'],
+      'resource_search_api_unavailable' => ['resource', 'search_api_unavailable', 200, 'explicit_degraded'],
       'resource_search_api_query_5xx' => ['resource', 'search_api_query_5xx', 200, 'legacy_fallback'],
       'faq_vector_unavailable' => ['faq', 'vector_unavailable', 200, 'lexical_preserved'],
       'resource_vector_unavailable' => ['resource', 'vector_unavailable', 200, 'lexical_preserved'],
@@ -674,6 +750,7 @@ class IntegrationFailureContractTest extends TestCase {
       // Retrieval/LLM failure classes are documented and verified
       // by existing contract test suites. Assert matrix consistency.
       $this->assertContains($expectedClass, [
+        'explicit_degraded',
         'legacy_fallback',
         'lexical_preserved',
         'original_preserved',
@@ -955,6 +1032,11 @@ class ContractTestableController extends AssistantApiController {
   public ?\Exception $processIntentException = NULL;
 
   /**
+   * When TRUE, route processIntent() to the parent implementation.
+   */
+  public bool $deferToParentProcessIntent = FALSE;
+
+  /**
    * The stubbed response from processIntent().
    */
   public array $processIntentResponse = [
@@ -971,6 +1053,9 @@ class ContractTestableController extends AssistantApiController {
    * {@inheritdoc}
    */
   protected function processIntent(array $intent, string $message, array $context, string $request_id = '', array $server_history = []) {
+    if ($this->deferToParentProcessIntent) {
+      return parent::processIntent($intent, $message, $context, $request_id, $server_history);
+    }
     if ($this->processIntentException !== NULL) {
       throw $this->processIntentException;
     }

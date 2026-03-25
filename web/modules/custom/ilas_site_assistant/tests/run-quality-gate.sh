@@ -71,6 +71,7 @@ mkdir -p "$EVALS_OUTPUT_DIR"
   echo "repo_root=${REPO_ROOT}"
   echo "vc_unit_command=vendor/bin/phpunit --configuration ${REPO_ROOT}/phpunit.xml --group ilas_site_assistant ${MODULE_DIR}/tests/src/Unit"
   echo "vc_drupal_unit_command=vendor/bin/phpunit --configuration ${REPO_ROOT}/phpunit.xml --testsuite drupal-unit"
+  echo "vc_kernel_command=bash ${REPO_ROOT}/scripts/ci/run-host-phpunit.sh ${MODULE_DIR}/tests/src/Kernel/FaqSearchRuntimeRegressionKernelTest.php ${MODULE_DIR}/tests/src/Kernel/RuntimeTruthIntegrationKernelTest.php ${MODULE_DIR}/tests/src/Kernel/AssistantApiReadRuntimeKernelTest.php"
   echo "golden_transcript_command=vendor/bin/phpunit --no-configuration --bootstrap ${REPO_ROOT}/vendor/autoload.php --group ilas_site_assistant --filter GoldenTranscriptTest ${MODULE_DIR}/tests/src/Unit/GoldenTranscriptTest.php"
   echo "promptfoo_runtime_command=npm run test:promptfoo:runtime"
 } > "$SUMMARY_FILE"
@@ -148,8 +149,31 @@ else
   echo ""
 fi
 
-# ── Phase 1c: Golden Transcript tests ─────────────────────────────
-echo "--- Phase 1c: Golden Transcript tests ---"
+# ── Phase 1c: Kernel runtime regression suite ─────────────────────
+echo "--- Phase 1c: Kernel runtime regression suite (VC-KERNEL) ---"
+
+KERNEL_EXIT=0
+bash "$REPO_ROOT/scripts/ci/run-host-phpunit.sh" \
+  "$MODULE_DIR/tests/src/Kernel/FaqSearchRuntimeRegressionKernelTest.php" \
+  "$MODULE_DIR/tests/src/Kernel/RuntimeTruthIntegrationKernelTest.php" \
+  "$MODULE_DIR/tests/src/Kernel/AssistantApiReadRuntimeKernelTest.php" \
+  || KERNEL_EXIT=$?
+
+append_phase_result "vc_kernel" "$KERNEL_EXIT"
+
+if [ "$KERNEL_EXIT" -ne 0 ]; then
+  echo ""
+  echo "FAIL: Kernel runtime regression suite failed (exit code $KERNEL_EXIT)"
+  echo "Summary file: $SUMMARY_FILE"
+  exit 1
+fi
+
+echo ""
+echo "PASS: Kernel runtime regression suite passed"
+echo ""
+
+# ── Phase 1d: Golden Transcript tests ─────────────────────────────
+echo "--- Phase 1d: Golden Transcript tests ---"
 
 GOLDEN_EXIT=0
 "$PHPUNIT_BIN" \
@@ -175,8 +199,8 @@ echo "PASS: Golden transcript tests passed"
 echo "Summary file: $SUMMARY_FILE"
 echo ""
 
-# ── Phase 1d: Promptfoo runtime tests ──────────────────────────────
-echo "--- Phase 1d: Promptfoo runtime tests ---"
+# ── Phase 1e: Promptfoo runtime tests ──────────────────────────────
+echo "--- Phase 1e: Promptfoo runtime tests ---"
 
 if ! command -v npm >/dev/null 2>&1; then
   echo ""

@@ -724,6 +724,7 @@ class AssistantReportController extends ControllerBase {
     // Queue health.
     try {
       $queueHealth = $this->queueHealthMonitor->getQueueHealthStatus($this->sloDefinitions);
+      $queueExport = $this->queueHealthMonitor->getExportOutcomeSummary();
       $queueRows = [];
       $queueRows[] = [
         $this->t('Queue Status'),
@@ -746,6 +747,44 @@ class AssistantReportController extends ControllerBase {
         $queueRows[] = [
           $this->t('Oldest Item Age'),
           $this->t('@seconds seconds', ['@seconds' => $queueHealth['oldest_item_age_seconds']]),
+        ];
+      }
+
+      $queueRows[] = [
+        $this->t('Action Required'),
+        $this->formatBool((bool) ($queueExport['action_required'] ?? FALSE)),
+      ];
+
+      $alertableTotals = $queueExport['alertable_loss_totals'] ?? [];
+      $informationalTotals = $queueExport['informational_loss_totals'] ?? [];
+      $queueRows[] = [
+        $this->t('Alertable Loss Totals'),
+        $this->t('@batches batches / @events events / @occurrences outcomes', [
+          '@batches' => (int) ($alertableTotals['queue_items'] ?? 0),
+          '@events' => (int) ($alertableTotals['event_count'] ?? 0),
+          '@occurrences' => (int) ($alertableTotals['occurrences'] ?? 0),
+        ]),
+      ];
+      $queueRows[] = [
+        $this->t('Informational Loss Totals'),
+        $this->t('@batches batches / @events events / @occurrences outcomes', [
+          '@batches' => (int) ($informationalTotals['queue_items'] ?? 0),
+          '@events' => (int) ($informationalTotals['event_count'] ?? 0),
+          '@occurrences' => (int) ($informationalTotals['occurrences'] ?? 0),
+        ]),
+      ];
+
+      $lastOutcome = $queueExport['last_outcome'] ?? NULL;
+      if (is_array($lastOutcome) && !empty($lastOutcome['outcome'])) {
+        $recordedAt = isset($lastOutcome['recorded_at'])
+          ? $this->dateFormatter->format((int) $lastOutcome['recorded_at'], 'short')
+          : (string) $this->t('Unknown');
+        $queueRows[] = [
+          $this->t('Last Loss/Outcome'),
+          $this->t('@outcome at @time', [
+            '@outcome' => (string) $lastOutcome['outcome'],
+            '@time' => $recordedAt,
+          ]),
         ];
       }
 

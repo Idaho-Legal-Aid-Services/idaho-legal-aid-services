@@ -44,7 +44,8 @@ class PhaseOneDeterministicDegradeContractTest extends TestCase {
     $this->assertStringContainsString('Deterministic dependency degrade contract (Phase 1 Objective #2)', $currentState);
     $this->assertStringContainsString('Deterministic degrade outcomes (formalized)', $currentState);
     $this->assertStringContainsString('controlled `500 internal_error`', $currentState);
-    $this->assertStringContainsString('legacy/lexical paths', $currentState);
+    $this->assertStringContainsString('fail closed or degrade explicitly', $currentState);
+    $this->assertStringContainsString('generic Search API query exceptions still route to legacy retrieval', $currentState);
   }
 
   /**
@@ -59,6 +60,7 @@ class PhaseOneDeterministicDegradeContractTest extends TestCase {
     $this->assertStringContainsString('LlmEnhancerHardeningTest.php', $runbook);
     $this->assertStringContainsString('llm.fallback_on_error=true', $runbook);
     $this->assertStringContainsString('controlled `500 internal_error`', $runbook);
+    $this->assertStringContainsString('explicit degraded or', $runbook);
   }
 
   /**
