@@ -5903,29 +5903,32 @@
         },
         {
             "name": "drupal/gemini_provider",
-            "version": "1.0.1-beta1",
+            "version": "1.0.1",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/gemini_provider.git",
-                "reference": "1.0.1-beta1"
+                "reference": "1.0.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/gemini_provider-1.0.1-beta1.zip",
-                "reference": "1.0.1-beta1",
-                "shasum": "b3a15b8b6101038f2b1de393e8f0f7cf237fa1da"
+                "url": "https://ftp.drupal.org/files/projects/gemini_provider-1.0.1.zip",
+                "reference": "1.0.1",
+                "shasum": "51fd7744b52cffdc163a732872fca0e420e1c572"
             },
             "require": {
-                "drupal/ai": "^1",
+                "drupal/ai": "^1.2",
                 "drupal/core": "^10 || ^11",
                 "drupal/key": "*",
-                "google-gemini-php/client": "^1.0"
+                "google-gemini-php/client": "^2.7"
+            },
+            "require-dev": {
+                "drush/drush": "^12 || ^13"
             },
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.0.1-beta1",
-                    "datestamp": "1756316707",
+                    "version": "1.0.1",
+                    "datestamp": "1774173695",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Project has not opted into security advisory coverage!"
@@ -10456,29 +10459,34 @@
         },
         {
             "name": "google-gemini-php/client",
-            "version": "1.0.15",
+            "version": "2.7.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/google-gemini-php/client.git",
-                "reference": "6dca9a5e6a6de39b230fe4593a8d041efd02e34e"
+                "reference": "d61ebe8e8f7acc2aa66ce2e8a57c23bf32e1e340"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/google-gemini-php/client/zipball/6dca9a5e6a6de39b230fe4593a8d041efd02e34e",
-                "reference": "6dca9a5e6a6de39b230fe4593a8d041efd02e34e",
+                "url": "https://api.github.com/repos/google-gemini-php/client/zipball/d61ebe8e8f7acc2aa66ce2e8a57c23bf32e1e340",
+                "reference": "d61ebe8e8f7acc2aa66ce2e8a57c23bf32e1e340",
                 "shasum": ""
             },
             "require": {
                 "php": "^8.1.0",
-                "php-http/discovery": "^1.19.2"
+                "php-http/discovery": "^1.19.2",
+                "psr/http-client-implementation": "*",
+                "psr/http-factory-implementation": "*"
             },
             "require-dev": {
                 "guzzlehttp/guzzle": "^7.8.1",
                 "guzzlehttp/psr7": "^2.6.2",
                 "laravel/pint": "^1.18.1",
                 "mockery/mockery": "^1.6.7",
-                "pestphp/pest": "^2.30",
-                "phpstan/phpstan": "^1.10"
+                "pestphp/pest": "^2.32.3",
+                "phpstan/phpstan": "^2.1.32"
+            },
+            "suggest": {
+                "ext-fileinfo": "Reads upload file size and mime type if not provided"
             },
             "type": "library",
             "autoload": {
@@ -10502,8 +10510,10 @@
             "description": "Gemini API is a supercharged PHP API client that allows you to interact with the Gemini API",
             "keywords": [
                 "Gemini",
+                "banana",
                 "client",
                 "gemini-pro",
+                "google",
                 "language",
                 "natural",
                 "nlp",
@@ -10513,9 +10523,19 @@
             ],
             "support": {
                 "issues": "https://github.com/google-gemini-php/client/issues",
-                "source": "https://github.com/google-gemini-php/client/tree/1.0.15"
+                "source": "https://github.com/google-gemini-php/client/tree/2.7.4"
             },
-            "time": "2024-12-29T12:53:49+00:00"
+            "funding": [
+                {
+                    "url": "https://github.com/Plytas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/aydinfatih",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-12-29T17:51:16+00:00"
         },
         {
             "name": "google/auth",
@@ -20411,7 +20431,6 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "drupal/ai_vdb_provider_pinecone": 10,
-        "drupal/gemini_provider": 10,
         "drupal/project_browser": 10,
         "drupal/recipe_installer_kit": 15,
         "drupal/webform": 10,
@@ -20424,5 +20443,5 @@
     "platform-overrides": {
         "php": "8.3.0"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
