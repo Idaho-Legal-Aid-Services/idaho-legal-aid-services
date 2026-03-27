@@ -19,6 +19,13 @@
 describe('observability.js noise filter', function () {
   var eventProcessor;
 
+  function setUserAgent(userAgent) {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      value: userAgent,
+      configurable: true,
+    });
+  }
+
   beforeEach(function () {
     // Reset module state by clearing any prior load.
     eventProcessor = null;
@@ -46,6 +53,8 @@ describe('observability.js noise filter', function () {
         eventProcessor = fn;
       }),
     };
+
+    setUserAgent('Mozilla/5.0 (jsdom)');
 
     // Load observability.js (it executes the IIFE immediately).
     jest.resetModules();
@@ -172,6 +181,20 @@ describe('observability.js noise filter', function () {
     expect(result).toBeNull();
   });
 
+  test('drops Facebook WKWebView bridge errors with document and masked frames only', function () {
+    setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 26_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/553.0.0.0.0;FBBV/000000000]');
+    var event = makeEvent({
+      errorValue: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+      errorType: 'TypeError',
+      frames: [
+        { filename: 'https://idaholegalaid.org/', lineno: 1, colno: 1 },
+        { filename: 'webkit-masked-url://hidden/', lineno: 1, colno: 4812847 },
+      ],
+    });
+    var result = eventProcessor(event);
+    expect(result).toBeNull();
+  });
+
   // 4. Mixed masked + site-owned frames → kept.
   test('keeps events with mix of masked and site-owned frames', function () {
     var event = makeEvent({
@@ -180,6 +203,33 @@ describe('observability.js noise filter', function () {
         { filename: 'webkit-masked-url://hidden/' },
         { filename: 'https://idaholegalaid.org/modules/custom/ilas_site_assistant/js/assistant-widget.js' },
         { filename: 'webkit-masked-url://hidden/' },
+      ],
+    });
+    var result = eventProcessor(event);
+    expect(result).not.toBeNull();
+  });
+
+  test('keeps Facebook WKWebView bridge errors when a first-party asset frame exists', function () {
+    setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 26_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/553.0.0.0.0;FBBV/000000000]');
+    var event = makeEvent({
+      errorValue: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+      errorType: 'TypeError',
+      frames: [
+        { filename: 'https://idaholegalaid.org/', lineno: 1, colno: 1 },
+        { filename: '/themes/custom/b5subtheme/js/custom-scripts.js', lineno: 1, colno: 1 },
+      ],
+    });
+    var result = eventProcessor(event);
+    expect(result).not.toBeNull();
+  });
+
+  test('keeps WKWebView bridge errors outside Facebook in-app browser', function () {
+    setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 26_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1');
+    var event = makeEvent({
+      errorValue: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+      errorType: 'TypeError',
+      frames: [
+        { filename: 'https://idaholegalaid.org/', lineno: 1, colno: 1 },
       ],
     });
     var result = eventProcessor(event);

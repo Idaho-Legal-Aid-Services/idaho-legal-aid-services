@@ -118,6 +118,7 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
 
     $configFactory = $this->createStub(ConfigFactoryInterface::class);
     $configFactory->method('get')->willReturn($config);
+    $cache = $this->createStub(CacheBackendInterface::class);
 
     return new AssistantApiController(
       $configFactory,
@@ -129,9 +130,11 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       $llmEnhancer,
       $this->createStub(FallbackGate::class),
       $this->createStub(FloodInterface::class),
-      $this->createStub(CacheBackendInterface::class),
+      $cache,
       $this->createStub(LoggerInterface::class),
       assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      selection_registry: new \Drupal\ilas_site_assistant\Service\SelectionRegistry(new \Drupal\ilas_site_assistant\Service\TopIntentsPack()),
+      selection_state_store: new \Drupal\ilas_site_assistant\Service\SelectionStateStore($cache),
       performance_monitor: $performanceMonitor,
     );
   }

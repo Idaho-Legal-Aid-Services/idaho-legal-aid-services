@@ -38,6 +38,8 @@ final class AssistantControllerDiWiringGuardTest extends TestCase {
     'cache.ilas_site_assistant',
     'logger.channel.ilas_site_assistant',
     'ilas_site_assistant.assistant_flow_runner',
+    'ilas_site_assistant.selection_registry',
+    'ilas_site_assistant.selection_state_store',
     'ilas_site_assistant.safety_classifier',
     'ilas_site_assistant.safety_response_templates',
     'ilas_site_assistant.out_of_scope_classifier',

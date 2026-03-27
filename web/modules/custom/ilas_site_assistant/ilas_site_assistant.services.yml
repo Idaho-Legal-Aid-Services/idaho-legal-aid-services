@@ -148,6 +148,14 @@ services:
     class: Drupal\ilas_site_assistant\Service\TopIntentsPack
     arguments: ['@cache.default']
 
+  ilas_site_assistant.selection_registry:
+    class: Drupal\ilas_site_assistant\Service\SelectionRegistry
+    arguments: ['@ilas_site_assistant.top_intents_pack']
+
+  ilas_site_assistant.selection_state_store:
+    class: Drupal\ilas_site_assistant\Service\SelectionStateStore
+    arguments: ['@cache.ilas_site_assistant']
+
   ilas_site_assistant.disambiguation_pack:
     class: Drupal\ilas_site_assistant\Service\DisambiguationPack
     arguments: ['@cache.default']

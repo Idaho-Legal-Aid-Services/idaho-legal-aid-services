@@ -229,6 +229,14 @@ function buildHumanReadableOutput(data, siteBaseUrl) {
     }
   }
 
+  if (Array.isArray(data.topic_suggestions)) {
+    for (const suggestion of data.topic_suggestions) {
+      if (suggestion?.label) {
+        parts.push(`Option: ${absolutizeRelativePathsInText(String(suggestion.label), siteBaseUrl)}`);
+      }
+    }
+  }
+
   if (data.office && typeof data.office === 'object') {
     if (data.office.name) {
       parts.push(`Office: ${absolutizeRelativePathsInText(String(data.office.name), siteBaseUrl)}`);
@@ -562,7 +570,7 @@ class IlasLiveTransport {
     };
   }
 
-  async callMessageApi({ question, conversationId, history }) {
+  async callMessageApi({ question, conversationId, history, requestContext }) {
     if (!this.messageUrl) {
       this.resolveUrls();
     }
@@ -576,10 +584,15 @@ class IlasLiveTransport {
 
     await this.pacer();
 
+    const context = {
+      history,
+      ...(requestContext && typeof requestContext === 'object' ? requestContext : {}),
+    };
+
     const body = JSON.stringify({
       message: question,
       conversation_id: conversationId,
-      context: { history },
+      context,
     });
 
     const headers = {

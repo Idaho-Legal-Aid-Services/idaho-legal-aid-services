@@ -1,0 +1,5 @@
+sentry-filters:
+  js:
+    js/sentry-filters.js: { weight: -10 }
+  dependencies:
+    - core/drupalSettings

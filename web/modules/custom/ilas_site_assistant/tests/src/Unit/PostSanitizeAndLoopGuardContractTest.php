@@ -143,6 +143,8 @@ class PostSanitizeAndLoopGuardContractTest extends TestCase {
       $cache,
       $logger,
       assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      selection_registry: new \Drupal\ilas_site_assistant\Service\SelectionRegistry(new \Drupal\ilas_site_assistant\Service\TopIntentsPack()),
+      selection_state_store: new \Drupal\ilas_site_assistant\Service\SelectionStateStore($cache),
     );
   }
 
@@ -215,6 +217,7 @@ class PostSanitizeAndLoopGuardContractTest extends TestCase {
 
     $this->assertSame('clarify_loop_break', $result['type'], 'Loop guard should activate at threshold');
     $this->assertNotEmpty($result['topic_suggestions']);
+    $this->assertStringNotContainsString('I may be repeating myself.', $result['message'] ?? '');
   }
 
   /**

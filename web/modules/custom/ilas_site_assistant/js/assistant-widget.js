@@ -205,6 +205,7 @@
     isSending: false,
     messageHistory: [],
     conversationId: null,
+    activeSelection: null,
     csrfTokenPromise: null,
     _displayMessages: [],
     _focusTrapHandler: null,
@@ -235,8 +236,9 @@
     saveState: function () {
       try {
         var state = {
-          v: 1,
+          v: 2,
           conversationId: this.conversationId,
+          activeSelection: this.activeSelection,
           messages: this._displayMessages || [],
           isOpen: this.isOpen,
           savedAt: Date.now()
@@ -263,7 +265,7 @@
         var state = JSON.parse(raw);
 
         // Schema version check.
-        if (!state || state.v !== 1) return null;
+        if (!state || (state.v !== 1 && state.v !== 2)) return null;
 
         // Staleness check: 30 minutes (matches server CONVERSATION_STATE_TTL).
         if (!state.savedAt || (Date.now() - state.savedAt) > 1800000) {
@@ -278,6 +280,12 @@
 
         // Validate messages is an array.
         if (!Array.isArray(state.messages)) return null;
+
+        if (state.v >= 2 && state.activeSelection) {
+          state.activeSelection = this.normalizeSelection(state.activeSelection);
+        } else {
+          state.activeSelection = null;
+        }
 
         return state;
       } catch (e) {
@@ -376,8 +384,10 @@
 
       if (restored) {
         this.conversationId = restored.conversationId;
+        this.activeSelection = restored.activeSelection || null;
       } else {
         this.conversationId = this.generateConversationId();
+        this.activeSelection = null;
       }
 
       if (this.isPageMode) {
@@ -564,8 +574,9 @@
       // Quick action buttons.
       this.widget.querySelectorAll('.quick-action-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const action = e.currentTarget.dataset.action;
-          this.handleQuickAction(action);
+          const button = e.currentTarget;
+          const action = button.dataset.action;
+          this.handleQuickAction(action, this.extractSelectionFromButton(button), this.getButtonDisplayLabel(button));
         });
       });
     },
@@ -586,13 +597,14 @@
       // Suggestion buttons (page mode).
       document.querySelectorAll('.suggestion-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const action = e.currentTarget.dataset.action;
-          const url = e.currentTarget.dataset.url;
+          const button = e.currentTarget;
+          const action = button.dataset.action;
+          const url = button.dataset.url;
           if (url) {
             this.trackClick(action + '_click', url);
             window.location.href = url;
           } else {
-            this.handleQuickAction(action);
+            this.handleQuickAction(action, this.extractSelectionFromButton(button), this.getButtonDisplayLabel(button));
           }
         });
       });
@@ -794,9 +806,119 @@
     },
 
     /**
+     * Normalize a structured selection payload for request/session use.
+     */
+    normalizeSelection: function (selection) {
+      if (!selection || typeof selection !== 'object') {
+        return null;
+      }
+
+      var buttonId = String(selection.button_id || '').trim();
+      var label = String(selection.label || '').trim();
+      var parentButtonId = String(selection.parent_button_id || '').trim();
+      var source = String(selection.source || '').trim();
+
+      if (!buttonId || !label || !source) {
+        return null;
+      }
+
+      return {
+        button_id: buttonId,
+        label: label,
+        parent_button_id: parentButtonId,
+        source: source
+      };
+    },
+
+    /**
+     * Return the human-visible label from a button element.
+     */
+    getButtonDisplayLabel: function (button) {
+      if (!button || typeof button.textContent !== 'string') {
+        return '';
+      }
+      return button.textContent.replace(/\s+/g, ' ').trim();
+    },
+
+    /**
+     * Extract a normalized selection payload from a rendered button.
+     */
+    extractSelectionFromButton: function (button) {
+      if (!button) {
+        return null;
+      }
+
+      return this.normalizeSelection({
+        button_id: button.dataset.selectionButtonId || button.dataset.action || '',
+        label: button.dataset.selectionLabel || this.getButtonDisplayLabel(button),
+        parent_button_id: button.dataset.selectionParentId || '',
+        source: button.dataset.selectionSource || 'widget_button'
+      });
+    },
+
+    /**
+     * Render HTML data attributes for a selection payload.
+     */
+    renderSelectionDataAttrs: function (selection, fallbackAction, fallbackLabel) {
+      var normalized = this.normalizeSelection(selection) || this.normalizeSelection({
+        button_id: fallbackAction || '',
+        label: fallbackLabel || '',
+        parent_button_id: '',
+        source: 'widget_fallback'
+      });
+
+      if (!normalized) {
+        return '';
+      }
+
+      return ' data-selection-button-id="' + this.escapeAttr(normalized.button_id) + '"'
+        + ' data-selection-label="' + this.escapeAttr(normalized.label) + '"'
+        + ' data-selection-parent-id="' + this.escapeAttr(normalized.parent_button_id) + '"'
+        + ' data-selection-source="' + this.escapeAttr(normalized.source) + '"';
+    },
+
+    /**
+     * Infer the active branch from a response when the server omits it.
+     */
+    inferActiveSelectionFromResponse: function (response) {
+      if (!response || !Array.isArray(response.topic_suggestions)) {
+        return null;
+      }
+
+      var parentIds = {};
+      response.topic_suggestions.forEach(function (suggestion) {
+        if (!suggestion || !suggestion.selection || typeof suggestion.selection !== 'object') {
+          return;
+        }
+        var parentId = String(suggestion.selection.parent_button_id || '').trim();
+        if (parentId) {
+          parentIds[parentId] = true;
+        }
+      });
+
+      var keys = Object.keys(parentIds);
+      if (keys.length !== 1) {
+        return null;
+      }
+
+      var labelMap = {
+        forms: Drupal.t('Forms'),
+        guides: Drupal.t('Guides'),
+        topics: Drupal.t('Services')
+      };
+
+      return this.normalizeSelection({
+        button_id: keys[0],
+        label: labelMap[keys[0]] || keys[0],
+        parent_button_id: '',
+        source: 'response_menu'
+      });
+    },
+
+    /**
      * Handle quick action buttons.
      */
-    handleQuickAction: function (action) {
+    handleQuickAction: function (action, selection, displayLabel) {
       if (this.isSending) return;
 
       // Messages must match IntentRouter patterns.
@@ -854,8 +976,8 @@
         faq: Drupal.t('Show me FAQs'),
       };
       const requestContextQuickActions = ['apply', 'hotline', 'forms', 'guides', 'faq', 'topics'];
-
-      const message = actionMessages[action] || action;
+      const normalizedSelection = this.normalizeSelection(selection);
+      const message = displayLabel || (normalizedSelection && normalizedSelection.label) || actionMessages[action] || action;
 
       // Track suggestion click events for debugging.
       this.trackEvent('suggestion_click', action);
@@ -866,6 +988,10 @@
 
       // Add as user message.
       this.addMessage('user', message);
+      if (normalizedSelection) {
+        this.activeSelection = normalizedSelection;
+        this.saveState();
+      }
 
       // Show typing.
       this.showTyping();
@@ -877,8 +1003,14 @@
         message: message,
         conversation_id: this.conversationId,
       };
-      if (requestContextQuickActions.indexOf(action) !== -1) {
-        payload.context = { quickAction: action };
+      if (requestContextQuickActions.indexOf(action) !== -1 || normalizedSelection) {
+        payload.context = {};
+        if (requestContextQuickActions.indexOf(action) !== -1) {
+          payload.context.quickAction = action;
+        }
+        if (normalizedSelection) {
+          payload.context.selection = normalizedSelection;
+        }
       }
 
       this.callApi('/message', {
@@ -915,6 +1047,17 @@
      */
     handleResponse: function (response) {
       if (!response) return;
+
+      if (Object.prototype.hasOwnProperty.call(response, 'active_selection')) {
+        this.activeSelection = this.normalizeSelection(response.active_selection);
+        this.saveState();
+      } else {
+        var inferredSelection = this.inferActiveSelectionFromResponse(response);
+        if (inferredSelection) {
+          this.activeSelection = inferredSelection;
+          this.saveState();
+        }
+      }
 
       // Track topic if present.
       if (response.type === 'topic' && response.topic) {
@@ -1353,7 +1496,8 @@
       var self = this;
       var html = '<div class="inline-suggestions">';
       suggestions.forEach(function (suggestion) {
-        html += '<button type="button" class="inline-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '">' +
+        html += '<button type="button" class="inline-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '"'
+          + self.renderSelectionDataAttrs(suggestion.selection, suggestion.action, suggestion.label) + '>' +
           self.escapeHtml(suggestion.label) +
           '</button>';
       });
@@ -1370,7 +1514,8 @@
       var self = this;
       var html = '<div class="topic-suggestions">';
       suggestions.forEach(function (suggestion) {
-        html += '<button type="button" class="topic-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '">' +
+        html += '<button type="button" class="topic-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '"'
+          + self.renderSelectionDataAttrs(suggestion.selection, suggestion.action, suggestion.label) + '>' +
           self.escapeHtml(suggestion.label) +
           '</button>';
       });
@@ -1466,7 +1611,8 @@
       var self = this;
       messageEl.querySelectorAll('.inline-suggestion-btn, .topic-suggestion-btn').forEach(function (btn) {
         btn.addEventListener('click', function (e) {
-          self.handleQuickAction(e.currentTarget.dataset.action);
+          var button = e.currentTarget;
+          self.handleQuickAction(button.dataset.action, self.extractSelectionFromButton(button), self.getButtonDisplayLabel(button));
         });
       });
 

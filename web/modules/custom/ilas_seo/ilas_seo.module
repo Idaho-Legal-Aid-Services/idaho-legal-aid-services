@@ -20,6 +20,9 @@ function ilas_seo_page_attachments_alter(array &$attachments) {
     return;
   }
 
+  // Attach Sentry ignoreErrors filter (must load before raven.js).
+  $attachments['#attached']['library'][] = 'ilas_seo/sentry-filters';
+
   $should_noindex = FALSE;
   $request = \Drupal::request();
   $route_match = \Drupal::routeMatch();

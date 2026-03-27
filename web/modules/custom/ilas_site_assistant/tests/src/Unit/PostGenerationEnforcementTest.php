@@ -198,6 +198,8 @@ final class PostGenerationEnforcementTest extends TestCase {
       conversation_cache: $cache,
       logger: new NullLogger(),
       assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      selection_registry: new \Drupal\ilas_site_assistant\Service\SelectionRegistry(new \Drupal\ilas_site_assistant\Service\TopIntentsPack()),
+      selection_state_store: new \Drupal\ilas_site_assistant\Service\SelectionStateStore($cache),
       response_grounder: new ResponseGrounder($sourceGovernance),
       source_governance: $sourceGovernance,
       pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
