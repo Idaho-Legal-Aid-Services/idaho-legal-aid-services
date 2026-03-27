@@ -19,6 +19,9 @@ use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
+use Drupal\ilas_site_assistant\Service\SelectionRegistry;
+use Drupal\ilas_site_assistant\Service\SelectionStateStore;
+use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -146,6 +149,62 @@ final class RequestContextSchemaContractTest extends TestCase {
   }
 
   /**
+   * Structured selection survives normalization and strips unknown nested keys.
+   */
+  public function testStructuredSelectionIsNormalizedAndPreserved(): void {
+    $observed = [];
+    $controller = $this->buildController($observed);
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'Family & Custody',
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms_family',
+          'label' => 'Family & Custody',
+          'parent_button_id' => 'forms',
+          'source' => 'widget_button',
+          'unexpected' => 'drop-me',
+        ],
+      ],
+    ]));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(0, $observed['route_calls']);
+    $this->assertSame([
+      'selection' => [
+        'button_id' => 'forms_family',
+        'label' => 'Family & Custody',
+        'parent_button_id' => 'forms',
+        'source' => 'widget_button',
+      ],
+    ], $controller->lastProcessIntentContext);
+  }
+
+  /**
+   * Malformed structured selection payloads are rejected with a 400.
+   */
+  public function testMalformedSelectionContextReturns400(): void {
+    $observed = [];
+    $controller = $this->buildController($observed);
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'Forms',
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms',
+          'label' => '',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $body = json_decode($response->getContent(), TRUE);
+
+    $this->assertSame(400, $response->getStatusCode());
+    $this->assertSame('invalid_context', $body['error_code'] ?? NULL);
+  }
+
+  /**
    * Malformed scalar contexts are rejected with a 400 request error.
    */
   public function testScalarContextReturns400(): void {
@@ -228,6 +287,8 @@ final class RequestContextSchemaContractTest extends TestCase {
 
     $cache = $this->createStub(CacheBackendInterface::class);
     $cache->method('get')->willReturn(FALSE);
+    $selectionRegistry = new SelectionRegistry(new TopIntentsPack());
+    $selectionStateStore = new SelectionStateStore($cache);
 
     $logger = $this->createStub(LoggerInterface::class);
 
@@ -244,6 +305,8 @@ final class RequestContextSchemaContractTest extends TestCase {
       $cache,
       $logger,
       assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      selection_registry: $selectionRegistry,
+      selection_state_store: $selectionStateStore,
       pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
     );
   }

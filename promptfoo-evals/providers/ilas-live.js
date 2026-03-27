@@ -82,6 +82,10 @@ class IlasLiveProvider {
     const question = context?.vars?.question || prompt;
     const conversationId = this.getConversationId(prompt, context);
     const priorHistory = Array.isArray(context?.vars?.history) ? context.vars.history : [];
+    const requestContext =
+      context?.vars?.request_context && typeof context.vars.request_context === 'object'
+        ? context.vars.request_context
+        : undefined;
     const history = [...priorHistory, { role: 'user', content: question }];
 
     this.logProgress(question, context);
@@ -90,6 +94,7 @@ class IlasLiveProvider {
       question,
       conversationId,
       history,
+      requestContext,
     });
 
     if (!result.ok) {

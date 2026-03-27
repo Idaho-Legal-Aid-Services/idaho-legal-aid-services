@@ -76,7 +76,7 @@ tracker_settings:
   default:
     indexing_order: fifo
 options:
-  cron_limit: 5
+  cron_limit: 0
   delete_on_fail: true
   index_directly: true
   track_changes_in_references: true

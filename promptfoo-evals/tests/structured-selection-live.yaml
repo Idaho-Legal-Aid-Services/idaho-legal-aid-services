@@ -1,0 +1,94 @@
+- vars:
+    question: Forms
+    conversation_id: 55111111-1111-4111-8111-111111111111
+    history: []
+    request_context:
+      selection:
+        button_id: forms
+        label: Forms
+        parent_button_id: ""
+        source: promptfoo
+  metadata:
+    conversationId: 55111111-1111-4111-8111-111111111111
+    conversationName: structured-selection
+    turn: 1
+    totalTurns: 3
+  description: Structured forms selection opens the inventory menu
+  assert:
+    - type: contains
+      value: We have forms and resources organized by legal topic.
+    - type: contains
+      value: "Option: Family & Custody"
+
+- vars:
+    question: Family & Custody
+    conversation_id: 55111111-1111-4111-8111-111111111111
+    history:
+      - role: user
+        content: Forms
+    request_context:
+      selection:
+        button_id: forms_family
+        label: Family & Custody
+        parent_button_id: forms
+        source: promptfoo
+  metadata:
+    conversationId: 55111111-1111-4111-8111-111111111111
+    conversationName: structured-selection
+    turn: 2
+    totalTurns: 3
+  description: Structured child selection advances to the family forms branch
+  assert:
+    - type: contains-any
+      value:
+        - family law issue
+        - Family & Custody.
+    - type: contains
+      value: "Option: Divorce or separation"
+
+- vars:
+    question: go back
+    conversation_id: 55111111-1111-4111-8111-111111111111
+    history:
+      - role: user
+        content: Forms
+      - role: user
+        content: Family & Custody
+    request_context: {}
+  metadata:
+    conversationId: 55111111-1111-4111-8111-111111111111
+    conversationName: structured-selection
+    turn: 3
+    totalTurns: 3
+  description: Typed back returns to the parent forms menu
+  assert:
+    - type: contains
+      value: Back to Forms.
+    - type: contains
+      value: "Option: Housing & Eviction"
+
+- vars:
+    question: Divorce or separation
+    conversation_id: 66111111-1111-4111-8111-111111111111
+    history:
+      - role: user
+        content: Forms
+      - role: user
+        content: Family & Custody
+    request_context:
+      selection:
+        button_id: missing-button
+        label: Divorce or separation
+        parent_button_id: forms_family
+        source: promptfoo
+  metadata:
+    conversationId: 66111111-1111-4111-8111-111111111111
+    conversationName: label-fallback-selection
+    turn: 1
+    totalTurns: 1
+  description: Label-only child selection resolves the family forms child branch
+  assert:
+    - type: contains-any
+      value:
+        - Here are some forms that might help:
+        - Divorce or separation.

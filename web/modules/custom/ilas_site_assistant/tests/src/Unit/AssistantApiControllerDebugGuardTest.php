@@ -212,6 +212,8 @@ final class AssistantApiControllerDebugGuardTest extends TestCase {
       $cache,
       $logger,
       assistant_flow_runner: $this->createStub(AssistantFlowRunner::class),
+      selection_registry: new \Drupal\ilas_site_assistant\Service\SelectionRegistry(new \Drupal\ilas_site_assistant\Service\TopIntentsPack()),
+      selection_state_store: new \Drupal\ilas_site_assistant\Service\SelectionStateStore($cache),
       environment_detector: new EnvironmentDetector(),
       pre_routing_decision_engine: new PreRoutingDecisionEngine($policyFilter),
     );

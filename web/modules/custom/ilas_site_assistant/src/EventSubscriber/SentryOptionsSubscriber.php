@@ -171,6 +171,30 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
+      // Drop cron noise from transient drupal.org announcements feed timeouts.
+      if (static::isDrupalAnnouncementsTimeoutNoise($sentryEvent, $hint)) {
+        return NULL;
+      }
+
+      // Drop temporary SMTP transport failures from drush cron. These are
+      // provider-side deferrals/noise, not application defects.
+      if (static::isTemporaryCronMailNoise($sentryEvent)) {
+        return NULL;
+      }
+
+      // Drop transient AI provider 503s from drush cron. These are
+      // embedding-service blips, not application defects. Unindexed items
+      // retry on the next cron cycle via VectorIndexHygieneService.
+      if (static::isTransientAiProviderCronNoise($sentryEvent, $hint)) {
+        return NULL;
+      }
+
+      // Drop CSP report noise from browser extensions, ad networks,
+      // translators, and bots. These are not first-party code violations.
+      if (static::isCspExtensionNoise($sentryEvent)) {
+        return NULL;
+      }
+
       return static::scrubEvent($sentryEvent);
     };
   }
@@ -320,6 +344,259 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
 
     $formatted = $sentryEvent->getMessageFormatted() ?? '';
     return str_contains($formatted, $needle);
+  }
+
+  /**
+   * Checks if the event is a Drupal announcements feed timeout noise event.
+   *
+   * The announcements feed is optional admin/community functionality. Live cron
+   * should not spend Sentry quota on transient outbound connection timeouts for
+   * the fixed drupal.org announcements endpoint.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   * @param \Sentry\EventHint|null $hint
+   *   Additional exception context supplied by the Sentry SDK.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as announcements timeout noise.
+   */
+  public static function isDrupalAnnouncementsTimeoutNoise(\Sentry\Event $sentryEvent, ?\Sentry\EventHint $hint = NULL): bool {
+    if (!in_array($sentryEvent->getLogger(), ['cron', 'announcements_feed'], TRUE)) {
+      return FALSE;
+    }
+
+    $isConnectException = $hint?->exception instanceof \GuzzleHttp\Exception\ConnectException;
+    if (!$isConnectException) {
+      $firstException = $sentryEvent->getExceptions()[0] ?? NULL;
+      $isConnectException = $firstException instanceof \Sentry\ExceptionDataBag
+        && $firstException->getType() === \GuzzleHttp\Exception\ConnectException::class;
+    }
+    if (!$isConnectException) {
+      return FALSE;
+    }
+
+    $url = 'https://www.drupal.org/announcements.json';
+    if (str_contains($sentryEvent->getMessage() ?? '', $url)) {
+      return TRUE;
+    }
+    if (str_contains($sentryEvent->getMessageFormatted() ?? '', $url)) {
+      return TRUE;
+    }
+
+    foreach ($sentryEvent->getBreadcrumbs() as $breadcrumb) {
+      if (($breadcrumb->getMetadata()['http.url'] ?? NULL) === $url) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Checks if the event is a temporary SMTP transport failure during cron.
+   *
+   * This intentionally filters only temporary provider-side deferrals from
+   * drush cron mail senders. Permanent delivery/auth/header failures remain
+   * visible in Sentry.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as temporary cron mail noise.
+   */
+  public static function isTemporaryCronMailNoise(\Sentry\Event $sentryEvent): bool {
+    if (!in_array($sentryEvent->getLogger(), ['mail', 'symfony_mailer_lite'], TRUE)) {
+      return FALSE;
+    }
+
+    // Match drush-cron explicitly, but also drush-cli: Pantheon invokes
+    // Drupal cron through wrapper scripts that resolve as drush-cli rather
+    // than drush-cron, so temporary SMTP failures during those runs also
+    // need to be dropped (PHP-3R/3S).
+    $runtimeContext = static::resolveRuntimeContext();
+    if ($runtimeContext !== 'drush-cron' && $runtimeContext !== 'drush-cli') {
+      return FALSE;
+    }
+
+    $candidates = [
+      $sentryEvent->getMessage() ?? '',
+      $sentryEvent->getMessageFormatted() ?? '',
+    ];
+
+    foreach ($sentryEvent->getExceptions() as $exceptionBag) {
+      $candidates[] = $exceptionBag->getValue();
+    }
+
+    foreach ($candidates as $candidate) {
+      if (!is_string($candidate) || $candidate === '') {
+        continue;
+      }
+
+      $normalizedCandidate = mb_strtolower($candidate);
+      $hasTemporaryCode = preg_match('/\b421\b/', $candidate) === 1;
+      $hasGsmtpMarker = str_contains($normalizedCandidate, 'gsmtp');
+      $hasTemporaryMarker = str_contains($normalizedCandidate, 'temporary')
+        || str_contains($normalizedCandidate, 'try again later')
+        || str_contains($normalizedCandidate, 'system problem')
+        || preg_match('/\b4\.\d+\.\d+\b/', $candidate) === 1;
+
+      if ($hasTemporaryCode || ($hasGsmtpMarker && $hasTemporaryMarker)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Checks if the event is a transient AI provider failure during cron.
+   *
+   * Embedding provider 503s are transient infrastructure blips, not application
+   * defects. Items not indexed will retry on the next cron cycle via
+   * VectorIndexHygieneService. Only filters AiRequestErrorException with
+   * service-unavailable messages in drush-cron context.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   * @param \Sentry\EventHint|null $hint
+   *   Additional exception context supplied by the Sentry SDK.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as transient AI provider noise.
+   */
+  public static function isTransientAiProviderCronNoise(\Sentry\Event $sentryEvent, ?\Sentry\EventHint $hint = NULL): bool {
+    if (static::resolveRuntimeContext() !== 'drush-cron') {
+      return FALSE;
+    }
+
+    // Check the hint exception first (most reliable path).
+    $exception = $hint?->exception;
+    if ($exception !== NULL && static::isTransientAiProviderException($exception)) {
+      return TRUE;
+    }
+
+    // Fallback: check Sentry exception bags for serialized exception data.
+    foreach ($sentryEvent->getExceptions() as $exceptionBag) {
+      $type = $exceptionBag->getType() ?? '';
+      if (!str_contains($type, 'AiRequestErrorException')) {
+        continue;
+      }
+      $value = $exceptionBag->getValue();
+      if (static::isTransientProviderMessage($value)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Checks if an exception is a transient AI provider service-unavailable.
+   *
+   * @param \Throwable $exception
+   *   The exception to inspect.
+   *
+   * @return bool
+   *   TRUE if the exception is a transient AI provider 503.
+   */
+  private static function isTransientAiProviderException(\Throwable $exception): bool {
+    // Match AiRequestErrorException by class name to avoid a hard dependency
+    // on the ai module (it may not be installed in all environments).
+    $class = get_class($exception);
+    if (!str_contains($class, 'AiRequestErrorException')) {
+      return FALSE;
+    }
+
+    return static::isTransientProviderMessage($exception->getMessage());
+  }
+
+  /**
+   * Checks if an error message indicates a transient provider unavailability.
+   *
+   * @param string $message
+   *   The error message to inspect.
+   *
+   * @return bool
+   *   TRUE if the message indicates a transient 503/unavailable condition.
+   */
+  private static function isTransientProviderMessage(string $message): bool {
+    $normalized = mb_strtolower($message);
+    return str_contains($normalized, 'currently unavailable')
+      || str_contains($normalized, 'service is unavailable')
+      || str_contains($normalized, '503');
+  }
+
+  /**
+   * Known noise patterns in CSP violation reports from browser extensions,
+   * ad networks, translators, and bots.
+   *
+   * Each pattern is a PCRE regex matched against the CSP report message.
+   * Order does not matter — first match wins.
+   *
+   * @var string[]
+   */
+  private const CSP_NOISE_PATTERNS = [
+    // Google Translate / ads inject cross-origin images from ccTLD domains.
+    '/\bgoogle\.(com?\.)?\w{2,}/',
+    // Firefox extensions.
+    '/\bmoz-extension:/',
+    // Chrome extensions.
+    '/\bchrome-extension:/',
+    // Perplexity AI browser extension fonts/scripts.
+    '/\bperplexity\.ai\b/',
+    // LaunchDarkly SDK (injected by other sites/extensions).
+    '/\blaunchdarkly\.com\b/',
+    // SafeSearch extension.
+    '/\bsafesearchinc\.com\b/',
+    // Ad-blocker extension.
+    '/\bkilladsapi\.com\b/',
+    // LiveChat widget injection.
+    '/\blivechatinc\.com\b/',
+    // Google ad network resources.
+    '/\bdoubleclick\.net\b/',
+    '/\bgoogleadservices\.com\b/',
+    // Google static (Translate styles).
+    '/\bgstatic\.com\b/',
+    // Extension eval/blob script injection.
+    "/Blocked 'script' from 'eval:'/",
+    "/Blocked 'script' from 'blob:'/",
+  ];
+
+  /**
+   * Checks if the event is a CSP violation from a browser extension or ad network.
+   *
+   * CSP reports from third-party injections are the single highest-volume
+   * noise source. These are not first-party code violations — the CSP is
+   * working correctly by blocking them.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as CSP extension/ad noise.
+   */
+  public static function isCspExtensionNoise(\Sentry\Event $sentryEvent): bool {
+    if (!in_array($sentryEvent->getLogger(), ['csp', 'seckit'], TRUE)) {
+      return FALSE;
+    }
+
+    $message = $sentryEvent->getMessage() ?? '';
+    $formatted = $sentryEvent->getMessageFormatted() ?? '';
+    $haystack = $message . ' ' . $formatted;
+
+    if ($haystack === ' ') {
+      return FALSE;
+    }
+
+    foreach (self::CSP_NOISE_PATTERNS as $pattern) {
+      if (preg_match($pattern, $haystack) === 1) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
   }
 
   /**

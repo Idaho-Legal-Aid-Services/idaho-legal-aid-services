@@ -17,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('ilas_site_assistant')]
 class SentryOptionsSubscriberTest extends TestCase {
 
+  private const DRUPAL_ANNOUNCEMENTS_URL = 'https://www.drupal.org/announcements.json';
+
   /**
    * Skips the test if Sentry SDK is not installed.
    */
@@ -707,6 +709,507 @@ class SentryOptionsSubscriberTest extends TestCase {
     }
   }
 
+  // ─── Drupal announcements timeout noise filter tests ────────────────
+
+  /**
+   * Tests before_send drops cron ConnectExceptions for announcements.json.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterDropsCronConnectException(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('cron');
+    $event->setMessage('cURL error 28 while fetching ' . self::DRUPAL_ANNOUNCEMENTS_URL);
+
+    $result = $callback($event, \Sentry\EventHint::fromArray([
+      'exception' => $this->createConnectException(self::DRUPAL_ANNOUNCEMENTS_URL),
+    ]));
+
+    $this->assertNull($result, 'Announcements feed cron ConnectExceptions should be dropped.');
+  }
+
+  /**
+   * Tests breadcrumb URL matching when the event exception bag is ConnectException.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterMatchesBreadcrumbUrl(): void {
+    $this->requireSentry();
+
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('announcements_feed');
+    $event->setMessage('Unable to fetch Drupal announcements feed.');
+    $event->setExceptions([
+      new \Sentry\ExceptionDataBag($this->createConnectException(self::DRUPAL_ANNOUNCEMENTS_URL)),
+    ]);
+    $event->setBreadcrumb([
+      $this->createHttpBreadcrumb(self::DRUPAL_ANNOUNCEMENTS_URL),
+    ]);
+
+    $this->assertTrue(
+      SentryOptionsSubscriber::isDrupalAnnouncementsTimeoutNoise($event),
+      'Announcements feed timeout should match via breadcrumb URL when the exception type is ConnectException.',
+    );
+  }
+
+  /**
+   * Tests the filter ignores ConnectExceptions for other URLs.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterIgnoresOtherUrls(): void {
+    $this->requireSentry();
+
+    $otherUrl = 'https://www.drupal.org/security';
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('cron');
+    $event->setMessage('cURL error 28 while fetching ' . $otherUrl);
+
+    $this->assertFalse(
+      SentryOptionsSubscriber::isDrupalAnnouncementsTimeoutNoise(
+        $event,
+        \Sentry\EventHint::fromArray([
+          'exception' => $this->createConnectException($otherUrl),
+        ]),
+      ),
+      'Only the exact announcements.json URL should be filtered.',
+    );
+  }
+
+  /**
+   * Tests the filter ignores the exact URL on unrelated loggers.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterIgnoresOtherLoggers(): void {
+    $this->requireSentry();
+
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('system');
+    $event->setMessage('cURL error 28 while fetching ' . self::DRUPAL_ANNOUNCEMENTS_URL);
+
+    $this->assertFalse(
+      SentryOptionsSubscriber::isDrupalAnnouncementsTimeoutNoise(
+        $event,
+        \Sentry\EventHint::fromArray([
+          'exception' => $this->createConnectException(self::DRUPAL_ANNOUNCEMENTS_URL),
+        ]),
+      ),
+      'Only cron and announcements_feed loggers should be filtered.',
+    );
+  }
+
+  /**
+   * Tests the filter ignores the exact URL for non-ConnectException failures.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterIgnoresOtherExceptionClasses(): void {
+    $this->requireSentry();
+
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('cron');
+    $event->setMessage('cURL error 28 while fetching ' . self::DRUPAL_ANNOUNCEMENTS_URL);
+
+    $this->assertFalse(
+      SentryOptionsSubscriber::isDrupalAnnouncementsTimeoutNoise(
+        $event,
+        \Sentry\EventHint::fromArray([
+          'exception' => new \RuntimeException('Different transport failure for ' . self::DRUPAL_ANNOUNCEMENTS_URL),
+        ]),
+      ),
+      'Only ConnectException failures should be filtered.',
+    );
+  }
+
+  /**
+   * Tests near-miss events still chain previous before_send callbacks.
+   */
+  public function testAnnouncementsTimeoutNoiseFilterStillChainsPreviousCallbackWhenNotMatched(): void {
+    $this->requireSentry();
+
+    $previousCalled = FALSE;
+    $callback = SentryOptionsSubscriber::beforeSendCallback(
+      static function (\Sentry\Event $event, ?\Sentry\EventHint $hint = NULL) use (&$previousCalled): ?\Sentry\Event {
+        $previousCalled = TRUE;
+        $event->setMessage('modified-by-previous: ' . ($event->getMessage() ?? ''));
+        return $event;
+      },
+    );
+
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('cron');
+    $event->setMessage('cURL error 28 while fetching ' . self::DRUPAL_ANNOUNCEMENTS_URL);
+
+    $result = $callback($event, \Sentry\EventHint::fromArray([
+      'exception' => new \RuntimeException('Generic timeout for ' . self::DRUPAL_ANNOUNCEMENTS_URL),
+    ]));
+
+    $this->assertTrue($previousCalled, 'Previous before_send callback must still run for near-miss events.');
+    $this->assertNotNull($result, 'Near-miss events should not be dropped.');
+    $this->assertStringContainsString('modified-by-previous', $result->getMessage() ?? '');
+  }
+
+  // ─── Temporary cron SMTP noise filter tests ────────────────────────
+
+  /**
+   * Tests before_send drops temporary SMTP 421 failures on the mail logger.
+   */
+  public function testTemporaryCronMailNoiseFilterDropsMailLogger421OnDrushCron(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setLogger('mail');
+      $event->setMessage('SMTP response: 421 temporary system problem');
+
+      $result = $callback($event, NULL);
+
+      $this->assertNull($result, 'Temporary SMTP 421 failures during drush cron should be dropped.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests before_send drops temporary gsmtp failures on symfony_mailer_lite.
+   */
+  public function testTemporaryCronMailNoiseFilterDropsSymfonyMailerLiteGsmtpOnDrushCron(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'core:cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setLogger('symfony_mailer_lite');
+      $event->setMessage(
+        'An attempt to send an e-mail message failed.',
+        [],
+        '421 4.7.0 Temporary System Problem. Try again later. gsmtp',
+      );
+
+      $result = $callback($event, NULL);
+
+      $this->assertNull($result, 'Temporary gsmtp failures during drush cron should be dropped.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests the same 421 message is retained outside any drush context.
+   *
+   * Temporary SMTP failures during web requests (not CLI) should remain
+   * visible — only CLI contexts (drush-cron, drush-cli) are safe to filter
+   * because the mail system retries autonomously.
+   */
+  public function testTemporaryCronMailNoiseFilterAllows421OutsideDrushContext(): void {
+    $this->requireSentry();
+
+    $originalSapi = NULL;
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      // Simulate a non-drush CLI context (cli-other). PHP_SAPI can't be
+      // overridden in PHPUnit, so empty argv triggers the cli-other branch.
+      $_SERVER['argv'] = [];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setLogger('mail');
+      $event->setMessage('SMTP response: 421 temporary system problem');
+
+      $result = $callback($event, NULL);
+
+      $this->assertNotNull($result, 'Temporary SMTP 421 failures outside drush CLI context should remain visible.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests that SMTP 421 failures are also filtered during drush-cli context.
+   *
+   * Pantheon may invoke Drupal cron through wrapper scripts that resolve as
+   * drush-cli rather than drush-cron (PHP-3R/3S).
+   */
+  public function testTemporaryCronMailNoiseFilterDrops421InDrushCli(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'status'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setLogger('mail');
+      $event->setMessage('SMTP response: 421 temporary system problem');
+
+      $result = $callback($event, NULL);
+
+      $this->assertNull($result, 'Temporary SMTP 421 failures during drush-cli should be dropped.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Data provider for permanent or non-temporary cron mail failures.
+   *
+   * @return array<string, array{0: string}>
+   *   Failure messages that must remain visible in Sentry.
+   */
+  public static function permanentCronMailFailureProvider(): array {
+    return [
+      'smtp auth 535' => ['535 5.7.8 Username and Password not accepted'],
+      'smtp recipient 550' => ['550 5.1.1 The email account that you tried to reach does not exist'],
+      'smtp recipient 550 gsmtp' => ['550 5.1.1 The email account that you tried to reach does not exist. x12-20020a05620a170c00b006af12345678si123456qkk.123 - gsmtp'],
+      'tls failure' => ['TLS negotiation failed: certificate verify failed'],
+      'generic transport error' => ['Connection to SMTP server failed without temporary deferral code'],
+    ];
+  }
+
+  /**
+   * Tests permanent or generic cron mail failures are not filtered.
+   */
+  #[DataProvider('permanentCronMailFailureProvider')]
+  public function testTemporaryCronMailNoiseFilterKeepsPermanentFailures(string $failureMessage): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setLogger('symfony_mailer_lite');
+      $event->setMessage($failureMessage);
+
+      $result = $callback($event, NULL);
+
+      $this->assertNotNull($result, 'Permanent or generic cron mail failures must remain visible in Sentry.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  // ─── Transient AI provider cron noise filter tests ─────────────────
+
+  /**
+   * Tests before_send drops transient AI provider 503 on drush cron.
+   */
+  public function testTransientAiProviderCronNoiseFilterDrops503OnDrushCron(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setMessage('Error invoking model response: The service is currently unavailable.');
+      $event->setExceptions([
+        $this->createAiRequestErrorExceptionBag('Error invoking model response: The service is currently unavailable.'),
+      ]);
+
+      $result = $callback($event, NULL);
+
+      $this->assertNull($result, 'Transient AI provider 503 during drush cron should be dropped.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests before_send drops AI provider 503 via hint exception on drush cron.
+   */
+  public function testTransientAiProviderCronNoiseFilterDropsViaHintException(): void {
+    $this->requireSentry();
+
+    if (!class_exists('Drupal\ai\Exception\AiRequestErrorException')) {
+      $this->markTestSkipped('AI module not installed.');
+    }
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setMessage('Error invoking model response: The service is currently unavailable.');
+
+      $exception = new \Drupal\ai\Exception\AiRequestErrorException(
+        'Error invoking model response: The service is currently unavailable.',
+      );
+      $hint = \Sentry\EventHint::fromArray(['exception' => $exception]);
+
+      $result = $callback($event, $hint);
+
+      $this->assertNull($result, 'AI provider 503 via hint exception during drush cron should be dropped.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests the same 503 is retained outside drush cron context.
+   */
+  public function testTransientAiProviderCronNoiseFilterAllows503OutsideDrushCron(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'status'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setMessage('Error invoking model response: The service is currently unavailable.');
+      $event->setExceptions([
+        $this->createAiRequestErrorExceptionBag('Error invoking model response: The service is currently unavailable.'),
+      ]);
+
+      $result = $callback($event, NULL);
+
+      $this->assertNotNull($result, 'AI provider 503 outside drush cron should remain visible.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests non-503 AI errors are NOT filtered even during drush cron.
+   */
+  public function testTransientAiProviderCronNoiseFilterKeepsNon503AiErrors(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setMessage('Error invoking model response: Authentication failed.');
+      $event->setExceptions([
+        $this->createAiRequestErrorExceptionBag('Error invoking model response: Authentication failed.'),
+      ]);
+
+      $result = $callback($event, NULL);
+
+      $this->assertNotNull($result, 'Non-503 AI errors must remain visible even during drush cron.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Tests non-AI exceptions are NOT filtered even with 503 message.
+   */
+  public function testTransientAiProviderCronNoiseFilterKeepsNonAiExceptions(): void {
+    $this->requireSentry();
+
+    $originalArgv = $_SERVER['argv'] ?? NULL;
+
+    try {
+      $_SERVER['argv'] = ['/code/vendor/bin/drush', 'cron'];
+
+      $callback = SentryOptionsSubscriber::beforeSendCallback();
+      $event = \Sentry\Event::createEvent();
+      $event->setMessage('The service is currently unavailable.');
+      $event->setExceptions([
+        new \Sentry\ExceptionDataBag(new \RuntimeException('The service is currently unavailable.')),
+      ]);
+
+      $result = $callback($event, NULL);
+
+      $this->assertNotNull($result, 'Non-AI exceptions with 503-like messages must remain visible.');
+    }
+    finally {
+      if ($originalArgv === NULL) {
+        unset($_SERVER['argv']);
+      }
+      else {
+        $_SERVER['argv'] = $originalArgv;
+      }
+    }
+  }
+
+  /**
+   * Builds a Sentry ExceptionDataBag mimicking AiRequestErrorException.
+   *
+   * Uses a real ExceptionDataBag with overridden type to avoid a hard
+   * dependency on the ai module in test infrastructure.
+   */
+  private function createAiRequestErrorExceptionBag(string $message): \Sentry\ExceptionDataBag {
+    $exception = new \RuntimeException($message);
+    $bag = new \Sentry\ExceptionDataBag($exception);
+    // Override the type to simulate AiRequestErrorException serialization.
+    $reflection = new \ReflectionClass($bag);
+    $typeProp = $reflection->getProperty('type');
+    $typeProp->setValue($bag, 'Drupal\\ai\\Exception\\AiRequestErrorException');
+    return $bag;
+  }
+
   // ─── Minimum-context guarantee tests ──────────────────────────────
 
   /**
@@ -769,6 +1272,107 @@ class SentryOptionsSubscriberTest extends TestCase {
     $this->assertNotNull($result);
     $tags = $result->getTags();
     $this->assertArrayNotHasKey('scrub_opacity', $tags, 'Events with exception values should not have scrub_opacity');
+  }
+
+  /**
+   * Builds a ConnectException for a URL without making any network request.
+   */
+  private function createConnectException(string $url): \GuzzleHttp\Exception\ConnectException {
+    return new \GuzzleHttp\Exception\ConnectException(
+      'cURL error 28: Operation timed out for ' . $url,
+      new \GuzzleHttp\Psr7\Request('GET', $url),
+    );
+  }
+
+  /**
+   * Builds a Sentry HTTP breadcrumb for a URL.
+   */
+  private function createHttpBreadcrumb(string $url): \Sentry\Breadcrumb {
+    return new \Sentry\Breadcrumb(
+      \Sentry\Breadcrumb::LEVEL_ERROR,
+      \Sentry\Breadcrumb::TYPE_HTTP,
+      'http',
+      NULL,
+      ['http.url' => $url],
+    );
+  }
+
+  // ─── CSP extension/ad noise filter tests ──────────────────────────
+
+  /**
+   * Data provider for CSP noise patterns that should be dropped.
+   *
+   * @return array<string, array{0: string, 1: string}>
+   *   Logger and message pairs.
+   */
+  public static function cspNoiseProvider(): array {
+    return [
+      'google ccTLD img-src' => ['csp', "Blocked 'image' from 'www.google.co.uk'"],
+      'google.com img-src' => ['csp', "Blocked 'image' from 'www.google.com'"],
+      'google.de img-src' => ['csp', "Blocked 'image' from 'www.google.de'"],
+      'google.com.mx img-src' => ['csp', "Blocked 'image' from 'www.google.com.mx'"],
+      'moz-extension font' => ['csp', "Blocked 'font' from 'moz-extension:'"],
+      'chrome-extension script' => ['csp', "Blocked 'script' from 'chrome-extension:'"],
+      'perplexity font-src' => ['seckit', "CSP: Directive font-src violated. Blocked URI: https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2"],
+      'launchdarkly connect' => ['csp', "Blocked 'connect' from 'clientstream.launchdarkly.com'"],
+      'killadsapi connect' => ['csp', "Blocked 'connect' from 'api.killadsapi.com'"],
+      'livechatinc img' => ['csp', "Blocked 'image' from 'cdn.livechatinc.com'"],
+      'doubleclick script' => ['csp', "Blocked 'script' from 'googleads.g.doubleclick.net'"],
+      'googleadservices connect' => ['csp', "Blocked 'connect' from 'www.googleadservices.com'"],
+      'gstatic style' => ['csp', "Blocked 'style' from 'www.gstatic.com'"],
+      'eval script' => ['csp', "Blocked 'script' from 'eval:'"],
+      'blob script' => ['csp', "Blocked 'script' from 'blob:'"],
+      'safesearchinc connect' => ['csp', "Blocked 'connect' from 'safesearchinc.com'"],
+    ];
+  }
+
+  /**
+   * Tests CSP noise events are dropped.
+   */
+  #[DataProvider('cspNoiseProvider')]
+  public function testCspExtensionNoiseIsDropped(string $logger, string $message): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger($logger);
+    $event->setMessage($message);
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, "CSP noise should be dropped: {$message}");
+  }
+
+  /**
+   * Tests that first-party CSP violations are NOT filtered.
+   */
+  public function testCspFirstPartyViolationsAreKept(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('csp');
+    $event->setMessage("Blocked 'script' from 'unknown-suspicious-domain.com'");
+
+    $result = $callback($event, NULL);
+
+    $this->assertNotNull($result, 'CSP violations from unknown origins must remain visible.');
+  }
+
+  /**
+   * Tests that non-CSP events with matching text are NOT filtered.
+   */
+  public function testNonCspEventsWithMatchingTextAreKept(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setLogger('php');
+    $event->setMessage('Error connecting to google.com service');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNotNull($result, 'Non-CSP events matching noise patterns must remain visible.');
   }
 
   // ─── Runtime context resolution tests ──────────────────────────────

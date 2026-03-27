@@ -16,6 +16,8 @@ use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
+use Drupal\ilas_site_assistant\Service\SelectionRegistry;
+use Drupal\ilas_site_assistant\Service\SelectionStateStore;
 use Drupal\ilas_site_assistant\Service\RequestTrustInspector;
 use Drupal\ilas_site_assistant\Service\AssistantReadEndpointGuard;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
@@ -343,6 +345,20 @@ class AssistantApiController extends ControllerBase {
   protected ?VoyageReranker $voyageReranker;
 
   /**
+   * Structured selection registry for branch-aware navigation.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SelectionRegistry
+   */
+  protected SelectionRegistry $selectionRegistry;
+
+  /**
+   * Persisted selection state store keyed by conversation ID.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SelectionStateStore
+   */
+  protected SelectionStateStore $selectionStateStore;
+
+  /**
    * Constructs an AssistantApiController object.
    */
   public function __construct(
@@ -358,6 +374,8 @@ class AssistantApiController extends ControllerBase {
     CacheBackendInterface $conversation_cache,
     LoggerInterface $logger,
     AssistantFlowRunner $assistant_flow_runner,
+    SelectionRegistry $selection_registry,
+    SelectionStateStore $selection_state_store,
     ResponseGrounder $response_grounder = NULL,
     SafetyClassifier $safety_classifier = NULL,
     SafetyResponseTemplates $safety_response_templates = NULL,
@@ -413,6 +431,8 @@ class AssistantApiController extends ControllerBase {
     $this->readEndpointGuard = $read_endpoint_guard;
     $this->voyageReranker = $voyage_reranker;
     $this->preRoutingDecisionEngine = $pre_routing_decision_engine;
+    $this->selectionRegistry = $selection_registry;
+    $this->selectionStateStore = $selection_state_store;
   }
 
   /**
@@ -426,7 +446,8 @@ class AssistantApiController extends ControllerBase {
    *   safety_response_templates, out_of_scope_classifier,
    *   out_of_scope_response_templates, request_trust_inspector, csrf_token,
    *   environment_detector, session_bootstrap_guard,
-   *   pre_routing_decision_engine, read_endpoint_guard.
+   *   pre_routing_decision_engine, read_endpoint_guard, selection_registry,
+   *   selection_state_store.
    * - OPTIONAL (has/get/NULL): response_grounder, performance_monitor,
    *   conversation_logger, ab_testing, safety_violation_tracker,
    *   langfuse_tracer, top_intents_pack, source_governance,
@@ -446,6 +467,8 @@ class AssistantApiController extends ControllerBase {
       $container->get('cache.ilas_site_assistant'),
       $container->get('logger.channel.ilas_site_assistant'),
       $container->get('ilas_site_assistant.assistant_flow_runner'),
+      $container->get('ilas_site_assistant.selection_registry'),
+      $container->get('ilas_site_assistant.selection_state_store'),
       $container->has('ilas_site_assistant.response_grounder') ? $container->get('ilas_site_assistant.response_grounder') : NULL,
       $container->get('ilas_site_assistant.safety_classifier'),
       $container->get('ilas_site_assistant.safety_response_templates'),
@@ -617,8 +640,8 @@ class AssistantApiController extends ControllerBase {
   /**
    * Normalizes the public /message request context to the approved schema.
    *
-   * Unknown keys are stripped deterministically. The only accepted key is
-   * quickAction, and it must match the controller short-circuit allowlist.
+   * Unknown keys are stripped deterministically. Accepted keys are
+   * quickAction and selection.
    *
    * @param mixed $context
    *   Raw decoded context value from the request payload.
@@ -647,7 +670,621 @@ class AssistantApiController extends ControllerBase {
       $normalized['quickAction'] = $context['quickAction'];
     }
 
+    if (array_key_exists('selection', $context)) {
+      $normalized['selection'] = $this->normalizeSelectionContext($context['selection']);
+    }
+
     return $normalized;
+  }
+
+  /**
+   * Normalizes the additive structured selection request payload.
+   *
+   * @param mixed $selection
+   *   Raw selection payload.
+   *
+   * @return array{button_id: string, label: string, parent_button_id: string, source: string}
+   *   Normalized selection payload.
+   *
+   * @throws \InvalidArgumentException
+   *   Thrown when the selection payload is malformed.
+   */
+  private function normalizeSelectionContext($selection): array {
+    if (!is_array($selection) || array_is_list($selection)) {
+      throw new \InvalidArgumentException('Selection must be an object.');
+    }
+
+    $button_id = trim((string) ($selection['button_id'] ?? ''));
+    $label = trim((string) ($selection['label'] ?? ''));
+    $parent_button_id = trim((string) ($selection['parent_button_id'] ?? ''));
+    $source = trim((string) ($selection['source'] ?? ''));
+
+    if ($button_id === '') {
+      throw new \InvalidArgumentException('Selection button_id is required.');
+    }
+    if ($label === '') {
+      throw new \InvalidArgumentException('Selection label is required.');
+    }
+    if ($source === '') {
+      throw new \InvalidArgumentException('Selection source is required.');
+    }
+
+    return [
+      'button_id' => $button_id,
+      'label' => $label,
+      'parent_button_id' => $parent_button_id,
+      'source' => $source,
+    ];
+  }
+
+  /**
+   * Normalizes a persisted selection-state payload through the registry.
+   */
+  private function normalizePersistedSelection($selection): ?array {
+    if (!is_array($selection)) {
+      return NULL;
+    }
+
+    return $this->selectionRegistry->resolve(
+      isset($selection['button_id']) ? (string) $selection['button_id'] : NULL,
+      isset($selection['label']) ? (string) $selection['label'] : NULL,
+      isset($selection['parent_button_id']) ? (string) $selection['parent_button_id'] : NULL,
+      isset($selection['source']) ? (string) $selection['source'] : 'selection_state',
+    );
+  }
+
+  /**
+   * Returns TRUE when the message is a typed back-navigation command.
+   */
+  private function isBackNavigationMessage(string $message): bool {
+    return (bool) preg_match('/^\s*(?:back|go\s+back|atr[áa]s|volver|regresar)\s*$/iu', $message);
+  }
+
+  /**
+   * Resolves the highest-priority selection for the current turn.
+   */
+  private function resolveTurnSelection(array $context, string $user_message, ?array $active_selection): ?array {
+    if (!empty($context['selection']) && is_array($context['selection'])) {
+      $selection = $context['selection'];
+      $resolved = $this->selectionRegistry->resolve(
+        $selection['button_id'] ?? NULL,
+        $selection['label'] ?? NULL,
+        $selection['parent_button_id'] ?? NULL,
+        $selection['source'] ?? 'selection',
+      );
+      if ($resolved !== NULL) {
+        return $resolved;
+      }
+    }
+
+    return $this->selectionRegistry->matchTypedChildSelection($active_selection, $user_message);
+  }
+
+  /**
+   * Builds a deterministic intent from a resolved selection.
+   */
+  private function buildSelectionIntent(array $selection, string $message, bool $is_back = FALSE, string $source_override = ''): array {
+    $source = $source_override !== ''
+      ? $source_override
+      : ($is_back ? 'selection_back' : ((string) ($selection['source'] ?? 'selection') ?: 'selection'));
+
+    if ($source === 'response') {
+      $source = 'selection';
+    }
+
+    $intent = [
+      'confidence' => 1.0,
+      'source' => $source,
+      'extraction' => [],
+      'selection' => $selection,
+    ];
+
+    switch ((string) ($selection['kind'] ?? '')) {
+      case 'direct_intent':
+        $intent['type'] = (string) ($selection['target_intent'] ?? 'unknown');
+        return $intent;
+
+      case 'resource_parent':
+        if ($this->selectionRegistry->getChildren((string) ($selection['button_id'] ?? '')) !== []) {
+          $intent['type'] = 'selection_branch';
+          return $intent;
+        }
+        return $this->buildResourceSelectionIntent($selection, $intent);
+
+      case 'resource_child':
+        if ($source_override === 'selection_recovery') {
+          return $this->buildSelectionRecoveryIntent($selection, $intent);
+        }
+        $target_intent = (string) ($selection['target_intent'] ?? '');
+        if ($target_intent !== '' && !str_starts_with($target_intent, 'topic_')) {
+          $intent['type'] = $target_intent;
+          return $intent;
+        }
+        return $this->buildResourceSelectionIntent($selection, $intent);
+
+      case 'service_area':
+      case 'topic_subtopic':
+        $intent['type'] = (string) ($selection['target_intent'] ?? 'unknown');
+        return $intent;
+    }
+
+    $intent['type'] = (string) ($selection['target_intent'] ?? ($message !== '' ? $message : 'unknown'));
+    return $intent;
+  }
+
+  /**
+   * Builds a forms/guides finder intent from a structured resource selection.
+   */
+  private function buildResourceSelectionIntent(array $selection, array $intent): array {
+    $resource_kind = (string) ($selection['resource_kind'] ?? 'forms');
+    $intent['type'] = $resource_kind === 'guides' ? 'guides_finder' : 'forms_finder';
+    $intent['topic'] = trim((string) ($selection['query_label'] ?? $selection['label'] ?? ''));
+
+    $area = $this->resolveSelectionArea((string) ($selection['topic_intent'] ?? $selection['target_intent'] ?? ''));
+    if ($area !== '') {
+      $intent['area'] = $area;
+    }
+
+    return $intent;
+  }
+
+  /**
+   * Builds the dedicated recovery intent for repeated child-menu loops.
+   */
+  private function buildSelectionRecoveryIntent(array $selection, array $intent): array {
+    $intent['type'] = 'selection_recovery';
+    $intent['topic'] = trim((string) ($selection['query_label'] ?? $selection['label'] ?? ''));
+
+    $area = $this->resolveSelectionArea((string) ($selection['topic_intent'] ?? $selection['target_intent'] ?? ''));
+    if ($area !== '') {
+      $intent['area'] = $area;
+    }
+
+    return $intent;
+  }
+
+  /**
+   * Maps a topic intent to the corresponding service-area token.
+   */
+  private function resolveSelectionArea(string $intent_key): string {
+    $map = [
+      'topic_housing' => 'housing',
+      'topic_family' => 'family',
+      'topic_consumer' => 'consumer',
+      'topic_seniors' => 'seniors',
+      'topic_health' => 'health',
+      'topic_civil_rights' => 'civil_rights',
+      'topic_employment' => 'employment',
+    ];
+
+    foreach ($map as $prefix => $area) {
+      if ($intent_key === $prefix || str_starts_with($intent_key, $prefix . '_')) {
+        return $area;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Builds the next-step branch menu for a structured resource parent.
+   */
+  private function buildSelectionBranchResponse(array $selection, array $canonical_urls, ResponseBuilder $builder): array {
+    $resource_kind = (string) ($selection['resource_kind'] ?? 'forms');
+    $topic_intent = (string) ($selection['topic_intent'] ?? '');
+    $clarifier = $topic_intent !== '' && $this->topIntentsPack
+      ? $this->topIntentsPack->getClarifier($topic_intent)
+      : NULL;
+    $children = $this->selectionRegistry->getChildren((string) ($selection['button_id'] ?? ''));
+    $browse_url = $canonical_urls[$resource_kind] ?? $canonical_urls['resources'];
+    $browse_label = $resource_kind === 'guides'
+      ? (string) $this->t('Browse All Guides')
+      : (string) $this->t('Browse All Forms');
+
+    $response = [
+      'type' => $resource_kind === 'guides' ? 'guide_finder_clarify' : 'form_finder_clarify',
+      'response_mode' => 'clarify',
+      'message' => !empty($clarifier['question'])
+        ? (string) $clarifier['question']
+        : (string) $this->t('What type of @label are you looking for?', ['@label' => mb_strtolower((string) ($selection['label'] ?? $resource_kind))]),
+      'topic_suggestions' => [],
+      'primary_action' => [
+        'label' => $browse_label,
+        'url' => $browse_url,
+      ],
+      'reason_code' => 'selection_branch_' . ((string) ($selection['button_id'] ?? 'branch')),
+    ];
+    if ($resource_kind === 'guides') {
+      $response['guide_finder_mode'] = TRUE;
+    }
+    else {
+      $response['form_finder_mode'] = TRUE;
+    }
+
+    $fallback_labels = [];
+    foreach ($children as $child) {
+      $child_label = trim((string) ($child['query_label'] ?? $child['label'] ?? ''));
+      if ($child_label === '') {
+        continue;
+      }
+
+      $fallback_labels[] = $child_label;
+      $response['topic_suggestions'][] = [
+        'label' => $child_label,
+        'action' => (string) ($child['button_id'] ?? ''),
+        'url' => $builder->resolveIntentUrl((string) ($child['target_intent'] ?? '')) ?: $browse_url,
+      ];
+    }
+
+    if ($fallback_labels !== []) {
+      $response['text_fallback'] = (string) $this->t('Choose an option: @options. You can also use @browse.', [
+        '@options' => implode(', ', $fallback_labels),
+        '@browse' => $browse_label,
+      ]);
+    }
+
+    return $response;
+  }
+
+  /**
+   * Builds the forms/guides finder response for normal and recovery flows.
+   */
+  private function buildFinderResponse(string $finder_type, string $query, array $intent, string $request_id, array $canonical_urls, $config, bool $allow_clarify = TRUE): array {
+    $is_guides = $finder_type === 'guides';
+    $browse_url = $canonical_urls[$finder_type] ?? $canonical_urls['resources'];
+    $browse_label = $is_guides
+      ? (string) $this->t('Browse All Guides')
+      : (string) $this->t('Browse All Forms');
+    $fallback_label = $is_guides
+      ? (string) $this->t('Browse all guides')
+      : (string) $this->t('Browse all forms');
+    $resource_singular = $is_guides ? 'guide' : 'form';
+    $resource_plural = $is_guides ? 'guides' : 'forms';
+    $normalized_query = trim($query);
+    $search_query = $is_guides
+      ? $this->extractFinderTopicKeywords($normalized_query, 'guides')
+      : $this->extractFormTopicKeywords($normalized_query);
+
+    if ($search_query === '' && !$allow_clarify) {
+      $search_query = $normalized_query;
+    }
+
+    if (!$config->get('enable_resources')) {
+      return [
+        'type' => 'navigation',
+        'message' => $is_guides
+          ? (string) $this->t('You can find guides on our Guides page.')
+          : (string) $this->t('You can find forms on our Forms page.'),
+      ];
+    }
+
+    if ($search_query === '') {
+      if ($is_guides) {
+        $this->logger->info(
+          '[@request_id] Guide Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
+          $this->buildFinderQueryLogContext($request_id, $normalized_query)
+        );
+        return [
+          'type' => 'guide_finder_clarify',
+          'response_mode' => 'clarify',
+          'message' => (string) $this->t('What type of guide do you need? Type a keyword (for example, eviction, divorce, or debt), or pick a category:'),
+          'topic_suggestions' => [
+            ['label' => $this->t('Housing & Eviction'), 'action' => 'guides_housing'],
+            ['label' => $this->t('Family & Custody'), 'action' => 'guides_family'],
+            ['label' => $this->t('Consumer & Debt'), 'action' => 'guides_consumer'],
+            ['label' => $this->t('Seniors & Guardianship'), 'action' => 'guides_seniors'],
+            ['label' => $this->t('Employment & Safety'), 'action' => 'guides_employment'],
+            ['label' => $this->t('Health & Benefits'), 'action' => 'guides_benefits'],
+            ['label' => $this->t('Protection Orders'), 'action' => 'guides_safety'],
+          ],
+          'primary_action' => [
+            'label' => $browse_label,
+            'url' => $browse_url,
+          ],
+          'text_fallback' => (string) $this->t('Type a guide topic like eviction, divorce, debt, employment, benefits, or safety. You can also browse all guides at @url.', [
+            '@url' => $browse_url,
+          ]),
+          'guide_finder_mode' => TRUE,
+        ];
+      }
+
+      $this->logger->info(
+        '[@request_id] Form Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
+        $this->buildFinderQueryLogContext($request_id, $normalized_query)
+      );
+      return [
+        'type' => 'form_finder_clarify',
+        'response_mode' => 'clarify',
+        'message' => (string) $this->t('What type of form do you need? You can type a keyword (for example, eviction, divorce, or debt), or pick a category:'),
+        'topic_suggestions' => [
+          ['label' => $this->t('Housing & Eviction'), 'action' => 'forms_housing'],
+          ['label' => $this->t('Family & Custody'), 'action' => 'forms_family'],
+          ['label' => $this->t('Consumer & Debt'), 'action' => 'forms_consumer'],
+          ['label' => $this->t('Seniors & Guardianship'), 'action' => 'forms_seniors'],
+          ['label' => $this->t('Safety & Protection Orders'), 'action' => 'forms_safety'],
+          ['label' => $this->t('Health & Benefits'), 'action' => 'forms_benefits'],
+        ],
+        'primary_action' => [
+          'label' => $browse_label,
+          'url' => $browse_url,
+        ],
+        'text_fallback' => (string) $this->t('Type a form topic like eviction, divorce, debt, guardianship, safety, or benefits. You can also browse all forms at @url.', [
+          '@url' => $browse_url,
+        ]),
+        'form_finder_mode' => TRUE,
+      ];
+    }
+
+    $results = $is_guides
+      ? $this->resourceFinder->findGuides($search_query, 6)
+      : $this->resourceFinder->findForms($search_query, 6);
+
+    $response = [
+      'type' => 'resources',
+      'response_mode' => 'navigate',
+      'results' => $results,
+      'fallback_url' => $browse_url,
+      'fallback_label' => $fallback_label,
+    ];
+    if (count($results) > 0) {
+      $response['message'] = $is_guides
+        ? (string) $this->t('Here are some guides that might help:')
+        : (string) $this->t('Here are some forms that might help:');
+      $response['disclaimer'] = (string) $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
+      $response['caveat'] = $response['disclaimer'];
+
+      $this->logger->info(
+        $is_guides
+          ? '[@request_id] Guide Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count'
+          : '[@request_id] Form Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count',
+        $this->buildFinderQueryLogContext($request_id, $normalized_query, $search_query, count($results))
+      );
+
+      return $response;
+    }
+
+    $intent_area = trim((string) ($intent['area'] ?? ''));
+    if ($intent_area !== '' && $config->get('enable_resources')) {
+      $broader_results = $this->resourceFinder->findResources($intent_area, 4);
+      if (!empty($broader_results)) {
+        $response['type'] = 'resources';
+        $response['results'] = $broader_results;
+        $response['message'] = $is_guides
+          ? (string) $this->t('I couldn\'t find exact guide matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)])
+          : (string) $this->t('I couldn\'t find exact form matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)]);
+        $response['disclaimer'] = (string) $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
+        $this->logger->info(
+          $is_guides
+            ? '[@request_id] Guides search broadened: keyword_count=@keyword_count area=@area results=@count'
+            : '[@request_id] Forms search broadened: keyword_count=@keyword_count area=@area results=@count',
+          [
+            '@request_id' => $request_id,
+            '@keyword_count' => ObservabilityPayloadMinimizer::keywordCount($search_query),
+            '@area' => $intent_area,
+            '@count' => count($broader_results),
+          ]
+        );
+
+        return $response;
+      }
+    }
+
+    if ($allow_clarify) {
+      if ($is_guides) {
+        $response['type'] = 'guide_finder_clarify';
+        $response['response_mode'] = 'clarify';
+        $response['message'] = (string) $this->t('I couldn\'t find matching guides for that query. Try a different keyword, or pick a topic:');
+        $response['topic_suggestions'] = [
+          ['label' => $this->t('Housing & Eviction'), 'action' => 'guides_housing'],
+          ['label' => $this->t('Family & Custody'), 'action' => 'guides_family'],
+          ['label' => $this->t('Consumer & Debt'), 'action' => 'guides_consumer'],
+          ['label' => $this->t('Seniors & Guardianship'), 'action' => 'guides_seniors'],
+        ];
+        $response['primary_action'] = [
+          'label' => $browse_label,
+          'url' => $browse_url,
+        ];
+        $response['text_fallback'] = (string) $this->t('Try a different guide keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all guides at @url.', [
+          '@url' => $browse_url,
+        ]);
+      }
+      else {
+        $response['type'] = 'form_finder_clarify';
+        $response['response_mode'] = 'clarify';
+        $response['message'] = (string) $this->t('I couldn\'t find matching forms for that query. Try a different keyword, or pick a topic:');
+        $response['topic_suggestions'] = [
+          ['label' => $this->t('Housing & Eviction'), 'action' => 'forms_housing'],
+          ['label' => $this->t('Family & Custody'), 'action' => 'forms_family'],
+          ['label' => $this->t('Consumer & Debt'), 'action' => 'forms_consumer'],
+          ['label' => $this->t('Seniors & Guardianship'), 'action' => 'forms_seniors'],
+        ];
+        $response['primary_action'] = [
+          'label' => $browse_label,
+          'url' => $browse_url,
+        ];
+        $response['text_fallback'] = (string) $this->t('Try a different form keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all forms at @url.', [
+          '@url' => $browse_url,
+        ]);
+      }
+
+      $response['caveat'] = (string) $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
+
+      $this->logger->info(
+        $is_guides
+          ? '[@request_id] Guide Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count'
+          : '[@request_id] Form Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count',
+        $this->buildFinderQueryLogContext($request_id, $normalized_query, $search_query, 0)
+      );
+
+      return $response;
+    }
+
+    $response['type'] = 'resources';
+    $response['response_mode'] = 'navigate';
+    $response['message'] = (string) $this->t('I couldn\'t find exact @resource matches for "@topic". You can browse all @resource_plural for more options.', [
+      '@resource' => $resource_singular,
+      '@resource_plural' => $resource_plural,
+      '@topic' => $normalized_query !== '' ? $normalized_query : $resource_plural,
+    ]);
+    $response['caveat'] = (string) $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
+
+    $this->logger->info(
+      '[@request_id] Structured selection recovery exhausted: resource=@resource topic_hash=@query_hash length=@query_length_bucket area=@area',
+      [
+        '@request_id' => $request_id,
+        '@resource' => $resource_plural,
+        '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
+        '@query_length_bucket' => ObservabilityPayloadMinimizer::lengthBucket($normalized_query),
+        '@area' => $intent_area !== '' ? $intent_area : 'none',
+      ]
+    );
+
+    return $response;
+  }
+
+  /**
+   * Adds structured selection metadata to response suggestion arrays.
+   */
+  private function decorateSelectionSuggestions(array $response): array {
+    if (!empty($response['topic_suggestions']) && is_array($response['topic_suggestions'])) {
+      $response['topic_suggestions'] = $this->selectionRegistry->decorateSuggestions($response['topic_suggestions']);
+    }
+
+    if (!empty($response['suggestions']) && is_array($response['suggestions'])) {
+      $response['suggestions'] = $this->selectionRegistry->decorateSuggestions($response['suggestions']);
+    }
+
+    return $response;
+  }
+
+  /**
+   * Infers the current active branch from the response menu shape.
+   */
+  private function inferActiveSelectionFromResponse(array $response): ?array {
+    $parent_ids = [];
+    foreach (($response['topic_suggestions'] ?? []) as $suggestion) {
+      if (!is_array($suggestion) || empty($suggestion['selection']) || !is_array($suggestion['selection'])) {
+        continue;
+      }
+      $parent_button_id = trim((string) ($suggestion['selection']['parent_button_id'] ?? ''));
+      if ($parent_button_id !== '') {
+        $parent_ids[$parent_button_id] = TRUE;
+      }
+    }
+
+    if (count($parent_ids) === 1) {
+      $parent_button_id = array_key_first($parent_ids);
+      return $this->selectionRegistry->resolve($parent_button_id, NULL, NULL, 'response_menu');
+    }
+
+    return match ((string) ($response['type'] ?? '')) {
+      'forms_inventory', 'form_finder_clarify' => $this->selectionRegistry->resolve('forms', 'Forms', '', 'response_menu'),
+      'guides_inventory', 'guide_finder_clarify' => $this->selectionRegistry->resolve('guides', 'Guides', '', 'response_menu'),
+      'services_inventory' => $this->selectionRegistry->resolve('topics', 'Services', '', 'response_menu'),
+      default => NULL,
+    };
+  }
+
+  /**
+   * Computes a stable assistant-menu signature for repeat-menu recovery.
+   */
+  private function buildMenuSignature(array $response): string {
+    if (empty($response['topic_suggestions']) || !is_array($response['topic_suggestions'])) {
+      return '';
+    }
+
+    $buttons = [];
+    foreach ($response['topic_suggestions'] as $suggestion) {
+      if (!is_array($suggestion)) {
+        continue;
+      }
+
+      $button_id = '';
+      if (!empty($suggestion['selection']) && is_array($suggestion['selection'])) {
+        $button_id = trim((string) ($suggestion['selection']['button_id'] ?? ''));
+      }
+      if ($button_id === '') {
+        $button_id = trim((string) ($suggestion['action'] ?? ''));
+      }
+      if ($button_id !== '') {
+        $buttons[] = $button_id;
+      }
+    }
+
+    if ($buttons === []) {
+      return '';
+    }
+
+    return json_encode([
+      'type' => (string) ($response['type'] ?? 'unknown'),
+      'buttons' => array_values($buttons),
+    ]);
+  }
+
+  /**
+   * Returns TRUE when a child selection repeated the exact prior menu.
+   */
+  private function shouldRecoverRepeatedSelectionMenu(?array $selection, array $response, string $prior_menu_signature): bool {
+    if (!is_array($selection) || $prior_menu_signature === '') {
+      return FALSE;
+    }
+
+    if (($selection['kind'] ?? '') !== 'resource_child') {
+      return FALSE;
+    }
+
+    $current_signature = $this->buildMenuSignature($response);
+    if ($current_signature === '') {
+      return FALSE;
+    }
+
+    return hash_equals($prior_menu_signature, $current_signature);
+  }
+
+  /**
+   * Prefixes the assistant copy with the exact structured selection once.
+   */
+  private function prefixSelectionAcknowledgement(array $response, ?array $selection, bool $is_back = FALSE): array {
+    if (!is_array($selection)) {
+      return $response;
+    }
+
+    $label = trim((string) ($selection['label'] ?? ''));
+    $message = trim((string) ($response['message'] ?? ''));
+    if ($label === '' || $message === '') {
+      return $response;
+    }
+
+    if (!$is_back && str_contains(mb_strtolower($message), mb_strtolower($label))) {
+      return $response;
+    }
+
+    $prefix = $is_back
+      ? 'Back to ' . $label . '.'
+      : $label . '.';
+    $response['message'] = trim($prefix . ' ' . $message);
+
+    return $response;
+  }
+
+  /**
+   * Strips internal fallback/debug copy from the public response contract.
+   */
+  private function sanitizeResponseCopy(array $response): array {
+    foreach (['message', 'text_fallback'] as $key) {
+      if (empty($response[$key]) || !is_string($response[$key])) {
+        continue;
+      }
+
+      $response[$key] = trim(str_replace('I may be repeating myself.', '', $response[$key]));
+      $response[$key] = (string) preg_replace('/\s{2,}/', ' ', $response[$key]);
+    }
+
+    if (($response['message'] ?? '') === '') {
+      $response['message'] = (string) $this->t('Choose one of these options, or contact our Legal Advice Line for direct help.');
+    }
+
+    return $response;
   }
 
   /**
@@ -984,6 +1621,13 @@ class AssistantApiController extends ControllerBase {
       'prior_question_hash' => '',
       'updated_at' => 0,
     ];
+    $selection_state = [
+      'active_selection' => NULL,
+      'last_menu_signature' => '',
+    ];
+    $active_selection = NULL;
+    $resolved_selection = NULL;
+    $selection_back_navigation = FALSE;
 
     // Compute session fingerprint for conversation cache binding.
     // Defense-in-depth: prevents UUID-based cache poisoning if a
@@ -1014,6 +1658,8 @@ class AssistantApiController extends ControllerBase {
         }
       }
       $clarify_meta = $this->loadClarifyMeta($conversation_id);
+      $selection_state = $this->selectionStateStore->load($conversation_id, $session_fingerprint);
+      $active_selection = $this->normalizePersistedSelection($selection_state['active_selection'] ?? NULL);
 
       // Abuse detection: repeated identical messages.
       if (count($server_history) >= 3) {
@@ -1427,8 +2073,29 @@ class AssistantApiController extends ControllerBase {
       $debug_meta['processing_stages'][] = 'turn_classified';
     }
 
+    if ($this->isBackNavigationMessage($user_message) && $active_selection !== NULL) {
+      $resolved_selection = $this->selectionRegistry->getParent($active_selection);
+      $selection_back_navigation = $resolved_selection !== NULL;
+    }
+
+    if ($resolved_selection === NULL) {
+      $resolved_selection = $this->resolveTurnSelection($context, $user_message, $active_selection);
+    }
+
     $quick_action = $context['quickAction'] ?? NULL;
-    if ($quick_action && isset(self::REQUEST_CONTEXT_QUICK_ACTIONS[$quick_action])) {
+    if ($resolved_selection !== NULL) {
+      $intent = $this->buildSelectionIntent($resolved_selection, $user_message, $selection_back_navigation);
+
+      if ($debug_mode) {
+        $debug_meta['intent_selected'] = $intent['type'];
+        $debug_meta['intent_source'] = $intent['source'] ?? 'selection';
+        $debug_meta['intent_confidence'] = 1.0;
+        $debug_meta['processing_stages'][] = $selection_back_navigation
+          ? 'selection_back_shortcircuit'
+          : 'selection_shortcircuit';
+      }
+    }
+    elseif ($quick_action && isset(self::REQUEST_CONTEXT_QUICK_ACTIONS[$quick_action])) {
       $intent = [
         'type' => self::REQUEST_CONTEXT_QUICK_ACTIONS[$quick_action],
         'confidence' => 1.0,
@@ -1693,9 +2360,17 @@ class AssistantApiController extends ControllerBase {
     }
 
     // Handle gate decision.
-    // Never override quick-action intents — they are deterministic button clicks.
+    // Never override deterministic structured-navigation intents.
+    $deterministic_sources = [
+      'quick_action',
+      'selection',
+      'selection_back',
+      'selection_recovery',
+      'typed_child_selection',
+    ];
+    $is_deterministic_selection = in_array((string) ($intent['source'] ?? ''), $deterministic_sources, TRUE);
     $is_quick_action = ($intent['source'] ?? '') === 'quick_action';
-    if (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_HARD_ROUTE) {
+    if (!$is_deterministic_selection && $gate_decision['decision'] === FallbackGate::DECISION_HARD_ROUTE) {
       // Enforce hard-route decisions so urgent/deadline signals cannot be
       // silently bypassed by normal navigation routing.
       $hard_route_source = (string) ($gate_decision['reason_code'] ?? '');
@@ -1726,7 +2401,7 @@ class AssistantApiController extends ControllerBase {
         $debug_meta['processing_stages'][] = 'hard_route_forced';
       }
     }
-    elseif (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_FALLBACK_LLM && $this->llmEnhancer->isEnabled()) {
+    elseif (!$is_deterministic_selection && $gate_decision['decision'] === FallbackGate::DECISION_FALLBACK_LLM && $this->llmEnhancer->isEnabled()) {
       // Try LLM classification for low-confidence cases.
       $llm_model = $config->get('llm.model') ?? 'gemini-1.5-flash';
       $this->langfuseTracer?->startGeneration('llm.classify', $llm_model, [
@@ -1749,7 +2424,7 @@ class AssistantApiController extends ControllerBase {
         }
       }
     }
-    elseif (!$is_quick_action && $gate_decision['decision'] === FallbackGate::DECISION_CLARIFY) {
+    elseif (!$is_deterministic_selection && $gate_decision['decision'] === FallbackGate::DECISION_CLARIFY) {
       // Force clarification response.
       $intent = ['type' => 'clarify', 'original_intent' => $intent['type'], 'extraction' => $intent['extraction'] ?? []];
 
@@ -1762,6 +2437,15 @@ class AssistantApiController extends ControllerBase {
     // Process based on intent.
     $this->langfuseTracer?->startSpan('intent.process', ['intent_type' => $intent['type'] ?? 'unknown']);
     $response = $this->processIntent($intent, $user_message, $context, $request_id, $server_history);
+    if ($this->shouldRecoverRepeatedSelectionMenu($resolved_selection, $response, (string) ($selection_state['last_menu_signature'] ?? ''))) {
+      $intent = $this->buildSelectionIntent($resolved_selection, $user_message, FALSE, 'selection_recovery');
+      $response = $this->processIntent($intent, $user_message, $context, $request_id, $server_history);
+      if ($debug_mode) {
+        $debug_meta['processing_stages'][] = 'selection_repeat_menu_recovered';
+        $debug_meta['intent_selected'] = $intent['type'];
+        $debug_meta['intent_source'] = 'selection_recovery';
+      }
+    }
     $this->langfuseTracer?->endSpan([
       'response_type' => $response['type'] ?? 'unknown',
       'result_count' => count($response['results'] ?? []),
@@ -1853,6 +2537,17 @@ class AssistantApiController extends ControllerBase {
       }
     }
 
+    $response = $this->decorateSelectionSuggestions($response);
+    $response = $this->prefixSelectionAcknowledgement($response, $resolved_selection, $selection_back_navigation);
+    $response = $this->sanitizeResponseCopy($response);
+    $response_selection_state = $resolved_selection
+      ?? $this->inferActiveSelectionFromResponse($response)
+      ?? $active_selection;
+    $response['active_selection'] = $response_selection_state !== NULL
+      ? $this->selectionRegistry->buildSelectionPayload($response_selection_state)
+      : NULL;
+    $response_menu_signature = $this->buildMenuSignature($response);
+
     // Log the interaction.
     $this->analyticsLogger->log($intent['type'], $intent['value'] ?? '');
     if (($intent['type'] ?? '') === 'disambiguation') {
@@ -1925,6 +2620,12 @@ class AssistantApiController extends ControllerBase {
         'ilas_conv:' . $conversation_id,
         $cache_data,
         time() + 1800
+      );
+      $this->selectionStateStore->save(
+        $conversation_id,
+        $response_selection_state,
+        $response_menu_signature ?? '',
+        $session_fingerprint,
       );
 
       // Multi-turn safety pattern detection.
@@ -3276,6 +3977,22 @@ class AssistantApiController extends ControllerBase {
         ]);
         break;
 
+      case 'selection_branch':
+        $selection = is_array($intent['selection'] ?? NULL) ? $intent['selection'] : NULL;
+        if ($selection !== NULL) {
+          $response = $this->buildSelectionBranchResponse($selection, $canonical_urls, $builder);
+        }
+        break;
+
+      case 'selection_recovery':
+        $selection = is_array($intent['selection'] ?? NULL) ? $intent['selection'] : NULL;
+        if ($selection !== NULL) {
+          $resource_kind = (string) ($selection['resource_kind'] ?? 'forms');
+          $selection_query = trim((string) ($selection['query_label'] ?? $selection['label'] ?? ''));
+          $response = $this->buildFinderResponse($resource_kind, $selection_query, $intent, $request_id, $canonical_urls, $config, FALSE);
+        }
+        break;
+
       case 'services_inventory':
         $response['type'] = 'services_inventory';
         $response['response_mode'] = 'navigate';
@@ -3331,178 +4048,11 @@ class AssistantApiController extends ControllerBase {
         break;
 
       case 'forms':
-        if (!$config->get('enable_resources')) {
-          $response['type'] = 'navigation';
-          $response['message'] = $this->t('You can find forms on our Forms page.');
-          break;
-        }
-        $form_query = $intent['topic'] ?? $message;
-        $form_topic_keywords = $this->extractFormTopicKeywords($form_query);
-        if (empty($form_topic_keywords)) {
-          $response['type'] = 'form_finder_clarify';
-          $response['response_mode'] = 'clarify';
-          $response['message'] = $this->t('What kind of form are you looking for? You can type a keyword (e.g., eviction, divorce, debt), or pick a topic:');
-          $response['topic_suggestions'] = [
-            ['label' => $this->t('Housing'), 'action' => 'forms_housing'],
-            ['label' => $this->t('Family'), 'action' => 'forms_family'],
-            ['label' => $this->t('Consumer'), 'action' => 'forms_consumer'],
-            ['label' => $this->t('Seniors'), 'action' => 'forms_seniors'],
-            ['label' => $this->t('Safety'), 'action' => 'forms_safety'],
-            ['label' => $this->t('Benefits'), 'action' => 'forms_benefits'],
-          ];
-          $response['primary_action'] = [
-            'label' => $this->t('Browse All Forms'),
-            'url' => $canonical_urls['forms'],
-          ];
-          $response['text_fallback'] = $this->t('Type a form topic like eviction, divorce, debt, guardianship, safety, or benefits. You can also browse all forms at @url.', [
-            '@url' => $canonical_urls['forms'],
-          ]);
-          $response['form_finder_mode'] = TRUE;
-          $this->logger->info(
-            '[@request_id] Form Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
-            $this->buildFinderQueryLogContext($request_id, $message)
-          );
-          break;
-        }
-        $results = $this->resourceFinder->findForms($form_topic_keywords, 6);
-        $response['results'] = $results;
-        $response['fallback_url'] = $canonical_urls['forms'];
-        $response['fallback_label'] = $this->t('Browse all forms');
-        if (count($results) > 0) {
-          $response['message'] = $this->t('Here are some forms that might help:');
-          $response['disclaimer'] = $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
-          $response['caveat'] = $response['disclaimer'];
-        }
-        else {
-          // Zero results — try broader area search if area context available.
-          $intent_area = $intent['area'] ?? '';
-          if ($intent_area && $config->get('enable_resources')) {
-            $broader_results = $this->resourceFinder->findResources($intent_area, 4);
-            if (!empty($broader_results)) {
-              $response['type'] = 'resources';
-              $response['results'] = $broader_results;
-              $response['message'] = $this->t('I couldn\'t find exact form matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)]);
-              $response['disclaimer'] = $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
-              $this->logger->info('[@request_id] Forms search broadened: keyword_count=@keyword_count area=@area results=@count', [
-                '@request_id' => $request_id,
-                '@keyword_count' => ObservabilityPayloadMinimizer::keywordCount($form_topic_keywords),
-                '@area' => $intent_area,
-                '@count' => count($broader_results),
-              ]);
-              break;
-            }
-          }
-          // Still no results — show topic chips instead of dead-end.
-          $response['type'] = 'form_finder_clarify';
-          $response['response_mode'] = 'clarify';
-          $response['message'] = $this->t('I couldn\'t find matching forms for that query. Try a different keyword, or pick a topic:');
-          $response['topic_suggestions'] = [
-            ['label' => $this->t('Housing'), 'action' => 'forms_housing'],
-            ['label' => $this->t('Family'), 'action' => 'forms_family'],
-            ['label' => $this->t('Consumer'), 'action' => 'forms_consumer'],
-            ['label' => $this->t('Seniors'), 'action' => 'forms_seniors'],
-          ];
-          $response['primary_action'] = [
-            'label' => $this->t('Browse All Forms'),
-            'url' => $canonical_urls['forms'],
-          ];
-          $response['text_fallback'] = $this->t('Try a different form keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all forms at @url.', [
-            '@url' => $canonical_urls['forms'],
-          ]);
-          $response['caveat'] = $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
-        }
-        $this->logger->info(
-          '[@request_id] Form Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count',
-          $this->buildFinderQueryLogContext($request_id, $message, $form_topic_keywords, count($results))
-        );
+        $response = $this->buildFinderResponse('forms', (string) ($intent['topic'] ?? $message), $intent, $request_id, $canonical_urls, $config);
         break;
 
       case 'guides':
-        if (!$config->get('enable_resources')) {
-          $response['type'] = 'navigation';
-          $response['message'] = $this->t('You can find guides on our Guides page.');
-          break;
-        }
-        $guide_query = $intent['topic'] ?? $message;
-        $guide_topic_keywords = $this->extractFinderTopicKeywords($guide_query, 'guides');
-        if (empty($guide_topic_keywords)) {
-          $response['type'] = 'guide_finder_clarify';
-          $response['response_mode'] = 'clarify';
-          $response['message'] = $this->t('What kind of guide are you looking for? Type a keyword (e.g., eviction, divorce, debt), or pick a topic:');
-          $response['topic_suggestions'] = [
-            ['label' => $this->t('Housing'), 'action' => 'guides_housing'],
-            ['label' => $this->t('Family'), 'action' => 'guides_family'],
-            ['label' => $this->t('Consumer'), 'action' => 'guides_consumer'],
-            ['label' => $this->t('Seniors'), 'action' => 'guides_seniors'],
-            ['label' => $this->t('Employment'), 'action' => 'guides_employment'],
-            ['label' => $this->t('Benefits'), 'action' => 'guides_benefits'],
-            ['label' => $this->t('Safety'), 'action' => 'guides_safety'],
-          ];
-          $response['primary_action'] = [
-            'label' => $this->t('Browse All Guides'),
-            'url' => $canonical_urls['guides'],
-          ];
-          $response['text_fallback'] = $this->t('Type a guide topic like eviction, divorce, debt, employment, benefits, or safety. You can also browse all guides at @url.', [
-            '@url' => $canonical_urls['guides'],
-          ]);
-          $response['guide_finder_mode'] = TRUE;
-          $this->logger->info(
-            '[@request_id] Guide Finder clarification triggered for query_hash=@query_hash length=@query_length_bucket profile=@redaction_profile',
-            $this->buildFinderQueryLogContext($request_id, $message)
-          );
-          break;
-        }
-        $results = $this->resourceFinder->findGuides($guide_topic_keywords, 6);
-        $response['results'] = $results;
-        $response['fallback_url'] = $canonical_urls['guides'];
-        $response['fallback_label'] = $this->t('Browse all guides');
-        if (count($results) > 0) {
-          $response['message'] = $this->t('Here are some guides that might help:');
-          $response['disclaimer'] = $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
-          $response['caveat'] = $response['disclaimer'];
-        }
-        else {
-          // Zero results — try broader area search if area context available.
-          $intent_area = $intent['area'] ?? '';
-          if ($intent_area && $config->get('enable_resources')) {
-            $broader_results = $this->resourceFinder->findResources($intent_area, 4);
-            if (!empty($broader_results)) {
-              $response['type'] = 'resources';
-              $response['results'] = $broader_results;
-              $response['message'] = $this->t('I couldn\'t find exact guide matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)]);
-              $response['disclaimer'] = $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
-              $this->logger->info('[@request_id] Guides search broadened: keyword_count=@keyword_count area=@area results=@count', [
-                '@request_id' => $request_id,
-                '@keyword_count' => ObservabilityPayloadMinimizer::keywordCount($guide_topic_keywords),
-                '@area' => $intent_area,
-                '@count' => count($broader_results),
-              ]);
-              break;
-            }
-          }
-          // Still no results — show topic chips instead of dead-end.
-          $response['type'] = 'guide_finder_clarify';
-          $response['response_mode'] = 'clarify';
-          $response['message'] = $this->t('I couldn\'t find matching guides for that query. Try a different keyword, or pick a topic:');
-          $response['topic_suggestions'] = [
-            ['label' => $this->t('Housing'), 'action' => 'guides_housing'],
-            ['label' => $this->t('Family'), 'action' => 'guides_family'],
-            ['label' => $this->t('Consumer'), 'action' => 'guides_consumer'],
-            ['label' => $this->t('Seniors'), 'action' => 'guides_seniors'],
-          ];
-          $response['primary_action'] = [
-            'label' => $this->t('Browse All Guides'),
-            'url' => $canonical_urls['guides'],
-          ];
-          $response['text_fallback'] = $this->t('Try a different guide keyword, or choose a topic like Housing, Family, Consumer, or Seniors. You can also browse all guides at @url.', [
-            '@url' => $canonical_urls['guides'],
-          ]);
-          $response['caveat'] = $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
-        }
-        $this->logger->info(
-          '[@request_id] Guide Finder search: query_hash=@query_hash length=@query_length_bucket keyword_count=@keyword_count results=@count',
-          $this->buildFinderQueryLogContext($request_id, $message, $guide_topic_keywords, count($results))
-        );
+        $response = $this->buildFinderResponse('guides', (string) ($intent['topic'] ?? $message), $intent, $request_id, $canonical_urls, $config);
         break;
 
       case 'resources':
@@ -4207,7 +4757,7 @@ class AssistantApiController extends ControllerBase {
       $response = [
         'type' => 'clarify_loop_break',
         'response_mode' => 'clarify',
-        'message' => (string) $this->t('I may be repeating myself. Choose one of these options, or contact our Legal Advice Line for direct help.'),
+        'message' => (string) $this->t('Choose one of these options, or contact our Legal Advice Line for direct help.'),
         'topic_suggestions' => $this->getClarifyLoopBreakSuggestions(),
         'actions' => $this->getEscalationActions(),
         'reason_code' => 'clarify_loop_break',

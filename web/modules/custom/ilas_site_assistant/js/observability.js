@@ -80,36 +80,126 @@
     /^Script error\.?$/i
   ];
 
+  function hasFirstPartyFrame(frames) {
+    for (var i = 0; i < frames.length; i++) {
+      var filename = frames[i].filename || '';
+      if (filename.indexOf('/modules/') !== -1 || filename.indexOf('/themes/') !== -1) {
+        return true;
+      }
+
+      var path = extractSameSitePath(filename);
+      if (path && /\.js(?:[?#].*)?$/i.test(path)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function isMaskedFrame(frame) {
+    return (frame.filename || '') === 'webkit-masked-url://hidden/';
+  }
+
+  function isFacebookInAppBrowser() {
+    var userAgent = window.navigator && window.navigator.userAgent ? window.navigator.userAgent : '';
+    return /FBAN|FBAV/i.test(userAgent);
+  }
+
+  function isWkWebViewBridgeMessage(message) {
+    return /window\.webkit\.messageHandlers/i.test(message) && /undefined is not an object/i.test(message);
+  }
+
+  function extractSameSitePath(filename) {
+    if (!filename) {
+      return null;
+    }
+
+    if (filename.charAt(0) === '/') {
+      return filename;
+    }
+
+    if (!/^https?:\/\//i.test(filename)) {
+      return null;
+    }
+
+    var parser = document.createElement('a');
+    parser.href = filename;
+
+    var currentHost = window.location && window.location.hostname ? window.location.hostname : '';
+    if (parser.hostname !== 'idaholegalaid.org' && (!currentHost || parser.hostname !== currentHost)) {
+      return null;
+    }
+
+    return (parser.pathname || '/') + (parser.search || '') + (parser.hash || '');
+  }
+
+  function isDocumentFrame(frame) {
+    var filename = frame.filename || '';
+    var path = extractSameSitePath(filename);
+    if (!path) {
+      return false;
+    }
+
+    if (path.indexOf('/modules/') !== -1 || path.indexOf('/themes/') !== -1) {
+      return false;
+    }
+
+    if (frame.lineno && frame.lineno !== 1) {
+      return false;
+    }
+
+    var cleanPath = path.split('#')[0].split('?')[0];
+    var segments = cleanPath.split('/');
+    var lastSegment = segments[segments.length - 1];
+
+    return lastSegment === '' || lastSegment.indexOf('.') === -1;
+  }
+
+  function allFramesMatch(frames, predicate) {
+    if (!frames.length) {
+      return false;
+    }
+
+    for (var i = 0; i < frames.length; i++) {
+      if (!predicate(frames[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   function isExtensionNoise(event) {
     var message = '';
     if (event.exception && event.exception.values && event.exception.values.length) {
       var exc = event.exception.values[0];
       message = (exc.value || '') + ' ' + (exc.type || '');
       var frames = exc.stacktrace && exc.stacktrace.frames ? exc.stacktrace.frames : [];
-      for (var i = 0; i < frames.length; i++) {
-        var filename = frames[i].filename || '';
-        if (filename.indexOf('idaholegalaid.org') !== -1 || filename.indexOf('/modules/') !== -1 || filename.indexOf('/themes/') !== -1) {
-          return false;
-        }
+      if (hasFirstPartyFrame(frames)) {
+        return false;
       }
       // Safari ITP masks cross-origin script URLs as webkit-masked-url://hidden/.
       // If every frame is masked, the error is from a third-party script (e.g.
       // GA4/GTM) and not from site-owned code — treat it as noise.
       // Safety: This cannot drop real AILA errors because:
-      // (a) Site-owned frames (idaholegalaid.org, /modules/, /themes/) exit early above
+      // (a) Site-owned asset frames (/modules/, /themes/, same-site .js URLs)
+      //     exit early above
       // (b) AILA errors use Sentry.captureMessage() — no exception.stacktrace to inspect
       // (c) Safari ITP only masks cross-origin scripts, not same-origin
-      if (frames.length > 0) {
-        var allMasked = true;
-        for (var k = 0; k < frames.length; k++) {
-          if ((frames[k].filename || '') !== 'webkit-masked-url://hidden/') {
-            allMasked = false;
-            break;
-          }
-        }
-        if (allMasked) {
-          return true;
-        }
+      if (allFramesMatch(frames, isMaskedFrame)) {
+        return true;
+      }
+
+      // Facebook's iOS in-app browser sometimes throws page-level TypeErrors
+      // when third-party/browser code probes a WKWebView bridge that is absent.
+      // Drop only the exact bridge signature when frames are limited to the
+      // current document URL and/or Safari-masked third-party URLs.
+      if (isFacebookInAppBrowser() &&
+        isWkWebViewBridgeMessage(message) &&
+        allFramesMatch(frames, function (frame) {
+          return isMaskedFrame(frame) || isDocumentFrame(frame);
+        })) {
+        return true;
       }
     }
     else if (event.message) {
