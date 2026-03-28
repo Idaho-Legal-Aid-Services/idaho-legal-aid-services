@@ -50,7 +50,7 @@
         "drupal/drupal_cms_seo_tools": "^1.1",
         "drupal/drupal_cms_starter": "^1.1",
         "drupal/editor_advanced_link": "^2.3",
-        "drupal/gemini_provider": "^1.0@beta",
+        "drupal/gemini_provider": "^1.0",
         "drupal/google_analytics": "^4.0",
         "drupal/google_cse": "^5.0",
         "drupal/google_translator": "^2.3",
