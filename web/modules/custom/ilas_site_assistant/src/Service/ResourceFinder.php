@@ -5,6 +5,7 @@ namespace Drupal\ilas_site_assistant\Service;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\File\FileUrlGeneratorInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
@@ -149,6 +150,20 @@ class ResourceFinder {
   protected ?RetrievalConfigurationService $retrievalConfiguration = NULL;
 
   /**
+   * Optional top-intents pack for topic synonym expansion.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\TopIntentsPack|null
+   */
+  protected ?TopIntentsPack $topIntentsPack = NULL;
+
+  /**
+   * Optional file URL generator for direct document links.
+   *
+   * @var \Drupal\Core\File\FileUrlGeneratorInterface|null
+   */
+  protected ?FileUrlGeneratorInterface $fileUrlGenerator = NULL;
+
+  /**
    * Cache ID for resource data.
    */
   const CACHE_ID = 'ilas_site_assistant.resources';
@@ -164,7 +179,9 @@ class ResourceFinder {
     RankingEnhancer $ranking_enhancer = NULL,
     ConfigFactoryInterface $config_factory = NULL,
     RetrievalConfigurationService $retrieval_configuration = NULL,
-    SourceGovernanceService $source_governance = NULL
+    SourceGovernanceService $source_governance = NULL,
+    ?TopIntentsPack $top_intents_pack = NULL,
+    ?FileUrlGeneratorInterface $file_url_generator = NULL,
   ) {
     $this->entityTypeManager = $entity_type_manager;
     $this->topicResolver = $topic_resolver;
@@ -174,6 +191,8 @@ class ResourceFinder {
     $this->configFactory = $config_factory;
     $this->retrievalConfiguration = $retrieval_configuration;
     $this->sourceGovernance = $source_governance;
+    $this->topIntentsPack = $top_intents_pack;
+    $this->fileUrlGenerator = $file_url_generator;
   }
 
   /**
@@ -498,7 +517,7 @@ class ResourceFinder {
    *   Array of matching forms.
    */
   public function findForms(string $query, int $limit = 3) {
-    return $this->findByType($query, 'form', $limit);
+    return $this->findDocumentBackedResources($query, 'form', $limit);
   }
 
   /**
@@ -513,7 +532,7 @@ class ResourceFinder {
    *   Array of matching guides.
    */
   public function findGuides(string $query, int $limit = 3) {
-    return $this->findByType($query, 'guide', $limit);
+    return $this->findDocumentBackedResources($query, 'guide', $limit);
   }
 
   /**
@@ -529,6 +548,268 @@ class ResourceFinder {
    */
   public function findResources(string $query, int $limit = 3) {
     return $this->findByType($query, NULL, $limit);
+  }
+
+  /**
+   * Finds forms/guides in document media before falling back to resources.
+   */
+  protected function findDocumentBackedResources(string $query, string $document_type, int $limit): array {
+    $query = trim($query);
+    if ($query === '') {
+      return [];
+    }
+
+    $document_results = $this->findPublishedDocumentMatches($query, $document_type, $limit);
+    if ($document_results !== []) {
+      $this->recordRetrievalTelemetry(
+        $query,
+        $document_type,
+        $document_results,
+        [
+          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
+          'should_attempt' => FALSE,
+          'reason' => 'document_media_match',
+        ],
+        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'document_media_match'),
+        'document_media',
+      );
+      return $document_results;
+    }
+
+    return $this->findByType($query, $document_type, $limit);
+  }
+
+  /**
+   * Finds matching published media documents for forms/guides retrieval.
+   *
+   * @return array<int, array<string, mixed>>
+   *   Direct document results sorted by relevance.
+   */
+  protected function findPublishedDocumentMatches(string $query, string $document_type, int $limit): array {
+    if ($limit <= 0) {
+      return [];
+    }
+
+    $candidates = $this->loadPublishedDocumentCandidates($document_type);
+    if ($candidates === []) {
+      return [];
+    }
+
+    $topic_signal = $this->resolveDocumentTopicSignal($query);
+    $query_keywords = array_values(array_unique(array_merge(
+      $this->extractKeywords($query),
+      $topic_signal['keywords'],
+    )));
+    $query_phrase = mb_strtolower(trim($query));
+
+    $scored = [];
+    foreach ($candidates as $candidate) {
+      $score = $this->scoreDocumentCandidate($candidate, $query_phrase, $query_keywords, $topic_signal);
+      if ($score <= 0) {
+        continue;
+      }
+
+      $candidate['score'] = $score;
+      $candidate['source'] = 'document_media';
+      $candidate['source_class'] = 'document_media';
+      $scored[] = $candidate;
+    }
+
+    if ($scored === []) {
+      return [];
+    }
+
+    usort($scored, static function (array $a, array $b): int {
+      $score_compare = ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
+      if ($score_compare !== 0) {
+        return $score_compare;
+      }
+
+      return strcmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? ''));
+    });
+
+    $results = array_slice($scored, 0, $limit);
+    if ($this->sourceGovernance) {
+      $results = $this->sourceGovernance->annotateBatch($results, 'document_media', 'entity_query');
+    }
+
+    return $results;
+  }
+
+  /**
+   * Loads normalized published document candidates for a document type.
+   *
+   * @return array<int, array<string, mixed>>
+   *   Candidate documents.
+   */
+  protected function loadPublishedDocumentCandidates(string $document_type): array {
+    $storage = $this->entityTypeManager->getStorage('media');
+    $query = $storage->getQuery()
+      ->condition('bundle', 'document')
+      ->condition('status', 1)
+      ->condition('field_document_type.value', $document_type)
+      ->accessCheck(TRUE);
+
+    $mids = $query->execute();
+    if ($mids === []) {
+      return [];
+    }
+
+    $entities = $storage->loadMultiple($mids);
+    $candidates = [];
+    foreach ($entities as $entity) {
+      $candidate = $this->buildDocumentCandidate($entity, $document_type);
+      if ($candidate !== NULL) {
+        $candidates[] = $candidate;
+      }
+    }
+
+    return $candidates;
+  }
+
+  /**
+   * Builds a normalized document candidate from a media entity.
+   */
+  protected function buildDocumentCandidate($media, string $document_type): ?array {
+    if (!is_object($media) || !method_exists($media, 'hasField')) {
+      return NULL;
+    }
+
+    if (!$media->hasField('field_media_document') || $media->get('field_media_document')->isEmpty()) {
+      return NULL;
+    }
+
+    $file = $media->get('field_media_document')->entity;
+    if (!$file || !method_exists($file, 'getFileUri')) {
+      return NULL;
+    }
+
+    $url = $this->generateDocumentFileUrl((string) $file->getFileUri());
+    if ($url === '') {
+      return NULL;
+    }
+
+    $topic_ids = [];
+    $topic_names = [];
+    if ($media->hasField('field_document_topics') && !$media->get('field_document_topics')->isEmpty()) {
+      foreach ($media->get('field_document_topics')->referencedEntities() as $topic) {
+        $topic_ids[] = (int) $topic->id();
+        $topic_names[] = strtolower((string) $topic->getName());
+      }
+    }
+
+    $title = method_exists($media, 'label') ? (string) $media->label() : '';
+    $keywords = $this->extractKeywords($title . ' ' . implode(' ', $topic_names));
+
+    return [
+      'id' => (int) $media->id(),
+      'title' => $title,
+      'title_lower' => strtolower($title),
+      'url' => $url,
+      'source_url' => $url,
+      'type' => $document_type,
+      'has_file' => TRUE,
+      'has_link' => FALSE,
+      'description' => '',
+      'topics' => $topic_names,
+      'topic_ids' => $topic_ids,
+      'topic_names' => $topic_names,
+      'keywords' => $keywords,
+      'updated_at' => method_exists($media, 'getChangedTime') ? (int) $media->getChangedTime() : NULL,
+    ];
+  }
+
+  /**
+   * Generates a public document file URL.
+   */
+  protected function generateDocumentFileUrl(string $uri): string {
+    if ($uri === '') {
+      return '';
+    }
+
+    if ($this->fileUrlGenerator) {
+      return (string) $this->fileUrlGenerator->generateString($uri);
+    }
+
+    if (\Drupal::hasService('file_url_generator')) {
+      return (string) \Drupal::service('file_url_generator')->generateString($uri);
+    }
+
+    return '';
+  }
+
+  /**
+   * Resolves topic signals and synonym expansions for document matching.
+   *
+   * @return array<string, mixed>
+   *   Topic signal metadata.
+   */
+  protected function resolveDocumentTopicSignal(string $query): array {
+    $keywords = [];
+    $topic = $this->topicResolver->resolveFromText($query);
+    $topic_intent = NULL;
+
+    if ($this->topIntentsPack) {
+      $normalized_query = mb_strtolower(trim($query));
+      $topic_intent = $this->topIntentsPack->matchSynonyms($normalized_query);
+      if ($topic === NULL && is_string($topic_intent) && str_starts_with($topic_intent, 'topic_')) {
+        $entry = $this->topIntentsPack->lookup($topic_intent);
+        $topic_label = trim((string) ($entry['label'] ?? ''));
+        if ($topic_label !== '') {
+          $keywords = array_merge($keywords, $this->extractKeywords($topic_label));
+          $topic = $this->topicResolver->resolveFromText($topic_label);
+        }
+      }
+    }
+
+    if (is_array($topic) && !empty($topic['name'])) {
+      $keywords = array_merge($keywords, $this->extractKeywords((string) $topic['name']));
+    }
+
+    return [
+      'topic' => $topic,
+      'topic_intent' => is_string($topic_intent) ? $topic_intent : '',
+      'keywords' => array_values(array_unique(array_filter($keywords))),
+    ];
+  }
+
+  /**
+   * Scores a document candidate for a forms/guides query.
+   */
+  protected function scoreDocumentCandidate(array $candidate, string $query_phrase, array $query_keywords, array $topic_signal): float {
+    $score = 0.0;
+    $topic = is_array($topic_signal['topic'] ?? NULL) ? $topic_signal['topic'] : NULL;
+    $topic_id = $topic !== NULL ? (int) ($topic['id'] ?? 0) : 0;
+    $candidate_topic_ids = array_map('intval', $candidate['topic_ids'] ?? []);
+    $candidate_topic_names = array_map('strtolower', $candidate['topic_names'] ?? []);
+    $title = strtolower((string) ($candidate['title'] ?? ''));
+    $description = strtolower((string) ($candidate['description'] ?? ''));
+    $keywords = array_map('strtolower', $candidate['keywords'] ?? []);
+
+    if ($topic_id > 0 && in_array($topic_id, $candidate_topic_ids, TRUE)) {
+      $score += 80.0;
+    }
+
+    if ($query_phrase !== '') {
+      if (str_contains($title, $query_phrase)) {
+        $score += 35.0;
+      }
+
+      foreach ($candidate_topic_names as $topic_name) {
+        if ($topic_name !== '' && str_contains($query_phrase, $topic_name)) {
+          $score += 18.0;
+        }
+      }
+    }
+
+    $overlap = array_intersect($query_keywords, array_merge($keywords, $candidate_topic_names));
+    $score += count($overlap) * 12.0;
+
+    if ($score === 0.0 && $query_phrase !== '' && str_contains($description, $query_phrase)) {
+      $score += 10.0;
+    }
+
+    return $score;
   }
 
   /**

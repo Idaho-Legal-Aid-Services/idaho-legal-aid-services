@@ -361,6 +361,11 @@ final class SelectionNavigationContractTest extends TestCase {
     $resourceFinder->method('findForms')->willReturnCallback(static function (string $query, int $limit = 6): array {
       unset($limit);
       $joined = mb_strtolower($query);
+      if (str_contains($joined, 'custody or parenting time')) {
+        return [
+          ['title' => 'Temporary Orders Forms', 'url' => 'https://idaholegalaid.org/forms/temporary-orders-forms.pdf'],
+        ];
+      }
       if (str_contains($joined, 'divorce')) {
         return [
           ['title' => 'Divorce Petition', 'url' => 'https://idaholegalaid.org/forms/divorce-petition'],

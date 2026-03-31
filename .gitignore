@@ -119,6 +119,7 @@ desktop.ini
 
 # Playwright CLI test artifacts
 .playwright-cli/
+output/playwright/
 
 # DDEV local dev environment
 .ddev/*
@@ -223,8 +224,14 @@ scripts/eval/
 # Node runtime artifacts (never tracked; configs tracked for CI)
 node_modules/
 
-# Local audit docs and utility scripts
+# Local audit/planning docs and utility scripts
 docs/assistant_audit/
+docs/assistant-conversation-journeys.md
+docs/assistant-playwright-audit.md
+docs/assistant-playwright-findings.md
+docs/assistant-playwright-usage.md
+docs/codex_audits/
+docs/codex_validations/
 
 # AILA raw evidence dumps (reproducible, not curated docs)
 docs/aila/artifacts/*

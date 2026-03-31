@@ -1044,29 +1044,84 @@ class AssistantApiController extends ControllerBase {
     }
 
     $intent_area = trim((string) ($intent['area'] ?? ''));
-    if ($intent_area !== '' && $config->get('enable_resources')) {
-      $broader_results = $this->resourceFinder->findResources($intent_area, 4);
-      if (!empty($broader_results)) {
+    $intent_topic = trim((string) ($intent['topic'] ?? ''));
+    $scoped_queries = [];
+    if ($intent_topic !== '') {
+      $scoped_queries[] = [
+        'query' => $intent_topic,
+        'label' => $intent_topic,
+      ];
+    }
+    if ($intent_area !== '') {
+      $scoped_queries[] = [
+        'query' => $intent_area,
+        'label' => str_replace('_', ' ', $intent_area),
+      ];
+    }
+
+    if ($scoped_queries !== [] && $config->get('enable_resources')) {
+      foreach ($scoped_queries as $scope) {
+        $broader_results = $this->resourceFinder->findResources((string) $scope['query'], 4);
+        if (empty($broader_results)) {
+          continue;
+        }
+
         $response['type'] = 'resources';
         $response['results'] = $broader_results;
+        $scope_label = (string) $scope['label'];
         $response['message'] = $is_guides
-          ? (string) $this->t('I couldn\'t find exact guide matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)])
-          : (string) $this->t('I couldn\'t find exact form matches, but here are related @area resources:', ['@area' => str_replace('_', ' ', $intent_area)]);
+          ? (string) $this->t('I couldn\'t find exact guide matches, but here are related @scope resources:', ['@scope' => $scope_label])
+          : (string) $this->t('I couldn\'t find exact form matches, but here are related @scope resources:', ['@scope' => $scope_label]);
         $response['disclaimer'] = (string) $this->t('These are informational resources only. If you need legal advice, please apply for help or call our Legal Advice Line.');
         $this->logger->info(
           $is_guides
-            ? '[@request_id] Guides search broadened: keyword_count=@keyword_count area=@area results=@count'
-            : '[@request_id] Forms search broadened: keyword_count=@keyword_count area=@area results=@count',
+            ? '[@request_id] Guides search broadened: keyword_count=@keyword_count scope=@scope results=@count'
+            : '[@request_id] Forms search broadened: keyword_count=@keyword_count scope=@scope results=@count',
           [
             '@request_id' => $request_id,
             '@keyword_count' => ObservabilityPayloadMinimizer::keywordCount($search_query),
-            '@area' => $intent_area,
+            '@scope' => $scope_label,
             '@count' => count($broader_results),
           ]
         );
 
         return $response;
       }
+    }
+
+    if ($scoped_queries !== [] && $allow_clarify) {
+      $scope_label = (string) ($scoped_queries[0]['label'] ?? $resource_plural);
+      $response['type'] = 'resources';
+      $response['response_mode'] = 'navigate';
+      $response['results'] = [];
+      $response['message'] = (string) $this->t('I couldn\'t find exact @resource matches for @scope. You can browse all @resource_plural for more options.', [
+        '@resource' => $resource_singular,
+        '@resource_plural' => $resource_plural,
+        '@scope' => $scope_label,
+      ]);
+      $response['primary_action'] = [
+        'label' => $browse_label,
+        'url' => $browse_url,
+      ];
+      $response['text_fallback'] = (string) $this->t('Browse all @resource_plural at @url for more options related to @scope.', [
+        '@resource_plural' => $resource_plural,
+        '@url' => $browse_url,
+        '@scope' => $scope_label,
+      ]);
+      $response['caveat'] = (string) $this->t('This is general information, not legal advice. For legal advice, call our Legal Advice Line or apply for help.');
+
+      $this->logger->info(
+        $is_guides
+          ? '[@request_id] Scoped guide search exhausted without broad fallback: query_hash=@query_hash scope=@scope'
+          : '[@request_id] Scoped form search exhausted without broad fallback: query_hash=@query_hash scope=@scope',
+        [
+          '@request_id' => $request_id,
+          '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
+          '@scope' => $scope_label,
+        ]
+      );
+
+      return $response;
     }
 
     if ($allow_clarify) {
@@ -2042,10 +2097,11 @@ class AssistantApiController extends ControllerBase {
         'user_message' => $user_message,
         'is_location_like' => $this->isLocationLikeOfficeReply($user_message),
         'is_explicit_office_followup' => $this->isExplicitOfficeFollowupTurn($user_message),
+        'session_fingerprint' => $session_fingerprint,
       ]);
 
       if (($pending_flow_decision['status'] ?? 'continue') === 'handled') {
-        $this->applyOfficeFollowupStateDecision($conversation_id, $pending_flow_decision);
+        $this->applyOfficeFollowupStateDecision($conversation_id, $session_fingerprint, $pending_flow_decision);
 
         if (($pending_flow_decision['action'] ?? 'none') === 'resolve' && !empty($pending_flow_decision['office'])) {
           return $this->handleOfficeFollowUp($request, $pending_flow_decision['office'], $user_message, $conversation_id, $server_history, $request_id, $debug_mode, $debug_meta, $start_time);
@@ -2056,7 +2112,7 @@ class AssistantApiController extends ControllerBase {
         }
       }
 
-      $this->applyOfficeFollowupStateDecision($conversation_id, $pending_flow_decision);
+      $this->applyOfficeFollowupStateDecision($conversation_id, $session_fingerprint, $pending_flow_decision);
     }
 
     // Quick-action short-circuit: when the request comes from a suggestion
@@ -2581,7 +2637,7 @@ class AssistantApiController extends ControllerBase {
         'intent_type' => $normalized_intent,
         'has_followup_prompt' => !empty($response['followup']),
       ]);
-      $this->applyOfficeFollowupStateDecision($conversation_id, $post_response_flow_decision);
+      $this->applyOfficeFollowupStateDecision($conversation_id, $session_fingerprint, $post_response_flow_decision);
     }
 
     // Store conversation turn in cache for multi-turn continuity.
@@ -4924,15 +4980,15 @@ class AssistantApiController extends ControllerBase {
   /**
    * Loads pending office follow-up state for a conversation.
    */
-  protected function loadOfficeFollowupState(string $conversation_id): ?array {
-    return $this->assistantFlowRunner->loadOfficeFollowupState($conversation_id);
+  protected function loadOfficeFollowupState(string $conversation_id, string $session_fingerprint = ''): ?array {
+    return $this->assistantFlowRunner->loadOfficeFollowupState($conversation_id, $session_fingerprint);
   }
 
   /**
    * Persists office follow-up state with bounded lifecycle metadata.
    */
-  protected function saveOfficeFollowupState(string $conversation_id, array $state): void {
-    $this->assistantFlowRunner->saveOfficeFollowupState($conversation_id, $state);
+  protected function saveOfficeFollowupState(string $conversation_id, array $state, string $session_fingerprint = ''): void {
+    $this->assistantFlowRunner->saveOfficeFollowupState($conversation_id, $state, $session_fingerprint);
   }
 
   /**
@@ -4945,7 +5001,7 @@ class AssistantApiController extends ControllerBase {
   /**
    * Applies the runner's office follow-up state operation.
    */
-  protected function applyOfficeFollowupStateDecision(string $conversation_id, array $decision): void {
+  protected function applyOfficeFollowupStateDecision(string $conversation_id, string $session_fingerprint, array $decision): void {
     if ($conversation_id === '') {
       return;
     }
@@ -4957,7 +5013,7 @@ class AssistantApiController extends ControllerBase {
     }
 
     if ($state_operation === 'save' && !empty($decision['state_payload']) && is_array($decision['state_payload'])) {
-      $this->saveOfficeFollowupState($conversation_id, $decision['state_payload']);
+      $this->saveOfficeFollowupState($conversation_id, $decision['state_payload'], $session_fingerprint);
     }
   }
 

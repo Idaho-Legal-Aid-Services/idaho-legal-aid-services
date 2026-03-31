@@ -828,6 +828,12 @@ class IntentRouter {
     if ($this->navigationIntent) {
       $nav_result = $this->navigationIntent->detect($message);
       if ($nav_result && !empty($nav_result['top_match']) && $nav_result['confidence'] >= 0.65) {
+        if ($this->shouldDeferNavigationForTopicQualifiedResourceQuery($message, $nav_result, $has_resource_type_word)) {
+          $nav_result = NULL;
+        }
+      }
+
+      if ($nav_result && !empty($nav_result['top_match']) && $nav_result['confidence'] >= 0.65) {
         $top = $nav_result['top_match'];
         return [
           'type' => 'navigation',
@@ -1872,6 +1878,21 @@ class IntentRouter {
     }
 
     return FALSE;
+  }
+
+  /**
+   * Returns TRUE when topic-qualified resource requests should bypass nav.
+   */
+  protected function shouldDeferNavigationForTopicQualifiedResourceQuery(string $message, array $nav_result, bool $has_resource_type_word): bool {
+    if (!$has_resource_type_word) {
+      return FALSE;
+    }
+
+    if (!empty($nav_result['has_nav_phrasing'])) {
+      return FALSE;
+    }
+
+    return (bool) preg_match('/\b(custody|child\s+custody|divorce|separation|child\s+support|visitation|adoption|paternity|eviction|foreclosure|landlord|tenant|debt|collection|bankruptcy|guardianship|medicaid|medicare|benefits|protection(?:\s+order)?|safety|custodia|divorcio|desalojo)\b/iu', $message);
   }
 
   /**

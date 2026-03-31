@@ -183,6 +183,11 @@ function ilas_site_assistant_cron() {
       \Drupal::service('ilas_site_assistant.conversation_logger')->cleanup();
     }
 
+    // Clean up expired durable conversation-state rows.
+    if (\Drupal::hasService('ilas_site_assistant.conversation_state_store')) {
+      \Drupal::service('ilas_site_assistant.conversation_state_store')->cleanupExpired();
+    }
+
     // Prune stale violation timestamps (older than 24 hours).
     if (\Drupal::hasService('ilas_site_assistant.safety_violation_tracker')) {
       \Drupal::service('ilas_site_assistant.safety_violation_tracker')->prune(time() - 86400);

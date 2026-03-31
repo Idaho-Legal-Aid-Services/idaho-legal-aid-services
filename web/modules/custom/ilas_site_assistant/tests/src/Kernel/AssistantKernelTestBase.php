@@ -37,7 +37,7 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
   /**
    * Creates the ilas_site_assistant module tables.
    *
-   * Mirrors hook_schema() + update_10002/10007 so tests
+   * Mirrors hook_schema() + relevant update hooks so tests
    * exercise the exact same schema as production.
    */
   protected function createModuleTables(): void {
@@ -205,6 +205,63 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
         'created' => ['created'],
         'intent_created' => ['intent', 'created'],
         'request_id' => ['request_id'],
+      ],
+    ]);
+
+    // Durable assistant conversation state table.
+    $schema->createTable('ilas_site_assistant_conversation_state', [
+      'fields' => [
+        'conversation_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => TRUE,
+        ],
+        'session_fingerprint' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => TRUE,
+          'default' => '',
+        ],
+        'pending_flow_type' => [
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+          'default' => '',
+        ],
+        'pending_flow_origin_intent' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => TRUE,
+          'default' => '',
+        ],
+        'pending_flow_remaining_turns' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'pending_flow_created' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'updated' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'expires' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+      ],
+      'primary key' => ['conversation_id'],
+      'indexes' => [
+        'expires' => ['expires'],
       ],
     ]);
   }

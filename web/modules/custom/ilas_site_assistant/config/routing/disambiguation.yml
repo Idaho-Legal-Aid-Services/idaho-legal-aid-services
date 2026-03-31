@@ -425,25 +425,25 @@ topic_lexicon:
     - '/^(?:quiero\s+ayuda\s+(?:con|sobre|para)\s+)/u'
     - '/^(?:ayuda\s+(?:con|sobre|para)\s+)/u'
   topics:
-    divorce: { area: family, label: divorce }
-    custody: { area: family, label: custody }
-    'child support': { area: family, label: 'child support' }
+    divorce: { area: family, label: divorce, topic_intent: topic_family_divorce }
+    custody: { area: family, label: custody, topic_intent: topic_family_custody }
+    'child support': { area: family, label: 'child support', topic_intent: topic_family_child_support }
     visitation: { area: family, label: visitation }
     adoption: { area: family, label: adoption }
     paternity: { area: family, label: paternity }
-    divorcio: { area: family, label: divorcio }
-    custodia: { area: family, label: custodia }
-    eviction: { area: housing, label: eviction }
+    divorcio: { area: family, label: divorcio, topic_intent: topic_family_divorce }
+    custodia: { area: family, label: custodia, topic_intent: topic_family_custody }
+    eviction: { area: housing, label: eviction, topic_intent: topic_housing_eviction }
     landlord: { area: housing, label: 'landlord issues' }
     tenant: { area: housing, label: 'tenant rights' }
     rent: { area: housing, label: 'rent issues' }
-    foreclosure: { area: housing, label: foreclosure }
-    desalojo: { area: housing, label: desalojo }
-    debt: { area: consumer, label: debt }
-    bankruptcy: { area: consumer, label: bankruptcy }
+    foreclosure: { area: housing, label: foreclosure, topic_intent: topic_housing_foreclosure }
+    desalojo: { area: housing, label: desalojo, topic_intent: topic_housing_eviction }
+    debt: { area: consumer, label: debt, topic_intent: topic_consumer_debt_collection }
+    bankruptcy: { area: consumer, label: bankruptcy, topic_intent: topic_consumer_bankruptcy }
     scam: { area: consumer, label: scam }
     fraud: { area: consumer, label: fraud }
-    collection: { area: consumer, label: 'debt collection' }
+    collection: { area: consumer, label: 'debt collection', topic_intent: topic_consumer_debt_collection }
     medicaid: { area: benefits, label: Medicaid }
     medicare: { area: benefits, label: Medicare }
     'food stamps': { area: benefits, label: 'food stamps' }

@@ -505,7 +505,9 @@ class IntegrationFailureContractTest extends TestCase {
         return $context['conversation_id'] === $conversationId
           && $context['user_message'] === 'boise'
           && $context['is_location_like'] === TRUE
-          && $context['is_explicit_office_followup'] === FALSE;
+          && $context['is_explicit_office_followup'] === FALSE
+          && array_key_exists('session_fingerprint', $context)
+          && $context['session_fingerprint'] === '';
       }))
       ->willReturn([
         'status' => 'handled',
@@ -555,7 +557,7 @@ class IntegrationFailureContractTest extends TestCase {
     $assistantFlowRunner = $this->createMock(AssistantFlowRunner::class);
     $assistantFlowRunner->expects($this->once())
       ->method('evaluatePending')
-      ->with($this->callback(static fn (array $context): bool => $context['conversation_id'] === $conversationId))
+      ->with($this->callback(static fn (array $context): bool => $context['conversation_id'] === $conversationId && array_key_exists('session_fingerprint', $context) && $context['session_fingerprint'] === ''))
       ->willReturn([
         'status' => 'continue',
         'flow_id' => 'office_followup',
@@ -589,7 +591,7 @@ class IntegrationFailureContractTest extends TestCase {
         'origin_intent' => 'apply',
         'remaining_turns' => 2,
         'created_at' => 1700000000,
-      ]);
+      ], '');
 
     $controller = $this->buildController(
       intentRouter: $intentRouter,

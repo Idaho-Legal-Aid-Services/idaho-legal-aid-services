@@ -61,6 +61,20 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
   ];
 
   /**
+   * Approved columns for the durable conversation-state table.
+   */
+  private const CONVERSATION_STATE_ALLOWLIST = [
+    'conversation_id',
+    'session_fingerprint',
+    'pending_flow_type',
+    'pending_flow_origin_intent',
+    'pending_flow_remaining_turns',
+    'pending_flow_created',
+    'updated',
+    'expires',
+  ];
+
+  /**
    * Tests conversations table columns match the approved allowlist.
    */
   public function testConversationsTableColumnsMatchAllowlist(): void {
@@ -106,6 +120,21 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
   }
 
   /**
+   * Tests conversation-state table columns match the approved allowlist.
+   */
+  public function testConversationStateTableColumnsMatchAllowlist(): void {
+    $schema = $this->database->schema();
+    $table = 'ilas_site_assistant_conversation_state';
+
+    foreach (self::CONVERSATION_STATE_ALLOWLIST as $column) {
+      $this->assertTrue(
+        $schema->fieldExists($table, $column),
+        "Approved column '{$column}' must exist in {$table}.",
+      );
+    }
+  }
+
+  /**
    * Tests conversations table has no text storage columns (RAUD-11 guard).
    */
   public function testConversationsTableHasNoTextColumns(): void {
@@ -133,6 +162,32 @@ class PrivacySchemaContractKernelTest extends AssistantKernelTestBase {
       $this->assertFalse(
         $schema->fieldExists($table, $column),
         "Forbidden text column '{$column}' must NOT exist in {$table}.",
+      );
+    }
+  }
+
+  /**
+   * Tests durable conversation-state table has no raw transcript text columns.
+   */
+  public function testConversationStateTableHasNoTranscriptTextColumns(): void {
+    $schema = $this->database->schema();
+    $table = 'ilas_site_assistant_conversation_state';
+    $forbidden = [
+      'history_json',
+      'messages_json',
+      'message',
+      'user_message',
+      'assistant_message',
+      'raw_message',
+      'raw_user_message',
+      'assistant_text',
+      'transcript',
+    ];
+
+    foreach ($forbidden as $column) {
+      $this->assertFalse(
+        $schema->fieldExists($table, $column),
+        "Forbidden transcript text column '{$column}' must NOT exist in {$table}.",
       );
     }
   }

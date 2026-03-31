@@ -229,6 +229,29 @@ class IntentRouterServiceTest extends UnitTestCase {
   }
 
   /**
+   * Topic-qualified resource queries should bypass page navigation routing.
+   */
+  #[DataProvider('topicQualifiedResourceProvider')]
+  public function testTopicQualifiedResourceQueriesBypassNavigation(string $message, string $expectedType): void {
+    $router = $this->buildProductionRouter();
+    $result = $router->route($message);
+
+    $this->assertSame($expectedType, $result['type'] ?? NULL, "Failed for: $message");
+    $this->assertNotSame('navigation', $result['type'] ?? NULL, "Topic-qualified resource query should not navigate for: $message");
+  }
+
+  /**
+   * Data provider for topic-qualified resource routing.
+   */
+  public static function topicQualifiedResourceProvider(): array {
+    return [
+      'custody forms' => ['custody forms', 'forms_finder'],
+      'child custody guide' => ['child custody guide', 'guides_finder'],
+      'divorce guides' => ['divorce guides', 'guides_finder'],
+    ];
+  }
+
+  /**
    * Tests guides intent detection.
    */
   #[DataProvider('guidesFinderProvider')]

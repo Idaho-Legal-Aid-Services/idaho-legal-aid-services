@@ -301,6 +301,8 @@ class Disambiguator {
     $topic = $this->topicOnlyTriggers[$key];
     $areaLabel = ucfirst((string) ($topic['label'] ?? $key));
     $area = (string) ($topic['area'] ?? '');
+    $forms_intent = $this->resolveTopicOnlyResourceIntent('forms', $topic);
+    $guides_intent = $this->resolveTopicOnlyResourceIntent('guides', $topic);
 
     return [
       'type' => 'disambiguation',
@@ -310,12 +312,32 @@ class Disambiguator {
       'confidence' => 0.4,
       'question' => "I can help with {$areaLabel}. What would you like to do?",
       'options' => $this->canonicalizeOptions([
-        ['label' => "Find {$areaLabel} forms", 'intent' => 'forms_finder', 'topic' => $area],
-        ['label' => "Read {$areaLabel} guide", 'intent' => 'guides_finder', 'topic' => $area],
-        ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
-        ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
+        ['label' => "Find {$areaLabel} forms", 'intent' => $forms_intent, 'topic' => $area],
+        ['label' => "Read {$areaLabel} guide", 'intent' => $guides_intent, 'topic' => $area],
       ]),
     ];
+  }
+
+  /**
+   * Resolves the most specific structured action for a topic-only option.
+   */
+  protected function resolveTopicOnlyResourceIntent(string $resourceKind, array $topic): string {
+    $configured_intent = trim((string) ($topic[$resourceKind . '_intent'] ?? ''));
+    if ($configured_intent !== '') {
+      return $configured_intent;
+    }
+
+    $topic_intent = trim((string) ($topic['topic_intent'] ?? ''));
+    if ($topic_intent !== '') {
+      return $resourceKind . '_' . $topic_intent;
+    }
+
+    $area = trim((string) ($topic['area'] ?? ''));
+    if ($area !== '') {
+      return $resourceKind . '_' . $area;
+    }
+
+    return $resourceKind === 'guides' ? 'guides_finder' : 'forms_finder';
   }
 
   /**

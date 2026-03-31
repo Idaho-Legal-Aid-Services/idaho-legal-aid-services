@@ -2,7 +2,6 @@
 
 namespace Drupal\ilas_site_assistant\Service;
 
-use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 
 /**
@@ -31,7 +30,7 @@ class AssistantFlowRunner {
   public function __construct(
     private readonly ConfigFactoryInterface $configFactory,
     private readonly OfficeLocationResolver $officeLocationResolver,
-    private readonly CacheBackendInterface $conversationCache,
+    private readonly ConversationStateStore $conversationStateStore,
   ) {}
 
   /**
@@ -43,7 +42,8 @@ class AssistantFlowRunner {
       return $this->buildContinueDecision();
     }
 
-    $followup_state = $this->loadOfficeFollowupState($conversation_id);
+    $session_fingerprint = (string) ($context['session_fingerprint'] ?? '');
+    $followup_state = $this->loadOfficeFollowupState($conversation_id, $session_fingerprint);
     if ($followup_state === NULL) {
       return $this->buildContinueDecision();
     }
@@ -122,41 +122,14 @@ class AssistantFlowRunner {
   /**
    * Loads pending office follow-up state for a conversation.
    */
-  public function loadOfficeFollowupState(string $conversation_id): ?array {
-    $cached = $this->conversationCache->get('ilas_conv_followup:' . $conversation_id);
-    if (!$cached || !is_array($cached->data)) {
-      return NULL;
-    }
-
-    $data = $cached->data;
-    if (($data['type'] ?? '') !== 'office_location') {
-      return NULL;
-    }
-
-    $created_at = (int) ($data['created_at'] ?? $data['timestamp'] ?? 0);
-    $remaining_turns = (int) ($data['remaining_turns'] ?? 1);
-    if ($created_at <= 0) {
-      $this->clearOfficeFollowupState($conversation_id);
-      return NULL;
-    }
-
-    if ((time() - $created_at) > $this->getOfficeFollowupConfig()['ttl_seconds'] || $remaining_turns <= 0) {
-      $this->clearOfficeFollowupState($conversation_id);
-      return NULL;
-    }
-
-    return [
-      'type' => 'office_location',
-      'origin_intent' => $data['origin_intent'] ?? 'apply',
-      'remaining_turns' => $remaining_turns,
-      'created_at' => $created_at,
-    ];
+  public function loadOfficeFollowupState(string $conversation_id, string $session_fingerprint = ''): ?array {
+    return $this->conversationStateStore->loadOfficeFollowupState($conversation_id, $session_fingerprint);
   }
 
   /**
    * Persists office follow-up state with config-backed lifecycle metadata.
    */
-  public function saveOfficeFollowupState(string $conversation_id, array $state): void {
+  public function saveOfficeFollowupState(string $conversation_id, array $state, string $session_fingerprint = ''): void {
     $flow_config = $this->getOfficeFollowupConfig();
     $created_at = (int) ($state['created_at'] ?? time());
     if ($created_at <= 0) {
@@ -170,10 +143,11 @@ class AssistantFlowRunner {
       'created_at' => $created_at,
     ];
 
-    $this->conversationCache->set(
-      'ilas_conv_followup:' . $conversation_id,
+    $this->conversationStateStore->saveOfficeFollowupState(
+      $conversation_id,
       $payload,
-      $created_at + $flow_config['ttl_seconds'],
+      $session_fingerprint,
+      $flow_config['ttl_seconds'],
     );
   }
 
@@ -181,7 +155,7 @@ class AssistantFlowRunner {
    * Clears pending office follow-up state for a conversation.
    */
   public function clearOfficeFollowupState(string $conversation_id): void {
-    $this->conversationCache->delete('ilas_conv_followup:' . $conversation_id);
+    $this->conversationStateStore->clear($conversation_id);
   }
 
   /**

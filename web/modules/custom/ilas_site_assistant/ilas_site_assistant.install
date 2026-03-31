@@ -198,7 +198,79 @@ function ilas_site_assistant_schema() {
     ],
   ];
 
+  $schema['ilas_site_assistant_conversation_state'] = ilas_site_assistant_conversation_state_schema_definition();
+
   return $schema;
+}
+
+/**
+ * Returns the durable assistant conversation-state schema definition.
+ */
+function ilas_site_assistant_conversation_state_schema_definition(): array {
+  return [
+    'description' => 'Stores short-lived durable assistant flow state keyed by conversation UUID.',
+    'fields' => [
+      'conversation_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => TRUE,
+        'description' => 'UUID grouping assistant state for one conversation.',
+      ],
+      'session_fingerprint' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Hashed session binding used to invalidate stale cross-session state.',
+      ],
+      'pending_flow_type' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Currently active durable flow identifier, if any.',
+      ],
+      'pending_flow_origin_intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Intent that armed the pending flow state.',
+      ],
+      'pending_flow_remaining_turns' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Remaining turn budget for the pending flow.',
+      ],
+      'pending_flow_created' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Unix timestamp when the pending flow state was created.',
+      ],
+      'updated' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Unix timestamp when the durable state row was last updated.',
+      ],
+      'expires' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Unix timestamp when the durable state row must expire.',
+      ],
+    ],
+    'primary key' => ['conversation_id'],
+    'indexes' => [
+      'expires' => ['expires'],
+    ],
+  ];
 }
 
 /**
@@ -826,6 +898,21 @@ function ilas_site_assistant_update_10010() {
   }
 
   return implode(' ', $messages);
+}
+
+/**
+ * Adds the durable assistant conversation-state table.
+ */
+function ilas_site_assistant_update_10011() {
+  $schema = \Drupal::database()->schema();
+  $table = 'ilas_site_assistant_conversation_state';
+
+  if ($schema->tableExists($table)) {
+    return t('Durable assistant conversation-state table already exists.');
+  }
+
+  $schema->createTable($table, ilas_site_assistant_conversation_state_schema_definition());
+  return t('Created durable assistant conversation-state table.');
 }
 
 /**

@@ -13,6 +13,7 @@ use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\ilas_site_assistant\Controller\AssistantApiController;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
+use Drupal\ilas_site_assistant\Service\ConversationStateStore;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
@@ -74,7 +75,7 @@ final class OfficeFollowupGuardContractTest extends TestCase {
   /**
    * Builds a controller exposing office follow-up helper methods.
    */
-  private function buildController(?CacheBackendInterface $cache = NULL, array $flowConfig = []): OfficeFollowupTestableController {
+  private function buildController(?CacheBackendInterface $cache = NULL, array $flowConfig = [], ?ConversationStateStore $conversationStateStore = NULL): OfficeFollowupTestableController {
     require_once __DIR__ . '/controller_test_bootstrap.php';
 
     $intentRouter = $this->createStub(IntentRouter::class);
@@ -91,9 +92,12 @@ final class OfficeFollowupGuardContractTest extends TestCase {
     if ($cache === NULL) {
       $cache = new InMemoryCacheBackend();
     }
+    if ($conversationStateStore === NULL) {
+      $conversationStateStore = new RecordingConversationStateStore();
+    }
 
     $configFactory = $this->buildFlowConfigFactory($flowConfig);
-    $assistantFlowRunner = new AssistantFlowRunner($configFactory, new OfficeLocationResolver(), $cache);
+    $assistantFlowRunner = new AssistantFlowRunner($configFactory, new OfficeLocationResolver(), $conversationStateStore);
 
     return new OfficeFollowupTestableController(
       $configFactory,
@@ -182,36 +186,41 @@ final class OfficeFollowupGuardContractTest extends TestCase {
   }
 
   /**
-   * Follow-up state uses config-backed turn metadata and expires safely.
+   * Follow-up state uses durable storage with config-backed metadata.
    */
-  public function testFollowupStateUsesConfiguredTurnBudgetAndTtl(): void {
+  public function testFollowupStateUsesConfiguredTurnBudgetTtlAndSessionFingerprint(): void {
     $cache = new InMemoryCacheBackend();
+    $conversationStateStore = new RecordingConversationStateStore(1700000000);
     $controller = $this->buildController($cache, [
       'flows.office_followup.max_turns' => 4,
       'flows.office_followup.ttl_seconds' => 15,
-    ]);
+    ], $conversationStateStore);
     $conversationId = '11111111-1111-4111-8111-111111111111';
 
     $controller->exposedSaveOfficeFollowupState($conversationId, [
       'type' => 'office_location',
       'origin_intent' => 'apply',
-      'created_at' => time(),
-    ]);
-    $loaded = $controller->exposedLoadOfficeFollowupState($conversationId);
+      'created_at' => 1700000000,
+    ], 'session-a');
+    $loaded = $controller->exposedLoadOfficeFollowupState($conversationId, 'session-a');
     $this->assertNotNull($loaded);
     $this->assertSame(4, $loaded['remaining_turns']);
     $this->assertSame('apply', $loaded['origin_intent']);
-    $cached = $cache->get('ilas_conv_followup:' . $conversationId);
-    $this->assertNotFalse($cached);
-    $this->assertSame($loaded['created_at'] + 15, $cached->expire);
+    $this->assertSame('session-a', $conversationStateStore->rows[$conversationId]['session_fingerprint'] ?? NULL);
+    $this->assertSame(1700000015, $conversationStateStore->rows[$conversationId]['expires'] ?? NULL);
+    $this->assertSame(15, $conversationStateStore->saveCalls[0]['ttl_seconds'] ?? NULL);
+    $this->assertNull($controller->exposedLoadOfficeFollowupState($conversationId, 'session-b'));
+    $this->assertArrayNotHasKey($conversationId, $conversationStateStore->rows);
 
     $controller->exposedSaveOfficeFollowupState($conversationId, [
       'type' => 'office_location',
       'origin_intent' => 'apply',
       'remaining_turns' => 1,
-      'created_at' => time() - 20,
-    ]);
-    $this->assertNull($controller->exposedLoadOfficeFollowupState($conversationId));
+      'created_at' => 1700000000,
+    ], 'session-a');
+    $conversationStateStore->setCurrentTime(1700000020);
+    $this->assertNull($controller->exposedLoadOfficeFollowupState($conversationId, 'session-a'));
+    $this->assertArrayNotHasKey($conversationId, $conversationStateStore->rows);
   }
 
   /**
@@ -301,12 +310,12 @@ final class OfficeFollowupTestableController extends AssistantApiController {
     return [];
   }
 
-  public function exposedLoadOfficeFollowupState(string $conversation_id): ?array {
-    return $this->loadOfficeFollowupState($conversation_id);
+  public function exposedLoadOfficeFollowupState(string $conversation_id, string $session_fingerprint = ''): ?array {
+    return $this->loadOfficeFollowupState($conversation_id, $session_fingerprint);
   }
 
-  public function exposedSaveOfficeFollowupState(string $conversation_id, array $state): void {
-    $this->saveOfficeFollowupState($conversation_id, $state);
+  public function exposedSaveOfficeFollowupState(string $conversation_id, array $state, string $session_fingerprint = ''): void {
+    $this->saveOfficeFollowupState($conversation_id, $state, $session_fingerprint);
   }
 
   public function exposedIsLocationLikeOfficeReply(string $message): bool {
@@ -332,6 +341,98 @@ final class OfficeFollowupTestableController extends AssistantApiController {
   public function exposedIsExplicitServiceAreaShift(string $message, string $historyArea): bool {
     return $this->isExplicitServiceAreaShift($message, $historyArea);
   }
+}
+
+/**
+ * Durable conversation-state test double for office follow-up unit coverage.
+ */
+final class RecordingConversationStateStore extends ConversationStateStore {
+
+  /**
+   * Stored rows keyed by conversation UUID.
+   *
+   * @var array<string, array<string, int|string>>
+   */
+  public array $rows = [];
+
+  /**
+   * Recorded save calls.
+   *
+   * @var array<int, array<string, int|string>>
+   */
+  public array $saveCalls = [];
+
+  /**
+   * Current fake time.
+   */
+  private int $currentTime;
+
+  public function __construct(?int $currentTime = NULL) {
+    $this->currentTime = $currentTime ?? time();
+  }
+
+  public function setCurrentTime(int $currentTime): void {
+    $this->currentTime = $currentTime;
+  }
+
+  public function loadOfficeFollowupState(string $conversation_id, string $session_fingerprint = ''): ?array {
+    $row = $this->rows[$conversation_id] ?? NULL;
+    if (!is_array($row)) {
+      return NULL;
+    }
+
+    $stored_fingerprint = (string) ($row['session_fingerprint'] ?? '');
+    if ($stored_fingerprint !== '' && $session_fingerprint !== '' && !hash_equals($stored_fingerprint, $session_fingerprint)) {
+      $this->clear($conversation_id);
+      return NULL;
+    }
+
+    if (($row['pending_flow_type'] ?? '') !== self::FLOW_TYPE_OFFICE_LOCATION) {
+      return NULL;
+    }
+
+    $created_at = (int) ($row['pending_flow_created'] ?? 0);
+    $remaining_turns = (int) ($row['pending_flow_remaining_turns'] ?? 0);
+    $expires = (int) ($row['expires'] ?? 0);
+    if ($created_at <= 0 || $remaining_turns <= 0 || $expires <= $this->currentTime) {
+      $this->clear($conversation_id);
+      return NULL;
+    }
+
+    return [
+      'type' => self::FLOW_TYPE_OFFICE_LOCATION,
+      'origin_intent' => (string) ($row['pending_flow_origin_intent'] ?? 'apply'),
+      'remaining_turns' => $remaining_turns,
+      'created_at' => $created_at,
+    ];
+  }
+
+  public function saveOfficeFollowupState(string $conversation_id, array $state, string $session_fingerprint, int $ttl_seconds): void {
+    if ($conversation_id === '') {
+      return;
+    }
+
+    $created_at = max(1, (int) ($state['created_at'] ?? $this->currentTime));
+    $remaining_turns = max(0, (int) ($state['remaining_turns'] ?? 0));
+    $ttl_seconds = max(1, $ttl_seconds);
+    $row = [
+      'session_fingerprint' => mb_substr($session_fingerprint, 0, 64),
+      'pending_flow_type' => self::FLOW_TYPE_OFFICE_LOCATION,
+      'pending_flow_origin_intent' => mb_substr((string) ($state['origin_intent'] ?? 'apply'), 0, 64),
+      'pending_flow_remaining_turns' => $remaining_turns,
+      'pending_flow_created' => $created_at,
+      'updated' => $this->currentTime,
+      'expires' => $created_at + $ttl_seconds,
+    ];
+
+    $this->rows[$conversation_id] = $row;
+    $this->saveCalls[] = ['conversation_id' => $conversation_id, 'ttl_seconds' => $ttl_seconds] + $row;
+  }
+
+  public function clear(string $conversation_id): void {
+    unset($this->rows[$conversation_id]);
+  }
+
 }
 
 /**

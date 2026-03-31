@@ -7,6 +7,12 @@
     "git:finish": "bash scripts/git/finish.sh",
     "git:sync-master": "bash scripts/git/sync-master.sh",
     "git:sync-check": "bash scripts/git/sync-check.sh",
+    "test:assistant:playwright": "playwright test --config=playwright.config.js",
+    "test:assistant:playwright:headed": "playwright test --config=playwright.config.js --headed",
+    "test:assistant:playwright:debug": "playwright test --config=playwright.config.js --debug",
+    "test:assistant:playwright:report": "playwright show-report output/playwright/report",
+    "test:assistant:playwright:journeys": "playwright test --config=playwright.config.js journeys/",
+    "test:assistant:playwright:install": "playwright install chromium",
     "test:phpunit:host": "bash scripts/ci/run-host-phpunit.sh",
     "eval:promptfoo": "bash promptfoo-evals/scripts/run-promptfoo.sh eval",
     "eval:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action eval",
@@ -16,6 +22,7 @@
     "view:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action view"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "jest-environment-jsdom": "^30.3.0",
     "promptfoo": "^0.121.3"
   }

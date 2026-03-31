@@ -79,7 +79,7 @@ services:
 
   ilas_site_assistant.resource_finder:
     class: Drupal\ilas_site_assistant\Service\ResourceFinder
-    arguments: ['@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory', '@ilas_site_assistant.retrieval_configuration', '@ilas_site_assistant.source_governance']
+    arguments: ['@entity_type.manager', '@ilas_site_assistant.topic_resolver', '@cache.default', '@language_manager', '@ilas_site_assistant.ranking_enhancer', '@config.factory', '@ilas_site_assistant.retrieval_configuration', '@ilas_site_assistant.source_governance', '@ilas_site_assistant.top_intents_pack', '@file_url_generator']
 
   ilas_site_assistant.analytics_logger:
     class: Drupal\ilas_site_assistant\Service\AnalyticsLogger
@@ -156,6 +156,10 @@ services:
     class: Drupal\ilas_site_assistant\Service\SelectionStateStore
     arguments: ['@cache.ilas_site_assistant']
 
+  ilas_site_assistant.conversation_state_store:
+    class: Drupal\ilas_site_assistant\Service\ConversationStateStore
+    arguments: ['@database', '@datetime.time']
+
   ilas_site_assistant.disambiguation_pack:
     class: Drupal\ilas_site_assistant\Service\DisambiguationPack
     arguments: ['@cache.default']
@@ -165,7 +169,7 @@ services:
 
   ilas_site_assistant.assistant_flow_runner:
     class: Drupal\ilas_site_assistant\Service\AssistantFlowRunner
-    arguments: ['@config.factory', '@ilas_site_assistant.office_location_resolver', '@cache.ilas_site_assistant']
+    arguments: ['@config.factory', '@ilas_site_assistant.office_location_resolver', '@ilas_site_assistant.conversation_state_store']
 
   ilas_site_assistant.turn_classifier:
     class: Drupal\ilas_site_assistant\Service\TurnClassifier
