@@ -314,6 +314,8 @@ class Disambiguator {
       'options' => $this->canonicalizeOptions([
         ['label' => "Find {$areaLabel} forms", 'intent' => $forms_intent, 'topic' => $area],
         ['label' => "Read {$areaLabel} guide", 'intent' => $guides_intent, 'topic' => $area],
+        ['label' => 'Apply for legal help', 'intent' => 'apply_for_help'],
+        ['label' => 'Call Legal Advice Line', 'intent' => 'legal_advice_line'],
       ]),
     ];
   }

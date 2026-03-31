@@ -64,8 +64,8 @@
       "intent_type": "disambiguation",
       "response_mode": "clarify",
       "option_intents": [
-        "forms_finder",
-        "guides_finder",
+        "forms_topic_family_custody",
+        "guides_topic_family_custody",
         "apply_for_help",
         "legal_advice_line"
       ],
@@ -81,8 +81,8 @@
       "intent_type": "disambiguation",
       "response_mode": "clarify",
       "option_intents": [
-        "forms_finder",
-        "guides_finder",
+        "forms_topic_housing_eviction",
+        "guides_topic_housing_eviction",
         "apply_for_help",
         "legal_advice_line"
       ],

@@ -45,11 +45,13 @@ class DisambiguatorTest extends TestCase {
       static fn(array $option): string => (string) ($option['intent'] ?? ''),
       $result['options']
     )));
-    $this->assertCount(2, $option_intents);
+    $this->assertCount(4, $option_intents);
+    $this->assertStringStartsWith('forms_', $option_intents[0]);
+    $this->assertStringStartsWith('guides_', $option_intents[1]);
     $this->assertNotContains('forms_finder', $option_intents);
     $this->assertNotContains('guides_finder', $option_intents);
-    $this->assertNotContains('apply_for_help', $option_intents);
-    $this->assertNotContains('legal_advice_line', $option_intents);
+    $this->assertContains('apply_for_help', $option_intents);
+    $this->assertContains('legal_advice_line', $option_intents);
   }
 
   public static function exactTopicProvider(): array {
@@ -108,13 +110,13 @@ class DisambiguatorTest extends TestCase {
       static fn(array $option): string => (string) ($option['intent'] ?? ''),
       $result['options']
     )));
-    $this->assertCount(2, $option_intents);
+    $this->assertCount(4, $option_intents);
     $this->assertStringStartsWith('forms_', $option_intents[0]);
     $this->assertStringStartsWith('guides_', $option_intents[1]);
     $this->assertNotContains('forms_finder', $option_intents);
     $this->assertNotContains('guides_finder', $option_intents);
-    $this->assertNotContains('apply_for_help', $option_intents);
-    $this->assertNotContains('legal_advice_line', $option_intents);
+    $this->assertContains('apply_for_help', $option_intents);
+    $this->assertContains('legal_advice_line', $option_intents);
   }
 
   public static function genericHelpTopicProvider(): array {

@@ -112,7 +112,7 @@ class CostControlPolicyTest extends TestCase {
     // Backdate to previous month.
     $this->storedState[CostControlPolicy::STATE_KEY_MONTHLY] = [
       'count' => 2,
-      'month' => date('Y-m', strtotime('-1 month')),
+      'month' => date('Y-m', strtotime('first day of last month')),
     ];
 
     $this->assertFalse($policy->isMonthlyBudgetExhausted());
