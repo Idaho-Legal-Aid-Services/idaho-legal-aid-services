@@ -611,7 +611,7 @@ class ResourceFinder {
 
       $candidate['score'] = $score;
       $candidate['source'] = 'document_media';
-      $candidate['source_class'] = 'document_media';
+      $candidate['source_class'] = 'resource_lexical';
       $scored[] = $candidate;
     }
 
@@ -630,7 +630,7 @@ class ResourceFinder {
 
     $results = array_slice($scored, 0, $limit);
     if ($this->sourceGovernance) {
-      $results = $this->sourceGovernance->annotateBatch($results, 'document_media', 'entity_query');
+      $results = $this->sourceGovernance->annotateBatch($results, 'resource_lexical', 'entity_query');
     }
 
     return $results;

@@ -4,16 +4,88 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 /**
  * Covers document-backed forms and guides retrieval.
  */
 #[Group('ilas_site_assistant')]
 final class ResourceFinderDocumentRetrievalTest extends TestCase {
+
+  /**
+   * In-memory state store for governance stubs.
+   *
+   * @var array<string, mixed>
+   */
+  private array $stateStore = [];
+
+  /**
+   * Builds a mock state service backed by in-memory storage.
+   */
+  private function buildState(): StateInterface {
+    $state = $this->createMock(StateInterface::class);
+
+    $state->method('get')
+      ->willReturnCallback(function (string $key, $default = NULL) {
+        return $this->stateStore[$key] ?? $default;
+      });
+
+    $state->method('set')
+      ->willReturnCallback(function (string $key, $value): void {
+        $this->stateStore[$key] = $value;
+      });
+
+    $state->method('delete')
+      ->willReturnCallback(function (string $key): void {
+        unset($this->stateStore[$key]);
+      });
+
+    return $state;
+  }
+
+  /**
+   * Builds a minimal source-governance service for document retrieval tests.
+   */
+  private function buildSourceGovernanceService(): SourceGovernanceService {
+    $this->stateStore = [];
+    $policy = [
+      'enabled' => TRUE,
+      'policy_version' => 'p2_obj_03_v1',
+      'source_classes' => [
+        'resource_lexical' => [
+          'provenance_label' => 'search_api.index.assistant_resources',
+          'owner_role' => 'Content Operations Lead',
+          'max_age_days' => 180,
+          'require_source_url' => TRUE,
+        ],
+      ],
+    ];
+
+    $config = $this->createStub(ImmutableConfig::class);
+    $config->method('get')
+      ->willReturnCallback(static function (string $key) use ($policy) {
+        return $key === 'source_governance' ? $policy : NULL;
+      });
+
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')
+      ->with('ilas_site_assistant.settings')
+      ->willReturn($config);
+
+    return new SourceGovernanceService(
+      $configFactory,
+      $this->buildState(),
+      $this->createStub(LoggerInterface::class),
+    );
+  }
 
   /**
    * Forms retrieval prefers direct document media over resource-node fallback.
@@ -56,6 +128,7 @@ final class ResourceFinderDocumentRetrievalTest extends TestCase {
           ],
         ],
       ],
+      source_governance: $this->buildSourceGovernanceService(),
       fallback_results: [
         'form' => [
           [
@@ -73,9 +146,14 @@ final class ResourceFinderDocumentRetrievalTest extends TestCase {
     $results = $finder->findForms('custody', 6);
 
     $this->assertCount(2, $results);
-    $this->assertSame('document_media', $results[0]['source']);
-    $this->assertSame('form', $results[0]['type']);
-    $this->assertStringEndsWith('.pdf', $results[0]['url']);
+    foreach ($results as $result) {
+      $this->assertSame('document_media', $result['source']);
+      $this->assertSame('resource_lexical', $result['source_class']);
+      $this->assertSame('entity_query', $result['provenance']['retrieval_method']);
+      $this->assertSame('node.entity_query', $result['provenance']['provenance_label']);
+      $this->assertSame('form', $result['type']);
+      $this->assertStringEndsWith('.pdf', $result['url']);
+    }
     $this->assertSame(
       ['Ex Parte Emergency Temporary Order Packet', 'Temporary Orders Forms'],
       array_column($results, 'title'),
@@ -107,6 +185,7 @@ final class ResourceFinderDocumentRetrievalTest extends TestCase {
           ],
         ],
       ],
+      source_governance: $this->buildSourceGovernanceService(),
       fallback_results: ['guide' => []],
     );
 
@@ -114,6 +193,9 @@ final class ResourceFinderDocumentRetrievalTest extends TestCase {
 
     $this->assertCount(1, $results);
     $this->assertSame('document_media', $results[0]['source']);
+    $this->assertSame('resource_lexical', $results[0]['source_class']);
+    $this->assertSame('entity_query', $results[0]['provenance']['retrieval_method']);
+    $this->assertSame('node.entity_query', $results[0]['provenance']['provenance_label']);
     $this->assertSame('Custody Basics Guide', $results[0]['title']);
   }
 
@@ -160,6 +242,7 @@ final class DocumentRetrievalTestFinder extends ResourceFinder {
   public function __construct(
     private array $documents = [],
     private array $fallback_results = [],
+    ?SourceGovernanceService $source_governance = NULL,
   ) {
     $this->topIntentsPack = new TopIntentsPack();
     $this->topicResolver = new class {
@@ -197,7 +280,7 @@ final class DocumentRetrievalTestFinder extends ResourceFinder {
       }
     };
     $this->rankingEnhancer = NULL;
-    $this->sourceGovernance = NULL;
+    $this->sourceGovernance = $source_governance;
     $this->retrievalConfiguration = NULL;
   }
 
