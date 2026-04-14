@@ -40,6 +40,22 @@ final class ObservabilityPayloadMinimizer {
   }
 
   /**
+   * Builds a single-line redacted preview safe for Langfuse UI fields.
+   */
+  public static function buildLangfuseRedactedPreview(string $text, int $maxLength = 160): string {
+    if ($text === '') {
+      return '';
+    }
+
+    $preview = PiiRedactor::redactForStorage($text, max(1, $maxLength));
+    if ($preview === '') {
+      return '';
+    }
+
+    return str_replace('"', "'", trim($preview));
+  }
+
+  /**
    * Normalizes redacted text for stable hashing.
    */
   public static function normalizeRedactedText(string $text): string {

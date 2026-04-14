@@ -188,4 +188,23 @@ class VectorSearchConfigSchemaTest extends TestCase {
     }
   }
 
+  /**
+   * Tests that vector indexes never direct-index on editorial saves.
+   */
+  public function testVectorIndexesDisableDirectIndexingInActiveSync(): void {
+    $pairs = [
+      'faq_accordion_vector' => 'config/search_api.index.faq_accordion_vector.yml',
+      'assistant_resources_vector' => 'config/search_api.index.assistant_resources_vector.yml',
+    ];
+
+    foreach ($pairs as $index_id => $relative_path) {
+      $config = self::indexConfig($relative_path);
+      $this->assertSame($index_id, $config['id'] ?? NULL);
+      $this->assertFalse(
+        (bool) ($config['options']['index_directly'] ?? TRUE),
+        sprintf('Vector index "%s" must keep options.index_directly disabled.', $index_id),
+      );
+    }
+  }
+
 }

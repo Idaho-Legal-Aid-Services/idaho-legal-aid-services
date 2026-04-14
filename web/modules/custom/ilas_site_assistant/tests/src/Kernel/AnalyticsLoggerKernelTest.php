@@ -437,10 +437,10 @@ class AnalyticsLoggerKernelTest extends AssistantKernelTestBase {
    * Tests cleanup respects MAX_RETENTION_DAYS cap even with high config value.
    */
   public function testCleanupRespectsMaxRetentionDaysCap(): void {
-    // Set retention to 9999 days (far exceeds 365 cap).
-    // A row at 400 days old is within 9999 but beyond 365 cap.
-    $beyond_cap_date = date('Y-m-d', strtotime('-400 days'));
-    // A row at 100 days old is within both 9999 and 365.
+    // Set retention to 9999 days (far exceeds 730 cap).
+    // A row at 800 days old is within 9999 but beyond 730 cap.
+    $beyond_cap_date = date('Y-m-d', strtotime('-800 days'));
+    // A row at 100 days old is within both 9999 and 730.
     $within_cap_date = date('Y-m-d', strtotime('-100 days'));
 
     $this->insertStatsRow('test_event', 'old', 1, $beyond_cap_date);

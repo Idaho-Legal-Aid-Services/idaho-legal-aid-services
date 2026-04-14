@@ -146,9 +146,9 @@ class PrivacyPolicyContractTest extends TestCase {
    */
   public function testAnalyticsLoggerHasMaxRetentionCap(): void {
     $this->assertSame(
-      365,
+      730,
       AnalyticsLogger::MAX_RETENTION_DAYS,
-      'AnalyticsLogger::MAX_RETENTION_DAYS must be 365 (1 year).',
+      'AnalyticsLogger::MAX_RETENTION_DAYS must be 730 (2 years).',
     );
   }
 

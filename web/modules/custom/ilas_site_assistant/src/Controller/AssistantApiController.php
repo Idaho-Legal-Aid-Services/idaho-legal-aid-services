@@ -768,7 +768,7 @@ class AssistantApiController extends ControllerBase {
       ? $source_override
       : ($is_back ? 'selection_back' : ((string) ($selection['source'] ?? 'selection') ?: 'selection'));
 
-    if ($source === 'response') {
+    if ($source === 'response' || !in_array($source, ['selection', 'selection_back', 'selection_recovery', 'typed_child_selection'], TRUE)) {
       $source = 'selection';
     }
 
@@ -805,6 +805,14 @@ class AssistantApiController extends ControllerBase {
       case 'service_area':
       case 'topic_subtopic':
         $intent['type'] = (string) ($selection['target_intent'] ?? 'unknown');
+        $area = $this->resolveSelectionArea((string) ($selection['target_intent'] ?? ''));
+        if ($area !== '') {
+          $intent['area'] = $area;
+        }
+        $topic = trim((string) ($selection['query_label'] ?? $selection['label'] ?? ''));
+        if ($topic !== '') {
+          $intent['topic'] = $topic;
+        }
         return $intent;
     }
 
@@ -864,6 +872,19 @@ class AssistantApiController extends ControllerBase {
     }
 
     return '';
+  }
+
+  /**
+   * Returns TRUE when an intent source came from deterministic UI navigation.
+   */
+  private function isDeterministicIntentSource(string $source): bool {
+    return in_array($source, [
+      'quick_action',
+      'selection',
+      'selection_back',
+      'selection_recovery',
+      'typed_child_selection',
+    ], TRUE);
   }
 
   /**
@@ -2227,7 +2248,8 @@ class AssistantApiController extends ControllerBase {
         else {
           // Routing found a match, but enrich it with topic context from
           // history so downstream can use it (e.g., service_area follow-up).
-          if (empty($intent['area'])) {
+          $intent_source = (string) ($intent['source'] ?? '');
+          if (empty($intent['area']) && !$this->isDeterministicIntentSource($intent_source) && $direct_intent_type !== 'thanks') {
             $intent['area'] = $topic_ctx['area'];
             $intent['topic_id'] = $topic_ctx['topic_id'] ?? NULL;
             $intent['topic'] = $topic_ctx['topic'] ?? NULL;
@@ -2340,6 +2362,7 @@ class AssistantApiController extends ControllerBase {
         ) ||
         $service_area_drift
       ) &&
+      !$this->isDeterministicIntentSource((string) ($intent['source'] ?? '')) &&
       !HistoryIntentResolver::detectResetSignal($user_message) &&
       !$this->isExplicitServiceAreaShift($user_message, $history_area)
     ) {
@@ -2383,7 +2406,7 @@ class AssistantApiController extends ControllerBase {
     $this->langfuseTracer?->startSpan('retrieval.early');
     $early_retrieval = [];
     $config = $this->configFactory->get('ilas_site_assistant.settings');
-    $skip_retrieval_intents = ['greeting', 'apply_for_help', 'apply'];
+    $skip_retrieval_intents = ['greeting', 'thanks', 'apply_for_help', 'apply'];
     if ($config->get('enable_faq') && !in_array($intent['type'], $skip_retrieval_intents)) {
       $early_retrieval = $this->faqIndex->search($user_message, 3);
     }
@@ -2417,14 +2440,7 @@ class AssistantApiController extends ControllerBase {
 
     // Handle gate decision.
     // Never override deterministic structured-navigation intents.
-    $deterministic_sources = [
-      'quick_action',
-      'selection',
-      'selection_back',
-      'selection_recovery',
-      'typed_child_selection',
-    ];
-    $is_deterministic_selection = in_array((string) ($intent['source'] ?? ''), $deterministic_sources, TRUE);
+    $is_deterministic_selection = $this->isDeterministicIntentSource((string) ($intent['source'] ?? ''));
     $is_quick_action = ($intent['source'] ?? '') === 'quick_action';
     if (!$is_deterministic_selection && $gate_decision['decision'] === FallbackGate::DECISION_HARD_ROUTE) {
       // Enforce hard-route decisions so urgent/deadline signals cannot be
@@ -2596,9 +2612,12 @@ class AssistantApiController extends ControllerBase {
     $response = $this->decorateSelectionSuggestions($response);
     $response = $this->prefixSelectionAcknowledgement($response, $resolved_selection, $selection_back_navigation);
     $response = $this->sanitizeResponseCopy($response);
-    $response_selection_state = $resolved_selection
-      ?? $this->inferActiveSelectionFromResponse($response)
-      ?? $active_selection;
+    $normalized_intent = ResponseBuilder::normalizeIntentType($intent['type'] ?? 'unknown');
+    $response_selection_state = $normalized_intent === 'thanks'
+      ? NULL
+      : ($resolved_selection
+        ?? $this->inferActiveSelectionFromResponse($response)
+        ?? $active_selection);
     $response['active_selection'] = $response_selection_state !== NULL
       ? $this->selectionRegistry->buildSelectionPayload($response_selection_state)
       : NULL;
@@ -2615,9 +2634,31 @@ class AssistantApiController extends ControllerBase {
       $this->analyticsLogger->log('history_fallback_used', $intent['type']);
     }
 
+    $gap_item_id = NULL;
+    $governance_context = [
+      'conversation_id' => $conversation_id ?? '',
+      'request_id' => $request_id,
+      'intent' => $intent,
+      'intent_type' => (string) ($intent['type'] ?? 'unknown'),
+      'active_selection_key' => (string) (($response_selection_state['button_id'] ?? $resolved_selection['button_id'] ?? $active_selection['button_id'] ?? '')),
+      'selection_label' => (string) (($response_selection_state['label'] ?? $resolved_selection['label'] ?? $active_selection['label'] ?? '')),
+      'topic_id' => $response['topic']['id'] ?? ($intent['topic_id'] ?? NULL),
+      'topic_label' => $response['topic']['name'] ?? ($intent['topic'] ?? ''),
+      'service_area_id' => $response['topic']['service_areas'][0]['id'] ?? NULL,
+      'service_area_label' => $response['topic']['service_areas'][0]['name'] ?? ($intent['area'] ?? ''),
+      'topic_confidence' => isset($intent['confidence']) && is_numeric($intent['confidence'])
+        ? (int) round(((float) $intent['confidence']) * 100)
+        : NULL,
+      'assignment_source' => !empty($response_selection_state['button_id']) || !empty($resolved_selection['button_id'])
+        ? 'selection'
+        : (!empty($intent['topic_id']) || !empty($intent['topic'])
+          ? 'router'
+          : (!empty($response['topic']) ? 'retrieval' : 'unknown')),
+    ];
+
     // Check if we found any results.
     if (empty($response['results']) && $response['type'] !== 'navigation') {
-      $this->analyticsLogger->logNoAnswer($user_message);
+      $gap_item_id = $this->analyticsLogger->logNoAnswer($user_message, $governance_context);
 
       if ($debug_mode) {
         $debug_meta['reason_code'] = 'no_results_found';
@@ -2630,7 +2671,6 @@ class AssistantApiController extends ControllerBase {
       $response['_debug'] = $debug_meta;
     }
 
-    $normalized_intent = ResponseBuilder::normalizeIntentType($intent['type'] ?? 'unknown');
     if ($conversation_id) {
       $post_response_flow_decision = $this->assistantFlowRunner->evaluatePostResponse([
         'conversation_id' => $conversation_id,
@@ -2649,9 +2689,9 @@ class AssistantApiController extends ControllerBase {
         'route_source' => $intent['source'] ?? 'direct',
         'safety_flags' => $safety_flags_for_gate,
         'timestamp' => time(),
-        'area' => $intent['area'] ?? $intent['service_area'] ?? NULL,
-        'topic_id' => $intent['topic_id'] ?? NULL,
-        'topic' => $intent['topic'] ?? NULL,
+        'area' => $normalized_intent === 'thanks' ? NULL : ($intent['area'] ?? $intent['service_area'] ?? NULL),
+        'topic_id' => $normalized_intent === 'thanks' ? NULL : ($intent['topic_id'] ?? NULL),
+        'topic' => $normalized_intent === 'thanks' ? NULL : ($intent['topic'] ?? NULL),
         'response_type' => $response['type'] ?? NULL,
       ];
       // Keep only last 10 entries (5 exchanges).
@@ -2707,7 +2747,11 @@ class AssistantApiController extends ControllerBase {
         $response['message'] ?? '',
         $intent['type'] ?? 'unknown',
         $response['type'] ?? 'unknown',
-        $request_id
+        $request_id,
+        $governance_context + [
+          'gap_item_id' => $gap_item_id,
+          'is_no_answer' => $gap_item_id !== NULL,
+        ],
       );
     }
 
@@ -4292,6 +4336,9 @@ class AssistantApiController extends ControllerBase {
         $response['message'] = $this->t('Hi there! What can I help you find?');
         break;
 
+      case 'thanks':
+        break;
+
       case 'eligibility':
         $response['message'] = $this->t('ILAS provides free legal help to low-income Idahoans. Eligibility is generally based on income and the type of legal issue. To find out if you qualify, you can apply online or call our Legal Advice Line.');
         $response['caveat'] = $this->t('Note: Eligibility depends on your specific situation. Applying is the best way to find out if we can help.');
@@ -4538,6 +4585,23 @@ class AssistantApiController extends ControllerBase {
         break;
 
       default:
+        $original_intent_type = (string) ($intent['type'] ?? '');
+        if ($this->topIntentsPack && str_starts_with($original_intent_type, 'topic_')) {
+          $pack_entry = $this->topIntentsPack->lookup($original_intent_type);
+          if ($pack_entry !== NULL) {
+            $response['type'] = 'topic';
+            $response['response_mode'] = 'topic';
+            $response['message'] = (string) ($pack_entry['answer_text'] ?? $response['message']);
+            if (!empty($pack_entry['primary_action']) && is_array($pack_entry['primary_action'])) {
+              $response['primary_action'] = $pack_entry['primary_action'];
+              if (!empty($pack_entry['primary_action']['url'])) {
+                $response['url'] = $pack_entry['primary_action']['url'];
+              }
+            }
+            break;
+          }
+        }
+
         // Before returning fallback, try searching FAQs as a last resort.
         if ($config->get('enable_faq')) {
           $faq_results = $this->faqIndex->search($message, 3);
@@ -5139,17 +5203,31 @@ class AssistantApiController extends ControllerBase {
    */
   protected function buildLangfuseInputPayload(string $text): array {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadata($text);
-    return [
-      'display' => sprintf(
-        'hash=%s len=%s redact=%s',
+    $preview = $this->buildLangfuseRedactedPreview($text);
+
+    $display = sprintf(
+      'hash=%s len=%s redact=%s',
+      ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
+      $metadata['length_bucket'],
+      $metadata['redaction_profile'],
+    );
+    if ($preview !== '') {
+      $display = sprintf(
+        'preview="%s" hash=%s len=%s redact=%s',
+        $preview,
         ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
         $metadata['length_bucket'],
         $metadata['redaction_profile'],
-      ),
+      );
+    }
+
+    return [
+      'display' => $display,
       'metadata' => [
         'input_hash' => $metadata['text_hash'],
         'input_length_bucket' => $metadata['length_bucket'],
         'input_redaction_profile' => $metadata['redaction_profile'],
+        'input_preview_redacted' => $preview,
       ],
     ];
   }
@@ -5159,24 +5237,53 @@ class AssistantApiController extends ControllerBase {
    */
   protected function buildLangfuseOutputPayload(string $text, string $response_type, ?string $reason_code = NULL): array {
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadata($text);
+    $preview = $this->buildLangfuseRedactedPreview($text);
     $reason = $reason_code !== NULL && $reason_code !== '' ? $reason_code : 'none';
 
-    return [
-      'display' => sprintf(
-        'type=%s reason=%s hash=%s len=%s',
+    $display = sprintf(
+      'type=%s reason=%s hash=%s len=%s',
+      $response_type,
+      $reason,
+      ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
+      $metadata['length_bucket'],
+    );
+    if ($preview !== '') {
+      $display = sprintf(
+        'type=%s reason=%s preview="%s" hash=%s len=%s redact=%s',
         $response_type,
         $reason,
+        $preview,
         ObservabilityPayloadMinimizer::hashPrefix($metadata['text_hash']),
         $metadata['length_bucket'],
-      ),
+        $metadata['redaction_profile'],
+      );
+    }
+
+    return [
+      'display' => $display,
       'metadata' => [
         'response_type' => $response_type,
         'reason_code' => $reason_code,
         'output_hash' => $metadata['text_hash'],
         'output_length_bucket' => $metadata['length_bucket'],
         'output_redaction_profile' => $metadata['redaction_profile'],
+        'output_preview_redacted' => $preview,
       ],
     ];
+  }
+
+  /**
+   * Builds the configured redacted preview string for Langfuse displays.
+   */
+  protected function buildLangfuseRedactedPreview(string $text): string {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $enabled = (bool) ($config->get('langfuse.redacted_preview_enabled') ?? FALSE);
+    if (!$enabled) {
+      return '';
+    }
+
+    $max_chars = (int) ($config->get('langfuse.redacted_preview_max_chars') ?? 160);
+    return ObservabilityPayloadMinimizer::buildLangfuseRedactedPreview($text, max(1, $max_chars));
   }
 
   /**

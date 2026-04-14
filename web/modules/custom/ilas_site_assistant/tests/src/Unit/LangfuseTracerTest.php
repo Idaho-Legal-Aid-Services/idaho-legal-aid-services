@@ -83,18 +83,18 @@ class LangfuseTracerTest extends TestCase {
   public function testFullLifecycleEventTypeSequence(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('trace-001', 'assistant.message', ['env' => 'test'], 'hash=abc len=1-24 redact=none');
+    $tracer->startTrace('trace-001', 'assistant.message', ['env' => 'test'], 'preview="Need help with [REDACTED-EMAIL]" hash=abc len=25-99 redact=email');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('retrieval');
     $tracer->startGeneration('llm.summarize', 'gemini-1.5-flash', ['temperature' => 0.3], [
       'input_hash' => 'abc',
-      'input_length_bucket' => '1-24',
-      'input_redaction_profile' => 'none',
+      'input_length_bucket' => '25-99',
+      'input_redaction_profile' => 'email',
     ]);
     $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['results' => 3]);
-    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['total_ms' => 450]);
+    $tracer->endTrace('type=faq reason=none preview="Please call [REDACTED-PHONE]." hash=def len=25-99 redact=phone', ['total_ms' => 450]);
 
     $payload = $tracer->getTracePayload();
 
@@ -122,13 +122,15 @@ class LangfuseTracerTest extends TestCase {
     $tracer->startTrace('trace-002', 'assistant.message', [
       'env' => 'test',
       'input_hash' => str_repeat('a', 64),
-      'input_length_bucket' => '1-24',
-      'input_redaction_profile' => 'none',
-    ], 'hash=aaaaaaaaaaaa len=1-24 redact=none');
-    $tracer->endTrace('type=faq reason=none hash=bbbbbbbbbbbb len=1-24', [
+      'input_length_bucket' => '25-99',
+      'input_redaction_profile' => 'email',
+      'input_preview_redacted' => 'My email is [REDACTED-EMAIL]',
+    ], 'preview="My email is [REDACTED-EMAIL]" hash=aaaaaaaaaaaa len=25-99 redact=email');
+    $tracer->endTrace('type=faq reason=none preview="Call [REDACTED-PHONE] for help." hash=bbbbbbbbbbbb len=25-99 redact=phone', [
       'output_hash' => str_repeat('b', 64),
-      'output_length_bucket' => '1-24',
-      'output_redaction_profile' => 'none',
+      'output_length_bucket' => '25-99',
+      'output_redaction_profile' => 'phone',
+      'output_preview_redacted' => 'Call [REDACTED-PHONE] for help.',
       'response_type' => 'faq',
       'reason_code' => NULL,
     ]);
@@ -140,10 +142,12 @@ class LangfuseTracerTest extends TestCase {
     $this->assertSame('trace-create', $traceCreate['type']);
     $this->assertSame('trace-002', $traceCreate['body']['id']);
     $this->assertSame('assistant.message', $traceCreate['body']['name']);
-    $this->assertSame('hash=aaaaaaaaaaaa len=1-24 redact=none', $traceCreate['body']['input']);
-    $this->assertSame('type=faq reason=none hash=bbbbbbbbbbbb len=1-24', $traceCreate['body']['output']);
+    $this->assertSame('preview="My email is [REDACTED-EMAIL]" hash=aaaaaaaaaaaa len=25-99 redact=email', $traceCreate['body']['input']);
+    $this->assertSame('type=faq reason=none preview="Call [REDACTED-PHONE] for help." hash=bbbbbbbbbbbb len=25-99 redact=phone', $traceCreate['body']['output']);
     $this->assertSame('test', $traceCreate['body']['metadata']['env']);
     $this->assertSame('faq', $traceCreate['body']['metadata']['response_type']);
+    $this->assertSame('My email is [REDACTED-EMAIL]', $traceCreate['body']['metadata']['input_preview_redacted']);
+    $this->assertSame('Call [REDACTED-PHONE] for help.', $traceCreate['body']['metadata']['output_preview_redacted']);
     $this->assertArrayHasKey('timestamp', $traceCreate['body']);
   }
 

@@ -1,0 +1,11 @@
+uuid: e0895c40-8801-4126-84eb-378ee653f3f0
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_flag_duplicate_issue_action
+label: 'Flag selected gap items as Duplicate issue'
+type: assistant_gap_item
+plugin: assistant_gap_item_flag_duplicate_issue_action
+configuration: {  }

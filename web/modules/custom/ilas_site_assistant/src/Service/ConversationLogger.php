@@ -141,6 +141,8 @@ class ConversationLogger {
    *   The response type (faq, navigation, escalation, etc.).
    * @param string $requestId
    *   Per-request correlation UUID for tracing across logs.
+   * @param array $context
+   *   Optional governance metadata for canonical conversation logging.
    */
   public function logExchange(
     string $conversationId,
@@ -148,8 +150,29 @@ class ConversationLogger {
     string $assistantMessage,
     string $intent,
     string $responseType,
-    string $requestId = ''
+    string $requestId = '',
+    array $context = [],
   ): void {
+    if (\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+      try {
+        \Drupal::service('ilas_site_assistant_governance.conversation_logger')->logExchange(
+          $conversationId,
+          $userMessage,
+          $assistantMessage,
+          $intent,
+          $responseType,
+          $requestId,
+          $context,
+        );
+      }
+      catch (\Throwable $e) {
+        $this->logger->error('Governance conversation logging failed: @class @error_signature', [
+          '@class' => get_class($e),
+          '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+        ]);
+      }
+    }
+
     if (!$this->isEnabled()) {
       return;
     }

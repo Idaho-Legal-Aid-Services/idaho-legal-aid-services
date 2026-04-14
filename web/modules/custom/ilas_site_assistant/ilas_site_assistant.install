@@ -916,6 +916,19 @@ function ilas_site_assistant_update_10011() {
 }
 
 /**
+ * Adds an index on analytics date for 2-year retention cleanup scans.
+ */
+function ilas_site_assistant_update_10012() {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('ilas_site_assistant_stats') && !$schema->indexExists('ilas_site_assistant_stats', 'date')) {
+    $schema->addIndex('ilas_site_assistant_stats', 'date', ['date']);
+    return t('Added analytics date index.');
+  }
+
+  return t('Analytics date index already exists.');
+}
+
+/**
  * Creates a lexical Search API index from canonical config when missing.
  *
  * @param string $index_id

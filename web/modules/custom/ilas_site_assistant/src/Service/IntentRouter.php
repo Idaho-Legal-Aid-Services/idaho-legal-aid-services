@@ -117,6 +117,15 @@ class IntentRouter {
         'weight' => 0.8,
       ],
 
+      // Gratitude / closure intent.
+      'thanks' => [
+        'patterns' => [
+          '/^(thanks?|thank\s*(you|u|yoiu)|gracias|many\s+thanks|much\s+appreciated)[\s!.?]*$/i',
+        ],
+        'keywords' => ['thanks', 'thank you', 'gracias'],
+        'weight' => 0.85,
+      ],
+
       // Eligibility intent (separate from apply).
       'eligibility' => [
         'patterns' => [
@@ -757,6 +766,14 @@ class IntentRouter {
       ];
     }
 
+    if (strlen($message) < 40 && $this->matchesIntent($original, 'thanks')) {
+      return [
+        'type' => 'thanks',
+        'confidence' => 0.95,
+        'extraction' => $extraction,
+      ];
+    }
+
     // Step 5a: Check for vague/ambiguous queries that need clarification.
     // This runs BEFORE topic routing so single-word topic queries like
     // "divorce" or "forms" get a clarification prompt instead of being
@@ -995,6 +1012,7 @@ class IntentRouter {
     $normalized = $extraction['normalized'];
 
     $primary_intents = [
+      'thanks',
       'eligibility',
       'apply_for_help',
       'legal_advice_line',

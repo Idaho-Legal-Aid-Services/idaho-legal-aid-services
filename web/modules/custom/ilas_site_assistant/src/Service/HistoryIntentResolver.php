@@ -40,6 +40,7 @@ class HistoryIntentResolver {
   const EXCLUDED_INTENTS = [
     'unknown',
     'greeting',
+    'thanks',
     'disambiguation',
     'office_location_followup',
     'office_location_followup_miss',

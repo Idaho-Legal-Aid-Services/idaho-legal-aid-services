@@ -4,7 +4,7 @@ PHARD-02: Langfuse Live Operationalization Evidence
 Finding IDs: OBS-1, OBS-2, OBS-3, R-OBS-02, PHG-OBS-02
 Risk Register: R-OBS-02
 Created: 2026-03-10
-Last updated: 2026-03-10
+Last updated: 2026-04-09
 
 ────────────────────────────────────────────────────
 1. Pre-Edit State (VC-LANGFUSE-LIVE)
@@ -72,6 +72,9 @@ Required event types (LangfusePayloadContract::APPROVED_EVENT_TYPES):
 Trace contract note:
   - final request traces emit one trace-create with visible non-null input/output
     summaries; the payload no longer relies on trace-update
+  - visible input/output summaries may include short PII-redacted previews plus
+    hash/length/redaction metadata to keep traces reviewable without exposing
+    raw user text
 
 Required payload metadata (LangfusePayloadContract::REQUIRED_METADATA_KEYS):
   - batch_size
@@ -93,7 +96,7 @@ For each probe trace, verify in Langfuse UI:
   [ ] Trace name is 'phard-02.synthetic_probe' (no PII)
   [ ] Span name is 'probe.synthetic_span' (no PII)
   [ ] Event name is 'probe.verification_marker' (no PII)
-  [ ] Output is 'PHARD-02 synthetic probe complete' (no PII)
+  [ ] Output preview is either empty or PII-redacted only
   [ ] Metadata contains only environment + probe_timestamp (no PII)
   [ ] No email, phone, SSN, CC, or raw user text in any field
 

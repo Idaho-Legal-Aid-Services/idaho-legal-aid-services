@@ -80,6 +80,7 @@ module:
   ilas_resources: 0
   ilas_seo: 0
   ilas_site_assistant: 0
+  ilas_site_assistant_governance: 0
   image: 0
   imce: 0
   inline_form_errors: 0

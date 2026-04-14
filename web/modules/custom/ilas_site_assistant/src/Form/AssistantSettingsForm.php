@@ -276,9 +276,9 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#type' => 'number',
       '#title' => $this->t('Log Retention (Days)'),
       '#description' => $this->t('Number of days to keep analytics data.'),
-      '#default_value' => $config->get('log_retention_days') ?? 90,
+      '#default_value' => $config->get('log_retention_days') ?? 730,
       '#min' => 1,
-      '#max' => 365,
+      '#max' => 730,
     ];
 
     // Conversation logging (detailed per-exchange logs for QA/debugging).

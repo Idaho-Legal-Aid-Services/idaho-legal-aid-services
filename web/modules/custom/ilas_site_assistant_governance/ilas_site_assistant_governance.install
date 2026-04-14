@@ -1,0 +1,368 @@
+<?php
+
+/**
+ * @file
+ * Install and update hooks for the assistant governance module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function ilas_site_assistant_governance_schema(): array {
+  $schema = [];
+
+  $schema['ilas_site_assistant_conversation_session'] = [
+    'description' => 'Canonical redacted assistant conversation sessions.',
+    'fields' => [
+      'conversation_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => TRUE,
+      ],
+      'first_message_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'last_message_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'turn_count' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'exchange_count' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'language_hint' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => 'unknown',
+      ],
+      'last_intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ],
+      'last_response_type' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+      ],
+      'first_request_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => FALSE,
+      ],
+      'last_request_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => FALSE,
+      ],
+      'has_no_answer' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'latest_gap_item_id' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'is_held' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'held_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'held_by_uid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'hold_reason_summary' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ],
+      'purge_after' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+    ],
+    'primary key' => ['conversation_id'],
+    'indexes' => [
+      'purge_hold' => ['purge_after', 'is_held'],
+      'last_message' => ['last_message_at'],
+      'latest_gap_item' => ['latest_gap_item_id'],
+      'no_answer_last_message' => ['has_no_answer', 'last_message_at'],
+    ],
+  ];
+
+  $schema['ilas_site_assistant_conversation_turn'] = [
+    'description' => 'Canonical redacted assistant conversation turns.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'conversation_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => TRUE,
+      ],
+      'turn_sequence' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'request_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => FALSE,
+      ],
+      'direction' => [
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+      ],
+      'message_redacted' => [
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+      ],
+      'message_hash' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ],
+      'message_length_bucket' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+      ],
+      'redaction_profile' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'redaction_version' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'v1',
+      ],
+      'language_hint' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => 'unknown',
+      ],
+      'intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ],
+      'response_type' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+      ],
+      'is_no_answer' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'gap_item_id' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'created' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'conversation_sequence' => ['conversation_id', 'turn_sequence'],
+    ],
+    'indexes' => [
+      'conversation_created' => ['conversation_id', 'created'],
+      'gap_item_created' => ['gap_item_id', 'created'],
+      'request_id' => ['request_id'],
+    ],
+  ];
+
+  $schema['ilas_site_assistant_gap_hit'] = [
+    'description' => 'Per-occurrence evidence for unanswered assistant queries.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'gap_item_id' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'conversation_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => FALSE,
+      ],
+      'request_id' => [
+        'type' => 'varchar',
+        'length' => 36,
+        'not null' => FALSE,
+      ],
+      'occurred_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'query_hash' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ],
+      'language_hint' => [
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+      ],
+      'observed_topic_tid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'observed_service_area_tid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'assignment_source' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'unknown',
+      ],
+      'intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ],
+      'active_selection_key' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'gap_item_occurred' => ['gap_item_id', 'occurred_at'],
+      'topic_occurred' => ['observed_topic_tid', 'occurred_at'],
+      'service_area_occurred' => ['observed_service_area_tid', 'occurred_at'],
+      'conversation_id' => ['conversation_id'],
+      'request_id' => ['request_id'],
+    ],
+  ];
+
+  $schema['ilas_site_assistant_legal_hold'] = [
+    'description' => 'Audit history for assistant governance legal holds.',
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'target_type' => [
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ],
+      'target_id' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ],
+      'hold_reason_redacted' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ],
+      'hold_notes_redacted' => [
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ],
+      'held_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'held_by_uid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'released_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'released_by_uid' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'target_release' => ['target_type', 'target_id', 'released_at'],
+      'released_at' => ['released_at'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Adds assistant gap item review-state indexes for dashboard queries.
+ */
+function ilas_site_assistant_governance_update_11001(): void {
+  $schema = \Drupal::database()->schema();
+  $table = 'assistant_gap_item';
+
+  if (!$schema->tableExists($table)) {
+    return;
+  }
+
+  if (!$schema->indexExists($table, 'assistant_gap_item__state_last_seen')) {
+    $schema->addIndex($table, 'assistant_gap_item__state_last_seen', ['review_state', 'last_seen']);
+  }
+
+  if (!$schema->indexExists($table, 'assistant_gap_item__state_assigned_changed')) {
+    $schema->addIndex($table, 'assistant_gap_item__state_assigned_changed', ['review_state', 'assigned_uid', 'changed']);
+  }
+}

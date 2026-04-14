@@ -1,0 +1,11 @@
+uuid: 6f608432-4a9d-4245-a72b-3550dcbd64b5
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_flag_potential_faq_candidate_action
+label: 'Flag selected gap items as Potential FAQ Candidate'
+type: assistant_gap_item
+plugin: assistant_gap_item_flag_potential_faq_candidate_action
+configuration: {  }

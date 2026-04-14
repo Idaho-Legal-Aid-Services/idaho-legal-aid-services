@@ -72,6 +72,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'secret_key' => '',
         'environment' => 'production',
         'sample_rate' => 1.0,
+        'redacted_preview_enabled' => FALSE,
+        'redacted_preview_max_chars' => 160,
       ],
     ]);
     $syncStorage->write('key.key.pinecone_api_key', [
@@ -89,6 +91,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'langfuse.secret_key' => 'sk-live-secret',
         'langfuse.environment' => 'pantheon-live',
         'langfuse.sample_rate' => 1.0,
+        'langfuse.redacted_preview_enabled' => TRUE,
+        'langfuse.redacted_preview_max_chars' => 160,
       ],
       'raven.settings' => [
         'client_key' => 'https://sentry-secret@example.ingest.sentry.io/123',
@@ -120,6 +124,9 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
 
     $this->assertFalse($snapshot['exported_storage']['langfuse']['enabled']);
     $this->assertTrue($snapshot['effective_runtime']['langfuse']['enabled']);
+    $this->assertFalse($snapshot['exported_storage']['langfuse']['redacted_preview_enabled']);
+    $this->assertTrue($snapshot['effective_runtime']['langfuse']['redacted_preview_enabled']);
+    $this->assertSame(160, $snapshot['effective_runtime']['langfuse']['redacted_preview_max_chars']);
     $this->assertTrue($snapshot['effective_runtime']['sentry']['client_key_present']);
     $this->assertArrayHasKey('conversation_logging', $snapshot['exported_storage']);
     $this->assertArrayHasKey('retrieval', $snapshot['exported_storage']);
@@ -138,6 +145,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertFalse($snapshot['browser_expected']['google_analytics']['assistant_page_data_layer_expected']);
     $this->assertSame('settings.php live branch', $snapshot['override_channels']['vector_search.enabled']);
     $this->assertSame('settings.php secret -> getenv/pantheon_get_secret', $snapshot['override_channels']['langfuse.enabled']);
+    $this->assertSame('config export', $snapshot['override_channels']['langfuse.redacted_preview_enabled']);
+    $this->assertSame('config export', $snapshot['override_channels']['langfuse.redacted_preview_max_chars']);
     $this->assertSame('ConversationLogger privacy invariants', $snapshot['override_channels']['conversation_logging.redact_pii']);
     $this->assertSame('RetrievalConfigurationService runtime resolution', $snapshot['override_channels']['retrieval.legalserver_online_application_url.status']);
 
@@ -146,6 +155,7 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertContains('retrieval.legalserver_online_application_url.present', $divergenceFields);
     $this->assertContains('langfuse.enabled', $divergenceFields);
     $this->assertContains('langfuse.public_key_present', $divergenceFields);
+    $this->assertContains('langfuse.redacted_preview_enabled', $divergenceFields);
     $this->assertContains('raven.settings.client_key_present', $divergenceFields);
     $this->assertContains('key.key.pinecone_api_key.key_present', $divergenceFields);
     $this->assertContains('google_tag_id', $divergenceFields);
@@ -203,6 +213,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'secret_key' => '',
         'environment' => '',
         'sample_rate' => 0.0,
+        'redacted_preview_enabled' => FALSE,
+        'redacted_preview_max_chars' => 160,
       ],
     ]);
     $syncStorage->write('key.key.pinecone_api_key', [
@@ -220,6 +232,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'langfuse.secret_key' => '',
         'langfuse.environment' => '',
         'langfuse.sample_rate' => 0.0,
+        'langfuse.redacted_preview_enabled' => FALSE,
+        'langfuse.redacted_preview_max_chars' => 160,
       ],
       'raven.settings' => [],
       'key.key.pinecone_api_key' => [
@@ -275,6 +289,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'secret_key' => '',
         'environment' => '',
         'sample_rate' => 0.0,
+        'redacted_preview_enabled' => FALSE,
+        'redacted_preview_max_chars' => 160,
       ],
     ]);
     $syncStorage->write('key.key.pinecone_api_key', [
@@ -292,6 +308,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
         'langfuse.secret_key' => '',
         'langfuse.environment' => '',
         'langfuse.sample_rate' => 0.0,
+        'langfuse.redacted_preview_enabled' => FALSE,
+        'langfuse.redacted_preview_max_chars' => 160,
       ],
       'raven.settings' => [],
       'key.key.pinecone_api_key' => [
@@ -335,13 +353,15 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
       'vector_search' => [
         'enabled' => FALSE,
       ],
-      'langfuse' => [
-        'enabled' => FALSE,
-        'public_key' => '',
-        'secret_key' => '',
-        'environment' => '',
-        'sample_rate' => 0.0,
-      ],
+        'langfuse' => [
+          'enabled' => FALSE,
+          'public_key' => '',
+          'secret_key' => '',
+          'environment' => '',
+          'sample_rate' => 0.0,
+          'redacted_preview_enabled' => FALSE,
+          'redacted_preview_max_chars' => 160,
+        ],
     ]);
     $syncStorage->write('key.key.pinecone_api_key', [
       'key_provider_settings' => [
@@ -448,6 +468,8 @@ class RuntimeTruthSnapshotBuilderTest extends TestCase {
           'langfuse.secret_key' => '',
           'langfuse.environment' => '',
           'langfuse.sample_rate' => 0.0,
+          'langfuse.redacted_preview_enabled' => FALSE,
+          'langfuse.redacted_preview_max_chars' => 160,
         ],
         'raven.settings' => [],
         'key.key.pinecone_api_key' => [

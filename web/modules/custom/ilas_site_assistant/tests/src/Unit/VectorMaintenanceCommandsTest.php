@@ -113,6 +113,7 @@ final class VectorMaintenanceCommandsTest extends TestCase {
           'faq_vector_index_id' => 'faq_accordion_vector',
           'resource_vector_index_id' => 'assistant_resources_vector',
         ],
+        'vector_search.enabled' => TRUE,
         default => NULL,
       });
 

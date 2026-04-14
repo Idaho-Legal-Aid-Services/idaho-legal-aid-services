@@ -1,0 +1,11 @@
+uuid: 5ceea321-9042-4fc1-a54e-421d8ee8120a
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_to_needs_review_action
+label: 'Move selected gap items to needs review'
+type: assistant_gap_item
+plugin: assistant_gap_item_to_needs_review_action
+configuration: {  }

@@ -1,0 +1,11 @@
+uuid: 53f7e9c0-a768-43b8-b22f-cfa70f5e4a89
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_to_archived_action
+label: 'Move selected gap items to archived'
+type: assistant_gap_item
+plugin: assistant_gap_item_to_archived_action
+configuration: {  }

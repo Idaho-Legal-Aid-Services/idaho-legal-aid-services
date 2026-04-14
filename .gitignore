@@ -232,6 +232,7 @@ docs/assistant-playwright-findings.md
 docs/assistant-playwright-usage.md
 docs/codex_audits/
 docs/codex_validations/
+docs/codex_plans/
 
 # AILA raw evidence dumps (reproducible, not curated docs)
 docs/aila/artifacts/*

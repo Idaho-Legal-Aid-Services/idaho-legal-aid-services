@@ -67,11 +67,13 @@ class LangfuseTraceLookupServiceTest extends TestCase {
         'createdAt' => '2026-03-18T00:00:01.000Z',
         'updatedAt' => '2026-03-18T00:00:02.000Z',
         'environment' => 'local',
-        'input' => 'hash=abc len=1-24 redact=none',
-        'output' => 'type=navigation reason=navigation_page_match hash=def len=1-24',
+        'input' => 'preview="My email is [REDACTED-EMAIL]" hash=abc len=25-99 redact=email',
+        'output' => 'type=navigation reason=navigation_page_match preview="Call [REDACTED-PHONE] for help." hash=def len=25-99 redact=phone',
         'metadata' => [
           'response_type' => 'navigation',
           'reason_code' => 'navigation_page_match',
+          'input_preview_redacted' => 'My email is [REDACTED-EMAIL]',
+          'output_preview_redacted' => 'Call [REDACTED-PHONE] for help.',
           'vector_status' => 'enabled_not_needed',
           'vector_attempted' => FALSE,
         ],
@@ -88,9 +90,11 @@ class LangfuseTraceLookupServiceTest extends TestCase {
     $this->assertSame(200, $result['http_status']);
     $this->assertSame('assistant.message', $result['trace']['name']);
     $this->assertSame(2, $result['trace']['observation_count']);
-    $this->assertSame('hash=abc len=1-24 redact=none', $result['trace']['input']);
+    $this->assertSame('preview="My email is [REDACTED-EMAIL]" hash=abc len=25-99 redact=email', $result['trace']['input']);
     $this->assertTrue($result['trace']['request_path_fields']['vector_status']['present']);
     $this->assertSame('enabled_not_needed', $result['trace']['request_path_fields']['vector_status']['value']);
+    $this->assertSame('My email is [REDACTED-EMAIL]', $result['trace']['request_path_fields']['input_preview_redacted']['value']);
+    $this->assertSame('Call [REDACTED-PHONE] for help.', $result['trace']['request_path_fields']['output_preview_redacted']['value']);
     $this->assertContains('response_type', $result['trace']['metadata_keys']);
   }
 
@@ -149,10 +153,11 @@ class LangfuseTraceLookupServiceTest extends TestCase {
             [
               'id' => 'trace-002b',
               'name' => 'assistant.message',
-              'input' => 'hash=abc len=1-24 redact=none',
-              'output' => 'type=navigation reason=navigation_page_match hash=def len=1-24',
+              'input' => 'preview="Need help with [REDACTED-CASE]" hash=abc len=25-99 redact=case',
+              'output' => 'type=navigation reason=navigation_page_match preview="Visit the office page." hash=def len=25-99 redact=none',
               'metadata' => [
                 'response_type' => 'navigation',
+                'input_preview_redacted' => 'Need help with [REDACTED-CASE]',
               ],
               'observations' => ['obs-1'],
             ],
@@ -167,6 +172,7 @@ class LangfuseTraceLookupServiceTest extends TestCase {
     $this->assertSame('/api/public/traces?limit=25', $result['api_path']);
     $this->assertSame(1, $result['trace']['observation_count']);
     $this->assertSame('navigation', $result['trace']['request_path_fields']['response_type']['value']);
+    $this->assertSame('Need help with [REDACTED-CASE]', $result['trace']['request_path_fields']['input_preview_redacted']['value']);
   }
 
   /**

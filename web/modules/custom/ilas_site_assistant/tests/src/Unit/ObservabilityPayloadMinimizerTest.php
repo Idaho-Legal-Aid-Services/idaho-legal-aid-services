@@ -30,6 +30,29 @@ class ObservabilityPayloadMinimizerTest extends TestCase {
   }
 
   /**
+   * Tests Langfuse previews are redacted, single-line, and quote-safe.
+   */
+  public function testBuildLangfuseRedactedPreviewSanitizesForUiDisplay(): void {
+    $preview = ObservabilityPayloadMinimizer::buildLangfuseRedactedPreview(
+      "My name is John Smith.\nMy email is john@example.com and phone is 208-555-1212. Case CV-24-1234. \"Quoted\"",
+      160,
+    );
+
+    $this->assertStringContainsString(PiiRedactor::TOKEN_NAME, $preview);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_EMAIL, $preview);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_PHONE, $preview);
+    $this->assertStringContainsString(PiiRedactor::TOKEN_CASE, $preview);
+    $this->assertStringContainsString("'Quoted'", $preview);
+    $this->assertStringNotContainsString('"', $preview);
+    $this->assertStringNotContainsString("\n", $preview);
+    $this->assertStringNotContainsString('John Smith', $preview);
+    $this->assertStringNotContainsString('john@example.com', $preview);
+    $this->assertStringNotContainsString('208-555-1212', $preview);
+    $this->assertStringNotContainsString('CV-24-1234', $preview);
+    $this->assertLessThanOrEqual(160, mb_strlen($preview));
+  }
+
+  /**
    * Tests language hints for Spanish text.
    */
   public function testBuildTextMetadataWithLanguageDetectsSpanish(): void {

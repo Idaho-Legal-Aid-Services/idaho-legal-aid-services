@@ -1,0 +1,512 @@
+uuid: fb7d6cc2-8329-4396-b3fb-468c9409112c
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+    - user
+    - views
+id: assistant_governance_conversations
+label: 'Assistant governance conversations'
+module: views
+description: 'Canonical PII-redacted assistant conversation sessions.'
+tag: ''
+base_table: ilas_site_assistant_conversation_session
+base_field: conversation_id
+display:
+  default:
+    id: default
+    display_title: Default
+    display_plugin: default
+    position: 0
+    display_options:
+      title: 'Assistant governance conversations'
+      access:
+        type: perm
+        options:
+          perm: 'view assistant governance conversations'
+      cache:
+        type: tag
+        options: {  }
+      query:
+        type: views_query
+        options: {  }
+      exposed_form:
+        type: basic
+        options: {  }
+      pager:
+        type: full
+        options:
+          items_per_page: 50
+          offset: 0
+      style:
+        type: table
+        options:
+          columns:
+            conversation_id: conversation_id
+            last_message_at: last_message_at
+            exchange_count: exchange_count
+            last_intent: last_intent
+            last_response_type: last_response_type
+            has_no_answer: has_no_answer
+            is_held: is_held
+            latest_gap_item_id: latest_gap_item_id
+          default: last_message_at
+          info:
+            conversation_id:
+              sortable: false
+            last_message_at:
+              sortable: false
+            exchange_count:
+              sortable: false
+            last_intent:
+              sortable: false
+            last_response_type:
+              sortable: false
+            has_no_answer:
+              sortable: false
+            is_held:
+              sortable: false
+            latest_gap_item_id:
+              sortable: false
+      row:
+        type: fields
+      fields:
+        conversation_id:
+          id: conversation_id
+          table: ilas_site_assistant_conversation_session
+          field: conversation_id
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: standard
+          label: Conversation
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: true
+            path: 'admin/reports/ilas-assistant/governance/conversations/{{ conversation_id }}'
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+        last_message_at:
+          id: last_message_at
+          table: ilas_site_assistant_conversation_session
+          field: last_message_at
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: date
+          label: 'Last message'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          date_format: short
+          custom_date_format: ''
+          timezone: ''
+        exchange_count:
+          id: exchange_count
+          table: ilas_site_assistant_conversation_session
+          field: exchange_count
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: numeric
+          label: Exchanges
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          thousand_separator: ''
+          prefix_suffix: true
+        last_intent:
+          id: last_intent
+          table: ilas_site_assistant_conversation_session
+          field: last_intent
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: standard
+          label: 'Last intent'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+        last_response_type:
+          id: last_response_type
+          table: ilas_site_assistant_conversation_session
+          field: last_response_type
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: standard
+          label: 'Last response'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+        has_no_answer:
+          id: has_no_answer
+          table: ilas_site_assistant_conversation_session
+          field: has_no_answer
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: boolean
+          label: 'Has no answer'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: boolean
+          settings:
+            format: default
+            format_custom_true: 'Yes'
+            format_custom_false: 'No'
+        is_held:
+          id: is_held
+          table: ilas_site_assistant_conversation_session
+          field: is_held
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: boolean
+          label: 'Legal hold'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: boolean
+          settings:
+            format: default
+            format_custom_true: 'Yes'
+            format_custom_false: 'No'
+        latest_gap_item_id:
+          id: latest_gap_item_id
+          table: ilas_site_assistant_conversation_session
+          field: latest_gap_item_id
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: numeric
+          label: 'Latest gap item'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: true
+            path: 'admin/reports/ilas-assistant/gaps/{{ latest_gap_item_id }}'
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: true
+          empty_zero: true
+          hide_alter_empty: true
+          thousand_separator: ''
+          prefix_suffix: true
+      filters: {  }
+      sorts:
+        last_message_at:
+          id: last_message_at
+          table: ilas_site_assistant_conversation_session
+          field: last_message_at
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: standard
+          order: DESC
+          expose:
+            label: ''
+            field_identifier: last_message_at
+          exposed: false
+      empty: {  }
+      relationships: {  }
+      arguments: {  }
+      header: {  }
+      footer: {  }
+  page_all:
+    id: page_all
+    display_title: Dashboard
+    display_plugin: page
+    position: 1
+    display_options:
+      path: admin/reports/ilas-assistant/governance/conversations
+      menu:
+        type: none

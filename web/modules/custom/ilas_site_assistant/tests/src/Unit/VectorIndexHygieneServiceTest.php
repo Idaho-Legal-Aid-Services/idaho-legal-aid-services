@@ -63,7 +63,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
   /**
    * Builds a config factory for vector-index hygiene policy.
    */
-  private function buildConfigFactory(array $policyOverrides = [], array $retrievalOverrides = []): ConfigFactoryInterface {
+  private function buildConfigFactory(array $policyOverrides = [], array $retrievalOverrides = [], bool $vectorEnabled = TRUE): ConfigFactoryInterface {
     $defaultPolicy = [
       'enabled' => TRUE,
       'policy_version' => 'p2_del_03_v1',
@@ -116,10 +116,11 @@ final class VectorIndexHygieneServiceTest extends TestCase {
 
     $config = $this->createStub(ImmutableConfig::class);
     $config->method('get')
-      ->willReturnCallback(static function (string $key) use ($policy, $retrieval) {
+      ->willReturnCallback(static function (string $key) use ($policy, $retrieval, $vectorEnabled) {
         return match ($key) {
           'vector_index_hygiene' => $policy,
           'retrieval' => $retrieval,
+          'vector_search.enabled' => $vectorEnabled,
           default => NULL,
         };
       });
@@ -168,9 +169,10 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     array $policyOverrides = [],
     ?LoggerInterface $logger = NULL,
     array $retrievalOverrides = [],
+    bool $vectorEnabled = TRUE,
   ): VectorIndexHygieneService {
     $this->stateStore = [];
-    $configFactory = $this->buildConfigFactory($policyOverrides, $retrievalOverrides);
+    $configFactory = $this->buildConfigFactory($policyOverrides, $retrievalOverrides, $vectorEnabled);
     $state = $this->buildState();
     $entityTypeManager = $this->buildEntityTypeManager($indexes);
     $retrievalConfiguration = new RetrievalConfigurationService($configFactory, $entityTypeManager);
@@ -294,6 +296,36 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('healthy', $snapshot['indexes']['resource_vector']['probe_status']);
     $this->assertNotEmpty($snapshot['indexes']['faq_vector']['last_refresh_at']);
     $this->assertNotEmpty($snapshot['indexes']['resource_vector']['last_refresh_at']);
+  }
+
+  public function testRunScheduledRefreshSkipsPassiveIndexingAndProbesWhenVectorSearchDisabled(): void {
+    $faqIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->never())->method('indexItems');
+    $resourceIndex->expects($this->never())->method('indexItems');
+    $faqIndex->expects($this->never())->method('query');
+    $resourceIndex->expects($this->never())->method('query');
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ], vectorEnabled: FALSE);
+
+    $service->runScheduledRefresh();
+    $snapshot = $service->getSnapshot();
+
+    $this->assertSame('healthy', $snapshot['status']);
+    $this->assertFalse($snapshot['vector_search_enabled']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['indexing_status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('vector_search_disabled', $snapshot['indexes']['faq_vector']['probe_error']);
+    $this->assertSame('vector_search_disabled', $snapshot['indexes']['faq_vector']['last_stop_reason']);
+    $this->assertFalse($snapshot['indexes']['faq_vector']['due']);
+    $this->assertFalse($snapshot['indexes']['resource_vector']['overdue']);
+    $this->assertSame(0, $snapshot['totals']['degraded_indexes']);
+    $this->assertSame(0, $snapshot['totals']['probe_failed_indexes']);
   }
 
   public function testRunScheduledRefreshSkipsIndexingWhenNotDue(): void {
@@ -523,6 +555,61 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('healthy', $snapshot['indexes']['faq_vector']['probe_status']);
   }
 
+  public function testRefreshSnapshotSkipsProbesWhenVectorSearchDisabled(): void {
+    $faqIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->never())->method('indexItems');
+    $resourceIndex->expects($this->never())->method('indexItems');
+    $faqIndex->expects($this->never())->method('query');
+    $resourceIndex->expects($this->never())->method('query');
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ], vectorEnabled: FALSE);
+
+    $snapshot = $service->refreshSnapshot(TRUE, 'faq_vector');
+
+    $this->assertSame('healthy', $snapshot['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('vector_search_disabled', $snapshot['indexes']['faq_vector']['probe_error']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['indexing_status']);
+  }
+
+  public function testGetSnapshotSuppressesStoredDegradedVectorStateWhenVectorSearchDisabled(): void {
+    $service = $this->buildService(vectorEnabled: FALSE);
+    $lastRefresh = time() - ((24 * 3600) + (61 * 60));
+
+    $this->stateStore['ilas_site_assistant.vector_index_hygiene.snapshot'] = [
+      'policy_version' => 'p2_del_03_v1',
+      'recorded_at' => time(),
+      'refresh_mode' => 'incremental',
+      'indexes' => [
+        'faq_vector' => [
+          'index_id' => 'faq_accordion_vector',
+          'last_refresh_at' => $lastRefresh,
+          'metadata_status' => 'drift',
+          'status' => 'degraded',
+          'probe_status' => 'failed',
+          'probe_error' => 'old_failure',
+        ],
+      ],
+      'totals' => [],
+      'thresholds' => [],
+    ];
+
+    $snapshot = $service->getSnapshot();
+
+    $this->assertSame('healthy', $snapshot['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('vector_search_disabled', $snapshot['indexes']['faq_vector']['probe_error']);
+    $this->assertFalse($snapshot['indexes']['faq_vector']['due']);
+    $this->assertFalse($snapshot['indexes']['faq_vector']['overdue']);
+  }
+
   public function testBackfillIndexReturnsBatchLimitedProgressAndPersistsStopReason(): void {
     $tracker = $this->createMock(TrackerInterface::class);
     $tracker->method('getTotalItemsCount')->willReturn(10);
@@ -569,6 +656,33 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame(4, $report['processed_this_run']);
     $this->assertSame('complete', $report['stop_reason']);
     $this->assertSame(100.0, $report['percent_complete']);
+  }
+
+  public function testBackfillIndexStillProcessesWhenVectorSearchDisabled(): void {
+    $tracker = $this->createMock(TrackerInterface::class);
+    $tracker->method('getTotalItemsCount')->willReturn(10);
+    $tracker->method('getIndexedItemsCount')->willReturnOnConsecutiveCalls(3, 5, 5);
+    $tracker->method('getRemainingItemsCount')->willReturnOnConsecutiveCalls(7, 5, 5);
+    $faqIndex = $this->buildCompliantIndexMock(10, 3, 7, trackerOverride: $tracker);
+    $faqIndex->expects($this->once())->method('indexItems')->with(2)->willReturn(2);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources'),
+    ], vectorEnabled: FALSE);
+
+    $report = $service->backfillIndex('faq_vector', 2, 1, 0, FALSE, FALSE);
+
+    $this->assertSame('resume', $report['mode']);
+    $this->assertSame(2, $report['processed_this_run']);
+    $this->assertSame('batch_limit_reached', $report['stop_reason']);
+    $this->assertSame(5, $report['remaining_items']);
+    $this->assertSame('batch_limit_reached', $report['last_stop_reason']);
+
+    $snapshot = $service->getSnapshot();
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['status']);
+    $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('batch_limit_reached', $snapshot['indexes']['faq_vector']['last_stop_reason']);
   }
 
   public function testExceptionIsolationPreservesSecondIndexProcessing(): void {

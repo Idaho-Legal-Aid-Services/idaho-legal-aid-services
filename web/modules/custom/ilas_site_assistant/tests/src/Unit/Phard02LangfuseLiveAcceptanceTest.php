@@ -142,7 +142,7 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
   public function testFullLifecycleTraceProducesAllApprovedEventTypes(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-phard02', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
+    $tracer->startTrace('req-phard02', 'assistant.message', [], 'preview="Need help with [REDACTED-EMAIL]" hash=abc len=25-99 redact=email');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('intent.route');
@@ -150,7 +150,7 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
     $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['intent' => 'faq']);
     $tracer->addEvent('request.complete', ['response_type' => 'faq']);
-    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['duration_ms' => 150]);
+    $tracer->endTrace('type=faq reason=none preview="Please call [REDACTED-PHONE]." hash=def len=25-99 redact=phone', ['duration_ms' => 150]);
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);
@@ -172,13 +172,13 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
   public function testNoBatchEventBodyContainsPii(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-phard02-pii', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
+    $tracer->startTrace('req-phard02-pii', 'assistant.message', [], 'preview="My email is [REDACTED-EMAIL]" hash=abc len=25-99 redact=email');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['result' => 'safe']);
     $tracer->startGeneration('llm.enhance', 'gemini-1.5-flash');
     $tracer->endGeneration('intent=faq');
     $tracer->addEvent('request.complete');
-    $tracer->endTrace('type=faq reason=none hash=def len=1-24');
+    $tracer->endTrace('type=faq reason=none preview="Please call [REDACTED-PHONE]." hash=def len=25-99 redact=phone');
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);
@@ -235,6 +235,15 @@ class Phard02LangfuseLiveAcceptanceTest extends TestCase {
       1.0,
       (float) $install['langfuse']['sample_rate'],
       'Install config langfuse.sample_rate must be 1.0',
+    );
+    $this->assertFalse(
+      (bool) $install['langfuse']['redacted_preview_enabled'],
+      'Install config langfuse.redacted_preview_enabled must stay FALSE',
+    );
+    $this->assertSame(
+      160,
+      (int) $install['langfuse']['redacted_preview_max_chars'],
+      'Install config langfuse.redacted_preview_max_chars must be 160',
     );
   }
 

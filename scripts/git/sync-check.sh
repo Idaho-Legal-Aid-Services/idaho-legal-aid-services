@@ -81,6 +81,12 @@ main() {
 
     if [[ "$status" == "remote-ahead" || "$status" == "diverged" ]]; then
       unsafe=true
+      if [[ "$branch" == "master" && "$remote" == "github" ]]; then
+        err "Run: npm run git:sync-master"
+      elif [[ "$branch" == "master" && "$remote" == "origin" ]]; then
+        err "Run: npm run git:reconcile-origin"
+        err "Verify unexpected Pantheon code movement with: terminus env:code-log idaho-legal-aid-services.dev --format=table"
+      fi
       err "Inspect with: git log --left-right --cherry-pick --oneline $remote/$branch...$branch"
     fi
   done

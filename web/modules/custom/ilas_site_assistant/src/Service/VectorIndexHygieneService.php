@@ -89,6 +89,8 @@ final class VectorIndexHygieneService {
       return;
     }
 
+    $vector_search_enabled = $this->retrievalConfiguration->isVectorSearchEnabled();
+
     $now = time();
     $snapshot = $this->state->get(self::SNAPSHOT_STATE_KEY);
     if (!is_array($snapshot)) {
@@ -98,6 +100,7 @@ final class VectorIndexHygieneService {
     $snapshot['recorded_at'] = $now;
     $snapshot['policy_version'] = (string) ($policy['policy_version'] ?? 'p2_del_03_v1');
     $snapshot['refresh_mode'] = (string) ($policy['refresh_mode'] ?? 'incremental');
+    $snapshot['vector_search_enabled'] = $vector_search_enabled;
 
     foreach (($policy['managed_indexes'] ?? []) as $index_key => $index_policy) {
       if (!is_string($index_key) || !is_array($index_policy)) {
@@ -109,8 +112,9 @@ final class VectorIndexHygieneService {
         is_array($snapshot['indexes'][$index_key] ?? NULL) ? $snapshot['indexes'][$index_key] : [],
         $policy,
         $now,
-        TRUE,
+        $vector_search_enabled,
         FALSE,
+        $vector_search_enabled,
       );
     }
 
@@ -134,6 +138,7 @@ final class VectorIndexHygieneService {
       $snapshot = $this->newSnapshot($policy, $now);
     }
 
+    $snapshot['vector_search_enabled'] = $this->retrievalConfiguration->isVectorSearchEnabled();
     $snapshot = $this->applyDerivedSnapshotFields($snapshot, $policy, $now);
     return $snapshot;
   }
@@ -153,6 +158,7 @@ final class VectorIndexHygieneService {
     $policy = $this->getPolicy();
     $snapshot = $this->state->get(self::SNAPSHOT_STATE_KEY);
     $now = time();
+    $vector_search_enabled = $this->retrievalConfiguration->isVectorSearchEnabled();
 
     if (!is_array($snapshot)) {
       $snapshot = $this->newSnapshot($policy, $now);
@@ -161,6 +167,7 @@ final class VectorIndexHygieneService {
     $snapshot['recorded_at'] = $now;
     $snapshot['policy_version'] = (string) ($policy['policy_version'] ?? 'p2_del_03_v1');
     $snapshot['refresh_mode'] = (string) ($policy['refresh_mode'] ?? 'incremental');
+    $snapshot['vector_search_enabled'] = $vector_search_enabled;
 
     foreach (($policy['managed_indexes'] ?? []) as $index_key => $index_policy) {
       if (!is_string($index_key) || !is_array($index_policy)) {
@@ -178,6 +185,7 @@ final class VectorIndexHygieneService {
         $now,
         FALSE,
         $force_probe,
+        $vector_search_enabled,
       );
     }
 
@@ -378,18 +386,25 @@ final class VectorIndexHygieneService {
     int $now,
     bool $allow_indexing = TRUE,
     bool $force_probe = FALSE,
+    bool $vector_search_enabled = TRUE,
   ): array {
     $index_id = $this->resolveManagedIndexId($index_key);
     $index_snapshot = array_replace(
       $this->newIndexSnapshot($index_key, $index_policy),
       $existing
     );
+    $index_snapshot['feature_active'] = $vector_search_enabled;
+    $index_snapshot['inactive_reason'] = $vector_search_enabled ? NULL : 'vector_search_disabled';
     $index_snapshot['last_run_at'] = $now;
     $index_snapshot['last_error'] = NULL;
     $index_snapshot['duration_ms'] = 0.0;
     $index_snapshot['items_processed_last_run'] = 0;
 
     if ($index_id === '') {
+      if (!$vector_search_enabled) {
+        $this->applyVectorSearchInactiveState($index_snapshot, $now);
+        return $index_snapshot;
+      }
       $index_snapshot['status'] = 'unknown';
       $index_snapshot['metadata_status'] = 'unknown';
       $index_snapshot['indexing_status'] = 'unknown';
@@ -400,6 +415,13 @@ final class VectorIndexHygieneService {
     $start = microtime(TRUE);
     $index = $this->loadIndex($index_id);
     if (!$index) {
+      if (!$vector_search_enabled) {
+        $index_snapshot['exists'] = FALSE;
+        $index_snapshot['enabled'] = FALSE;
+        $this->applyVectorSearchInactiveState($index_snapshot, $now);
+        $index_snapshot['duration_ms'] = round((microtime(TRUE) - $start) * 1000, 2);
+        return $index_snapshot;
+      }
       $index_snapshot['status'] = 'degraded';
       $index_snapshot['metadata_status'] = 'unknown';
       $index_snapshot['indexing_status'] = 'unknown';
@@ -422,6 +444,12 @@ final class VectorIndexHygieneService {
     $this->captureTrackerMetrics($index, $index_snapshot);
     $index_snapshot['indexing_status'] = $this->deriveIndexingStatus($index_snapshot);
     $this->applyRefreshScheduleFields($index_snapshot, $policy, $now);
+
+    if (!$vector_search_enabled) {
+      $this->applyVectorSearchInactiveState($index_snapshot, $now);
+      $index_snapshot['duration_ms'] = round((microtime(TRUE) - $start) * 1000, 2);
+      return $index_snapshot;
+    }
 
     if ($allow_indexing && $index_snapshot['due'] && $index_snapshot['enabled'] && ($policy['refresh_mode'] ?? 'incremental') === 'incremental') {
       try {
@@ -580,6 +608,17 @@ final class VectorIndexHygieneService {
   protected function applyRefreshScheduleFields(array &$snapshot, array $policy, int $now): void {
     $interval_seconds = max(1, (int) ($policy['refresh_interval_hours'] ?? 24)) * 3600;
     $grace_seconds = max(0, (int) ($policy['overdue_grace_minutes'] ?? 45)) * 60;
+
+    if (($snapshot['feature_active'] ?? TRUE) === FALSE) {
+      $snapshot['refresh_interval_seconds'] = $interval_seconds;
+      $snapshot['overdue_grace_seconds'] = $grace_seconds;
+      $snapshot['next_refresh_due_at'] = NULL;
+      $snapshot['due'] = FALSE;
+      $snapshot['overdue'] = FALSE;
+      $snapshot['seconds_until_due'] = 0;
+      return;
+    }
+
     $last_refresh_at = isset($snapshot['last_refresh_at']) ? (int) $snapshot['last_refresh_at'] : 0;
 
     $snapshot['refresh_interval_seconds'] = $interval_seconds;
@@ -678,6 +717,7 @@ final class VectorIndexHygieneService {
       'policy_version' => (string) ($policy['policy_version'] ?? 'p2_del_03_v1'),
       'recorded_at' => $now,
       'refresh_mode' => (string) ($policy['refresh_mode'] ?? 'incremental'),
+      'vector_search_enabled' => $this->retrievalConfiguration->isVectorSearchEnabled(),
       'status' => 'unknown',
       'indexes' => $indexes,
       'totals' => [
@@ -758,6 +798,8 @@ final class VectorIndexHygieneService {
       'probe_passed_count' => 0,
       'probe_failed_count' => 0,
       'probe_evidence' => [],
+      'feature_active' => TRUE,
+      'inactive_reason' => NULL,
       'last_backfill_at' => NULL,
       'last_stop_reason' => NULL,
       'duration_ms' => 0.0,
@@ -791,6 +833,8 @@ final class VectorIndexHygieneService {
    *   Snapshot payload with derived fields.
    */
   protected function applyDerivedSnapshotFields(array $snapshot, array $policy, int $now): array {
+    $vector_search_enabled = $this->retrievalConfiguration->isVectorSearchEnabled();
+    $snapshot['vector_search_enabled'] = $vector_search_enabled;
     $totals = [
       'managed_indexes' => 0,
       'healthy_indexes' => 0,
@@ -811,11 +855,18 @@ final class VectorIndexHygieneService {
       if (!is_array($index_snapshot)) {
         continue;
       }
+      if (!$vector_search_enabled) {
+        $this->applyVectorSearchInactiveState($index_snapshot);
+      }
       $this->applyRefreshScheduleFields($index_snapshot, $policy, $now);
       $index_snapshot['indexing_status'] = $this->deriveIndexingStatus($index_snapshot);
       $snapshot['indexes'][$index_key] = $index_snapshot;
 
       $totals['managed_indexes']++;
+      $totals['remaining_items'] += max(0, (int) ($index_snapshot['remaining_items'] ?? 0));
+      if (($index_snapshot['status'] ?? 'unknown') === 'skipped') {
+        continue;
+      }
       if (($index_snapshot['status'] ?? 'unknown') === 'healthy') {
         $totals['healthy_indexes']++;
       }
@@ -845,7 +896,6 @@ final class VectorIndexHygieneService {
       if (($index_snapshot['items_processed_last_run'] ?? 0) > 0) {
         $totals['refreshed_indexes']++;
       }
-      $totals['remaining_items'] += max(0, (int) ($index_snapshot['remaining_items'] ?? 0));
     }
 
     $snapshot['totals'] = $totals;
@@ -917,6 +967,10 @@ final class VectorIndexHygieneService {
    * Derives a simple indexing progress state from tracker counters.
    */
   protected function deriveIndexingStatus(array $snapshot): string {
+    if (($snapshot['feature_active'] ?? TRUE) === FALSE) {
+      return 'skipped';
+    }
+
     if (empty($snapshot['tracker_available'])) {
       return 'unknown';
     }
@@ -1088,6 +1142,33 @@ final class VectorIndexHygieneService {
     $snapshot['probe_passed_count'] = 0;
     $snapshot['probe_failed_count'] = 0;
     $snapshot['probe_evidence'] = [];
+  }
+
+  /**
+   * Marks a managed vector index as intentionally inactive while vector search is off.
+   */
+  protected function applyVectorSearchInactiveState(array &$snapshot, ?int $now = NULL): void {
+    $snapshot['feature_active'] = FALSE;
+    $snapshot['inactive_reason'] = 'vector_search_disabled';
+    $snapshot['status'] = 'skipped';
+    $snapshot['indexing_status'] = 'skipped';
+    $snapshot['items_processed_last_run'] = 0;
+    $snapshot['last_error'] = NULL;
+
+    if ($now !== NULL) {
+      $this->applySkippedProbeState($snapshot, $now, 'vector_search_disabled');
+    }
+    else {
+      $snapshot['probe_status'] = 'skipped';
+      $snapshot['probe_error'] = 'vector_search_disabled';
+      $snapshot['probe_passed_count'] = 0;
+      $snapshot['probe_failed_count'] = 0;
+      $snapshot['probe_evidence'] = [];
+    }
+
+    if (empty($snapshot['last_stop_reason'])) {
+      $snapshot['last_stop_reason'] = 'vector_search_disabled';
+    }
   }
 
   /**

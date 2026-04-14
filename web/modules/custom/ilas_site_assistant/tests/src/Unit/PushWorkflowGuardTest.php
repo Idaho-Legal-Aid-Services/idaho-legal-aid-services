@@ -56,9 +56,11 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('npm run git:publish', $runbook);
     $this->assertStringContainsString('npm run git:finish', $runbook);
     $this->assertStringContainsString('npm run git:sync-master', $runbook);
+    $this->assertStringContainsString('npm run git:reconcile-origin', $runbook);
     $this->assertStringContainsString('npm run git:publish -- --origin-only', $runbook);
     $this->assertStringContainsString('wait on stale PR numbers from earlier publishes.', $runbook);
     $this->assertStringContainsString('terminus env:code-log idaho-legal-aid-services.dev --format=table', $runbook);
+    $this->assertStringContainsString('Pantheon `origin/master` is ahead or diverged', $runbook);
     $this->assertStringContainsString('PR-branch publishes from local `master` are advisory locally', $runbook);
     $this->assertStringContainsString('helper publish PRs are blocking on GitHub', $runbook);
     $this->assertStringContainsString('downloads the `gate-summary.txt` artifact before merging', $runbook);
@@ -72,6 +74,7 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('GitHub `Install Composer dependencies` step', $runbook);
     $this->assertStringContainsString('promotion to Pantheon `test` and `live` is a separate deployment', $runbook);
     $this->assertStringContainsString('"git:finish": "bash scripts/git/finish.sh"', $package);
+    $this->assertStringContainsString('"git:reconcile-origin": "bash scripts/git/reconcile-origin.sh"', $package);
   }
 
   /**
@@ -83,15 +86,23 @@ final class PushWorkflowGuardTest extends TestCase {
     $installer = self::readFile('scripts/ci/install-pre-push-strict-hook.sh');
     $publishHelper = self::readFile('scripts/git/publish.sh');
     $finishHelper = self::readFile('scripts/git/finish.sh');
+    $reconcileHelper = self::readFile('scripts/git/reconcile-origin.sh');
     $syncHelper = self::readFile('scripts/git/sync-master.sh');
 
     $this->assertStringContainsString('fetch_remote "github"', $preCommitHook);
+    $this->assertStringContainsString('fetch_remote "origin"', $preCommitHook);
     $this->assertStringContainsString('describe_remote_status "github" "$CURRENT_BRANCH"', $preCommitHook);
+    $this->assertStringContainsString('describe_remote_status "origin" "$CURRENT_BRANCH"', $preCommitHook);
     $this->assertStringContainsString('Local master is stale; github/master is ahead by', $preCommitHook);
     $this->assertStringContainsString('Local master diverged from github/master.', $preCommitHook);
     $this->assertStringContainsString('Run: npm run git:sync-master', $preCommitHook);
+    $this->assertStringContainsString('Pantheon origin/master is ahead by', $preCommitHook);
+    $this->assertStringContainsString('Local master diverged from origin/master.', $preCommitHook);
+    $this->assertStringContainsString('Run: npm run git:reconcile-origin', $preCommitHook);
+    $this->assertStringContainsString('terminus env:code-log idaho-legal-aid-services.dev --format=table', $preCommitHook);
     $this->assertStringContainsString('git cherry-pick <local-master-commit>', $preCommitHook);
     $this->assertStringContainsString('github/master is required for commits on local master.', $preCommitHook);
+    $this->assertStringContainsString('origin/master is required for commits on local master.', $preCommitHook);
 
     $this->assertStringContainsString('scripts/git/common.sh', $strictHook);
     $this->assertStringContainsString('scripts/git/sync-check.sh', $strictHook);
@@ -125,6 +136,7 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('pre-push-strict.sh', $installer);
     $this->assertStringContainsString('git status --short --branch', $installer);
     $this->assertStringContainsString('npm run git:sync-master', $installer);
+    $this->assertStringContainsString('npm run git:reconcile-origin', $installer);
     $this->assertStringContainsString('npm run git:publish', $installer);
     $this->assertStringContainsString('npm run git:finish', $installer);
     $this->assertStringContainsString('composer install --no-interaction --no-progress --prefer-dist --dry-run', $installer);
@@ -138,11 +150,13 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('hosted Pantheon dev verification', $installer);
     $this->assertStringContainsString('hosted post-merge master gate', $installer);
     $this->assertStringContainsString('git push --no-verify', $installer);
+    $this->assertStringContainsString('terminus env:code-log idaho-legal-aid-services.dev --format=table', $installer);
 
     $this->assertStringContainsString('publish/master-active', $publishHelper);
     $this->assertStringContainsString('gh pr create', $publishHelper);
     $this->assertStringContainsString('npm run git:finish', $publishHelper);
     $this->assertStringContainsString('npm run git:sync-master', $publishHelper);
+    $this->assertStringContainsString('npm run git:reconcile-origin', $publishHelper);
     $this->assertStringContainsString('preserve and restack them onto github/master', $publishHelper);
     $this->assertStringContainsString('npm run git:publish -- --origin-only', $publishHelper);
     $this->assertStringContainsString('through the local DDEV deploy gate', $publishHelper);
@@ -154,6 +168,17 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('git branch backup/recovery-<timestamp> master', $syncHelper);
     $this->assertStringContainsString('After restacking, rerun: npm run git:sync-master', $syncHelper);
     $this->assertStringContainsString('Pantheon is behind. Deploy with: npm run git:publish -- --origin-only', $syncHelper);
+
+    $this->assertStringContainsString('reconcile-origin.sh must be run from local master.', $reconcileHelper);
+    $this->assertStringContainsString('Commit or stash them before running npm run git:reconcile-origin.', $reconcileHelper);
+    $this->assertStringContainsString('describe_remote_status "github" "$branch"', $reconcileHelper);
+    $this->assertStringContainsString('describe_remote_status "origin" "$branch"', $reconcileHelper);
+    $this->assertStringContainsString('git -C "$REPO_ROOT" branch "$backup_local" "$branch"', $reconcileHelper);
+    $this->assertStringContainsString('git -C "$REPO_ROOT" branch "$backup_origin" "origin/$branch"', $reconcileHelper);
+    $this->assertStringContainsString('git -C "$REPO_ROOT" reset --hard "origin/$branch"', $reconcileHelper);
+    $this->assertStringContainsString('git -C "$REPO_ROOT" cherry-pick "$commit"', $reconcileHelper);
+    $this->assertStringContainsString('npm run git:publish', $reconcileHelper);
+    $this->assertStringContainsString('npm run git:finish', $reconcileHelper);
 
     $this->assertStringContainsString('gh pr checks', $finishHelper);
     $this->assertStringContainsString('gh run download', $finishHelper);

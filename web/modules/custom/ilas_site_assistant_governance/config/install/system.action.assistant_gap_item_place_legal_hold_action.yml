@@ -1,0 +1,11 @@
+uuid: 513994e7-083e-42d0-bbab-5f5d4638f7b8
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_place_legal_hold_action
+label: 'Place legal hold on selected gap items'
+type: assistant_gap_item
+plugin: assistant_gap_item_place_legal_hold_action
+configuration: {  }

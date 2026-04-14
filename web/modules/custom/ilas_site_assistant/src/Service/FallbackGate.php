@@ -103,6 +103,7 @@ class FallbackGate {
    */
   protected $directRouteIntents = [
     'greeting',
+    'thanks',
     'apply',
     'apply_for_help',
     'hotline',

@@ -161,9 +161,14 @@ class TopIntentsPackTest extends TestCase {
    */
   public function testCustodyChipsContainExpectedIntents(): void {
     $chips = $this->pack->getChips('topic_family_custody');
-    $chip_intents = array_column($chips, 'intent');
-    $this->assertContains('topic_family_divorce', $chip_intents);
-    $this->assertContains('apply_for_help', $chip_intents);
+    $chip_map = [];
+    foreach ($chips as $chip) {
+      $chip_map[$chip['label']] = $chip['intent'];
+    }
+    $this->assertSame('topic_family_divorce', $chip_map['Divorce'] ?? NULL);
+    $this->assertSame('topic_family_child_support', $chip_map['Child Support'] ?? NULL);
+    $this->assertSame('topic_family_protection_order', $chip_map['Protection Orders'] ?? NULL);
+    $this->assertSame('apply_for_help', $chip_map['Apply for Help'] ?? NULL);
   }
 
   /**
@@ -171,11 +176,55 @@ class TopIntentsPackTest extends TestCase {
    */
   public function testEvictionChipsContainExpectedIntents(): void {
     $chips = $this->pack->getChips('topic_housing_eviction');
-    $chip_intents = array_column($chips, 'intent');
-    $this->assertContains('guides_finder', $chip_intents);
-    $this->assertContains('forms_finder', $chip_intents);
-    $this->assertContains('apply_for_help', $chip_intents);
-    $this->assertContains('legal_advice_line', $chip_intents);
+    $chip_map = [];
+    foreach ($chips as $chip) {
+      $chip_map[$chip['label']] = $chip['intent'];
+    }
+    $this->assertSame('guides_topic_housing_eviction', $chip_map['Tenant Rights Guide'] ?? NULL);
+    $this->assertSame('forms_topic_housing_eviction', $chip_map['Eviction Forms'] ?? NULL);
+    $this->assertSame('apply_for_help', $chip_map['Apply for Help'] ?? NULL);
+    $this->assertSame('legal_advice_line', $chip_map['Call Hotline'] ?? NULL);
+  }
+
+  /**
+   * Finder chips must preserve forms/guides mode instead of jumping to topics.
+   */
+  public function testFinderAndInventoryChipsStayWithinStructuredModes(): void {
+    $this->assertSame(
+      ['forms_housing', 'forms_family', 'forms_consumer', 'apply_for_help'],
+      array_column($this->pack->getChips('forms_finder'), 'intent')
+    );
+    $this->assertSame(
+      ['guides_housing', 'guides_family', 'guides_consumer', 'apply_for_help'],
+      array_column($this->pack->getChips('guides_finder'), 'intent')
+    );
+    $this->assertSame(
+      ['forms_housing', 'forms_family', 'forms_consumer', 'forms_seniors'],
+      array_column($this->pack->getChips('forms_inventory'), 'intent')
+    );
+    $this->assertSame(
+      ['guides_housing', 'guides_family', 'guides_consumer', 'guides_seniors'],
+      array_column($this->pack->getChips('guides_inventory'), 'intent')
+    );
+  }
+
+  /**
+   * Family subtopic chips must point at specific subtopics and finder branches.
+   */
+  public function testFamilySubtopicChipsUseSpecificTargets(): void {
+    $family_chips = [];
+    foreach ($this->pack->getChips('topic_family') as $chip) {
+      $family_chips[$chip['label']] = $chip['intent'];
+    }
+    $this->assertSame('topic_family_child_support', $family_chips['Child Support'] ?? NULL);
+    $this->assertSame('topic_family_protection_order', $family_chips['Protection Orders'] ?? NULL);
+
+    $divorce_chips = [];
+    foreach ($this->pack->getChips('topic_family_divorce') as $chip) {
+      $divorce_chips[$chip['label']] = $chip['intent'];
+    }
+    $this->assertSame('topic_family_child_support', $divorce_chips['Child Support'] ?? NULL);
+    $this->assertSame('forms_topic_family_divorce', $divorce_chips['Find Divorce Forms'] ?? NULL);
   }
 
   /**

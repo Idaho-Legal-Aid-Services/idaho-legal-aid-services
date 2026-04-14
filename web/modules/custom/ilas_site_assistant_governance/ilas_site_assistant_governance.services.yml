@@ -1,0 +1,38 @@
+services:
+  logger.channel.ilas_site_assistant_governance:
+    parent: logger.channel_base
+    arguments: ['ilas_site_assistant_governance']
+
+  ilas_site_assistant_governance.gap_item_manager:
+    class: Drupal\ilas_site_assistant_governance\Service\GapItemManager
+    arguments:
+      - '@entity_type.manager'
+      - '@database'
+      - '@datetime.time'
+      - '@config.factory'
+      - '@logger.channel.ilas_site_assistant_governance'
+      - '@ilas_site_assistant.topic_resolver'
+
+  ilas_site_assistant_governance.conversation_logger:
+    class: Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger
+    arguments:
+      - '@database'
+      - '@datetime.time'
+      - '@logger.channel.ilas_site_assistant_governance'
+
+  ilas_site_assistant_governance.legal_hold_logger:
+    class: Drupal\ilas_site_assistant_governance\Service\LegalHoldLogger
+    arguments:
+      - '@database'
+      - '@datetime.time'
+      - '@current_user'
+      - '@logger.channel.ilas_site_assistant_governance'
+
+  ilas_site_assistant_governance.pruner:
+    class: Drupal\ilas_site_assistant_governance\Service\GovernancePruner
+    arguments:
+      - '@database'
+      - '@datetime.time'
+      - '@state'
+      - '@logger.channel.ilas_site_assistant_governance'
+      - '@entity_type.manager'

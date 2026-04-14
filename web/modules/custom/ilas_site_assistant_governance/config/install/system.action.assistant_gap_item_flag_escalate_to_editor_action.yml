@@ -1,0 +1,11 @@
+uuid: 4a98c229-22c8-4e04-9cd7-47f521b0c0f4
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_flag_escalate_to_editor_action
+label: 'Flag selected gap items as Escalate to editor'
+type: assistant_gap_item
+plugin: assistant_gap_item_flag_escalate_to_editor_action
+configuration: {  }

@@ -165,6 +165,8 @@ class RuntimeTruthSnapshotBuilder {
         'secret_key_present' => $this->valuePresent($assistant['langfuse']['secret_key'] ?? NULL),
         'environment' => $this->stringValue($assistant['langfuse']['environment'] ?? ''),
         'sample_rate' => (float) ($assistant['langfuse']['sample_rate'] ?? 0.0),
+        'redacted_preview_enabled' => (bool) ($assistant['langfuse']['redacted_preview_enabled'] ?? FALSE),
+        'redacted_preview_max_chars' => max(1, (int) ($assistant['langfuse']['redacted_preview_max_chars'] ?? 160)),
       ],
       'sentry' => [
         'config_file_present' => $raven !== [],
@@ -238,6 +240,8 @@ class RuntimeTruthSnapshotBuilder {
         'secret_key_present' => $this->valuePresent($assistant->get('langfuse.secret_key')),
         'environment' => $this->stringValue($assistant->get('langfuse.environment')),
         'sample_rate' => (float) ($assistant->get('langfuse.sample_rate') ?? 0.0),
+        'redacted_preview_enabled' => (bool) ($assistant->get('langfuse.redacted_preview_enabled') ?? FALSE),
+        'redacted_preview_max_chars' => max(1, (int) ($assistant->get('langfuse.redacted_preview_max_chars') ?? 160)),
       ],
       'sentry' => [
         'enabled' => $this->valuePresent($raven->get('client_key')),
@@ -381,6 +385,8 @@ class RuntimeTruthSnapshotBuilder {
       'langfuse.secret_key_present' => 'settings.php secret -> getenv/pantheon_get_secret',
       'langfuse.environment' => 'settings.php secret -> getenv/pantheon_get_secret',
       'langfuse.sample_rate' => 'config export',
+      'langfuse.redacted_preview_enabled' => 'config export',
+      'langfuse.redacted_preview_max_chars' => 'config export',
       'raven.settings.client_key_present' => 'settings.php secret -> getenv/pantheon_get_secret',
       'raven.settings.public_dsn_present' => 'settings.php secret -> getenv/pantheon_get_secret',
       'raven.settings.environment' => 'settings.php secret -> getenv/pantheon_get_secret',
@@ -635,6 +641,14 @@ class RuntimeTruthSnapshotBuilder {
       'langfuse.sample_rate' => [
         'stored' => $exportedStorage['langfuse']['sample_rate'] ?? 0.0,
         'effective' => $effectiveRuntime['langfuse']['sample_rate'] ?? 0.0,
+      ],
+      'langfuse.redacted_preview_enabled' => [
+        'stored' => $exportedStorage['langfuse']['redacted_preview_enabled'] ?? FALSE,
+        'effective' => $effectiveRuntime['langfuse']['redacted_preview_enabled'] ?? FALSE,
+      ],
+      'langfuse.redacted_preview_max_chars' => [
+        'stored' => $exportedStorage['langfuse']['redacted_preview_max_chars'] ?? 160,
+        'effective' => $effectiveRuntime['langfuse']['redacted_preview_max_chars'] ?? 160,
       ],
       'raven.settings.client_key_present' => [
         'stored' => $exportedStorage['sentry']['client_key_present'] ?? FALSE,

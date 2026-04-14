@@ -199,7 +199,7 @@ class ImpObs01AcceptanceTest extends TestCase {
   public function testLangfuseFullLifecycleProducesAllEventTypes(): void {
     $tracer = $this->buildTracer();
 
-    $tracer->startTrace('req-001', 'assistant.message', [], 'hash=abc len=1-24 redact=none');
+    $tracer->startTrace('req-001', 'assistant.message', [], 'preview="Need help with [REDACTED-EMAIL]" hash=abc len=25-99 redact=email');
     $tracer->startSpan('safety.classify');
     $tracer->endSpan(['is_safe' => TRUE]);
     $tracer->startSpan('intent.route');
@@ -207,7 +207,7 @@ class ImpObs01AcceptanceTest extends TestCase {
     $tracer->endGeneration('intent=faq', ['input' => 10, 'output' => 20, 'total' => 30]);
     $tracer->endSpan(['intent' => 'faq']);
     $tracer->addEvent('request.complete', ['response_type' => 'faq']);
-    $tracer->endTrace('type=faq reason=none hash=def len=1-24', ['duration_ms' => 150, 'success' => TRUE]);
+    $tracer->endTrace('type=faq reason=none preview="Please call [REDACTED-PHONE]." hash=def len=25-99 redact=phone', ['duration_ms' => 150, 'success' => TRUE]);
 
     $payload = $tracer->getTracePayload();
     $this->assertNotNull($payload);

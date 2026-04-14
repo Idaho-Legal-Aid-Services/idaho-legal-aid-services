@@ -34,17 +34,21 @@ class ObservabilitySurfaceContractTest extends TestCase {
   }
 
   /**
-   * Tests that controller telemetry/logging uses metadata-only helpers.
+   * Tests that controller telemetry/logging uses safe observability helpers.
    */
-  public function testControllerUsesMetadataOnlyObservabilityHelpers(): void {
+  public function testControllerUsesSafeObservabilityHelpers(): void {
     $source = self::readFile(
       'web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php'
     );
 
     $this->assertStringContainsString('buildLangfuseInputPayload', $source);
     $this->assertStringContainsString('buildLangfuseOutputPayload', $source);
+    $this->assertStringContainsString('buildLangfuseRedactedPreview', $source);
     $this->assertStringContainsString("\$langfuse_input['display']", $source);
     $this->assertStringContainsString("\$langfuse_input['metadata']", $source);
+    $this->assertStringContainsString("'input_preview_redacted'", $source);
+    $this->assertStringContainsString("'output_preview_redacted'", $source);
+    $this->assertStringContainsString('preview="%s"', $source);
     $this->assertGreaterThanOrEqual(5, substr_count($source, 'buildLangfuseOutputPayload('));
     $this->assertStringNotContainsString('trace-update', $source);
     $this->assertStringContainsString("'error_signature'", $source);

@@ -15,7 +15,7 @@ class AnalyticsLogger {
   /**
    * Maximum allowed retention for analytics data (days).
    */
-  const MAX_RETENTION_DAYS = 365;
+  const MAX_RETENTION_DAYS = 730;
 
   /**
    * The database connection.
@@ -138,19 +138,38 @@ class AnalyticsLogger {
    *
    * @param string $query
    *   The user's query that had no results.
+   * @param array $context
+   *   Optional governance context for canonical gap-item creation.
+   *
+   * @return int|null
+   *   Canonical assistant gap-item ID when governance storage is active.
    */
-  public function logNoAnswer(string $query) {
+  public function logNoAnswer(string $query, array $context = []): ?int {
+    $gap_item_id = NULL;
+    if (\Drupal::hasService('ilas_site_assistant_governance.gap_item_manager')) {
+      try {
+        $gap_item_id = \Drupal::service('ilas_site_assistant_governance.gap_item_manager')
+          ->recordNoAnswer($query, $context);
+      }
+      catch (\Throwable $e) {
+        $this->logger->error('Governance no-answer logging failed: @class @error_signature', [
+          '@class' => get_class($e),
+          '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+        ]);
+      }
+    }
+
     $config = $this->configFactory->get('ilas_site_assistant.settings');
 
     if (!$config->get('enable_logging')) {
-      return;
+      return $gap_item_id;
     }
 
     $metadata = ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage($query);
 
     // Skip empty normalized queries.
     if ($metadata['length_bucket'] === ObservabilityPayloadMinimizer::LENGTH_BUCKET_EMPTY) {
-      return;
+      return $gap_item_id;
     }
 
     $hash = $metadata['text_hash'];
@@ -188,6 +207,8 @@ class AnalyticsLogger {
 
     // Also log as a regular event for counting.
     $this->log('no_answer', '');
+
+    return $gap_item_id;
   }
 
   /**
@@ -199,7 +220,7 @@ class AnalyticsLogger {
   public function cleanupOldData() {
     $config = $this->configFactory->get('ilas_site_assistant.settings');
     $retention_days = min(
-      (int) ($config->get('log_retention_days') ?? 90),
+      (int) ($config->get('log_retention_days') ?? 730),
       self::MAX_RETENTION_DAYS,
     );
 

@@ -814,6 +814,12 @@ ilas_site_assistant.settings:
         environment:
           type: string
           label: 'Environment label (e.g., production, staging)'
+        redacted_preview_enabled:
+          type: boolean
+          label: 'Enable redacted Langfuse previews'
+        redacted_preview_max_chars:
+          type: integer
+          label: 'Maximum characters for redacted Langfuse previews'
         timeout:
           type: float
           label: 'HTTP timeout for Langfuse API calls (seconds)'

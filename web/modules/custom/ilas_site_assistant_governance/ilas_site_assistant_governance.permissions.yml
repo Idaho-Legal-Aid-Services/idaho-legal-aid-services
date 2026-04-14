@@ -1,0 +1,74 @@
+view assistant gap items:
+  title: 'View assistant gap items'
+  description: 'View the assistant no-answer review queue and detail screens.'
+  restrict access: true
+
+edit assistant gap items:
+  title: 'Edit assistant gap items'
+  description: 'Edit assistant gap items and their review metadata.'
+  restrict access: true
+
+administer assistant gap items:
+  title: 'Administer assistant gap items'
+  description: 'Administer assistant gap items, including delete access.'
+  restrict access: true
+
+view assistant gap item revisions:
+  title: 'View assistant gap item revisions'
+  description: 'View revision history for assistant gap items.'
+  restrict access: true
+
+revert assistant gap item revisions:
+  title: 'Revert assistant gap item revisions'
+  description: 'Revert assistant gap item revisions.'
+  restrict access: true
+
+delete assistant gap item revisions:
+  title: 'Delete assistant gap item revisions'
+  description: 'Delete assistant gap item revisions.'
+  restrict access: true
+
+transition assistant gap items to needs_review:
+  title: 'Transition assistant gap items to needs review'
+  description: 'Move assistant gap items into needs review.'
+  restrict access: true
+
+transition assistant gap items to reviewed:
+  title: 'Transition assistant gap items to reviewed'
+  description: 'Move assistant gap items into reviewed.'
+  restrict access: true
+
+transition assistant gap items to resolved:
+  title: 'Transition assistant gap items to resolved'
+  description: 'Move assistant gap items into resolved.'
+  restrict access: true
+
+transition assistant gap items to archived:
+  title: 'Transition assistant gap items to archived'
+  description: 'Move assistant gap items into archived.'
+  restrict access: true
+
+reopen assistant gap items:
+  title: 'Reopen assistant gap items'
+  description: 'Reopen resolved or archived assistant gap items back to needs review.'
+  restrict access: true
+
+flag assistant gap items:
+  title: 'Flag assistant gap items'
+  description: 'Apply secondary flags to assistant gap items.'
+  restrict access: true
+
+place legal hold on assistant records:
+  title: 'Place legal hold on assistant records'
+  description: 'Place legal holds on assistant governance records.'
+  restrict access: true
+
+release legal hold on assistant records:
+  title: 'Release legal hold on assistant records'
+  description: 'Release legal holds on assistant governance records.'
+  restrict access: true
+
+view assistant governance conversations:
+  title: 'View assistant governance conversations'
+  description: 'View canonical PII-redacted assistant governance conversations.'
+  restrict access: true

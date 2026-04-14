@@ -1,0 +1,11 @@
+name: 'ILAS Site Assistant Governance'
+type: module
+description: 'Governance, retention, review, and legal-hold storage for the ILAS Site Assistant.'
+package: 'Idaho Legal Aid - Site Features'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - ilas_site_assistant:ilas_site_assistant
+  - drupal:options
+  - drupal:taxonomy
+  - drupal:user
+  - drupal:views

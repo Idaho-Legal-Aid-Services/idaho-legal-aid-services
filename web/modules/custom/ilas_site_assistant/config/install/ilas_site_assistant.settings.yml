@@ -4,7 +4,7 @@ enable_assistant_page: true
 enable_faq: true
 enable_resources: true
 enable_logging: true
-log_retention_days: 90
+log_retention_days: 730
 excluded_paths:
   - /admin
   - /user/login
@@ -231,6 +231,8 @@ langfuse:
   secret_key: ''
   sample_rate: 1.0
   environment: 'production'
+  redacted_preview_enabled: false
+  redacted_preview_max_chars: 160
   timeout: 5.0
   max_queue_depth: 10000
   max_item_age_seconds: 3600

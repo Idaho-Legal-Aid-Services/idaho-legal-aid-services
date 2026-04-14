@@ -319,6 +319,13 @@ class ResponseBuilder {
         $response['reason_code'] = 'greeting';
         break;
 
+      case 'thanks':
+        $response['response_mode'] = self::MODE_ANSWER;
+        $response['type'] = 'acknowledgement';
+        $response['answer_text'] = 'You\'re welcome. If you need something else, tell me the legal issue or choose a topic.';
+        $response['reason_code'] = 'gratitude_acknowledged';
+        break;
+
       case 'high_risk':
         $risk_category = $intent['risk_category'] ?? 'unknown';
         $response['response_mode'] = self::MODE_NAVIGATE;

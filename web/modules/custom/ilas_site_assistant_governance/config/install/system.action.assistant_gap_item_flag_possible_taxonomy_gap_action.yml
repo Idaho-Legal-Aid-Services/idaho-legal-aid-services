@@ -1,0 +1,11 @@
+uuid: 89d7ba3f-3bef-4adf-ba1a-ba3b4c7bee98
+langcode: en
+status: true
+dependencies:
+  module:
+    - ilas_site_assistant_governance
+id: assistant_gap_item_flag_possible_taxonomy_gap_action
+label: 'Flag selected gap items as Possible taxonomy gap'
+type: assistant_gap_item
+plugin: assistant_gap_item_flag_possible_taxonomy_gap_action
+configuration: {  }

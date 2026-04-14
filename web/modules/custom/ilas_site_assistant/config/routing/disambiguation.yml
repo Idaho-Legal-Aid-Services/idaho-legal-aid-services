@@ -165,7 +165,7 @@ families:
     options:
       - { label: 'Family/Divorce forms', intent: forms_finder, topic: family }
       - { label: 'Housing/Eviction forms', intent: forms_finder, topic: housing }
-      - { label: 'Other forms', intent: forms_finder }
+      - { label: 'Other forms', intent: forms }
     exact_aliases:
       - 'forms'
       - 'form'
@@ -196,7 +196,7 @@ families:
     options:
       - { label: 'Formularios de familia/divorcio', intent: forms_finder, topic: family }
       - { label: 'Formularios de vivienda/desalojo', intent: forms_finder, topic: housing }
-      - { label: 'Otros formularios', intent: forms_finder }
+      - { label: 'Otros formularios', intent: forms }
     exact_aliases:
       - 'formularios'
       - 'formulario'
@@ -226,7 +226,7 @@ families:
     options:
       - { label: 'Family/Divorce guides', intent: guides_finder, topic: family }
       - { label: 'Housing/Eviction guides', intent: guides_finder, topic: housing }
-      - { label: 'Other guides', intent: guides_finder }
+      - { label: 'Other guides', intent: guides }
     exact_aliases:
       - 'guide'
       - 'guides'
@@ -255,7 +255,7 @@ families:
     options:
       - { label: 'Guias de familia/divorcio', intent: guides_finder, topic: family }
       - { label: 'Guias de vivienda/desalojo', intent: guides_finder, topic: housing }
-      - { label: 'Otras guias', intent: guides_finder }
+      - { label: 'Otras guias', intent: guides }
     exact_aliases:
       - 'guias'
       - 'guia'

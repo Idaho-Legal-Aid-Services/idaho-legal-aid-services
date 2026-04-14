@@ -326,9 +326,181 @@ final class SelectionNavigationContractTest extends TestCase {
   }
 
   /**
+   * Forms finder chips must stay inside the structured forms flow.
+   */
+  public function testFormsFinderSuggestionsStayWithinFormsMode(): void {
+    $observed = [];
+    $controller = $this->buildController($observed);
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'Divorce or separation',
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms_topic_family_divorce',
+          'label' => 'Find Divorce forms',
+          'parent_button_id' => 'forms_family',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $body = json_decode((string) $response->getContent(), TRUE);
+    $suggestions = $body['suggestions'] ?? [];
+    $familyChip = array_values(array_filter($suggestions, static fn(array $chip): bool => ($chip['label'] ?? '') === 'Family Forms'));
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertNotEmpty($familyChip);
+    $this->assertSame('forms_family', $familyChip[0]['action'] ?? NULL);
+    $this->assertSame('forms_family', $familyChip[0]['selection']['button_id'] ?? NULL);
+  }
+
+  /**
+   * Explicit "Other forms" navigation must reset to the forms inventory.
+   */
+  public function testOtherFormsSelectionReturnsFormsInventoryInsteadOfRepeatingCustodyResults(): void {
+    $observed = [];
+    $controller = $this->buildController($observed);
+    $conversationId = '66666666-6666-4666-8666-666666666666';
+
+    $controller->message($this->buildJsonRequest([
+      'message' => 'Custody or parenting time',
+      'conversation_id' => $conversationId,
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms_topic_family_custody',
+          'label' => 'Find Custody forms',
+          'parent_button_id' => 'forms_family',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'Other forms',
+      'conversation_id' => $conversationId,
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms',
+          'label' => 'Other forms',
+          'parent_button_id' => '',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $body = json_decode((string) $response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame(0, $observed['route_calls']);
+    $this->assertSame('forms_inventory', $body['type'] ?? NULL);
+    $this->assertArrayNotHasKey('results', $body);
+    $this->assertSame('forms', $body['active_selection']['button_id'] ?? NULL);
+    $this->assertSame('forms_housing', $body['topic_suggestions'][0]['action'] ?? NULL);
+  }
+
+  /**
+   * Pack-backed topic selections must not fall through to generic retrieval.
+   */
+  public function testTopicSelectionsDoNotFallThroughToGenericResourceSearch(): void {
+    $observed = [];
+    $controller = $this->buildController(
+      $observed,
+      FALSE,
+      NULL,
+      static fn(string $query, int $limit = 3): array => [[
+        'title' => 'I want to get involved. How can I help?',
+        'url' => 'https://idaholegalaid.org/get-involved',
+        'score' => 0.99,
+      ]]
+    );
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'Child Support',
+      'context' => [
+        'selection' => [
+          'button_id' => 'topic_family_child_support',
+          'label' => 'Child Support',
+          'parent_button_id' => 'topic_family',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $body = json_decode((string) $response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame('topic', $body['type'] ?? NULL);
+    $this->assertStringContainsString('Information about child support in Idaho.', $body['message'] ?? '');
+    $this->assertArrayNotHasKey('results', $body);
+  }
+
+  /**
+   * Gratitude responses clear active branch state and skip generic retrieval.
+   */
+  public function testThanksClearsSelectionStateAndSkipsGenericRetrieval(): void {
+    $observed = [];
+    $controller = $this->buildController(
+      $observed,
+      FALSE,
+      static function (string $message): array {
+        if (preg_match('/^\s*(thanks?\.?|thank\s*yoiu)\s*$/i', $message)) {
+          return ['type' => 'thanks', 'confidence' => 0.95, 'extraction' => []];
+        }
+        return ['type' => 'unknown', 'confidence' => 0.2, 'extraction' => []];
+      },
+      static fn(string $query, int $limit = 3): array => [[
+        'title' => 'I want to get involved. How can I help?',
+        'url' => 'https://idaholegalaid.org/get-involved',
+        'score' => 0.99,
+      ]]
+    );
+    $conversationId = '77777777-7777-4777-8777-777777777777';
+
+    $controller->message($this->buildJsonRequest([
+      'message' => 'Family & Custody',
+      'conversation_id' => $conversationId,
+      'context' => [
+        'selection' => [
+          'button_id' => 'forms_family',
+          'label' => 'Family & Custody',
+          'parent_button_id' => 'forms',
+          'source' => 'widget_button',
+        ],
+      ],
+    ]));
+
+    $response = $controller->message($this->buildJsonRequest([
+      'message' => 'thanks.',
+      'conversation_id' => $conversationId,
+    ]));
+
+    $body = json_decode((string) $response->getContent(), TRUE);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $this->assertSame('acknowledgement', $body['type'] ?? NULL);
+    $this->assertStringContainsString('You\'re welcome.', $body['message'] ?? '');
+    $this->assertNull($body['active_selection'] ?? NULL);
+    $this->assertArrayNotHasKey('results', $body);
+
+    $backResponse = $controller->message($this->buildJsonRequest([
+      'message' => 'go back',
+      'conversation_id' => $conversationId,
+    ]));
+    $backBody = json_decode((string) $backResponse->getContent(), TRUE);
+
+    $this->assertNotSame('forms_inventory', $backBody['type'] ?? NULL);
+  }
+
+  /**
    * Builds a controller with deterministic stubs for selection routing tests.
    */
-  private function buildController(array &$observed, bool $repeatGuardMode = FALSE): AssistantApiController {
+  private function buildController(
+    array &$observed,
+    bool $repeatGuardMode = FALSE,
+    ?callable $routeCallback = NULL,
+    ?callable $resourceSearchCallback = NULL,
+    ?callable $faqSearchCallback = NULL,
+  ): AssistantApiController {
     $observed = ['route_calls' => 0];
 
     $configStub = $this->createStub(ImmutableConfig::class);
@@ -349,13 +521,21 @@ final class SelectionNavigationContractTest extends TestCase {
     $configFactory->method('get')->willReturn($configStub);
 
     $intentRouter = $this->createMock(IntentRouter::class);
-    $intentRouter->method('route')->willReturnCallback(function () use (&$observed): array {
+    $intentRouter->method('route')->willReturnCallback(function (string $message, array $context = []) use (&$observed, $routeCallback): array {
       $observed['route_calls']++;
+      if ($routeCallback !== NULL) {
+        return $routeCallback($message, $context);
+      }
       return ['type' => 'unknown', 'confidence' => 0.2, 'extraction' => []];
     });
 
     $faqIndex = $this->createStub(FaqIndex::class);
-    $faqIndex->method('search')->willReturn([]);
+    $faqIndex->method('search')->willReturnCallback(static function (string $query, int $limit = 3) use ($faqSearchCallback): array {
+      if ($faqSearchCallback !== NULL) {
+        return $faqSearchCallback($query, $limit);
+      }
+      return [];
+    });
 
     $resourceFinder = $this->createMock(ResourceFinder::class);
     $resourceFinder->method('findForms')->willReturnCallback(static function (string $query, int $limit = 6): array {
@@ -377,7 +557,12 @@ final class SelectionNavigationContractTest extends TestCase {
       unset($query, $limit);
       return [];
     });
-    $resourceFinder->method('findResources')->willReturn([]);
+    $resourceFinder->method('findResources')->willReturnCallback(static function (string $query, int $limit = 3) use ($resourceSearchCallback): array {
+      if ($resourceSearchCallback !== NULL) {
+        return $resourceSearchCallback($query, $limit);
+      }
+      return [];
+    });
 
     $policyFilter = $this->createStub(PolicyFilter::class);
     $policyFilter->method('check')->willReturn([

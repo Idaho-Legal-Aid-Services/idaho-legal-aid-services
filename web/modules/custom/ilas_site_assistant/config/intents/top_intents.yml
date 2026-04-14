@@ -171,9 +171,9 @@ intents:
       label: Find Forms
       url: /forms
     chips:
-      - { label: Housing Forms, intent: topic_housing }
-      - { label: Family Forms, intent: topic_family }
-      - { label: Consumer Forms, intent: topic_consumer }
+      - { label: Housing Forms, intent: forms_housing }
+      - { label: Family Forms, intent: forms_family }
+      - { label: Consumer Forms, intent: forms_consumer }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - forms
@@ -189,9 +189,9 @@ intents:
       label: Find Guides
       url: /guides
     chips:
-      - { label: Housing Guides, intent: topic_housing }
-      - { label: Family Guides, intent: topic_family }
-      - { label: Consumer Guides, intent: topic_consumer }
+      - { label: Housing Guides, intent: guides_housing }
+      - { label: Family Guides, intent: guides_family }
+      - { label: Consumer Guides, intent: guides_consumer }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - guides
@@ -252,8 +252,8 @@ intents:
     chips:
       - { label: Divorce, intent: topic_family_divorce }
       - { label: Custody, intent: topic_family_custody }
-      - { label: Child Support, intent: topic_family }
-      - { label: Protection Orders, intent: topic_family }
+      - { label: Child Support, intent: topic_family_child_support }
+      - { label: Protection Orders, intent: topic_family_protection_order }
     clarifier:
       question: What type of family law issue are you dealing with?
       options:
@@ -366,8 +366,8 @@ intents:
       url: /legal-help/family
     chips:
       - { label: Divorce, intent: topic_family_divorce }
-      - { label: Child Support, intent: topic_family }
-      - { label: Protection Orders, intent: topic_family }
+      - { label: Child Support, intent: topic_family_child_support }
+      - { label: Protection Orders, intent: topic_family_protection_order }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - custody
@@ -385,8 +385,8 @@ intents:
       url: /legal-help/family
     chips:
       - { label: Custody, intent: topic_family_custody }
-      - { label: Child Support, intent: topic_family }
-      - { label: Find Divorce Forms, intent: forms_finder }
+      - { label: Child Support, intent: topic_family_child_support }
+      - { label: Find Divorce Forms, intent: forms_topic_family_divorce }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - divorce
@@ -400,8 +400,8 @@ intents:
       label: Housing Legal Help
       url: /legal-help/housing
     chips:
-      - { label: Tenant Rights Guide, intent: guides_finder }
-      - { label: Eviction Forms, intent: forms_finder }
+      - { label: Tenant Rights Guide, intent: guides_topic_housing_eviction }
+      - { label: Eviction Forms, intent: forms_topic_housing_eviction }
       - { label: Apply for Help, intent: apply_for_help }
       - { label: Call Hotline, intent: legal_advice_line }
     synonyms:
@@ -496,10 +496,10 @@ intents:
       label: Browse All Forms
       url: /forms
     chips:
-      - { label: Housing Forms, intent: topic_housing }
-      - { label: Family Forms, intent: topic_family }
-      - { label: Consumer Forms, intent: topic_consumer }
-      - { label: Seniors Forms, intent: topic_seniors }
+      - { label: Housing Forms, intent: forms_housing }
+      - { label: Family Forms, intent: forms_family }
+      - { label: Consumer Forms, intent: forms_consumer }
+      - { label: Seniors Forms, intent: forms_seniors }
     synonyms:
       - what forms
       - list forms
@@ -514,10 +514,10 @@ intents:
       label: Browse All Guides
       url: /guides
     chips:
-      - { label: Housing Guides, intent: topic_housing }
-      - { label: Family Guides, intent: topic_family }
-      - { label: Consumer Guides, intent: topic_consumer }
-      - { label: Seniors Guides, intent: topic_seniors }
+      - { label: Housing Guides, intent: guides_housing }
+      - { label: Family Guides, intent: guides_family }
+      - { label: Consumer Guides, intent: guides_consumer }
+      - { label: Seniors Guides, intent: guides_seniors }
     synonyms:
       - what guides
       - list guides

@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Governance hooks for the ILAS Site Assistant.
+ */
+
+/**
+ * Implements hook_cron().
+ */
+function ilas_site_assistant_governance_cron(): void {
+  if (\Drupal::hasService('ilas_site_assistant_governance.pruner')) {
+    \Drupal::service('ilas_site_assistant_governance.pruner')->prune();
+  }
+}

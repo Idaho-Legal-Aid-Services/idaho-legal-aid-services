@@ -35,6 +35,8 @@ class LangfuseTraceLookupService {
     'degraded_reason',
     'response_type',
     'reason_code',
+    'input_preview_redacted',
+    'output_preview_redacted',
     'intent_type',
     'is_quick_action',
     'fallback_level',

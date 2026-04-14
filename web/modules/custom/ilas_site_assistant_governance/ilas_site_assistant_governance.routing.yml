@@ -1,0 +1,16 @@
+ilas_site_assistant_governance.conversations:
+  path: '/admin/reports/ilas-assistant/governance/conversations/legacy'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\GovernanceConversationController::list'
+    _title: 'Assistant Governance Conversations (Legacy)'
+  requirements:
+    _permission: 'view assistant governance conversations'
+
+ilas_site_assistant_governance.conversation_detail:
+  path: '/admin/reports/ilas-assistant/governance/conversations/{conversation_id}'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\GovernanceConversationController::detail'
+    _title: 'Assistant Governance Conversation'
+  requirements:
+    _permission: 'view assistant governance conversations'
+    conversation_id: '[a-f0-9\-]{36}'
