@@ -9,7 +9,7 @@ use Drupal\KernelTests\KernelTestBase;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Tests the RAUD-21 lexical Search API index repair update hook.
+ * Tests ilas_site_assistant update hooks with focused kernel coverage.
  *
  */
 #[Group('ilas_site_assistant')]
@@ -81,6 +81,30 @@ final class RetrievalIndexUpdateHookKernelTest extends KernelTestBase {
       'Update 10009 must not alter retrieval config.'
     );
     $this->assertStringContainsString('faq_accordion, assistant_resources', (string) $message);
+  }
+
+  /**
+   * The update hook adds the analytics date index and remains idempotent.
+   */
+  public function testUpdate10012AddsDateIndex(): void {
+    require_once $this->modulePath() . '/ilas_site_assistant.install';
+
+    $table = 'ilas_site_assistant_stats';
+    $this->installSchema('ilas_site_assistant', [$table]);
+
+    $schema = $this->container->get('database')->schema();
+
+    $this->assertTrue($schema->indexExists($table, 'date'), 'Fresh installs must include the canonical analytics date index.');
+    $schema->dropIndex($table, 'date');
+    $this->assertFalse($schema->indexExists($table, 'date'), 'Test setup must simulate a pre-10012 site without the date index.');
+
+    $message = ilas_site_assistant_update_10012();
+    $this->assertTrue($schema->indexExists($table, 'date'), 'Update 10012 must recreate the analytics date index.');
+    $this->assertSame('Added analytics date index.', (string) $message);
+
+    $repeat_message = ilas_site_assistant_update_10012();
+    $this->assertTrue($schema->indexExists($table, 'date'), 'Update 10012 must leave the analytics date index in place on repeat runs.');
+    $this->assertSame('Analytics date index already exists.', (string) $repeat_message);
   }
 
   /**

@@ -48,6 +48,7 @@ function ilas_site_assistant_schema() {
     ],
     'primary key' => ['id'],
     'indexes' => [
+      'date' => ['date'],
       'event_date' => ['event_type', 'date'],
       'event_value' => ['event_type', 'event_value'],
     ],
@@ -921,7 +922,14 @@ function ilas_site_assistant_update_10011() {
 function ilas_site_assistant_update_10012() {
   $schema = \Drupal::database()->schema();
   if ($schema->tableExists('ilas_site_assistant_stats') && !$schema->indexExists('ilas_site_assistant_stats', 'date')) {
-    $schema->addIndex('ilas_site_assistant_stats', 'date', ['date']);
+    $schema->addIndex('ilas_site_assistant_stats', 'date', ['date'], [
+      'fields' => [
+        'date' => [
+          'type' => 'varchar',
+          'length' => 10,
+        ],
+      ],
+    ]);
     return t('Added analytics date index.');
   }
 

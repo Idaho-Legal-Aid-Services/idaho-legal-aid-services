@@ -75,6 +75,7 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
       ],
       'primary key' => ['id'],
       'indexes' => [
+        'date' => ['date'],
         'event_date' => ['event_type', 'date'],
         'event_value' => ['event_type', 'event_value'],
       ],
