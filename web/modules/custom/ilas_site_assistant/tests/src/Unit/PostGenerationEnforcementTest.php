@@ -654,7 +654,9 @@ final class RecordingAnalyticsLogger extends AnalyticsLogger {
   /**
    * {@inheritdoc}
    */
-  public function logNoAnswer(string $query) {}
+  public function logNoAnswer(string $query, array $context = []): ?int {
+    return NULL;
+  }
 
   /**
    * Returns the recorded event types.

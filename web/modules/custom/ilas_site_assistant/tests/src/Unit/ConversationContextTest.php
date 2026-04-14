@@ -319,10 +319,10 @@ class ConversationContextTest extends TestCase {
     $this->assertNotEmpty($entry['primary_action'], 'forms_inventory should have primary_action');
     $this->assertEquals('/forms', $entry['primary_action']['url'], 'Primary action should link to /forms');
 
-    // Chips should include topic categories.
+    // Chips should include form categories.
     $chip_intents = array_column($entry['chips'], 'intent');
-    $this->assertContains('topic_housing', $chip_intents, 'Should have housing chip');
-    $this->assertContains('topic_family', $chip_intents, 'Should have family chip');
+    $this->assertContains('forms_housing', $chip_intents, 'Should have housing forms chip');
+    $this->assertContains('forms_family', $chip_intents, 'Should have family forms chip');
   }
 
   /**
