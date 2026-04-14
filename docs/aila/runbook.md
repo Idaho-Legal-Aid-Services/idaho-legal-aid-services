@@ -3290,6 +3290,15 @@ git status --short --branch
 npm run git:publish
 ```
 
+If Pantheon `origin/master` moved outside the GitHub PR flow, reconcile before
+you do more work on local `master`:
+
+```bash
+npm run git:reconcile-origin -- --dry-run
+terminus env:code-log idaho-legal-aid-services.dev --format=table
+npm run git:reconcile-origin
+```
+
 Shortest repeatable flow after you commit your changes:
 
 ```bash
@@ -3314,9 +3323,12 @@ terminus env:code-log idaho-legal-aid-services.dev --format=table
 Notes:
 - `bash scripts/ci/install-pre-push-strict-hook.sh` installs both
   `.git/hooks/pre-commit` and `.git/hooks/pre-push`.
-- The pre-commit hook runs only on local `master`, fetches `github`, and
-  blocks new commits when `github/master` is ahead or diverged. Use
-  `npm run git:sync-master` before starting more work on `master`.
+- The pre-commit hook runs only on local `master`, fetches `github` and
+  `origin`, blocks new commits when `github/master` is ahead or diverged, and
+  also blocks when Pantheon `origin/master` is ahead or diverged. Use
+  `npm run git:sync-master` for GitHub drift and
+  `npm run git:reconcile-origin` for Pantheon drift before starting more work
+  on `master`.
 - The strict hook first runs `scripts/git/sync-check.sh` to block
   `remote-ahead`/`diverged` pushes, then runs
   `composer install --no-interaction --no-progress --prefer-dist --dry-run`
@@ -3363,6 +3375,14 @@ Notes:
 - `npm run git:publish -- --origin-only` is the normal sync path for Pantheon
   `dev`; promotion to Pantheon `test` and `live` is a separate deployment
   workflow.
+- `npm run git:reconcile-origin` is the repeatable recovery path when
+  Pantheon `origin/master` receives an unexpected commit outside the GitHub PR
+  flow. The helper creates recovery branches, resets local `master` to
+  `origin/master`, and replays preserved local-only commits in chronological
+  order.
+- `terminus env:code-log idaho-legal-aid-services.dev --format=table` is the
+  verification source for unexpected Pantheon-only code movement before you
+  reconcile.
 - If `ILAS_ASSISTANT_URL` is unset, `scripts/ci/run-promptfoo-gate.sh` will
   attempt Pantheon URL derivation (`derive-assistant-url.sh`) for `--env dev`.
 - Bypass once (not recommended): `git push --no-verify`. This bypasses both the
@@ -3375,6 +3395,18 @@ git branch backup/recovery-<timestamp> master
 git reset --hard github/master
 git cherry-pick <local-master-commit>
 npm run git:publish
+```
+
+Recovery when Pantheon `origin/master` drifted before you published:
+
+```bash
+npm run git:reconcile-origin -- --dry-run
+terminus env:code-log idaho-legal-aid-services.dev --format=table
+npm run git:reconcile-origin
+composer install --no-interaction --no-progress --prefer-dist --dry-run
+vendor/bin/phpunit -c phpunit.pure.xml --colors=always
+npm run git:publish
+npm run git:finish
 ```
 
 ### External CI promptfoo gate (Pantheon-derived URL)

@@ -6,6 +6,7 @@
     "git:publish": "bash scripts/git/publish.sh",
     "git:finish": "bash scripts/git/finish.sh",
     "git:sync-master": "bash scripts/git/sync-master.sh",
+    "git:reconcile-origin": "bash scripts/git/reconcile-origin.sh",
     "git:sync-check": "bash scripts/git/sync-check.sh",
     "test:assistant:playwright": "playwright test --config=playwright.config.js",
     "test:assistant:playwright:headed": "playwright test --config=playwright.config.js --headed",

@@ -236,6 +236,7 @@ main() {
   local remote_only=""
   local local_only=""
   local github_master_status=""
+  local origin_master_status=""
   local no_verify=false
   local targets=()
   declare -A remote_status=()
@@ -261,8 +262,17 @@ main() {
   done
 
   github_master_status="${remote_status[github]}"
+  origin_master_status="${remote_status[origin]}"
 
   if [[ "$branch" == "master" ]]; then
+    if [[ "$origin_master_status" == "remote-ahead" || "$origin_master_status" == "diverged" ]]; then
+      err "Refusing to publish from local master while origin/master is '$origin_master_status'."
+      err "Run: npm run git:reconcile-origin"
+      err "Verify unexpected Pantheon code movement with: terminus env:code-log idaho-legal-aid-services.dev --format=table"
+      err "Inspect with: git log --left-right --cherry-pick --oneline origin/master...master"
+      exit 1
+    fi
+
     case "$TARGET_MODE" in
       both|github)
         if [[ "$github_master_status" == "remote-ahead" || "$github_master_status" == "diverged" ]]; then
