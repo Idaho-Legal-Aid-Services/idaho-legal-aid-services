@@ -15,7 +15,7 @@ flowchart LR
     RET[Retrieval\nFaqIndex + ResourceFinder\nSearch API + optional vector]
     SGOV[Source governance\nfreshness + provenance\nsoft alerts + snapshot]
     VHYG[Vector index hygiene\nmetadata standards + refresh cadence\ndrift + overdue monitoring]
-    GEN[Generation\nLlmEnhancer\nGemini/Vertex optional]
+    GEN[Generation\nLlmEnhancer\nCohere request-time classification]
     DASH[Dashboard APIs\n/assistant/api/health\n/assistant/api/metrics]
     ADR[Admin report dashboard\n/admin/reports/ilas-assistant]
     OBS[Observability\nAnalytics logger\nLangfuse tracer/queue\nSentry options subscriber\nNormalized telemetry log schema]
@@ -26,8 +26,8 @@ flowchart LR
   subgraph Ext[External Integrations]
     SA[Search API servers/indexes]
     PC[Pinecone]
-    GM[Gemini API]
-    VX[Vertex AI]
+    CH[Cohere]
+    GM[Gemini residual\nSearch API AI only if required]
     LF[Langfuse]
     SN[Sentry / Raven]
     CI[GitHub Actions\nQuality Gate]
@@ -58,8 +58,8 @@ flowchart LR
   RET --> SA
   RET -->|vector enabled| PC
   PL --> GEN
-  GEN -->|provider=gemini_api| GM
-  GEN -->|provider=vertex_ai| VX
+  GEN -->|provider=cohere| CH
+  SA -->|residual chat_model proof| GM
 
   R --> OBS
   OBS --> ALT
@@ -92,11 +92,11 @@ flowchart TD
   G -->|policy exit| I1[Policy response]
   G -->|continue| J[Turn classify + Intent route\nquick actions/history fallback]
   J --> K[Early retrieval\nFAQ/resources]
-  K --> L[Fallback gate decision\nclarify vs llm path]
+  K --> L[Fallback gate decision\nclarify vs request-time classification path]
   L --> M[Hard-route URL enforcement\noptional response grounding]
-  M --> N{LLM enabled + allowed?}
+  M --> N{LLM enabled + runtime ready?}
   N -->|no| O[Rule-based response]
-  N -->|yes| P[LlmEnhancer call\ncache/circuit/rate/retry/timeout]
+  N -->|yes| P[LlmEnhancer call\nclassifyIntent\ncache/circuit/rate/retry/timeout]
   P --> Q[Post-generation safety enforcement]
   O --> R[Persist history + follow-up slot cache\n30m TTL, 10-entry window]
   Q --> R

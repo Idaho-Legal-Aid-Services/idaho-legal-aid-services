@@ -655,14 +655,19 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:690-697`
 
 ### CLAIM-073
-- Claim: Gemini and Vertex API endpoints are explicitly defined in code.
+- Claim: The custom assistant request-time provider endpoint is explicitly
+  defined in code as a Cohere chat transport, while residual Gemini usage is
+  kept outside the custom assistant transport path.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:96-97`
+  - `web/modules/custom/ilas_site_assistant/src/Service/CohereLlmTransport.php`
+  - `config/search_api.server.pinecone_vector_faq.yml`
+  - `config/search_api.server.pinecone_vector_resources.yml`
 - Addendum (2026-03-06): Phase 3 NDO #1 (`P3-NDO-01`) enforces the audited
-  provider boundary (Gemini API + Vertex AI only) and no net-new assistant
-  channel/model-provider expansion through section-3 `VC-TOGGLE-CHECK`
-  continuity checks, source-anchor verification, dedicated runtime proof
-  markers, and guard-test enforcement.
+  provider boundary (Cohere-first request-time classification, Voyage
+  reranking, and residual Gemini only where Search API/vector proof still
+  requires it) and no net-new assistant channel/model-provider expansion
+  through section-3 `VC-TOGGLE-CHECK` continuity checks, source-anchor
+  verification, dedicated runtime proof markers, and guard-test enforcement.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 NDO #1 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-NDO-01 scope-boundary disposition addendum)
@@ -675,15 +680,17 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml`
 
 ### CLAIM-074
-- Claim: Gemini API path uses `x-goog-api-key`; Vertex uses service-account JWT or metadata-server bearer token.
+- Claim: The Cohere request-time path uses runtime Bearer auth via
+  `ILAS_COHERE_API_KEY`, and the retired Vertex auth path no longer ships in
+  the custom assistant request-time code.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:617-646`
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:804-815`
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:826-903`
+  - `web/modules/custom/ilas_site_assistant/src/Service/CohereLlmTransport.php`
+  - `web/sites/default/settings.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VertexRuntimeCredentialGuardTest.php`
 - Addendum (2026-03-06): Phase 3 NDO #1 (`P3-NDO-01`) keeps third-party model
   expansion out of scope by continuity-locking audited provider auth flows
-  (Gemini API key path and Vertex JWT/metadata token paths) without adding new
-  provider branches.
+  (runtime-only Cohere request-time auth plus already-proven retrieval
+  providers) without adding new provider branches.
 - Addendum evidence:
   - `docs/aila/roadmap.md` (Phase 3 NDO #1 disposition dated 2026-03-06)
   - `docs/aila/current-state.md` (P3-NDO-01 scope-boundary disposition addendum)
@@ -1148,11 +1155,11 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseThreeExitCriteriaOneGateTest.php`
 
 ### CLAIM-106
-- Claim: LLM request payload construction does not include explicit tool/function-calling fields; payload is `contents` + `generationConfig` + `safetySettings`.
+- Claim: Request-time LLM payload construction does not include explicit tool/function-calling fields; the Cohere request is a schema-bounded chat payload that asks only for a JSON object.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:628-643`
-  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php:681-697`
-- Inference basis: no tool/function-call keys are present in the Gemini/Vertex payload builders.
+  - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
+  - `web/modules/custom/ilas_site_assistant/src/Service/CohereLlmTransport.php`
+- Inference basis: no tool/function-call keys are present in the Cohere request builder; the transport requests structured JSON only.
 
 ### CLAIM-107
 - Claim: Promptfoo execution is repo-local via npm scripts/harness; CI workflow location is not present in `.github` in this repository snapshot.
@@ -3598,10 +3605,11 @@ that remained open after 2026-03-13.
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PineconeQueryTimeoutContractTest.php`
 
 ### CLAIM-241
-- Claim: TOVR-14 intentionally leaves the dormant custom Vertex runtime-secret
-  path in place (`settings.php` plus `LlmEnhancer`) while removing the exported
-  Vertex key entity from synced config, so the residual unused surface is
-  runtime-only rather than config-exported.
+- Claim: TOVR-14 originally reduced the enabled AI/provider footprint to the
+  minimum proven vector stack while leaving the dormant custom Vertex runtime
+  path as a temporary residual; the 2026-04-15 Cohere-first transition later
+  retired that custom assistant Vertex surface from `settings.php` and
+  `LlmEnhancer`.
 - Evidence:
   - `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`
   - `web/sites/default/settings.php`

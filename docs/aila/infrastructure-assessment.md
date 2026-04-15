@@ -131,8 +131,9 @@ Libraries defined: global-styling, custom-scripts, search-overlay, scroll-behavi
 
 | Service | Endpoint | Auth method | Production status | Evidence |
 |---|---|---|---|---|
-| **Google Gemini API** | `generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash` | API key (`ILAS_GEMINI_API_KEY`) | Embeddings active; LLM hard-gated OFF on live | `settings.php:404`, `LlmEnhancer.php` |
-| **Google Vertex AI** | `{region}-aiplatform.googleapis.com/v1/projects/...` | Service account JSON (`ILAS_VERTEX_SA_JSON`) | Modules uninstalled (TOVR-14); dormant code path retained | `settings.php:506-509`, `current-state.md:88` |
+| **Cohere** | `api.cohere.com/v2/chat` | Bearer token (`ILAS_COHERE_API_KEY`) | Request-time ambiguous-intent classification only; runtime-toggle controlled and conservative in export/live | `settings.php`, `CohereLlmTransport.php`, `LlmEnhancer.php` |
+| **Google Gemini API** | Search API / provider-managed Gemini endpoints | API key (`ILAS_GEMINI_API_KEY`) | Residual Search API/vector-only dependency until prove-and-clean removal is complete; not used by the custom assistant request-time path | `settings.php`, `config/search_api.server.pinecone_vector.yml`, `current-state.md` |
+| **Google Vertex AI** | Historical retired custom assistant surface | Retired from current request-time path | Modules uninstalled and custom assistant wiring removed; kept only as historical evidence in older TOVR docs | `docs/aila/runtime/tovr-14-ai-provider-footprint-rationalization.txt`, `current-state.md` |
 | **Pinecone** | Via `ai_vdb_provider_pinecone` plugin | API key (`ILAS_PINECONE_API_KEY`) | Active on dev/test; hard-gated OFF on live | `settings.php:585-588` |
 | **Voyage AI** | `api.voyageai.com/v1/rerank` | Bearer token (`ILAS_VOYAGE_API_KEY`) | Hard-gated OFF on live | `settings.php:618-621`, `VoyageReranker.php` |
 | **Langfuse** | `us.cloud.langfuse.com/api/public/ingestion` | Basic auth (public+secret key) | **ACTIVE in all environments** (auto-enabled when keys present) | `settings.php:532-536`, `current-state.md:48` |
@@ -160,18 +161,19 @@ Libraries defined: global-styling, custom-scripts, search-overlay, scroll-behavi
 
 ### 1.10 Secrets & Config Management
 
-**14 runtime secrets** managed via `_ilas_get_secret()` (Pantheon runtime secrets → `getenv()` fallback):
+**Representative runtime secrets and toggles** managed through `_ilas_get_secret()` and related runtime env handling (Pantheon runtime secrets → `getenv()` fallback):
 
 | Secret | Service | Storage |
 |---|---|---|
 | `SMTP_PASSWORD` | Email | Pantheon runtime secret |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | CAPTCHA | Pantheon runtime secret |
 | `TMGMT_GOOGLE_API_KEY` | Translation | Pantheon runtime secret |
-| `ILAS_GEMINI_API_KEY` | LLM/Embeddings | Pantheon runtime secret |
-| `ILAS_VERTEX_SA_JSON` | Vertex AI (dormant) | Pantheon runtime secret |
+| `ILAS_GEMINI_API_KEY` | Residual Search API/vector Gemini provider | Pantheon runtime secret |
+| `ILAS_COHERE_API_KEY` | Request-time Cohere classification | Pantheon runtime secret |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | Observability | Pantheon runtime secret |
 | `ILAS_PINECONE_API_KEY` | Vector DB | Pantheon runtime secret |
 | `ILAS_VOYAGE_API_KEY` | Reranking | Pantheon runtime secret |
+| `ILAS_LLM_ENABLED` | Request-time LLM runtime toggle | Pantheon runtime secret / env flag |
 | `ILAS_VECTOR_SEARCH_ENABLED` | Feature toggle | Pantheon runtime secret |
 | `ILAS_VOYAGE_ENABLED` | Feature toggle | Pantheon runtime secret |
 | `SENTRY_DSN` / `SENTRY_BROWSER_DSN` | Error tracking | Pantheon runtime secret |
@@ -205,7 +207,8 @@ User Browser
   │     ├─► Redis (cache bins, flood control, locks)
   │     ├─► Search API DB (lexical FAQ + resource search)
   │     ├─► [DISABLED ON LIVE] Pinecone (vector fallback search)
-  │     ├─► [DISABLED ON LIVE] Gemini API (LLM enhancement)
+  │     ├─► [RUNTIME-TOGGLED] Cohere (request-time ambiguous-intent classification)
+  │     ├─► [RESIDUAL / PROVE-AND-CLEAN] Gemini provider (Search API/vector behavior)
   │     ├─► [DISABLED ON LIVE] Voyage AI (post-retrieval reranking)
   │     ├─► [ACTIVE] Langfuse (trace export via cron queue)
   │     └─► [ACTIVE] Sentry (error/performance tracking)
@@ -233,7 +236,8 @@ GitHub Actions
 | **ilas_site_assistant module** (all 96+ services) | **Drupal-embedded, Pantheon-independent** | Zero Pantheon references in module code. All integration via standard Drupal config/settings APIs |
 | **Search API DB** | Drupal-embedded | Uses MariaDB backend, no external dependency |
 | **Pinecone integration** | Cloud-portable (SaaS) | HTTP API calls from Drupal service, key from environment variable |
-| **Gemini/Vertex LLM** | Cloud-portable (SaaS) | HTTP API calls from Drupal service, key from environment variable |
+| **Cohere request-time LLM** | Cloud-portable (SaaS) | HTTP API calls from Drupal service, key from environment variable |
+| **Residual Gemini Search API provider** | Cloud-portable (SaaS) | Search API/provider-managed integration still wired by Drupal config until removal is proven safe |
 | **Voyage AI reranking** | Cloud-portable (SaaS) | HTTP API calls from Drupal service, key from environment variable |
 | **Langfuse observability** | Cloud-portable (SaaS) | HTTP API calls from queue worker, keys from environment variable |
 | **Sentry** | Cloud-portable (SaaS) | DSN-configured SDK, no Pantheon dependency |

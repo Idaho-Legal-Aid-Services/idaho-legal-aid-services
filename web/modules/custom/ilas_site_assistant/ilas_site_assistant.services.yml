@@ -114,13 +114,17 @@ services:
       - '@ilas_site_assistant.llm_rate_limiter'
       - '@ilas_site_assistant.llm_admission_coordinator'
 
+  ilas_site_assistant.cohere_llm_transport:
+    class: Drupal\ilas_site_assistant\Service\CohereLlmTransport
+    arguments: ['@http_client']
+
   ilas_site_assistant.llm_enhancer:
     class: Drupal\ilas_site_assistant\Service\LlmEnhancer
-    arguments: ['@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter', '@cache.ilas_site_assistant', '@ilas_site_assistant.llm_circuit_breaker', '@ilas_site_assistant.llm_rate_limiter', '@ilas_site_assistant.cost_control_policy', '@ilas_site_assistant.environment_detector']
+    arguments: ['@config.factory', '@http_client', '@logger.factory', '@ilas_site_assistant.policy_filter', '@cache.ilas_site_assistant', '@ilas_site_assistant.llm_circuit_breaker', '@ilas_site_assistant.llm_rate_limiter', '@ilas_site_assistant.cost_control_policy', '@ilas_site_assistant.environment_detector', '@ilas_site_assistant.cohere_llm_transport']
 
   ilas_site_assistant.fallback_gate:
     class: Drupal\ilas_site_assistant\Service\FallbackGate
-    arguments: ['@config.factory', '@ilas_site_assistant.environment_detector']
+    arguments: ['@config.factory', '@ilas_site_assistant.environment_detector', '@ilas_site_assistant.llm_enhancer']
 
   ilas_site_assistant.request_trust_inspector:
     class: Drupal\ilas_site_assistant\Service\RequestTrustInspector

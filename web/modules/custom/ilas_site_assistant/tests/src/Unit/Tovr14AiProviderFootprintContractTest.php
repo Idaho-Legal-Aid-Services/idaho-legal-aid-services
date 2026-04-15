@@ -103,13 +103,15 @@ final class Tovr14AiProviderFootprintContractTest extends TestCase {
     $this->assertStringContainsString('TOVR-14', $currentState);
     $this->assertStringContainsString('minimum proven vector stack', $currentState);
     $this->assertStringContainsString('### TOVR-14 AI/provider footprint rationalization disposition', $roadmap);
-    $this->assertStringContainsString('No exported', $runbook);
-    $this->assertStringContainsString('Drupal config should now carry Vertex credential material.', $runbook);
+    $this->assertStringContainsString('### Cohere request-time credential verification', $runbook);
+    $this->assertStringContainsString('No exported Drupal config should carry Cohere credential material.', $runbook);
+    $this->assertStringContainsString('custom assistant request-time path no longer uses Gemini or Vertex', $runbook);
     $this->assertStringContainsString('## TOVR-14 AI Provider Footprint Rationalization', $evidenceIndex);
     $this->assertStringContainsString('### CLAIM-239', $evidenceIndex);
     $this->assertStringContainsString('### CLAIM-242', $evidenceIndex);
     $this->assertStringContainsString('R-SEC-04', $riskRegister);
-    $this->assertStringContainsString('runtime-only `ILAS_VERTEX_SA_JSON`', $riskRegister);
+    $this->assertStringContainsString('Retired Vertex assistant surfaces', $riskRegister);
+    $this->assertStringContainsString('reintroduction of `ILAS_VERTEX_SA_JSON` / `ilas_vertex_sa_json`', $riskRegister);
   }
 
 }

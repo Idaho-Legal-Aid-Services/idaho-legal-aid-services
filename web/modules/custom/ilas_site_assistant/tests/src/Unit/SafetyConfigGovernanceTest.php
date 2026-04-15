@@ -348,9 +348,10 @@ class SafetyConfigGovernanceTest extends TestCase {
   }
 
   /**
-   * Live settings override must hard-disable LLM enablement.
+   * Live settings override must keep vector search hard-disabled while LLM
+   * rollout remains runtime-toggle controlled.
    */
-  public function testLiveSettingsOverrideForcesLlmDisabled(): void {
+  public function testLiveSettingsOverrideKeepsVectorDisabledAndLlmRuntimeControlled(): void {
     $path = self::repoRoot() . '/web/sites/default/settings.php';
     $this->assertFileExists($path, 'settings.php not found');
 
@@ -362,9 +363,9 @@ class SafetyConfigGovernanceTest extends TestCase {
       'settings.php must include live environment branch',
     );
     $this->assertStringContainsString(
-      "\$config['ilas_site_assistant.settings']['llm.enabled'] = FALSE;",
+      "_ilas_get_secret('ILAS_LLM_ENABLED')",
       $contents,
-      'Live environment must hard-disable llm.enabled via runtime override',
+      'settings.php must load the runtime LLM rollout toggle',
     );
     $this->assertStringContainsString(
       "\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;",
@@ -386,10 +387,10 @@ class SafetyConfigGovernanceTest extends TestCase {
     $this->assertStringContainsString("'#disabled' => \$is_live_environment", $contents);
     $this->assertStringContainsString("setErrorByName(\n        'llm_enabled',", $contents);
     $this->assertStringContainsString("setErrorByName(\n        'vector_search_enabled',", $contents);
-    $this->assertStringContainsString("if (\$this->isLiveEnvironment()) {\n      \$vector_search_enabled = FALSE;", $contents);
-    $this->assertStringContainsString("if (\$this->isLiveEnvironment()) {\n      \$llm_enabled = FALSE;", $contents);
-    $this->assertStringContainsString("'enabled' => \$vector_search_enabled", $contents);
-    $this->assertStringContainsString("'enabled' => \$llm_enabled", $contents);
+    $this->assertStringContainsString('$vector_search_enabled = FALSE;', $contents);
+    $this->assertStringContainsString('$llm_enabled = FALSE;', $contents);
+    $this->assertStringContainsString('ILAS_COHERE_API_KEY', $contents);
+    $this->assertStringContainsString('ILAS_LLM_ENABLED', $contents);
   }
 
 }

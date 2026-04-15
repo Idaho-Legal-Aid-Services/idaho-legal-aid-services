@@ -169,15 +169,12 @@ ilas_site_assistant.settings:
         temperature:
           type: float
           label: 'Temperature (0.0-1.0)'
-        enhance_greetings:
-          type: boolean
-          label: 'Enhance greeting responses'
         fallback_on_error:
           type: boolean
           label: 'Fallback to rule-based on LLM error'
         safety_threshold:
           type: string
-          label: 'Retired LLM safety filter threshold'
+          label: 'Request-time safety filter threshold'
         cache_ttl:
           type: integer
           label: 'Response cache TTL in seconds (0 = disabled)'

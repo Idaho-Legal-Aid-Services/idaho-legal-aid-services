@@ -527,17 +527,78 @@ class AssistantSettingsForm extends ConfigFormBase {
       ],
     ];
 
-    // Request-time LLM settings are retired for the assistant path.
+    $llm_config = $config->get('llm');
+    $llm_config = is_array($llm_config) ? $llm_config : [];
     $form['llm'] = [
       '#type' => 'details',
-      '#title' => $this->t('Request-time LLM Status'),
-      '#description' => $this->t('Assistant responses remain deterministic, safety-gated, and limited to legal information from site content.'),
+      '#title' => $this->t('Request-time LLM'),
+      '#description' => $this->t('Use Cohere only for bounded ambiguous-intent classification. Assistant responses remain deterministic, safety-gated, and grounded in site content.'),
       '#open' => FALSE,
     ];
 
-    $form['llm']['llm_retired_notice'] = [
+    $form['llm']['llm_runtime_notice'] = [
       '#type' => 'item',
-      '#markup' => '<p>' . $this->t('Request-time assistant LLM fallback is retired and forced off at runtime in all environments. Provider, model, and credential controls have been removed from this form. Embeddings and vector infrastructure are managed separately and are unchanged by this screen.') . '</p>',
+      '#markup' => '<p>' . $this->t('Runtime secret: <code>ILAS_COHERE_API_KEY</code>. Live rollout remains runtime-toggle controlled with <code>ILAS_LLM_ENABLED</code>. Provider/model credentials are not stored in Drupal config or exposed in this form. Greeting variation stays retired.') . '</p>',
+    ];
+
+    $form['llm']['llm_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable request-time LLM classification'),
+      '#description' => $is_live_environment
+        ? $this->t('Live enablement is runtime-only. Set <code>ILAS_LLM_ENABLED</code> and clear caches instead of saving this checkbox.')
+        : $this->t('Allow Cohere-backed request-time classification only when deterministic routing returns an ambiguous unknown intent.'),
+      '#default_value' => (bool) ($llm_config['enabled'] ?? FALSE),
+      '#disabled' => $is_live_environment,
+    ];
+
+    $form['llm']['llm_max_tokens'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Tokens'),
+      '#default_value' => (int) ($llm_config['max_tokens'] ?? 150),
+      '#min' => 32,
+      '#max' => 256,
+    ];
+
+    $form['llm']['llm_temperature'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Temperature'),
+      '#default_value' => (float) ($llm_config['temperature'] ?? 0.3),
+      '#min' => 0,
+      '#max' => 1,
+      '#step' => 0.05,
+    ];
+
+    $form['llm']['llm_fallback_on_error'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Fallback To Clarify On Error'),
+      '#default_value' => (bool) ($llm_config['fallback_on_error'] ?? TRUE),
+    ];
+
+    $form['llm']['llm_safety_threshold'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Safety Threshold'),
+      '#default_value' => (string) ($llm_config['safety_threshold'] ?? 'BLOCK_MEDIUM_AND_ABOVE'),
+      '#options' => [
+        'BLOCK_LOW_AND_ABOVE' => $this->t('Block low and above'),
+        'BLOCK_MEDIUM_AND_ABOVE' => $this->t('Block medium and above'),
+        'BLOCK_ONLY_HIGH' => $this->t('Block only high'),
+      ],
+    ];
+
+    $form['llm']['llm_cache_ttl'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Cache TTL (seconds)'),
+      '#default_value' => (int) ($llm_config['cache_ttl'] ?? 3600),
+      '#min' => 0,
+      '#max' => 86400,
+    ];
+
+    $form['llm']['llm_max_retries'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Max Retries'),
+      '#default_value' => (int) ($llm_config['max_retries'] ?? 1),
+      '#min' => 0,
+      '#max' => 5,
     ];
 
     return parent::buildForm($form, $form_state);
@@ -547,6 +608,13 @@ class AssistantSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
+    if ($this->isLiveEnvironment() && (bool) $form_state->getValue('llm_enabled')) {
+      $form_state->setErrorByName(
+        'llm_enabled',
+        $this->t('Live request-time LLM rollout is runtime-only. Set <code>ILAS_LLM_ENABLED</code> and clear caches instead of saving this checkbox.'),
+      );
+    }
+
     if ($this->isLiveEnvironment() && (bool) $form_state->getValue('vector_search_enabled')) {
       $form_state->setErrorByName(
         'vector_search_enabled',
@@ -668,8 +736,11 @@ class AssistantSettingsForm extends ConfigFormBase {
       'resource_vector_index_id' => trim((string) $form_state->getValue('retrieval_resource_vector_index_id')),
     ];
 
-    // Preserve the remaining LLM config block while retiring request-time
-    // provider/model/credential fields from the assistant contract.
+    $llm_enabled = (bool) $form_state->getValue('llm_enabled');
+    if ($this->isLiveEnvironment()) {
+      $llm_enabled = FALSE;
+    }
+
     $llm_config = $config->get('llm');
     $llm_config = is_array($llm_config) ? $llm_config : [];
     unset(
@@ -678,8 +749,15 @@ class AssistantSettingsForm extends ConfigFormBase {
       $llm_config['api_key'],
       $llm_config['project_id'],
       $llm_config['location'],
+      $llm_config['service_account_json'],
     );
-    $llm_config['enabled'] = FALSE;
+    $llm_config['enabled'] = $llm_enabled;
+    $llm_config['max_tokens'] = (int) $form_state->getValue('llm_max_tokens');
+    $llm_config['temperature'] = (float) $form_state->getValue('llm_temperature');
+    $llm_config['fallback_on_error'] = (bool) $form_state->getValue('llm_fallback_on_error');
+    $llm_config['safety_threshold'] = (string) $form_state->getValue('llm_safety_threshold');
+    $llm_config['cache_ttl'] = (int) $form_state->getValue('llm_cache_ttl');
+    $llm_config['max_retries'] = (int) $form_state->getValue('llm_max_retries');
 
     // Build conversation logging config array.
     $conversation_logging_config = [

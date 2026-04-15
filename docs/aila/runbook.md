@@ -388,8 +388,20 @@ Store sanitized outputs in:
 - `docs/aila/runtime/pantheon-test.txt`
 - `docs/aila/runtime/pantheon-live.txt`[^CLAIM-115][^CLAIM-116][^CLAIM-117][^CLAIM-118][^CLAIM-119][^CLAIM-120][^CLAIM-121]
 
-Expected policy result: the `live` `config:get ilas_site_assistant.settings -y`
-output must show effective `llm.enabled: false`.
+Expected policy result: exported config remains conservative, `live` still keeps
+`vector_search.enabled: false`, and any effective `llm.enabled: true` posture
+must be explainable by runtime-only Cohere rollout inputs
+(`ILAS_LLM_ENABLED` + `ILAS_COHERE_API_KEY`).
+
+### 2026-04-15 request-time LLM verification
+
+- Confirm `settings.php` wires `ILAS_COHERE_API_KEY` to
+  `$settings['ilas_cohere_api_key']`.
+- Confirm `settings.php` wires `ILAS_LLM_ENABLED` to the runtime-only
+  `llm.enabled` override path.
+- Confirm `fallback_llm` means bounded Cohere classification only and still
+  returns control to deterministic intent processing.
+- Confirm live vector search remains hard-disabled in `settings.php`.
 
 ### IMP-SLO-01 SLO set + alert policy (availability/latency/errors/cron/queue)
 
@@ -1077,16 +1089,19 @@ rg -n "flowchart LR|Drupal 11 / ilas_site_assistant|External Integrations|CI\\[E
   docs/aila/system-map.mmd
 
 # Audited-provider allowlist continuity anchors
-rg -n "GEMINI_API_ENDPOINT|VERTEX_AI_ENDPOINT|provider === 'gemini_api'|provider === 'vertex_ai'|x-goog-api-key|Authorization' => 'Bearer '" \
+rg -n "https://api.cohere.com/v2/chat|ILAS_COHERE_API_KEY|Authorization' => 'Bearer '|command-a-03-2025" \
   web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php
 
-rg -n "'gemini_api' =>| 'vertex_ai' =>|llm_provider" \
+rg -n "ILAS_COHERE_API_KEY|ILAS_LLM_ENABLED|Request-time LLM|Enable request-time LLM classification" \
   web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php
 
-rg -n "LLM provider \\(gemini_api or vertex_ai\\)" \
+rg -n "Request-time LLM settings|Request-time safety filter threshold" \
   web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml
 
-rg -n "provider: 'gemini_api'.*gemini_api.*vertex_ai" \
+rg -n "ILAS_COHERE_API_KEY|ILAS_LLM_ENABLED|vector_search'\\]\\['enabled'\\] = FALSE" \
+  web/sites/default/settings.php
+
+rg -n "command-a-03-2025|input_per_1m_tokens: 2.50|output_per_1m_tokens: 10.00" \
   web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml
 
 # Guard test
@@ -2027,27 +2042,27 @@ Expected verification result:
 - If the target environment is auth-protected, add request auth headers in
   `promptfoo-evals/providers/ilas-live.js`.
 
-### Vertex runtime-only credential verification
+### Cohere request-time credential verification
 
-- `ILAS_VERTEX_SA_JSON` must be provisioned only as a runtime secret; the
-  assistant admin form no longer accepts or stores the Vertex service-account
-  JSON.
-- `settings.php` loads that secret into `$settings['ilas_vertex_sa_json']`.
-  `LlmEnhancer` reads that runtime site setting directly, and TOVR-14 removes
-  the dormant synced `vertex_sa_credentials` entity entirely. No exported
-  Drupal config should now carry Vertex credential material.
+- `ILAS_COHERE_API_KEY` must be provisioned only as a runtime secret; the
+  assistant admin form no longer accepts or stores request-time provider
+  credentials.
+- `settings.php` loads that secret into `$settings['ilas_cohere_api_key']`, and
+  `ILAS_LLM_ENABLED` remains the runtime-only rollout toggle for request-time
+  classification. No exported Drupal config should carry Cohere credential material.
+- Residual Gemini verification is vector/Search API only. `key.key.gemini_api_key`
+  may still exist while the Pinecone/Search API AI stack proves it is needed,
+  but the custom assistant request-time path no longer uses Gemini or Vertex.
 - Read-only local checks after deploy/import:
   - `ddev drush config:get ilas_site_assistant.settings llm --format=yaml`
-  - `ddev drush config:get key.key.vertex_sa_credentials --format=yaml`
-    Expected result: config does not exist.
-  - Optional runtime-presence check without printing the secret:
-    `ddev drush php:eval "echo \Drupal\Core\Site\Settings::get('ilas_vertex_sa_json') ? 'present' : 'missing';"`
+  - Optional runtime-presence checks without printing secrets:
+    `ddev drush php:eval "echo \Drupal\Core\Site\Settings::get('ilas_cohere_api_key') ? 'present' : 'missing';"`
+    `ddev drush php:eval "echo \Drupal\Core\Site\Settings::get('ilas_voyage_api_key') ? 'present' : 'missing';"`
 - Read-only Pantheon checks after deployment:
   - `terminus remote:drush idaho-legal-aid-services.dev -- config:get ilas_site_assistant.settings llm --format=yaml`
-  - `terminus remote:drush idaho-legal-aid-services.dev -- config:get key.key.vertex_sa_credentials --format=yaml`
-    Expected result: config does not exist.
-  - Optional runtime-presence check without printing the secret:
-    `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal\Core\Site\Settings::get('ilas_vertex_sa_json') ? 'present' : 'missing';"`
+  - Optional runtime-presence checks without printing secrets:
+    `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal\Core\Site\Settings::get('ilas_cohere_api_key') ? 'present' : 'missing';"`
+    `terminus remote:drush idaho-legal-aid-services.dev -- php:eval "echo \Drupal\Core\Site\Settings::get('ilas_voyage_api_key') ? 'present' : 'missing';"`
 
 ### RAUD-05 LLM transport hardening verification
 

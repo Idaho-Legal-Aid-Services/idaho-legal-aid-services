@@ -117,12 +117,14 @@ final class PhaseTwoExitCriteriaThreeGateTest extends TestCase {
     $enhancer = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php');
     $gate = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/FallbackGate.php');
 
-    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['llm.enabled'] = FALSE;", $settings);
-    $this->assertStringContainsString('LLM enhancement cannot be enabled in the live environment through Phase 2.', $form);
-    $this->assertStringContainsString('protected function isLiveEnvironment(): bool', $enhancer);
+    $this->assertStringContainsString("_ilas_get_secret('ILAS_LLM_ENABLED')", $settings);
+    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE;", $settings);
+    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
+    $this->assertStringContainsString('Live enablement is runtime-only. Set <code>ILAS_LLM_ENABLED</code>', $form);
+    $this->assertStringContainsString('$llm_enabled = FALSE;', $form);
+    $this->assertStringContainsString('public function isEnabled(): bool', $enhancer);
     $this->assertStringContainsString('protected function isLiveEnvironment(): bool', $gate);
     $this->assertStringContainsString('protected function isLlmEffectivelyEnabled(): bool', $gate);
   }
 
 }
-

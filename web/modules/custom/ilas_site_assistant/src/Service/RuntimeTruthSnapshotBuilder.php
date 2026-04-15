@@ -121,9 +121,10 @@ class RuntimeTruthSnapshotBuilder {
       ],
       'llm' => [
         'enabled' => (bool) ($llm['enabled'] ?? FALSE),
+        'provider' => 'cohere',
+        'model' => $this->llmEnhancer?->getModelId() ?? 'command-a-03-2025',
         'runtime_ready' => $this->buildStoredLlmRuntimeReady($llm),
-        'request_time_retired' => TRUE,
-        'google_generation_reachable' => FALSE,
+        'request_time_generation_reachable' => FALSE,
       ],
       'vector_search' => [
         'enabled' => (bool) ($assistant['vector_search']['enabled'] ?? FALSE),
@@ -220,9 +221,10 @@ class RuntimeTruthSnapshotBuilder {
       'embeddings' => $embeddings,
       'llm' => [
         'enabled' => (bool) $assistant->get('llm.enabled'),
+        'provider' => $llm['provider'] ?? 'cohere',
+        'model' => $llm['model'] ?? ($this->llmEnhancer?->getModelId() ?? 'command-a-03-2025'),
         'runtime_ready' => $llm['runtime_ready'] ?? FALSE,
-        'request_time_retired' => $llm['request_time_retired'] ?? TRUE,
-        'google_generation_reachable' => $llm['google_generation_reachable'] ?? FALSE,
+        'request_time_generation_reachable' => $llm['request_time_generation_reachable'] ?? FALSE,
       ],
       'vector_search' => [
         'enabled' => $vectorSearchEnabled,
@@ -270,6 +272,7 @@ class RuntimeTruthSnapshotBuilder {
   public function buildRuntimeSiteSettings(): array {
     return [
       'legalserver_online_application_url_present' => $this->valuePresent(Settings::get('ilas_site_assistant_legalserver_online_application_url')),
+      'cohere_api_key_present' => $this->valuePresent(Settings::get('ilas_cohere_api_key')),
       'voyage_api_key_present' => $this->valuePresent(Settings::get('ilas_voyage_api_key')),
       'diagnostics_token_present' => $this->valuePresent(Settings::get('ilas_assistant_diagnostics_token')),
       'google_tag_id_present' => $this->valuePresent(Settings::get('google_tag_id')),
@@ -339,10 +342,11 @@ class RuntimeTruthSnapshotBuilder {
       'conversation_logging.retention_hours' => 'ConversationLogger retention cap',
       'conversation_logging.redact_pii' => 'ConversationLogger privacy invariants',
       'conversation_logging.show_user_notice' => 'ConversationLogger privacy invariants',
-      'llm.enabled' => 'settings.php live branch',
+      'llm.enabled' => 'settings.php runtime toggle ILAS_LLM_ENABLED -> getenv/pantheon_get_secret',
+      'llm.provider' => 'Cohere-first request-time transport contract',
+      'llm.model' => 'Cohere-first request-time transport contract',
       'llm.runtime_ready' => 'LlmEnhancer::isEnabled()',
-      'llm.request_time_retired' => 'Assistant request-time LLM retirement contract',
-      'llm.google_generation_reachable' => 'Assistant request-time LLM retirement contract',
+      'llm.request_time_generation_reachable' => 'LlmEnhancer::isEnabled()',
       'vector_search.enabled' => $vectorSearchOverrideChannel,
       'vector_search.override_channel' => $vectorSearchOverrideChannel,
       'retrieval.faq_index_id' => 'config export',
@@ -456,17 +460,21 @@ class RuntimeTruthSnapshotBuilder {
         'stored' => $exportedStorage['llm']['enabled'] ?? FALSE,
         'effective' => $effectiveRuntime['llm']['enabled'] ?? FALSE,
       ],
+      'llm.provider' => [
+        'stored' => $exportedStorage['llm']['provider'] ?? 'cohere',
+        'effective' => $effectiveRuntime['llm']['provider'] ?? 'cohere',
+      ],
+      'llm.model' => [
+        'stored' => $exportedStorage['llm']['model'] ?? '',
+        'effective' => $effectiveRuntime['llm']['model'] ?? '',
+      ],
       'llm.runtime_ready' => [
         'stored' => $exportedStorage['llm']['runtime_ready'] ?? FALSE,
         'effective' => $effectiveRuntime['llm']['runtime_ready'] ?? FALSE,
       ],
-      'llm.request_time_retired' => [
-        'stored' => $exportedStorage['llm']['request_time_retired'] ?? TRUE,
-        'effective' => $effectiveRuntime['llm']['request_time_retired'] ?? TRUE,
-      ],
-      'llm.google_generation_reachable' => [
-        'stored' => $exportedStorage['llm']['google_generation_reachable'] ?? FALSE,
-        'effective' => $effectiveRuntime['llm']['google_generation_reachable'] ?? FALSE,
+      'llm.request_time_generation_reachable' => [
+        'stored' => $exportedStorage['llm']['request_time_generation_reachable'] ?? FALSE,
+        'effective' => $effectiveRuntime['llm']['request_time_generation_reachable'] ?? FALSE,
       ],
       'vector_search.enabled' => [
         'stored' => $exportedStorage['vector_search']['enabled'] ?? FALSE,
@@ -849,9 +857,10 @@ class RuntimeTruthSnapshotBuilder {
    */
   protected function buildEffectiveLlmSummary(object $assistant): array {
     return [
+      'provider' => $this->llmEnhancer?->getProviderId() ?? 'cohere',
+      'model' => $this->llmEnhancer?->getModelId() ?? 'command-a-03-2025',
       'runtime_ready' => $this->llmEnhancer?->isEnabled() ?? $this->buildFallbackLlmRuntimeReady($assistant),
-      'request_time_retired' => TRUE,
-      'google_generation_reachable' => FALSE,
+      'request_time_generation_reachable' => $this->llmEnhancer?->isEnabled() ?? $this->buildFallbackLlmRuntimeReady($assistant),
       'cost_control_summary' => $this->llmEnhancer?->getCostControlSummary() ?? [],
     ];
   }
@@ -1241,7 +1250,8 @@ class RuntimeTruthSnapshotBuilder {
    * Fallback runtime-ready check when the real service is unavailable.
    */
   protected function buildFallbackLlmRuntimeReady(object $assistant): bool {
-    return FALSE;
+    return (bool) ($assistant->get('llm.enabled') ?? FALSE)
+      && $this->valuePresent(Settings::get('ilas_cohere_api_key'));
   }
 
 }

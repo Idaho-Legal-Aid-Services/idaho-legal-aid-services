@@ -4,22 +4,32 @@
 This roadmap sequences safety hardening, reliability/observability foundations, retrieval quality improvements, and UX/performance optimization using the audited baseline. (Refs: current-state §1, §4F, §8; evidence-index CLAIM-033, CLAIM-079, CLAIM-084, CLAIM-122; system-map Diagram A; runbook §7)
 
 Planning defaults applied:
-- `llm.enabled` remains disabled in `live` through Phase 2. (Refs: current-state §5; evidence-index CLAIM-069, CLAIM-119; system-map Diagram B; runbook §3)
+- `llm.enabled` remains conservative in export and becomes effective only through runtime toggle + runtime secret (`ILAS_LLM_ENABLED` + `ILAS_COHERE_API_KEY`). (Refs: current-state §1; system-map Diagram B; runbook §3)
 - Timeline = 12 weeks / 6 two-week sprints. (Refs: current-state §7; evidence-index CLAIM-108, CLAIM-115; system-map Diagram A; runbook §4)
 
+### Cohere-first request-time transition addendum (2026-04-15)
+1. Assistant request-time LLM scope is now Cohere-first for ambiguous-intent classification only.
+2. Voyage remains the embeddings and reranking provider.
+3. Residual Gemini config is kept only where Search API AI still proves a vector/chat dependency.
+4. Dormant Vertex assistant runtime wiring is retired from `settings.php` and the custom request-time transport path.
+5. Live rollout remains runtime-toggle controlled; exported config stays conservative and live vector search stays hard-disabled.
+
 ### Re-audit remediation addendum (2026-03-10)
-1. `RAUD-03` closes the repo-side implementation gap behind findings `C2` and
+This dated addendum records the 2026-03-10 state and is now superseded for the
+assistant request-time path by the Cohere-first addendum above.
+
+1. At that time, `RAUD-03` closed the repo-side implementation gap behind findings `C2` and
    `F-15`: Vertex service-account JSON is removed from the assistant admin UI,
    removed from install/active/schema config contracts, and resolved at runtime
    only via `ILAS_VERTEX_SA_JSON` -> `$settings['ilas_vertex_sa_json']`.
-2. The parallel Drupal Key path was first remediated to runtime-only
+2. At that time, the parallel Drupal Key path was first remediated to runtime-only
    non-secret config, and TOVR-14 later removes the dormant synced
    `vertex_sa_credentials` entity entirely because the current Pinecone/vector
    runtime does not depend on it.
 3. Remaining closure work is deployment-bound: Pantheon environments must be
    re-verified with read-only checks after deployment before the finding is
    considered fully fixed in a live runtime.
-4. `RAUD-05` closes the repo-side LLM transport gap behind findings `C3`, `C4`,
+4. At that time, `RAUD-05` closed the repo-side LLM transport gap behind findings `C3`, `C4`,
    and `LLM-1`: `LlmEnhancer` now caches Vertex access tokens with buffered
    TTLs and reduces synchronous retry behavior to one bounded `<=250ms` backoff
    window without expanding the assistant architecture surface.
@@ -388,8 +398,8 @@ Explicit mapping:
 2. Phased remediation:
    - Phase 1 closes observability truth gaps: prove Sentry browser JS source-map usefulness on the current deployed asset bundle, rerun hosted Langfuse direct/queued probes plus one live vector-field trace proof, and choose a binding diagnostics-monitoring standard (`ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` or authenticated `remote:drush` plus probe commands). (Refs: current-state §1, §8; evidence-index CLAIM-247, CLAIM-248, CLAIM-250, CLAIM-251; runbook §3, §5)
    - Phase 2 closes live Pinecone rollout blockers: replace the failing latest `master` gate with a green replacement, either prove accepted vector improvement on prompts 2 / 3 or narrow the rollout scope in writing, separate embeddings-side timeout governance from the shared/global `ai.settings.request_timeout`, and keep the live rollback path runtime-only and documented. (Refs: current-state §1, §8; evidence-index CLAIM-246, CLAIM-248, CLAIM-250, CLAIM-251; runbook §3, §4)
-   - Phase 3 reduces residual surface or captures optional expansion work: retire stale New Relic secrets if platform ownership agrees, decide whether to remove the dormant custom Vertex runtime-only path, and keep platform-level RUM/CWV explicitly outside AILA scope unless a separate platform decision funds it. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-250, CLAIM-251; runbook §3)
-3. Feature expansion opportunities: stale NR secret retirement is low-cost hygiene with modest value; dormant Vertex-path retirement is medium-cost with medium security/maintenance value; platform-level browser performance telemetry remains a separate governance/cost decision because TOVR-06 retired AILA-owned NR and TOVR-15 keeps assistant GA denied. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-251; runbook §3)
+   - Phase 3 reduces residual surface or captures optional expansion work: retire stale New Relic secrets if platform ownership agrees, complete the prove-and-clean decision on residual Gemini Search API/vector usage, and keep the retired Vertex assistant surface blocked from reappearing. Platform-level RUM/CWV remains outside AILA scope unless a separate platform decision funds it. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-250, CLAIM-251; runbook §3)
+3. Feature expansion opportunities: stale NR secret retirement is low-cost hygiene with modest value; residual Gemini vector/Search API cleanup is medium-cost with medium maintenance value; platform-level browser performance telemetry remains a separate governance/cost decision because TOVR-06 retired AILA-owned NR and TOVR-15 keeps assistant GA denied. (Refs: current-state §1, §8; evidence-index CLAIM-203, CLAIM-241, CLAIM-249, CLAIM-251; runbook §3)
 4. Final scorecard and dependency summary:
 
 | Area | State | Blocking dependency |
@@ -401,7 +411,7 @@ Explicit mapping:
 | Pinecone non-live | `closed by fresh evidence` | Continue monitoring only |
 | Pinecone live | `BLOCKED` | Green `master` gate, prompt 2 / 3 acceptance, diagnostics standard, embeddings-timeout separation |
 | Privacy/analytics | `closed by fresh evidence` | Continue regression monitoring only |
-| AI/provider footprint | `historically closed but still monitored` | Dormant runtime-only Vertex path decision |
+| AI/provider footprint | `historically closed but still monitored` | Residual Gemini Search API/vector proof decision plus Vertex reintroduction prevention |
 
    (Refs: current-state §1, §8; evidence-index CLAIM-246, CLAIM-247, CLAIM-248, CLAIM-249, CLAIM-250, CLAIM-251; runbook §3)
 
@@ -564,9 +574,9 @@ Explicit mapping:
 4. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-157; system-map Diagram A; runbook §3, §4)
 
 ### Phase 3 NDO #1 disposition (2026-03-06)
-1. Phase 3 "What we will NOT do #1" is closed as enforced: no net-new assistant channels or third-party model expansion beyond audited providers. Closure continuity is anchored to the audited provider wiring posture (Gemini API + Vertex AI only) and existing assistant channel surface (`/assistant` page + existing `/assistant/api/*` endpoints) without runtime architecture expansion. (Refs: current-state §4E; evidence-index CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A; runbook §3)
+1. Phase 3 "What we will NOT do #1" is closed as enforced: no net-new assistant channels or third-party model expansion beyond audited providers. Closure continuity is anchored to the audited provider wiring posture (Cohere-first request-time classification, Voyage reranking, and residual Gemini only where Search API/vector proof still requires it) and existing assistant channel surface (`/assistant` page + existing `/assistant/api/*` endpoints) without runtime architecture expansion. (Refs: current-state §4E; evidence-index CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A; runbook §3)
 2. Enforcement is codified through runbook section-3 `VC-TOGGLE-CHECK` alias continuity plus explicit channel/provider anchor checks and a dedicated guard test (`PhaseThreeNoNetNewAssistantChannelsOrModelExpansionGuardTest.php`) that locks roadmap/current-state/evidence/runbook/runtime/source continuity markers. (Refs: evidence-index CLAIM-158; runbook §3)
-3. This closure is boundary enforcement only: no runtime behavior changes, no new assistant channel routes/surfaces, and no provider expansion beyond audited Gemini/Vertex paths. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A)
+3. This closure is boundary enforcement only: no runtime behavior changes, no new assistant channel routes/surfaces, and no provider expansion beyond the audited Cohere-first request-time path plus already-proven retrieval providers. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A)
 4. Runtime verification output is captured in `docs/aila/runtime/phase3-ndo1-no-net-new-assistant-channels-or-third-party-model-expansion.txt` with sanitized `VC-TOGGLE-CHECK` output, assistant channel continuity markers, audited-provider continuity markers, and closure status fields. (Refs: evidence-index CLAIM-158; runbook §3)
 5. Scope boundaries remain unchanged: no net-new assistant channels or third-party model expansion beyond audited providers, and no platform-wide refactor of unrelated Drupal subsystems. (Refs: current-state §1, §4E; evidence-index CLAIM-010, CLAIM-073, CLAIM-074, CLAIM-158; system-map Diagram A; runbook §3, §4)
 

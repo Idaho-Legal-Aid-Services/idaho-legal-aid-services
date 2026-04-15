@@ -11,7 +11,7 @@ A site-scoped chatbot assistant for Idaho Legal Aid Services that helps users fi
 - **Privacy-First Analytics**: Logs only aggregated, non-PII event metadata
 - **Accessible UI**: WCAG 2.1 compliant with keyboard navigation, focus management, and ARIA labels
 - **Vector Retrieval Plumbing** (Feature-gated): Pinecone embeddings are configured for Voyage `voyage-law-2`; live vector retrieval remains disabled until the indexes are rebuilt and backfilled at the new dimension
-- **LLM Enhancement** (Optional): Uses Google Gemini/Vertex AI for ambiguous intent classification and optional greeting variation
+- **Request-Time LLM Classification** (Optional): Uses Cohere for bounded ambiguous-intent classification; greeting variation remains retired
 
 ## Hard Constraints (Non-Negotiable)
 
@@ -85,20 +85,18 @@ Admin Menu:
 
 ## LLM Enhancement (Optional)
 
-Current runtime note: the live assistant request path is deterministic-first,
-and Pinecone embeddings now run through the custom `ilas_voyage` embeddings
-provider with Voyage `voyage-law-2`. This README section is historical context
-for the older Google-backed assistant enhancement flow, not the active
-embeddings path.
-
-The assistant can optionally use Google Gemini or Vertex AI for ambiguous intent classification and optional greeting variation. This is **disabled by default** and requires configuration.
+Current runtime note: the assistant request path is deterministic-first.
+Request-time LLM use is intentionally narrow: Cohere may classify ambiguous
+`unknown` intents at request time, then control returns to the deterministic
+intent pipeline. Pinecone embeddings and reranking stay on the Voyage side of
+the stack, while residual Gemini config is retained only where Search API AI
+still needs repo-proven vector/chat wiring.
 
 ### Features
 
 When enabled, the LLM layer provides:
 
-- **Intent Classification**: Improves detection of ambiguous queries that rule-based routing misses
-- **Greeting Enhancement**: Optionally generates personalized welcome messages
+- **Intent Classification**: Improves detection of ambiguous queries that the rule-based router leaves as `unknown`
 
 ### Safety Constraints
 
@@ -110,78 +108,50 @@ The LLM is configured with strict system prompts that enforce:
 - Links only to idaholegalaid.org pages
 - Automatic escalation for uncertain queries
 
-### Provider Options
+### Runtime Controls
 
-#### Option 1: Gemini API (Recommended for Nonprofits)
+Use runtime-only inputs instead of Drupal-stored provider settings:
 
-Uses the free tier of Google Gemini API, available through Google for Nonprofits:
-
-1. Sign up at [Google for Nonprofits](https://www.google.com/nonprofits/)
-2. Enable the Gemini API in Google AI Studio
-3. Generate an API key
-4. Provide the credential only through runtime secret injection:
-   - Pantheon runtime secret: `ILAS_GEMINI_API_KEY`
-   - Local DDEV environment: add `ILAS_GEMINI_API_KEY=<value>` to `.ddev/.env`
-     and restart DDEV
-5. Configure in Admin > Config > ILAS > Site Assistant Settings:
-   - Provider: `Gemini API`
-   - Model: `gemini-1.5-flash` (recommended)
-
-The assistant admin form no longer accepts or exports the Gemini API key.
-Drupal config exports must remain free of the secret.
-
-**Cost**: Free tier includes 60 queries/minute, 1M tokens/month. Generally sufficient for most site traffic.
-
-#### Option 2: Vertex AI
-
-For higher volume or enterprise needs:
-
-1. Enable Vertex AI API in Google Cloud Console
-2. Create a service account with Vertex AI User role
-3. Download the service account JSON key
-4. Provide the credential only through runtime secret injection:
-   - Pantheon runtime secret: `ILAS_VERTEX_SA_JSON`
-   - Local DDEV environment: add `ILAS_VERTEX_SA_JSON=<json>` to `.ddev/.env`
-     and restart DDEV
-5. Configure in Drupal settings:
-   - Provider: `Vertex AI`
-   - Project ID: `your-gcp-project-id`
-   - Location: `us-central1` (or nearest region)
-
-The assistant admin form no longer accepts or exports the Vertex
-service-account JSON. Drupal config exports must remain free of the private key
-blob.
-
-**Cost**: ~$0.075/1M input tokens, ~$0.30/1M output tokens for gemini-1.5-flash
+1. Provide `ILAS_COHERE_API_KEY` as a Pantheon runtime secret or local DDEV
+   environment variable.
+2. Enable request-time classification with `ILAS_LLM_ENABLED=1` only in the
+   environments you intend to test.
+3. Keep the admin form secretless. It exposes only non-secret knobs such as
+   `enabled`, `max_tokens`, `temperature`, cache TTL, retry count, and safety
+   threshold.
+4. Keep `ILAS_VOYAGE_API_KEY` / `ILAS_VOYAGE_ENABLED` for embeddings and
+   reranking.
+5. Keep `ILAS_GEMINI_API_KEY` only where the Search API AI vector/chat path
+   still proves a Gemini dependency.
 
 ### Configuration Options
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `enabled` | `false` | Master toggle for LLM enhancement |
-| `provider` | `gemini_api` | `gemini_api` or `vertex_ai` |
-| `model` | `gemini-1.5-flash` | Model to use (flash is faster/cheaper) |
+| `provider` | code-owned | Cohere is the request-time provider; not editable in Drupal |
+| `model` | code-owned | Request-time model is owned by the transport, not the admin form |
 | `max_tokens` | `150` | Maximum response length |
 | `temperature` | `0.3` | Lower = more focused, higher = more creative |
-| `enhance_greetings` | `false` | Generate personalized greetings |
 | `fallback_on_error` | `true` | Use rule-based response if LLM fails |
 
 ### Testing LLM Integration
 
 After configuration:
 
-1. Enable LLM in admin settings
-2. Visit `/assistant`
+1. Provide `ILAS_COHERE_API_KEY`
+2. Set `ILAS_LLM_ENABLED=1`
+3. Visit `/assistant`
 3. Try queries like:
-   - "What happens if I get evicted?" → Should get summarized FAQ response
-   - "Help me find housing forms" → Should get summarized resource list
+   - "faq" or another ambiguous short ask that the router currently leaves as `unknown`
+   - "show me your guides" for an ambiguous browse request
 4. Check logs: `drush watchdog:show --filter=ilas_site_assistant`
 
 ### Troubleshooting LLM
 
 **LLM not working:**
-1. Check that `enabled` is TRUE in settings
-2. Verify the runtime secret / credentials are correct
+1. Check that `ILAS_LLM_ENABLED=1`
+2. Verify `ILAS_COHERE_API_KEY` is present at runtime
 3. Check watchdog logs for API errors
 4. Ensure `fallback_on_error` is TRUE to see rule-based responses
 
@@ -192,8 +162,8 @@ After configuration:
 - Lower the `temperature` setting (0.1-0.3 recommended)
 
 **Rate limiting errors:**
-- Gemini free tier: 60 queries/minute
-- Consider caching responses or upgrading to paid tier
+- Keep cache enabled for repeated ambiguous-intent lookups
+- Review request-time retry and timeout settings before widening rollout
 
 ## Usage
 

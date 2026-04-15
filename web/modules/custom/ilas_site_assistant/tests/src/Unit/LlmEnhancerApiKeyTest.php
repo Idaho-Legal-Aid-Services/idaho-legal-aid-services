@@ -1,128 +1,117 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\ImmutableConfig;
-use Drupal\Core\Logger\LoggerChannelFactoryInterface;
-use Drupal\ilas_site_assistant\Service\LlmEnhancer;
-use Drupal\ilas_site_assistant\Service\PolicyFilter;
+use Drupal\Core\Site\Settings;
+use Drupal\ilas_site_assistant\Service\CohereLlmTransport;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
- * Tests that the Gemini API key is sent via header, not URL query string.
- *
- * Covers Fix C (F-14): API key in URL leaks via access logs.
+ * Focused transport tests for Cohere runtime authentication and parsing.
  */
 #[Group('ilas_site_assistant')]
-class LlmEnhancerApiKeyTest extends TestCase {
+final class LlmEnhancerApiKeyTest extends TestCase {
 
-  /**
-   * Tests that callGeminiApi sends the API key via header, not in the URL.
-   */
-  public function testApiKeyNotInUrl(): void {
-    // Shared capture object to collect the URL and headers from makeApiRequest.
-    $capture = new \stdClass();
-    $capture->url = NULL;
-    $capture->headers = [];
+  protected function tearDown(): void {
+    new Settings([]);
+    parent::tearDown();
+  }
 
-    $enhancer = new TestableGeminiLlmEnhancer(
-      $this->createMockConfigFactory(),
-      $this->createStub(ClientInterface::class),
-      $this->createMockLoggerFactory(),
-      $this->createStub(PolicyFilter::class),
-      $capture
+  public function testCohereTransportSendsBearerHeaderAndParsesJsonPayload(): void {
+    new Settings([
+      'ilas_cohere_api_key' => 'cohere-test-key',
+      'hash_salt' => 'test-salt',
+    ]);
+
+    $captured = [];
+    $client = $this->createMock(ClientInterface::class);
+    $client->expects($this->once())
+      ->method('request')
+      ->with(
+        'POST',
+        'https://api.cohere.com/v2/chat',
+        $this->callback(static function (array $options) use (&$captured): bool {
+          $captured = $options;
+          return TRUE;
+        }),
+      )
+      ->willReturn(new Response(200, [], json_encode([
+        'message' => [
+          'content' => [
+            [
+              'type' => 'text',
+              'text' => '{"intent":"faq"}',
+            ],
+          ],
+        ],
+        'usage' => [
+          'tokens' => [
+            'input_tokens' => 11,
+            'output_tokens' => 4,
+          ],
+        ],
+      ], JSON_THROW_ON_ERROR)));
+
+    $transport = new CohereLlmTransport($client);
+    $result = $transport->completeStructuredJson(
+      [
+        ['role' => 'system', 'content' => 'Return JSON only.'],
+        ['role' => 'user', 'content' => 'faq'],
+      ],
+      [
+        'name' => 'assistant_intent_response',
+        'schema' => [
+          'type' => 'object',
+          'properties' => [
+            'intent' => ['type' => 'string'],
+          ],
+          'required' => ['intent'],
+        ],
+      ],
+      ['max_tokens' => 32, 'temperature' => 0.1],
     );
 
-    // Invoke the protected method via reflection.
-    $ref = new \ReflectionMethod($enhancer, 'callGeminiApi');
-    $ref->setAccessible(TRUE);
-    $ref->invoke($enhancer, 'Test prompt', ['max_tokens' => 10]);
-
-    // Assert API key is NOT in the URL.
-    $this->assertNotNull($capture->url, 'URL should have been captured');
-    $this->assertStringNotContainsString('key=', $capture->url, 'API key must NOT appear in the URL query string');
-
-    // Assert API key IS in the header.
-    $this->assertArrayHasKey('x-goog-api-key', $capture->headers, 'API key must be sent via x-goog-api-key header');
-    $this->assertEquals('test-api-key-12345', $capture->headers['x-goog-api-key'], 'Header must contain the configured API key');
+    $this->assertSame('Bearer cohere-test-key', $captured['headers']['Authorization'] ?? NULL);
+    $this->assertSame('ilas-site-assistant', $captured['headers']['X-Client-Name'] ?? NULL);
+    $this->assertSame('json_object', $captured['json']['response_format']['type'] ?? NULL);
+    $this->assertSame('faq', $result['payload']['intent'] ?? NULL);
+    $this->assertSame(['input' => 11, 'output' => 4, 'total' => 15], $result['usage'] ?? NULL);
   }
 
-  /**
-   * Creates a mock config factory that returns a test API key.
-   *
-   * @return \Drupal\Core\Config\ConfigFactoryInterface
-   *   The mock config factory.
-   */
-  private function createMockConfigFactory(): ConfigFactoryInterface {
-    $config = $this->createStub(ImmutableConfig::class);
-    $config->method('get')
-      ->willReturnMap([
-        ['llm.enabled', TRUE],
-        ['llm.provider', 'gemini_api'],
-        ['llm.api_key', 'test-api-key-12345'],
-        ['llm.model', 'gemini-1.5-flash'],
-        ['llm.safety_threshold', 'BLOCK_MEDIUM_AND_ABOVE'],
-      ]);
+  public function testCohereTransportAcceptsFencedJsonResponses(): void {
+    new Settings([
+      'ilas_cohere_api_key' => 'cohere-test-key',
+      'hash_salt' => 'test-salt',
+    ]);
 
-    $factory = $this->createStub(ConfigFactoryInterface::class);
-    $factory->method('get')
-      ->willReturn($config);
+    $client = $this->createMock(ClientInterface::class);
+    $client->method('request')
+      ->willReturn(new Response(200, [], json_encode([
+        'message' => [
+          'content' => [
+            [
+              'type' => 'text',
+              'text' => "```json\n{\"intent\":\"guides\"}\n```",
+            ],
+          ],
+        ],
+      ], JSON_THROW_ON_ERROR)));
 
-    return $factory;
-  }
+    $transport = new CohereLlmTransport($client);
+    $result = $transport->completeStructuredJson(
+      [['role' => 'user', 'content' => 'guides']],
+      [
+        'name' => 'assistant_intent_response',
+        'schema' => ['type' => 'object'],
+      ],
+    );
 
-  /**
-   * Creates a mock logger channel factory.
-   *
-   * @return \Drupal\Core\Logger\LoggerChannelFactoryInterface
-   *   The mock logger factory.
-   */
-  private function createMockLoggerFactory(): LoggerChannelFactoryInterface {
-    $logger = $this->createStub(LoggerInterface::class);
-    $factory = $this->createStub(LoggerChannelFactoryInterface::class);
-    $factory->method('get')->willReturn($logger);
-    return $factory;
-  }
-
-}
-
-/**
- * Test double for LlmEnhancer that captures makeApiRequest args.
- */
-class TestableGeminiLlmEnhancer extends LlmEnhancer {
-
-  /**
-   * Capture object for URL and headers.
-   *
-   * @var \stdClass
-   */
-  private \stdClass $capture;
-
-  /**
-   * Constructs the test double.
-   */
-  public function __construct(
-    $config_factory,
-    $http_client,
-    $logger_factory,
-    $policy_filter,
-    \stdClass $capture,
-  ) {
-    parent::__construct($config_factory, $http_client, $logger_factory, $policy_filter);
-    $this->capture = $capture;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function makeApiRequest(string $url, array $payload, array $headers = []): string {
-    $this->capture->url = $url;
-    $this->capture->headers = $headers;
-    return 'test response';
+    $this->assertSame('guides', $result['payload']['intent'] ?? NULL);
   }
 
 }

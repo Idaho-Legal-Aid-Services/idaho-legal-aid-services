@@ -31,7 +31,7 @@ class RuntimeSiteSettingKeyProvider extends KeyProviderBase {
    */
   public function defaultConfiguration() {
     return [
-      'settings_key' => 'ilas_vertex_sa_json',
+      'settings_key' => '',
     ];
   }
 
@@ -39,7 +39,10 @@ class RuntimeSiteSettingKeyProvider extends KeyProviderBase {
    * {@inheritdoc}
    */
   public function getKeyValue(KeyInterface $key) {
-    $settingsKey = $this->configuration['settings_key'] ?? 'ilas_vertex_sa_json';
+    $settingsKey = (string) ($this->configuration['settings_key'] ?? '');
+    if ($settingsKey === '') {
+      return NULL;
+    }
     $value = Settings::get($settingsKey);
 
     return is_string($value) && $value !== '' ? $value : NULL;

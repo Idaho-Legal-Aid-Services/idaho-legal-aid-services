@@ -1,5 +1,11 @@
 # TOVR-14 AI Provider Footprint Rationalization (2026-03-17T23:32:18Z)
 
+Historical note (2026-04-15): this report remains the source for the TOVR-14
+module/config cleanup itself, but its then-current Vertex residual is now
+superseded. The later Cohere-first request-time transition retired the custom
+assistant Vertex secret loading and transport path; do not treat the old Vertex
+residual described below as current runtime truth.
+
 - Prompt ID: `TOVR-14`
 - Roadmap item: `Tooling + Pinecone remediation -> Platform rationalization #1`
 - Verification level tag: `repo + local runtime post-change + hosted baseline pre-change`
@@ -47,11 +53,14 @@
   - `config/system.action.generate_metatag_action.yml`
   - `config/key.key.vertex_sa_credentials.yml`
 - Composer packages were intentionally not removed in this prompt.
-- The dormant custom Vertex runtime-secret path was intentionally left in place:
+- At TOVR-14 time, the dormant custom Vertex runtime-secret path was
+  intentionally left in place:
   - `web/sites/default/settings.php` still loads `ILAS_VERTEX_SA_JSON` into
     `$settings['ilas_vertex_sa_json']`
   - `web/modules/custom/ilas_site_assistant/src/Service/LlmEnhancer.php`
     still supports the dormant Vertex path
+- That specific residual was later retired in the 2026-04-15 Cohere-first
+  request-time transition.
 
 ## Module/provider inventory
 
@@ -183,9 +192,13 @@
 
 ## Residual risks and unknowns
 
-- `ILAS_VERTEX_SA_JSON` remains wired in `settings.php` and the dormant custom
-  Vertex code path remains in `LlmEnhancer`; this is now runtime-only residual
-  surface rather than exported config.
+- At TOVR-14 time, `ILAS_VERTEX_SA_JSON` remained wired in `settings.php` and
+  the dormant custom Vertex code path remained in `LlmEnhancer`; that was a
+  runtime-only residual surface rather than exported config.
+- Current repo truth supersedes that note: the 2026-04-15 Cohere-first
+  transition removed the custom assistant Vertex wiring, so the remaining
+  provider-risk surface is residual Gemini Search API/vector proof plus
+  regression prevention against Vertex reintroduction.
 - Composer packages for the removed Drupal modules remain installed by design in
   this prompt.
 - Hosted post-change verification cannot be inferred from local success because

@@ -55,7 +55,6 @@ llm:
   enabled: false
   max_tokens: 150
   temperature: 0.3
-  enhance_greetings: false
   fallback_on_error: true
   safety_threshold: BLOCK_MEDIUM_AND_ABOVE
   cache_ttl: 3600
@@ -67,8 +66,6 @@ llm:
   global_rate_limit:
     max_per_hour: 500
     window_seconds: 3600
-  enhance_faq: true
-  enhance_resources: true
 fallback_gate:
   thresholds:
     intent_high_conf: 0.85
@@ -263,9 +260,9 @@ cost_control:
   cache_stats_window_seconds: 86400
   manual_kill_switch: false
   pricing:
-    model: gemini-1.5-flash
-    input_per_1m_tokens: 0.075
-    output_per_1m_tokens: 0.3
+    model: command-a-03-2025
+    input_per_1m_tokens: 2.5
+    output_per_1m_tokens: 10
   alert_cooldown_minutes: 60
 langfuse:
   enabled: false

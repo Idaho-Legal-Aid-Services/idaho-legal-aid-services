@@ -16,7 +16,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
  * The gate decides one of four outcomes:
  * 1. ANSWER - Built-in response with high confidence
  * 2. CLARIFY - Ask for clarification before proceeding
- * 3. FALLBACK_LLM - Legacy compatibility placeholder, no longer emitted
+ * 3. FALLBACK_LLM - Use bounded request-time LLM classification, then reroute
  * 4. HARD_ROUTE - Safety/policy override to specific resource
  *
  * Reason codes explain WHY a decision was made for debugging and tuning.
@@ -61,6 +61,13 @@ class FallbackGate {
    * @var \Drupal\ilas_site_assistant\Service\EnvironmentDetector
    */
   protected EnvironmentDetector $environmentDetector;
+
+  /**
+   * Optional request-time LLM coordinator.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\LlmEnhancer|null
+   */
+  protected ?LlmEnhancer $llmEnhancer;
 
   /**
    * Default thresholds.
@@ -170,9 +177,11 @@ class FallbackGate {
   public function __construct(
     ConfigFactoryInterface $config_factory,
     ?EnvironmentDetector $environment_detector = NULL,
+    ?LlmEnhancer $llm_enhancer = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
+    $this->llmEnhancer = $llm_enhancer;
   }
 
   /**
@@ -186,9 +195,11 @@ class FallbackGate {
    * Returns whether LLM is effectively enabled for gate decisions.
    */
   protected function isLlmEffectivelyEnabled(): bool {
-    // Request-time LLM fallback is retired for the assistant path. Keep the
-    // legacy decision constant for compatibility, but never emit it.
-    return FALSE;
+    if ($this->llmEnhancer !== NULL) {
+      return $this->llmEnhancer->isEnabled();
+    }
+
+    return (bool) $this->configFactory->get('ilas_site_assistant.settings')->get('llm.enabled');
   }
 
   /**
@@ -378,12 +389,12 @@ class FallbackGate {
       );
     }
 
-    // Unknown intent with sufficient message length previously used LLM
-    // fallback. That path is retired, so clarify instead.
+    // Unknown intent with sufficient message length can take a bounded
+    // request-time classification detour before falling back to clarify.
     return $this->buildDecision(
-      self::DECISION_CLARIFY,
-      self::REASON_LLM_DISABLED,
-      0.2,
+      self::DECISION_FALLBACK_LLM,
+      self::REASON_BORDERLINE_CONF,
+      0.45,
       $details
     );
   }
@@ -771,7 +782,7 @@ class FallbackGate {
       self::REASON_LARGE_SCORE_GAP => 'Large score gap between top results indicates clear match',
       self::REASON_BORDERLINE_CONF => 'Borderline confidence - answer may benefit from enhancement',
       self::REASON_GREETING => 'Simple greeting detected',
-      self::REASON_LLM_DISABLED => 'Request-time LLM fallback is retired - using clarification',
+      self::REASON_LLM_DISABLED => 'Request-time LLM fallback is unavailable - using clarification',
     ];
   }
 

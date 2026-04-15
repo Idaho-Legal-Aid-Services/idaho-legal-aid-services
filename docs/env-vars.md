@@ -25,8 +25,15 @@ on hosted environments.
 
 ### ILAS Site Assistant
 
+- `ILAS_COHERE_API_KEY`
+  - Runtime-only request-time Cohere API key for bounded ambiguous-intent
+    classification.
+- `ILAS_LLM_ENABLED`
+  - Runtime-only rollout toggle for request-time assistant classification.
+  - Honored on `local`, `dev`, `test`, and `live` when set truthy.
 - `ILAS_GEMINI_API_KEY`
-  - Optional runtime API key retained for dormant Google-backed provider paths.
+  - Optional runtime API key retained only for residual Search API AI paths
+    that still prove a Gemini dependency.
   - The active Pinecone embeddings path no longer reads Gemini.
 - `ILAS_PINECONE_API_KEY`
   - Required runtime Pinecone API key for vector index queries and refreshes.
@@ -104,10 +111,13 @@ Use local-only files for local values. Do not commit real credentials.
 
 - Use `.ddev/.env` or `.ddev/.env.local`
 - Start from `.ddev/.env.example`
-- Put `ILAS_GEMINI_API_KEY` and `ILAS_PINECONE_API_KEY` only in local env
+- Put `ILAS_COHERE_API_KEY`, `ILAS_GEMINI_API_KEY`, and
+  `ILAS_PINECONE_API_KEY` only in local env
   files, never in committed config.
 - Put `ILAS_VOYAGE_API_KEY` only in local env files, never in committed
   config.
+- Keep `ILAS_LLM_ENABLED=0` by default and only set it to `1` when
+  intentionally verifying request-time Cohere rollout behavior.
 - Keep `ILAS_VECTOR_SEARCH_ENABLED=0` by default and only set it to `1` when
   intentionally verifying non-live vector rollout behavior.
 - Set `ILAS_LOCAL_BROWSER_OBSERVABILITY=1` only if you intentionally want local

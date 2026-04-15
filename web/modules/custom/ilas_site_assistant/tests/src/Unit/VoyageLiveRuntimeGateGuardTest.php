@@ -33,10 +33,10 @@ final class VoyageLiveRuntimeGateGuardTest extends TestCase {
   }
 
   /**
-   * settings.php must allow explicit live runtime toggles without a live
-   * vector hard-disable branch.
+   * settings.php must keep live Voyage runtime-toggle support while leaving
+   * vector search hard-disabled on live.
    */
-  public function testSettingsPhpAllowsExplicitLiveVoyageAndVectorToggles(): void {
+  public function testSettingsPhpAllowsLiveVoyageButNotLiveVectorToggle(): void {
     $settings = self::readFile('web/sites/default/settings.php');
 
     $this->assertStringContainsString("_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED')", $settings);
@@ -45,14 +45,10 @@ final class VoyageLiveRuntimeGateGuardTest extends TestCase {
       $settings,
     );
     $this->assertStringContainsString(
-      "in_array(\$ilas_vector_search_environment, ['local', 'dev', 'test', 'live'], TRUE)",
-      $settings,
-    );
-    $this->assertStringContainsString(
       "\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = TRUE;",
       $settings,
     );
-    $this->assertStringNotContainsString(
+    $this->assertStringContainsString(
       "\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;",
       $settings,
     );

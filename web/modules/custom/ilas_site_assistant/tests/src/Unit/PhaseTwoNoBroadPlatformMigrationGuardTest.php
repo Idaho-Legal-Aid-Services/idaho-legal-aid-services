@@ -127,7 +127,8 @@ final class PhaseTwoNoBroadPlatformMigrationGuardTest extends TestCase {
 
     $this->assertStringContainsString('include __DIR__ . "/settings.pantheon.php";', $settings);
     $this->assertStringContainsString('PANTHEON_ENVIRONMENT', $settings);
-    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['llm.enabled'] = FALSE;", $settings);
+    $this->assertStringContainsString("_ilas_get_secret('ILAS_LLM_ENABLED')", $settings);
+    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
   }
 
   /**

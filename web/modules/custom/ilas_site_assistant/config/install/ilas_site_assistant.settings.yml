@@ -33,12 +33,12 @@ welcome_message: 'Hello! I can help you find information on our website. What ar
 escalation_message: 'For personalized legal assistance, please contact our Legal Advice Line or apply for help.'
 
 # Request-time assistant LLM settings.
-# The assistant path stays deterministic; request-time LLM fallback is retired.
+# The assistant path stays deterministic; Cohere is used only for bounded
+# ambiguous-intent classification when operators enable the runtime toggle.
 llm:
   enabled: false
   max_tokens: 150
   temperature: 0.3
-  enhance_greetings: false  # Generate personalized greetings
   fallback_on_error: true  # Use rule-based response if LLM fails
   safety_threshold: 'BLOCK_MEDIUM_AND_ABOVE'  # BLOCK_LOW_AND_ABOVE | BLOCK_MEDIUM_AND_ABOVE | BLOCK_ONLY_HIGH
   cache_ttl: 3600  # Response cache TTL in seconds (0 = disabled)
@@ -357,7 +357,7 @@ cost_control:
   cache_stats_window_seconds: 86400
   manual_kill_switch: false
   pricing:
-    model: 'gemini-1.5-flash'
-    input_per_1m_tokens: 0.075
-    output_per_1m_tokens: 0.30
+    model: 'command-a-03-2025'
+    input_per_1m_tokens: 2.50
+    output_per_1m_tokens: 10.00
   alert_cooldown_minutes: 60

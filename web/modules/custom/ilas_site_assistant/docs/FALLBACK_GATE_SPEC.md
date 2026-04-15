@@ -1,6 +1,6 @@
 # Fallback Gate Specification
 
-The Fallback Gate is a confidence-based decision system that determines when to use built-in answers vs. LLM (Gemini) fallback for chatbot responses.
+The Fallback Gate is a confidence-based decision system that determines when to use built-in answers, clarification, or bounded request-time LLM classification for chatbot responses.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The gate evaluates three main confidence signals:
 Based on these signals, the gate makes one of four decisions:
 - `ANSWER` - Respond with built-in logic
 - `CLARIFY` - Ask the user for more information
-- `FALLBACK_LLM` - Route to Gemini for classification/response
+- `FALLBACK_LLM` - Route to Cohere for intent classification only, then resume deterministic handling
 - `HARD_ROUTE` - Force routing to specific resource (safety override)
 
 ## Decision Flow
@@ -74,7 +74,7 @@ Based on these signals, the gate makes one of four decisions:
                    ANSWER (HIGH_CONF_INTENT)              │
                                                    Yes ───┤
                                                           ▼
-                                               FALLBACK_LLM (LOW_INTENT_CONF)
+                                               FALLBACK_LLM (BORDERLINE_CONF)
 ```
 
 ## Reason Codes
