@@ -23,7 +23,7 @@
     "view:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action view"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.59.1",
     "jest-environment-jsdom": "^30.3.0",
     "promptfoo": "^0.121.5"
   }
