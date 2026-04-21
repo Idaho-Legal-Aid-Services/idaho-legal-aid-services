@@ -14,7 +14,7 @@ backend_config:
   chat_model: gemini__models/gemini-2.0-flash
   database: pinecone
   database_settings:
-    database_name: ilas-assistant
+    database_name: ilas-assistant-voyage-1024
     collection: faq_accordion_vector
     metric: cosine_similarity
   embeddings_engine: ilas_voyage__voyage-law-2
