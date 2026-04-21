@@ -1608,7 +1608,10 @@
       contentEl.className = 'message-content';
 
       if (isHtml) {
-        contentEl.innerHTML = content;
+        var parsed = new DOMParser().parseFromString(content, 'text/html');
+        Array.from(parsed.body.childNodes).forEach(function(node) {
+          contentEl.appendChild(document.importNode(node, true));
+        });
       } else {
         contentEl.textContent = content;
       }

@@ -471,7 +471,7 @@
     
     $accordionItems.find('mark.search-highlight').each(function() {
       const $mark = $(this);
-      $mark.replaceWith($mark.text());
+      $mark.contents().unwrap();
     });
   }
 

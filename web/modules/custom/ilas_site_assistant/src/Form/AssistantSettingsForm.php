@@ -464,7 +464,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#type' => 'checkbox',
       '#title' => $this->t('Enable Vector Search Fallback'),
       '#description' => $is_live_environment
-        ? $this->t('Disabled on this form in live: rollout and rollback stay runtime-only via <code>ILAS_VECTOR_SEARCH_ENABLED</code> while stored Drupal config remains false.')
+        ? $this->t('Live vector enablement is runtime-only. Set <code>ILAS_VECTOR_SEARCH_ENABLED</code> and clear caches; this form keeps stored Drupal config false on live.')
         : $this->t('When enabled, sparse lexical results will be supplemented with semantic vector search results from Pinecone.'),
       '#default_value' => $is_live_environment ? FALSE : ($vector_config['enabled'] ?? FALSE),
       '#disabled' => $is_live_environment,

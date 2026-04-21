@@ -73,13 +73,22 @@ class GovernanceModuleContractTest extends TestCase {
    */
   public function testQueueViewConfigExists(): void {
     $view = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/config/install/views.view.assistant_gap_items.yml');
+    $default_display = $view['display']['default']['display_options'];
+    $fields = $default_display['fields'];
+    $style_options = $default_display['style']['options'];
 
     $this->assertSame('assistant_gap_items', $view['id']);
     $this->assertSame('assistant_gap_item', $view['base_table']);
     $this->assertArrayHasKey('page_queue', $view['display']);
     $this->assertArrayHasKey('page_new', $view['display']);
     $this->assertArrayHasKey('page_all', $view['display']);
-    $this->assertContains('assistant_gap_item_flag_possible_taxonomy_gap_action', $view['display']['default']['display_options']['fields']['bulk_form']['selected_actions']);
+    $this->assertArrayHasKey('assistant_gap_item_bulk_form', $fields);
+    $this->assertArrayNotHasKey('bulk_form', $fields);
+    $this->assertSame('assistant_gap_item_bulk_form', $fields['assistant_gap_item_bulk_form']['field']);
+    $this->assertSame('bulk_form', $fields['assistant_gap_item_bulk_form']['plugin_id']);
+    $this->assertArrayHasKey('assistant_gap_item_bulk_form', $style_options['columns']);
+    $this->assertArrayNotHasKey('bulk_form', $style_options['columns']);
+    $this->assertContains('assistant_gap_item_flag_possible_taxonomy_gap_action', $fields['assistant_gap_item_bulk_form']['selected_actions']);
   }
 
   /**

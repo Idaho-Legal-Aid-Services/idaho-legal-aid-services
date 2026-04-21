@@ -348,10 +348,10 @@ class SafetyConfigGovernanceTest extends TestCase {
   }
 
   /**
-   * Live settings override must keep vector search hard-disabled while LLM
+   * Live settings override must keep vector search runtime-controlled while LLM
    * rollout remains runtime-toggle controlled.
    */
-  public function testLiveSettingsOverrideKeepsVectorDisabledAndLlmRuntimeControlled(): void {
+  public function testLiveSettingsOverrideKeepsVectorRuntimeControlledAndLlmRuntimeControlled(): void {
     $path = self::repoRoot() . '/web/sites/default/settings.php';
     $this->assertFileExists($path, 'settings.php not found');
 
@@ -368,9 +368,19 @@ class SafetyConfigGovernanceTest extends TestCase {
       'settings.php must load the runtime LLM rollout toggle',
     );
     $this->assertStringContainsString(
+      "_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED')",
+      $contents,
+      'settings.php must load the runtime vector rollout toggle',
+    );
+    $this->assertStringContainsString(
+      "in_array(\$ilas_vector_search_environment, ['local', 'dev', 'test', 'live'], TRUE)",
+      $contents,
+      'Live must be eligible for runtime vector enablement',
+    );
+    $this->assertStringNotContainsString(
       "\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;",
       $contents,
-      'Live environment must hard-disable vector_search.enabled via runtime override',
+      'Live environment must not hard-disable vector_search.enabled via runtime override anymore',
     );
   }
 

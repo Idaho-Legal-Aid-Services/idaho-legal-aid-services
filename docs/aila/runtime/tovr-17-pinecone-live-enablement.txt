@@ -1,0 +1,106 @@
+# TOVR-17 Pinecone Live Runtime-Toggle Enablement (2026-04-21)
+
+- Prior status:
+  - `TOVR-13` preserved the blocked live-readiness baseline while `live`
+    vector retrieval remained hard-forced off in repo code.
+  - Pinecone secret wiring, live vector indexes, and the live admin guardrails
+    were already present; the repo contract itself was the remaining blocker to
+    a secret-driven live toggle.
+- Current repo contract:
+  - `settings.php` no longer hard-forces `vector_search.enabled=false` on
+    `live`.
+  - `ILAS_VECTOR_SEARCH_ENABLED` is now honored on `live` alongside `local`,
+    `dev`, and `test`.
+  - Exported Drupal config remains `vector_search.enabled=false`; stored Drupal config remains false before enablement, after enablement, and after rollback.
+  - The live admin form stays disabled for vector enablement, validation still
+    rejects the checkbox on `live`, and submit handling still coerces stored
+    config back to `false`.
+  - The `dev` / `test` private flag fallback remains intact, but `live`
+    rollout/rollback are secret + cache-clear driven rather than file-driven.
+  - Vector-index hygiene refresh now rewrites stale expected metadata from the
+    current managed-index policy instead of preserving legacy `expected.*`
+    values from older stored snapshots.
+- Verification level tag:
+  - `repo contract refreshed / hosted enablement pending deploy`
+
+## Canonical live enablement contract
+
+| Surface | Expected state |
+|---|---|
+| Exported config | `vector_search.enabled=false` |
+| Effective live runtime before secret flip | `vector_search.enabled=false`, authoritative source `config export` |
+| Effective live runtime after `ILAS_VECTOR_SEARCH_ENABLED=1` | `vector_search.enabled=true`, authoritative source `settings.php runtime toggle -> getenv/pantheon_get_secret` |
+| Live admin form | Vector checkbox disabled; live validation/save keep stored config `false` |
+| Live rollback | Set `ILAS_VECTOR_SEARCH_ENABLED=0`, clear caches, rerun runtime truth + vector-status |
+
+## Canonical hosted verification sequence
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+# Baseline before the flip.
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status faq_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status resource_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status faq_accordion_vector
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status assistant_resources_vector
+
+# Enable via runtime secret only.
+terminus secret:site:set idaho-legal-aid-services.live ILAS_VECTOR_SEARCH_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status faq_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status resource_vector --probe-now
+
+LIVE_BASE_URL="$(terminus env:view idaho-legal-aid-services.live --print)"
+BASE_URL="${LIVE_BASE_URL%/}"
+COOKIE_JAR="$(mktemp)"
+TOKEN="$(curl -sk -c "$COOKIE_JAR" "$BASE_URL/assistant/api/session/bootstrap")"
+curl -sk -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $TOKEN" \
+  --data '{"message":"custody forms"}' \
+  "$BASE_URL/assistant/api/message"
+rm -f "$COOKIE_JAR"
+
+ILAS_ASSISTANT_URL="$BASE_URL/assistant/api/message" \
+ILAS_SITE_BASE_URL="$BASE_URL" \
+node scripts/ci/run-vector-provenance-smoke.js --environment live
+
+# Roll back through the same runtime-only path.
+terminus secret:site:set idaho-legal-aid-services.live ILAS_VECTOR_SEARCH_ENABLED 0
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+```
+
+## Changed files
+
+- `web/sites/default/settings.php`
+- `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+- `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+- `docs/env-vars.md`
+- `docs/aila/current-state.md`
+- `docs/aila/roadmap.md`
+- `docs/aila/runbook.md`
+- `docs/aila/evidence-index.md`
+- `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+- `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`
+
+## Residual risks and still-unverified surfaces
+
+- Hosted `live` still needs the refreshed repo contract deployed before runtime
+  truth can flip effective vector enablement.
+- The live secret change, cache clear, smoke, and rollback sequence remain
+  deployment-bound until executed on Pantheon.
+- Prompt-quality acceptance, monitoring-standard choice, and embeddings-timeout
+  governance still need explicit hosted verification alongside the live flip.
+
+## Rollback notes
+
+- Live rollback stays runtime-only. Set `ILAS_VECTOR_SEARCH_ENABLED=0`, clear
+  caches, rerun `ilas:runtime-truth`, and confirm effective
+  `vector_search.enabled=false`.
+- Stored Drupal config should remain `false` before enablement, after
+  enablement, and after rollback.

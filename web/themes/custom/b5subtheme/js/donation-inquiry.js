@@ -403,14 +403,16 @@
           // Remove existing validation messages
           $form.find('.step3-validation-error').remove();
           
-          $form.find('[data-step="3"]').prepend(`
-            <div class="alert alert-warning step3-validation-error" role="alert">
-              <strong>Please correct the following errors:</strong>
-              <ul class="mb-0 mt-2">
-                ${errorMessages.map(msg => `<li>${msg}</li>`).join('')}
-              </ul>
-            </div>
-          `);
+          var $ul = $('<ul>').addClass('mb-0 mt-2');
+          errorMessages.forEach(function(msg) {
+            $ul.append($('<li>').text(msg));
+          });
+          var $alert = $('<div>')
+            .addClass('alert alert-warning step3-validation-error')
+            .attr('role', 'alert')
+            .append($('<strong>').text('Please correct the following errors:'))
+            .append($ul);
+          $form.find('[data-step="3"]').prepend($alert);
           
           const firstInvalid = $form.find('input.is-invalid').first();
           if (firstInvalid.length) {

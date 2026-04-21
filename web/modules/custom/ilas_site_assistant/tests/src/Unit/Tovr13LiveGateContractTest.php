@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Locks the TOVR-13 live-readiness documentation and trace contract.
+ * Preserves the historical TOVR-13 live-readiness evidence and trace contract.
  */
 #[Group('ilas_site_assistant')]
 final class Tovr13LiveGateContractTest extends TestCase {
@@ -33,11 +33,14 @@ final class Tovr13LiveGateContractTest extends TestCase {
   }
 
   /**
-   * TOVR-13 runtime report must exist and record the blocked verdict.
+   * TOVR-13 runtime report must remain available as the historical blocked
+   * baseline that TOVR-17 supersedes.
    */
-  public function testRuntimeReportDeclaresBlockedStateAndPrerequisites(): void {
+  public function testRuntimeReportPreservesHistoricalBlockedStateAndPrerequisites(): void {
     $report = self::readFile('docs/aila/runtime/tovr-13-pinecone-live-readiness.txt');
 
+    $this->assertStringContainsString('Historical note', $report);
+    $this->assertStringContainsString('superseded by `TOVR-17`', $report);
     $this->assertStringContainsString('Blocked with explicit evidence', $report);
     $this->assertStringContainsString('Exact prerequisites before any live enablement', $report);
     $this->assertStringContainsString('23218168501', $report);
@@ -80,19 +83,13 @@ final class Tovr13LiveGateContractTest extends TestCase {
   }
 
   /**
-   * Canonical docs must all carry the TOVR-13 disposition.
+   * Canonical evidence docs must preserve the historical TOVR-13 record.
    */
-  public function testCanonicalDocsReferenceTovr13Disposition(): void {
-    $current_state = self::readFile('docs/aila/current-state.md');
-    $roadmap = self::readFile('docs/aila/roadmap.md');
-    $runbook = self::readFile('docs/aila/runbook.md');
+  public function testCanonicalEvidenceDocsReferenceHistoricalTovr13Disposition(): void {
     $evidence_index = self::readFile('docs/aila/evidence-index.md');
 
-    $this->assertStringContainsString('TOVR-13', $current_state);
-    $this->assertStringContainsString('Blocked with explicit evidence', $current_state);
-    $this->assertStringContainsString('### TOVR-13 Pinecone live readiness disposition', $roadmap);
-    $this->assertStringContainsString('### TOVR-13 Pinecone live readiness verification', $runbook);
     $this->assertStringContainsString('## TOVR-13 Pinecone Live Readiness Review', $evidence_index);
+    $this->assertStringContainsString('Blocked with explicit evidence', $evidence_index);
   }
 
 }

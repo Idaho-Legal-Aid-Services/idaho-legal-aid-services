@@ -389,10 +389,7 @@ final class VectorIndexHygieneService {
     bool $vector_search_enabled = TRUE,
   ): array {
     $index_id = $this->resolveManagedIndexId($index_key);
-    $index_snapshot = array_replace(
-      $this->newIndexSnapshot($index_key, $index_policy),
-      $existing
-    );
+    $index_snapshot = $this->mergeIndexSnapshotState($index_key, $index_policy, $existing);
     $index_snapshot['feature_active'] = $vector_search_enabled;
     $index_snapshot['inactive_reason'] = $vector_search_enabled ? NULL : 'vector_search_disabled';
     $index_snapshot['last_run_at'] = $now;
@@ -1209,13 +1206,41 @@ final class VectorIndexHygieneService {
     }
 
     $existing = is_array($snapshot['indexes'][$index_key] ?? NULL) ? $snapshot['indexes'][$index_key] : [];
-    $snapshot['indexes'][$index_key] = array_replace(
-      $this->newIndexSnapshot($index_key, $index_policy),
-      $existing,
-      $values,
-    );
+    $snapshot['indexes'][$index_key] = $this->mergeIndexSnapshotState($index_key, $index_policy, $existing, $values);
     $snapshot = $this->applyDerivedSnapshotFields($snapshot, $policy, $now);
     $this->state->set(self::SNAPSHOT_STATE_KEY, $snapshot);
+  }
+
+  /**
+   * Merges stored operator state with current policy-authored index metadata.
+   *
+   * Refresh/backfill state should preserve operator-visible history, while
+   * current config remains authoritative for the managed index identity and
+   * expected Pinecone contract fields.
+   *
+   * @param string $index_key
+   *   Managed index key.
+   * @param array $index_policy
+   *   Managed index policy.
+   * @param array $existing
+   *   Previously stored snapshot state.
+   * @param array $values
+   *   Optional values to layer on top after merging.
+   *
+   * @return array
+   *   The merged snapshot state.
+   */
+  protected function mergeIndexSnapshotState(string $index_key, array $index_policy, array $existing, array $values = []): array {
+    $fresh = $this->newIndexSnapshot($index_key, $index_policy);
+    $snapshot = array_replace($fresh, $existing, $values);
+
+    // Current config owns the managed index identity and expected metadata.
+    $snapshot['index_key'] = $fresh['index_key'];
+    $snapshot['index_id'] = $fresh['index_id'];
+    $snapshot['owner_role'] = $fresh['owner_role'];
+    $snapshot['expected'] = $fresh['expected'];
+
+    return $snapshot;
   }
 
   /**

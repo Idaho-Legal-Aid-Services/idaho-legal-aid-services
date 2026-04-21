@@ -401,7 +401,7 @@ must be explainable by runtime-only Cohere rollout inputs
   `llm.enabled` override path.
 - Confirm `fallback_llm` means bounded Cohere classification only and still
   returns control to deterministic intent processing.
-- Confirm live vector search remains hard-disabled in `settings.php`.
+- Confirm live vector search remains stored-`false` in Drupal config, admin-disabled on `live`, and runtime-enableable only through `ILAS_VECTOR_SEARCH_ENABLED` plus cache clear.
 
 ### IMP-SLO-01 SLO set + alert policy (availability/latency/errors/cron/queue)
 
@@ -2636,6 +2636,10 @@ ddev drush search-api:search assistant_resources_vector eviction
 
 ### TOVR-12 Pinecone non-live enablement verification
 
+- Historical note:
+  - This section records the original non-live rollout pass where `live`
+    remained intentionally out of scope.
+  - Current live enablement verification now lives under `TOVR-17`.
 - Baseline before the enablement pass:
   - TOVR-09 through TOVR-11 proved Pinecone secret wiring, hosted vector-index
     availability, and lexical-first retrieval hardening, but did not actually
@@ -2647,7 +2651,8 @@ ddev drush search-api:search assistant_resources_vector eviction
     `private://ilas-vector-search-enabled.txt` whenever vector search is still
     effectively disabled, including the case where a site-level falsey secret
     masks an env-level enablement override.
-  - `live` remains hard-forced off in `settings.php` even if the toggle is set.
+  - At that time, `live` remained hard-forced off in `settings.php` even if the
+    toggle was set.
 - Required validation commands for the enablement report:
   - `VC-PURE`
   - `VC-UNIT`
@@ -2809,15 +2814,16 @@ terminus remote:drush idaho-legal-aid-services.test -- ilas:runtime-truth
   - Treat untranslated or wrong-language vector hits as rollout defects. If the
     assistant response surface shows translation ghosts, clear the runtime
     toggle and stop promotion.
-  - `live` remains out of scope. If any command path touches `live`, stop and
-    re-scope the pass under `TOVR-13`.
+  - For this historical TOVR-12 pass, `live` remains out of scope. If any
+    command path touches `live`, stop and re-scope the pass under `TOVR-17`.
 - Expected enablement contract:
   - `ilas:runtime-truth` shows stored `false` versus effective `true` for
     `vector_search.enabled` on `local`, then `dev`, then `test`, with
     authoritative source
     `settings.php runtime toggle -> getenv/pantheon_get_secret` or
     `settings.php runtime toggle -> private flag file`.
-  - `live` still reports `vector_search.enabled=false` with authoritative source
+  - Historical TOVR-12 expectation only: `live` still reports
+    `vector_search.enabled=false` with authoritative source
     `settings.php live branch`.
   - Each environment has explicit before/after evidence, exact command
     summaries, and a rollback switch:
@@ -2832,6 +2838,10 @@ terminus remote:drush idaho-legal-aid-services.test -- ilas:runtime-truth
 
 ### TOVR-13 Pinecone live readiness verification
 
+- Historical note:
+  - This section preserves the blocked live-readiness review that preceded the
+    current TOVR-17 runtime-toggle contract refresh.
+  - Current live enablement/rollback verification lives under `TOVR-17`.
 - Baseline before the live gate review:
   - `TOVR-12` proves runtime-only vector enablement on `local` / `dev` /
     `test`, while `live` remains hard-forced off.
@@ -2909,6 +2919,82 @@ python3 "$HOME/.codex/skills/sentry/scripts/sentry_api.py" \
   - Archive the full report, command summaries, blockers, exact prerequisites,
     rollback notes, and still-unverified surfaces in
     `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`.
+
+### TOVR-17 Pinecone live runtime-toggle enablement verification
+
+- Contract summary:
+  - Exported config must remain safe-by-default with
+    `vector_search.enabled=false`.
+  - Live vector enablement is runtime-only. Set
+    `ILAS_VECTOR_SEARCH_ENABLED=1`, clear caches, and verify with runtime truth
+    and vector-status commands instead of saving Drupal config.
+  - The live admin form stays disabled for vector search, validation still
+    rejects the checkbox on `live`, and submit handling still coerces stored
+    Drupal config back to `false`.
+  - `dev` / `test` keep the private flag fallback; `live` does not use the
+    private flag path for rollout or rollback.
+  - Do not enable live request-time LLM generation in this pass.
+- Required validation commands for the live-enablement report:
+  - `VC-RUNTIME-PANTHEON-SAFE`
+  - `VC-PINECONE-PANTHEON-SAFE`
+  - corrected `VC-ASSISTANT-SMOKE-PANTHEON`
+  - vector provenance smoke on the fixed prompts
+- Canonical hosted checks:
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status faq_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status resource_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status faq_accordion_vector
+terminus remote:drush idaho-legal-aid-services.live -- search-api:status assistant_resources_vector
+
+terminus secret:site:set idaho-legal-aid-services.live ILAS_VECTOR_SEARCH_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status faq_vector --probe-now
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-status resource_vector --probe-now
+
+LIVE_BASE_URL="$(terminus env:view idaho-legal-aid-services.live --print)"
+BASE_URL="${LIVE_BASE_URL%/}"
+COOKIE_JAR="$(mktemp)"
+TOKEN="$(curl -sk -c "$COOKIE_JAR" "$BASE_URL/assistant/api/session/bootstrap")"
+curl -sk -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $TOKEN" \
+  --data '{"message":"custody forms"}' \
+  "$BASE_URL/assistant/api/message"
+rm -f "$COOKIE_JAR"
+
+ILAS_ASSISTANT_URL="$BASE_URL/assistant/api/message" \
+ILAS_SITE_BASE_URL="$BASE_URL" \
+node scripts/ci/run-vector-provenance-smoke.js --environment live
+
+terminus secret:site:set idaho-legal-aid-services.live ILAS_VECTOR_SEARCH_ENABLED 0
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+```
+
+- Expected enablement contract:
+  - Before the secret flip, `ilas:runtime-truth` on `live` should still show
+    stored `false`, effective `false`, and authoritative source `config export`
+    for `vector_search.enabled`.
+  - After `ILAS_VECTOR_SEARCH_ENABLED=1` plus cache clear, `ilas:runtime-truth`
+    should still show stored `false` but now effective `true`, with
+    authoritative source
+    `settings.php runtime toggle -> getenv/pantheon_get_secret`.
+  - `ilas:vector-status faq_vector --probe-now` and
+    `ilas:vector-status resource_vector --probe-now` must both remain healthy
+    after enablement and after rollback.
+  - Rollback is secret-only on `live`: set `ILAS_VECTOR_SEARCH_ENABLED=0`,
+    clear caches, rerun `ilas:runtime-truth`, and confirm effective
+    `vector_search.enabled=false` again.
+  - Archive the full report, command summaries, before/after runtime truth,
+    smoke output, rollback notes, and residual risks in
+    `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`.
 
 ### AFRP-01 FAQ language-isolation verification
 
