@@ -67,11 +67,11 @@
           <div class="info-card">
             <h2 class="info-card__title">Get Legal Help</h2>
             
-            {% if content.field_legal_advice_line %}
+            {% if legal_advice_line_plain %}
               <dl class="info-list">
                 <dt>Legal Advice Line(s):</dt>
                 <dd>
-                  {% set phone_text = node.field_legal_advice_line.value|trim %}
+                  {% set phone_text = legal_advice_line_plain %}
                   {% if phone_text %}
                     {# Define the phrases that should become phone links #}
                     {% set phone_number = 'tel:+12087467541' %}

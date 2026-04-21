@@ -350,6 +350,26 @@ function b5subtheme_preprocess_node(array &$variables): void {
 }
 
 /**
+ * Implements hook_preprocess_HOOK() for node--office-information.html.twig.
+ */
+function b5subtheme_preprocess_node__office_information(array &$variables): void {
+  $variables['legal_advice_line_plain'] = '';
+  $node = $variables['node'];
+  if (!$node instanceof NodeInterface || !$node->hasField('field_legal_advice_line')) {
+    return;
+  }
+  $field = $node->get('field_legal_advice_line');
+  if ($field->isEmpty()) {
+    return;
+  }
+  $lines = [];
+  foreach ($field as $item) {
+    $lines[] = (string) ($item->value ?? '');
+  }
+  $variables['legal_advice_line_plain'] = trim(implode("\n", $lines));
+}
+
+/**
  * Prepares content sections as tabbed data for the employment page.
  *
  * @param array $variables
