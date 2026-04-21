@@ -67,8 +67,14 @@ main() {
   local backup_local=""
   local backup_origin=""
   local original_head=""
+  local original_tree=""
+  local origin_tree=""
+  local final_tree=""
+  local cherry_output=""
   local commit=""
   local local_commit_count=0
+  local equivalent_commit_count=0
+  local merge_commit_count=0
   local -a local_commits=()
 
   parse_args "$@"
@@ -138,8 +144,32 @@ main() {
   esac
 
   original_head="$(git -C "$REPO_ROOT" rev-parse "$branch")"
-  mapfile -t local_commits < <(git -C "$REPO_ROOT" rev-list --reverse "origin/$branch..$branch")
+  original_tree="$(git -C "$REPO_ROOT" rev-parse "$branch^{tree}")"
+  origin_tree="$(git -C "$REPO_ROOT" rev-parse "origin/$branch^{tree}")"
+  cherry_output="$(git -C "$REPO_ROOT" cherry -v "origin/$branch" "$branch" || true)"
+  if [[ -n "$cherry_output" ]]; then
+    # Replay only commits whose content is not already represented on origin.
+    mapfile -t local_commits < <(printf '%s\n' "$cherry_output" | awk '$1 == "+" { print $2 }')
+    equivalent_commit_count="$(printf '%s\n' "$cherry_output" | awk '$1 == "-" { count += 1 } END { print count + 0 }')"
+  fi
   local_commit_count="${#local_commits[@]}"
+  merge_commit_count="$(git -C "$REPO_ROOT" rev-list --count --merges "origin/$branch..$branch")"
+
+  if (( merge_commit_count > 0 )) && [[ "$original_tree" != "$origin_tree" ]]; then
+    err "Local master includes $merge_commit_count local-only merge commit(s) with content differences from origin/master."
+    err "Automatic reconciliation would risk dropping merge-resolution changes."
+    err "Create recovery branches and reconcile manually."
+    err "Inspect with: git log --left-right --cherry-pick --oneline origin/master...master"
+    exit 1
+  fi
+
+  if (( equivalent_commit_count > 0 )); then
+    info "Skipping $equivalent_commit_count patch-equivalent local commit(s) already represented on origin/$branch."
+  fi
+
+  if (( merge_commit_count > 0 )); then
+    warn "Skipping $merge_commit_count local-only merge commit(s); local master and origin/$branch already resolve to the same tree."
+  fi
 
   timestamp="$(date +%Y%m%d-%H%M%S)"
   backup_local="backup/recovery-local-$timestamp"
@@ -189,6 +219,16 @@ main() {
   if "$DRY_RUN"; then
     ok "Dry-run origin reconciliation plan complete."
     exit 0
+  fi
+
+  final_tree="$(git -C "$REPO_ROOT" rev-parse "$branch^{tree}")"
+  if [[ "$final_tree" != "$original_tree" ]]; then
+    err "Origin reconciliation changed the tree compared to the original local master."
+    err "Recovery branches:"
+    err "  $backup_local"
+    err "  $backup_origin"
+    err "Restore local master with: git reset --hard $backup_local"
+    exit 1
   fi
 
   ok "Origin reconciliation complete."

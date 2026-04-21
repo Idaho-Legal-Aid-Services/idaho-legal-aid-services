@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 GIT_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$GIT_HELPER_DIR/../.." && pwd)"
+if [[ -z "${REPO_ROOT:-}" ]]; then
+  if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    REPO_ROOT="$(cd "$GIT_HELPER_DIR/../.." && pwd)"
+  fi
+fi
 DEFAULT_REMOTES=(origin github)
 
 info() {

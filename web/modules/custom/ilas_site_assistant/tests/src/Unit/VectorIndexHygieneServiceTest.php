@@ -84,8 +84,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
             [
               'label' => 'faq_custody_canary',
               'query' => 'custody',
-              'langcode' => 'en',
-              'top_k' => 1,
+              'top_k' => 2,
               'min_results' => 1,
             ],
           ],
@@ -254,6 +253,37 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     return $query;
   }
 
+  /**
+   * Builds a Search API query mock with language-filter expectations.
+   */
+  private function buildQueryMockWithLanguageExpectation(array $scores, ?string $expectedLangcode): QueryInterface {
+    $resultItems = array_map(function ($score): ItemInterface {
+      $item = $this->createMock(ItemInterface::class);
+      $item->method('getScore')->willReturn($score);
+      return $item;
+    }, $scores);
+
+    $resultSet = $this->createMock(ResultSetInterface::class);
+    $resultSet->method('getResultItems')->willReturn($resultItems);
+
+    $query = $this->createMock(QueryInterface::class);
+    $query->method('keys')->willReturnSelf();
+    $query->method('range')->willReturnSelf();
+    if ($expectedLangcode === NULL) {
+      $query->expects($this->never())
+        ->method('addCondition');
+    }
+    else {
+      $query->expects($this->once())
+        ->method('addCondition')
+        ->with('search_api_language', $expectedLangcode)
+        ->willReturnSelf();
+    }
+    $query->method('execute')->willReturn($resultSet);
+
+    return $query;
+  }
+
   public function testDefaultPolicySnapshotContractValues(): void {
     $service = $this->buildService();
     $snapshot = $service->getSnapshot();
@@ -272,6 +302,49 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('assistant_resources_vector', $snapshot['indexes']['resource_vector']['index_id']);
     $this->assertSame('ilas_voyage__voyage-law-2', $snapshot['indexes']['faq_vector']['expected']['embeddings_engine']);
     $this->assertSame('ilas_voyage__voyage-law-2', $snapshot['indexes']['resource_vector']['expected']['embeddings_engine']);
+  }
+
+  public function testDefaultPolicyDropsFaqLanguageFilterButKeepsResourceLanguageFilter(): void {
+    $service = $this->buildService();
+    $reflection = new \ReflectionMethod($service, 'getPolicy');
+    $reflection->setAccessible(TRUE);
+    $policy = $reflection->invoke($service);
+
+    $faqProbe = $policy['managed_indexes']['faq_vector']['queryability_probes'][0] ?? [];
+    $resourceProbe = $policy['managed_indexes']['resource_vector']['queryability_probes'][0] ?? [];
+
+    $this->assertSame('faq_custody_canary', $faqProbe['label'] ?? NULL);
+    $this->assertArrayNotHasKey('langcode', $faqProbe);
+    $this->assertSame(2, $faqProbe['top_k'] ?? NULL);
+    $this->assertSame('resource_eviction_canary', $resourceProbe['label'] ?? NULL);
+    $this->assertSame('en', $resourceProbe['langcode'] ?? NULL);
+    $this->assertSame(1, $resourceProbe['top_k'] ?? NULL);
+  }
+
+  public function testFaqProbeOmitsLanguageConditionWhileResourceProbeKeepsIt(): void {
+    $faqIndex = $this->buildCompliantIndexMock(
+      queryOverride: $this->buildQueryMockWithLanguageExpectation([0.91], NULL),
+    );
+    $resourceIndex = $this->buildCompliantIndexMock(
+      serverId: 'pinecone_vector_resources',
+      queryOverride: $this->buildQueryMockWithLanguageExpectation([0.87], 'en'),
+    );
+
+    $faqIndex->expects($this->once())->method('indexItems')->willReturn(1);
+    $resourceIndex->expects($this->once())->method('indexItems')->willReturn(1);
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ]);
+
+    $service->runScheduledRefresh();
+    $snapshot = $service->getSnapshot();
+
+    $this->assertSame('healthy', $snapshot['indexes']['faq_vector']['probe_status']);
+    $this->assertSame('healthy', $snapshot['indexes']['resource_vector']['probe_status']);
+    $this->assertSame(2, $snapshot['totals']['probe_passed_count']);
+    $this->assertSame(0, $snapshot['totals']['probe_failed_count']);
   }
 
   public function testRunScheduledRefreshProcessesDueIndexesIncrementally(): void {

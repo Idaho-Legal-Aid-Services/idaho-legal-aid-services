@@ -90,8 +90,7 @@ final class VectorMaintenanceCommandsTest extends TestCase {
               'queryability_probes' => [[
                 'label' => 'faq_custody_canary',
                 'query' => 'custody',
-                'langcode' => 'en',
-                'top_k' => 1,
+                'top_k' => 2,
                 'min_results' => 1,
               ]],
             ],

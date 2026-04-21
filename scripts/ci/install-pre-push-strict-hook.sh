@@ -2,11 +2,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
 PRE_PUSH_SOURCE="$REPO_ROOT/scripts/ci/pre-push-strict.sh"
-PRE_PUSH_DEST="$REPO_ROOT/.git/hooks/pre-push"
 PRE_COMMIT_SOURCE="$REPO_ROOT/scripts/ci/pre-commit-master-sync.sh"
-PRE_COMMIT_DEST="$REPO_ROOT/.git/hooks/pre-commit"
+HOOKS_DIR="$(git rev-parse --path-format=absolute --git-path hooks)"
+PRE_PUSH_DEST="$HOOKS_DIR/pre-push"
+PRE_COMMIT_DEST="$HOOKS_DIR/pre-commit"
 
 if [[ ! -f "$PRE_PUSH_SOURCE" ]]; then
   echo "Hook source not found: $PRE_PUSH_SOURCE" >&2
@@ -18,8 +21,8 @@ if [[ ! -f "$PRE_COMMIT_SOURCE" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$REPO_ROOT/.git/hooks" ]]; then
-  echo "Not a git repository (missing .git/hooks): $REPO_ROOT" >&2
+if [[ ! -d "$HOOKS_DIR" ]]; then
+  echo "Not a git repository (missing hooks directory): $HOOKS_DIR" >&2
   exit 1
 fi
 

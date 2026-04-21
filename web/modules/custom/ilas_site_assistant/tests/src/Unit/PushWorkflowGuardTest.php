@@ -130,8 +130,7 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('REMOTE_NAME', $strictHook);
     $this->assertStringContainsString('REMOTE_URL', $strictHook);
 
-    $this->assertStringContainsString('.git/hooks/pre-push', $installer);
-    $this->assertStringContainsString('.git/hooks/pre-commit', $installer);
+    $this->assertStringContainsString('git rev-parse --path-format=absolute --git-path hooks', $installer);
     $this->assertStringContainsString('pre-commit-master-sync.sh', $installer);
     $this->assertStringContainsString('pre-push-strict.sh', $installer);
     $this->assertStringContainsString('git status --short --branch', $installer);

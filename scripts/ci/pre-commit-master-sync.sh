@@ -2,7 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if ! REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
 # shellcheck source=../git/common.sh
 source "$REPO_ROOT/scripts/git/common.sh"
 
