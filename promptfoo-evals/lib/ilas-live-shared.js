@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const DEFAULT_SITE_BASE_URL = 'https://idaholegalaid.org';
 const STRUCTURED_ERROR_PREFIX = '[ilas_error]';
 const DEFAULT_EXPECTED_REQUEST_TOTAL = 292;
+const DEFAULT_REQUEST_TIMEOUT_MS = 45000;
 
 const pacers = new Map();
 let requestCount = 0;
@@ -165,7 +166,10 @@ function classifyFetchError(err, phase, url) {
     errorCode = 'dns_resolution_failed';
   } else if (['ECONNREFUSED', 'ECONNRESET'].includes(code)) {
     errorCode = 'connection_failed';
-  } else if (['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT'].includes(code)) {
+  } else if (
+    err?.name === 'AbortError' ||
+    ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT'].includes(code)
+  ) {
     errorCode = 'timeout';
   }
 
@@ -412,6 +416,10 @@ function createTransportOptions(options = {}) {
     assistantUrl: options.assistantUrl || process.env.ILAS_ASSISTANT_URL || '',
     siteBaseUrl: options.siteBaseUrl || process.env.ILAS_SITE_BASE_URL || DEFAULT_SITE_BASE_URL,
     requestDelayMs: normalizeInteger(options.requestDelayMs ?? process.env.ILAS_REQUEST_DELAY_MS, 0),
+    requestTimeoutMs: normalizeInteger(
+      options.requestTimeoutMs ?? process.env.ILAS_REQUEST_TIMEOUT_MS,
+      DEFAULT_REQUEST_TIMEOUT_MS
+    ),
     max429Retries: normalizeInteger(options.max429Retries ?? process.env.ILAS_429_MAX_RETRIES, 5),
     base429WaitMs: normalizeInteger(options.base429WaitMs ?? process.env.ILAS_429_BASE_WAIT_MS, 65000),
     max429WaitMs: normalizeInteger(options.max429WaitMs ?? process.env.ILAS_429_MAX_WAIT_MS, 180000),
@@ -461,14 +469,60 @@ class IlasLiveTransport {
   }
 
   async fetchText(url, options, phase) {
+    const fetchOptions = { ...options };
+    const timeoutMs = this.options.requestTimeoutMs;
+    let timeoutId = null;
+    let removeAbortListener = null;
+    let timeoutError = null;
+
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      const timeoutController = new AbortController();
+      timeoutError = Object.assign(new Error(`Request timed out after ${timeoutMs}ms`), { code: 'ETIMEDOUT' });
+
+      if (fetchOptions.signal) {
+        if (fetchOptions.signal.aborted) {
+          timeoutController.abort(fetchOptions.signal.reason);
+        } else {
+          const forwardAbort = () => timeoutController.abort(fetchOptions.signal.reason);
+          fetchOptions.signal.addEventListener('abort', forwardAbort, { once: true });
+          removeAbortListener = () => fetchOptions.signal.removeEventListener('abort', forwardAbort);
+        }
+      }
+
+      timeoutId = setTimeout(() => timeoutController.abort(timeoutError), timeoutMs);
+      fetchOptions.signal = timeoutController.signal;
+    }
+
     try {
-      const response = await this.fetchImpl(url, options);
+      const response = await this.fetchImpl(url, fetchOptions);
       return { ok: true, response };
     } catch (err) {
+      if (fetchOptions.signal?.aborted && fetchOptions.signal.reason === timeoutError) {
+        return {
+          ok: false,
+          error: createStructuredError(
+            'connectivity',
+            'timeout',
+            timeoutError.message,
+            {
+              phase,
+              url,
+              request_timeout_ms: timeoutMs,
+              transport_code: timeoutError.code,
+            }
+          ),
+        };
+      }
+
       return {
         ok: false,
         error: classifyFetchError(err, phase, url),
       };
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      removeAbortListener?.();
     }
   }
 

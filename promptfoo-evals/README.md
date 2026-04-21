@@ -117,6 +117,7 @@ All wrapper scripts automatically set these environment variables:
 | `PROMPTFOO_DISABLE_SHARING`          | `1`    | No result sharing                |
 | `PROMPTFOO_SELF_HOSTED`             | `1`    | Self-hosted mode                 |
 | `PROMPTFOO_DISABLE_ADAPTIVE_SCHEDULER` | `1` | Deterministic runtime (no long retry loops) |
+| `ILAS_REQUEST_TIMEOUT_MS`            | `45000` | Fail hung live-assistant requests instead of waiting indefinitely |
 
 You can also add these to a `.env` file in `promptfoo-evals/` or export them
 in your shell profile.
@@ -132,7 +133,8 @@ API contract:
    `/assistant/api/message` with the token in `X-CSRF-Token` header
 3. **Response** — extracts `response.message` as the output
 4. **Error handling** — retries once on 403 (CSRF expiry), reports 429 rate
-   limits, returns descriptive errors for network failures
+   limits, aborts hung requests after `ILAS_REQUEST_TIMEOUT_MS`, and returns
+   descriptive errors for network failures
 
 No cookies or authentication needed — the endpoint accepts anonymous sessions.
 

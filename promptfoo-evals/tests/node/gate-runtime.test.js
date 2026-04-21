@@ -283,6 +283,43 @@ test('IlasLiveTransport retries HTTP 429 when failFast429 is disabled', async ()
   assert.equal(calls.filter((url) => url.endsWith('/assistant/api/message')).length, 2);
 });
 
+test('IlasLiveTransport times out hung requests with a structured timeout error', async () => {
+  const transport = new IlasLiveTransport({
+    assistantUrl: 'https://example.test/assistant/api/message',
+    pacer: async () => {},
+    silent: true,
+    requestTimeoutMs: 5,
+    fetchImpl: async (url, options = {}) => {
+      if (url.endsWith('/assistant/api/session/bootstrap')) {
+        return createResponse({
+          status: 200,
+          body: 'csrf-token',
+          headers: { 'set-cookie': 'SSESS=abc123; Path=/; HttpOnly' },
+        });
+      }
+
+      if (url.endsWith('/assistant/api/message')) {
+        await new Promise((_, reject) => {
+          options.signal?.addEventListener(
+            'abort',
+            () => reject(options.signal.reason || Object.assign(new Error('AbortError'), { name: 'AbortError' })),
+            { once: true }
+          );
+        });
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    },
+  });
+
+  const result = await transport.runConnectivityPreflight('Where is your Boise office?');
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.kind, 'connectivity');
+  assert.equal(result.error.code, 'timeout');
+  assert.equal(result.error.request_timeout_ms, 5);
+});
+
 test('IlasLiveTransport normalizes accidental double slashes in assistant URLs', () => {
   const transport = new IlasLiveTransport({
     assistantUrl: 'https://example.test//assistant/api/message',
