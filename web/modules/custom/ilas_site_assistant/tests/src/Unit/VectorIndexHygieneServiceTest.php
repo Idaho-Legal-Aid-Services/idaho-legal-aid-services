@@ -84,7 +84,7 @@ final class VectorIndexHygieneServiceTest extends TestCase {
             [
               'label' => 'faq_custody_canary',
               'query' => 'custody',
-              'top_k' => 1,
+              'top_k' => 2,
               'min_results' => 1,
             ],
           ],
@@ -315,8 +315,10 @@ final class VectorIndexHygieneServiceTest extends TestCase {
 
     $this->assertSame('faq_custody_canary', $faqProbe['label'] ?? NULL);
     $this->assertArrayNotHasKey('langcode', $faqProbe);
+    $this->assertSame(2, $faqProbe['top_k'] ?? NULL);
     $this->assertSame('resource_eviction_canary', $resourceProbe['label'] ?? NULL);
     $this->assertSame('en', $resourceProbe['langcode'] ?? NULL);
+    $this->assertSame(1, $resourceProbe['top_k'] ?? NULL);
   }
 
   public function testFaqProbeOmitsLanguageConditionWhileResourceProbeKeepsIt(): void {
