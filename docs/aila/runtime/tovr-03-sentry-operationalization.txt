@@ -163,7 +163,7 @@ Verification level tag: `repo+current-runtime+browser-runtime+github-config+acco
 ### Release/source-map verification
 - GitHub Actions run:
   - run id: `23164126480`
-  - url: `https://github.com/evancurry21/idaho-legal-aid-services/actions/runs/23164126480`
+  - url: `https://github.com/Idaho-Legal-Aid-Services/idaho-legal-aid-services/actions/runs/23164126480`
   - result: built theme assets successfully, failed in `Prepare Sentry release + sourcemaps` with `unexpected argument '--org'`
 - Local post-fix validation:
   - `bash -n scripts/observability/sentry-release.sh` => `syntax_ok`

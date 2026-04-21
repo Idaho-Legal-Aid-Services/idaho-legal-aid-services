@@ -64,7 +64,7 @@ Command summaries
 
 Workflow-history proof
 - Branch protection check state was refreshed with:
-  - `gh api repos/evancurry21/idaho-legal-aid-services/branches/master/protection --jq '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled}'`
+  - `gh api repos/Idaho-Legal-Aid-Services/idaho-legal-aid-services/branches/master/protection --jq '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled}'`
   - Result: `{"contexts":["PHPUnit Quality Gate","Promptfoo Gate"],"enforce_admins":true,"strict":false}`
 - Historical mode split was refreshed with:
   - `gh run view 23165709608 --json databaseId,workflowName,event,headBranch,createdAt,updatedAt,conclusion,status`
