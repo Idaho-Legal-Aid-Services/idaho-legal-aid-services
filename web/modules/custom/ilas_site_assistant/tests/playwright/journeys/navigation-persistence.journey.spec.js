@@ -73,8 +73,9 @@ test.describe('journey: navigation persistence', () => {
 
       const preNavState = await readSessionState(page);
       expect(preNavState, 'sessionStorage should contain widget state').not.toBeNull();
-      expect(preNavState.v).toBe(2);
+      expect(preNavState.v).toBe(3);
       expect(preNavState.messages.length, 'stored messages should be non-empty').toBeGreaterThan(0);
+      expect(preNavState.messages.at(-1)?.kind).toBe('response');
       expect(preNavState.conversationId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );

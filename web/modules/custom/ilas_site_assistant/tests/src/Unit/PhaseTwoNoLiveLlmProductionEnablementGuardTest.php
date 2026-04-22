@@ -31,7 +31,8 @@ final class PhaseTwoNoLiveLlmProductionEnablementGuardTest extends TestCase {
 
     $this->assertStringContainsString('Live rollout remains runtime-toggle controlled', $roadmap);
     $this->assertStringContainsString('request-time LLM verification', $runbook);
-    $this->assertStringContainsString('live vector search remains hard-disabled', $runbook);
+    $this->assertStringContainsString('TOVR-17 Pinecone live runtime-toggle enablement verification', $runbook);
+    $this->assertStringContainsString('ILAS_VECTOR_SEARCH_ENABLED=1', $runbook);
   }
 
   public function testRuntimeGuardAnchorsRemainPresent(): void {

@@ -39,9 +39,10 @@ on hosted environments.
   - Required runtime Pinecone API key for vector index queries and refreshes.
 - `ILAS_VECTOR_SEARCH_ENABLED`
   - Runtime-only rollout toggle for vector retrieval supplementation.
-  - Truthy values are honored only on `local`, `dev`, and `test`.
-  - `live` is hard-forced back to `false` in `settings.php` even if this
-    toggle is set.
+  - Truthy values are honored on `local`, `dev`, `test`, and `live`.
+  - `live` remains runtime-only: stored Drupal config stays `false`, the admin
+    form stays disabled on live, and rollout/rollback are secret +
+    cache-clear driven.
   - On `dev` / `test`, `settings.php` also checks
     `private://ilas-vector-search-enabled.txt` whenever vector search is still
     effectively disabled, including the case where a site-level falsey secret
@@ -119,7 +120,7 @@ Use local-only files for local values. Do not commit real credentials.
 - Keep `ILAS_LLM_ENABLED=0` by default and only set it to `1` when
   intentionally verifying request-time Cohere rollout behavior.
 - Keep `ILAS_VECTOR_SEARCH_ENABLED=0` by default and only set it to `1` when
-  intentionally verifying non-live vector rollout behavior.
+  intentionally verifying vector rollout behavior.
 - Set `ILAS_LOCAL_BROWSER_OBSERVABILITY=1` only if you intentionally want local
   browser injection when the corresponding secrets exist
 

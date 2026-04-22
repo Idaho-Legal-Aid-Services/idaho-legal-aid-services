@@ -89,6 +89,176 @@ window._assistantWidgetTestDone = (async function () {
       return html;
     },
 
+    snapshotAssistantResponse: function (response) {
+      var allowedKeys = [
+        'type',
+        'message',
+        'results',
+        'fallback_url',
+        'fallback_label',
+        'disclaimer',
+        'caveat',
+        'url',
+        'cta',
+        'topic',
+        'service_area_url',
+        'links',
+        'actions',
+        'service_areas',
+        'suggestions',
+        'topic_suggestions',
+        'primary_action',
+        'followup',
+        'apply_methods',
+        'text_fallback',
+      ];
+      var snapshot = {};
+
+      if (!response || typeof response !== 'object') {
+        return snapshot;
+      }
+
+      allowedKeys.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(response, key)) {
+          snapshot[key] = response[key];
+        }
+      });
+
+      return JSON.parse(JSON.stringify(snapshot));
+    },
+
+    normalizeDisplayMessage: function (sender, payload) {
+      var role = sender === 'assistant' ? 'assistant' : 'user';
+
+      if (typeof payload === 'string') {
+        return { role: role, kind: 'text', text: payload };
+      }
+
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return null;
+      }
+
+      if (payload.kind === 'text') {
+        return { role: role, kind: 'text', text: typeof payload.text === 'string' ? payload.text : '' };
+      }
+
+      if (role === 'assistant' && payload.kind === 'response') {
+        return { role: role, kind: 'response', response: SA.snapshotAssistantResponse(payload.response || {}) };
+      }
+
+      if (role === 'assistant' && payload.kind === 'recovery') {
+        return {
+          role: role,
+          kind: 'recovery',
+          errorCode: typeof payload.errorCode === 'string' ? payload.errorCode : '',
+          lastMessageText: typeof payload.lastMessageText === 'string' ? payload.lastMessageText : '',
+        };
+      }
+
+      return null;
+    },
+
+    extractLegacyAssistantText: function (html) {
+      var input = String(html || '');
+      var output = '';
+      var suppressedTag = '';
+      var whitespaceChars = ' \t\r\n\f';
+      var tagNameChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-';
+
+      function isWhitespace(char) {
+        return whitespaceChars.indexOf(char) !== -1;
+      }
+
+      function isClosingTag(tagText) {
+        var index = 0;
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+        return tagText.charAt(index) === '/';
+      }
+
+      function readTagName(tagText) {
+        var index = 0;
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+        if (tagText.charAt(index) === '/') {
+          index++;
+        }
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+
+        var start = index;
+        while (index < tagText.length && tagNameChars.indexOf(tagText.charAt(index)) !== -1) {
+          index++;
+        }
+
+        return tagText.slice(start, index).toLowerCase();
+      }
+
+      function appendSpace() {
+        if (output && output.charAt(output.length - 1) !== ' ') {
+          output += ' ';
+        }
+      }
+
+      for (var i = 0; i < input.length; i++) {
+        if (input.charAt(i) === '<') {
+          var tagEnd = i + 1;
+          var quote = '';
+
+          while (tagEnd < input.length) {
+            var tagChar = input.charAt(tagEnd);
+            if (quote) {
+              if (tagChar === quote) {
+                quote = '';
+              }
+            } else if (tagChar === '"' || tagChar === '\'') {
+              quote = tagChar;
+            } else if (tagChar === '>') {
+              break;
+            }
+            tagEnd++;
+          }
+
+          if (tagEnd >= input.length) {
+            break;
+          }
+
+          var tagText = input.slice(i + 1, tagEnd);
+          var tagName = readTagName(tagText);
+          var closingTag = isClosingTag(tagText);
+
+          if (suppressedTag) {
+            if (closingTag && tagName === suppressedTag) {
+              suppressedTag = '';
+            }
+          } else if (tagName === 'script' || tagName === 'style') {
+            if (!closingTag) {
+              suppressedTag = tagName;
+            }
+          } else {
+            appendSpace();
+          }
+
+          i = tagEnd;
+          continue;
+        }
+
+        if (!suppressedTag) {
+          output += input.charAt(i);
+        }
+      }
+
+      var text = output
+        .replace(/&nbsp;|&#160;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return text || Drupal.t('Previous assistant response restored as text.');
+    },
+
     escapeAttr: function (text) {
       if (!text || typeof text !== 'string') return '';
       return text
@@ -183,9 +353,9 @@ window._assistantWidgetTestDone = (async function () {
     },
 
     /**
-     * Build recovery HTML (mirrors addRecoveryMessage logic for testing).
+     * Build recovery DOM (mirrors addRecoveryMessage logic for testing).
      */
-    buildRecoveryHtml: function (error, lastMessageText) {
+    buildRecoveryNode: function (error, lastMessageText) {
       var errorCode = (error && error.errorCode) || '';
       var recoveryText;
       var showRetry = false;
@@ -205,28 +375,37 @@ window._assistantWidgetTestDone = (async function () {
           break;
       }
 
-      var safeMessage = SA.escapeAttr(lastMessageText || '');
-      var html = '<div class="recovery-message" role="alert">';
-      html += '<p class="recovery-text">' + SA.escapeHtml(recoveryText) + '</p>';
-      html += '<div class="recovery-actions">';
+      var container = document.createElement('div');
+      container.className = 'recovery-message';
+      container.setAttribute('role', 'alert');
+
+      var text = document.createElement('p');
+      text.className = 'recovery-text';
+      text.textContent = recoveryText;
+      container.appendChild(text);
+
+      var actions = document.createElement('div');
+      actions.className = 'recovery-actions';
 
       if (showRetry) {
-        html += '<button type="button" class="recovery-btn--retry"'
-          + ' data-retry-message="' + safeMessage + '"'
-          + ' aria-label="' + SA.escapeAttr(Drupal.t('Try sending your message again')) + '">'
-          + '<i class="fas fa-redo" aria-hidden="true"></i> '
-          + SA.escapeHtml(Drupal.t('Try again'))
-          + '</button>';
+        var retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'recovery-btn--retry';
+        retry.setAttribute('data-retry-message', String(lastMessageText || ''));
+        retry.setAttribute('aria-label', Drupal.t('Try sending your message again'));
+        retry.textContent = Drupal.t('Try again');
+        actions.appendChild(retry);
       }
 
-      html += '<button type="button" class="recovery-btn--refresh"'
-        + ' aria-label="' + SA.escapeAttr(Drupal.t('Refresh this page to start a new session')) + '">'
-        + '<i class="fas fa-sync-alt" aria-hidden="true"></i> '
-        + SA.escapeHtml(Drupal.t('Refresh page'))
-        + '</button>';
+      var refresh = document.createElement('button');
+      refresh.type = 'button';
+      refresh.className = 'recovery-btn--refresh';
+      refresh.setAttribute('aria-label', Drupal.t('Refresh this page to start a new session'));
+      refresh.textContent = Drupal.t('Refresh page');
+      actions.appendChild(refresh);
 
-      html += '</div></div>';
-      return html;
+      container.appendChild(actions);
+      return container;
     },
 
     normalizeTrackToken: function (value) {
@@ -517,6 +696,38 @@ window._assistantWidgetTestDone = (async function () {
   });
 
   // ===================================================================
+  // 4c. structured assistant display state
+  // ===================================================================
+  suite('structured display message contract', function () {
+    var normalized = SA.normalizeDisplayMessage('assistant', {
+      kind: 'response',
+      response: {
+        request_id: '11111111-1111-4111-8111-111111111111',
+        type: 'faq',
+        message: 'Visible copy',
+        suggestions: [{ label: 'Forms', action: 'forms' }],
+        llm_summary: 'drop me',
+      },
+    });
+
+    assert(normalized !== null, 'assistant response payload normalizes');
+    assert(normalized.kind === 'response', 'assistant response keeps response kind');
+    assert(normalized.response.type === 'faq', 'response snapshot preserves allowed type');
+    assert(normalized.response.message === 'Visible copy', 'response snapshot preserves visible message');
+    assert(Array.isArray(normalized.response.suggestions), 'response snapshot preserves allowed arrays');
+    assert(!Object.prototype.hasOwnProperty.call(normalized.response, 'request_id'), 'response snapshot drops request_id');
+    assert(!Object.prototype.hasOwnProperty.call(normalized.response, 'llm_summary'), 'response snapshot drops llm_summary');
+  });
+
+  // ===================================================================
+  // 4d. legacy assistant HTML migration
+  // ===================================================================
+  suite('legacy assistant HTML migration', function () {
+    var migrated = SA.extractLegacyAssistantText('<p>Restored <strong>message</strong> more</p><script >alert(1)</script >');
+    assert(migrated === 'Restored message more', 'legacy assistant HTML is reduced to safe readable text');
+  });
+
+  // ===================================================================
   // 5. getErrorMessage — per-status
   // ===================================================================
   suite('getErrorMessage', function () {
@@ -773,15 +984,13 @@ window._assistantWidgetTestDone = (async function () {
   // ===================================================================
   suite('Recovery message rendering', function () {
     // csrf_missing: both retry + refresh buttons.
-    var csrfMissingHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, 'Hello');
-    var csrfMissingContainer = document.createElement('div');
-    csrfMissingContainer.innerHTML = csrfMissingHtml;
+    var csrfMissingContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_missing' }, 'Hello');
 
     assert(csrfMissingContainer.querySelector('.recovery-btn--retry') !== null,
       'csrf_missing: retry button present');
     assert(csrfMissingContainer.querySelector('.recovery-btn--refresh') !== null,
       'csrf_missing: refresh button present');
-    assert(csrfMissingContainer.querySelector('.recovery-message').getAttribute('role') === 'alert',
+    assert(csrfMissingContainer.getAttribute('role') === 'alert',
       'csrf_missing: role="alert" on container');
     assert(csrfMissingContainer.querySelector('.recovery-btn--retry').getAttribute('aria-label') !== null,
       'csrf_missing: aria-label on retry button');
@@ -793,9 +1002,7 @@ window._assistantWidgetTestDone = (async function () {
       'csrf_missing: recovery copy mentions Refresh page');
 
     // csrf_invalid: both retry + refresh buttons.
-    var csrfInvalidHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_invalid' }, 'Test msg');
-    var csrfInvalidContainer = document.createElement('div');
-    csrfInvalidContainer.innerHTML = csrfInvalidHtml;
+    var csrfInvalidContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_invalid' }, 'Test msg');
 
     assert(csrfInvalidContainer.querySelector('.recovery-btn--retry') !== null,
       'csrf_invalid: retry button present');
@@ -803,9 +1010,7 @@ window._assistantWidgetTestDone = (async function () {
       'csrf_invalid: refresh button present');
 
     // csrf_expired: only refresh button (no retry).
-    var csrfExpiredHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_expired' }, 'Hello');
-    var csrfExpiredContainer = document.createElement('div');
-    csrfExpiredContainer.innerHTML = csrfExpiredHtml;
+    var csrfExpiredContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_expired' }, 'Hello');
 
     assert(csrfExpiredContainer.querySelector('.recovery-btn--retry') === null,
       'csrf_expired: no retry button');
@@ -815,9 +1020,7 @@ window._assistantWidgetTestDone = (async function () {
       'csrf_expired: recovery copy mentions Refresh page');
 
     // legacy alias still maps to refresh-only.
-    var legacySessionExpHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'session_expired' }, 'Hello');
-    var legacySessionExpContainer = document.createElement('div');
-    legacySessionExpContainer.innerHTML = legacySessionExpHtml;
+    var legacySessionExpContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'session_expired' }, 'Hello');
 
     assert(legacySessionExpContainer.querySelector('.recovery-btn--retry') === null,
       'session_expired alias: no retry button');
@@ -825,9 +1028,7 @@ window._assistantWidgetTestDone = (async function () {
       'session_expired alias: refresh button present');
 
     // Generic 403: only refresh button.
-    var genericHtml = SA.buildRecoveryHtml({ status: 403 }, 'Hello');
-    var genericContainer = document.createElement('div');
-    genericContainer.innerHTML = genericHtml;
+    var genericContainer = SA.buildRecoveryNode({ status: 403 }, 'Hello');
 
     assert(genericContainer.querySelector('.recovery-btn--retry') === null,
       'generic 403: no retry button');
@@ -836,14 +1037,10 @@ window._assistantWidgetTestDone = (async function () {
 
     // XSS in message text: data-retry-message properly escaped.
     var xssMessage = '"><img src=x onerror=alert(1)>';
-    var xssHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, xssMessage);
-    var xssContainer = document.createElement('div');
-    xssContainer.innerHTML = xssHtml;
+    var xssContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_missing' }, xssMessage);
     var retryBtn = xssContainer.querySelector('.recovery-btn--retry');
 
     assert(retryBtn !== null, 'XSS: retry button created');
-    assert(xssHtml.indexOf('&lt;img') !== -1,
-      'XSS: injected tag is escaped in generated recovery HTML');
     assert(retryBtn.getAttribute('data-retry-message') === xssMessage,
       'XSS: original message round-trips as text payload only');
     assert(xssContainer.querySelector('img') === null,
@@ -854,9 +1051,7 @@ window._assistantWidgetTestDone = (async function () {
   // 11. Recovery button accessibility
   // ===================================================================
   suite('Recovery button accessibility', function () {
-    var html = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_missing' }, 'Test');
-    var container = document.createElement('div');
-    container.innerHTML = html;
+    var container = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_missing' }, 'Test');
 
     // Buttons are <button> elements (keyboard-focusable by default).
     var buttons = container.querySelectorAll('button');
@@ -871,7 +1066,7 @@ window._assistantWidgetTestDone = (async function () {
       'refresh button has non-empty aria-label');
 
     // role="alert" present on recovery container.
-    var recoveryEl = container.querySelector('.recovery-message');
+    var recoveryEl = container;
     assert(recoveryEl !== null, 'recovery-message element exists');
     assert(recoveryEl.getAttribute('role') === 'alert', 'recovery-message has role="alert"');
 
@@ -881,9 +1076,7 @@ window._assistantWidgetTestDone = (async function () {
       'retry button stores message in data-retry-message');
 
     // csrf_expired: only refresh, no retry — verify accessibility still holds.
-    var sessionHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_expired' }, 'Msg');
-    var sessionContainer = document.createElement('div');
-    sessionContainer.innerHTML = sessionHtml;
+    var sessionContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_expired' }, 'Msg');
     var sessionButtons = sessionContainer.querySelectorAll('button');
     assert(sessionButtons.length === 1, 'csrf_expired renders exactly one button');
     assert(sessionButtons[0].getAttribute('aria-label') !== null,
@@ -895,9 +1088,7 @@ window._assistantWidgetTestDone = (async function () {
   // ===================================================================
   suite('Recovery button behavior', function () {
     // Retry button click fires handler with correct message text.
-    var retryHtml = SA.buildRecoveryHtml({ status: 403, errorCode: 'csrf_invalid' }, 'My question');
-    var retryContainer = document.createElement('div');
-    retryContainer.innerHTML = retryHtml;
+    var retryContainer = SA.buildRecoveryNode({ status: 403, errorCode: 'csrf_invalid' }, 'My question');
     document.body.appendChild(retryContainer);
 
     var capturedRetryMessage = null;

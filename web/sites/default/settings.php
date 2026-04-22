@@ -400,10 +400,6 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
   $config['ilas_site_assistant.settings']['rate_limit_per_minute'] = 15;
   $config['ilas_site_assistant.settings']['rate_limit_per_hour'] = 120;
 
-  // Governance guardrail: live vector search stays hard-disabled until
-  // rollout evidence explicitly approves production enablement.
-  $config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;
-
   // Hard live guard: never allow assistant response debug metadata on live.
   $settings['ilas_site_assistant_debug_metadata_force_disable'] = TRUE;
 }
@@ -603,7 +599,7 @@ if ($ilas_vector_search_enabled && $ilas_vector_search_override_channel === NULL
 
 if (
   $ilas_vector_search_enabled
-  && in_array($ilas_vector_search_environment, ['local', 'dev', 'test'], TRUE)
+  && in_array($ilas_vector_search_environment, ['local', 'dev', 'test', 'live'], TRUE)
 ) {
   $config['ilas_site_assistant.settings']['vector_search']['enabled'] = TRUE;
   $settings['ilas_vector_search_override_channel'] = $ilas_vector_search_override_channel;

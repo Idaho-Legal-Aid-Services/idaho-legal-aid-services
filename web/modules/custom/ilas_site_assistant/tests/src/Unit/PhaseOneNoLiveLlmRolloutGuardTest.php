@@ -36,10 +36,15 @@ final class PhaseOneNoLiveLlmRolloutGuardTest extends TestCase {
     $this->assertStringContainsString('ILAS_LLM_ENABLED` + `ILAS_COHERE_API_KEY`', $runbook);
   }
 
-  public function testSettingsPhpKeepsLiveVectorDisabledAndLlmRuntimeControlled(): void {
+  public function testSettingsPhpKeepsLiveVectorRuntimeControlledAndLlmRuntimeControlled(): void {
     $settings = self::readFile('web/sites/default/settings.php');
 
-    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
+    $this->assertStringContainsString("_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED')", $settings);
+    $this->assertStringContainsString(
+      "in_array(\$ilas_vector_search_environment, ['local', 'dev', 'test', 'live'], TRUE)",
+      $settings,
+    );
+    $this->assertStringNotContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
     $this->assertStringContainsString("_ilas_get_secret('ILAS_COHERE_API_KEY')", $settings);
     $this->assertStringContainsString("_ilas_get_secret('ILAS_LLM_ENABLED')", $settings);
     $this->assertStringNotContainsString("\$config['ilas_site_assistant.settings']['llm.enabled'] = FALSE;", $settings);

@@ -237,6 +237,272 @@
     },
 
     /**
+     * Normalize a chat message into the structured v3 display contract.
+     *
+     * @param {string} sender - user|assistant.
+     * @param {string|Object} payload - Raw text or structured message payload.
+     * @return {Object|null} Normalized message object or null.
+     */
+    normalizeDisplayMessage: function (sender, payload) {
+      var role = sender === 'assistant' ? 'assistant' : 'user';
+
+      if (typeof payload === 'string') {
+        return {
+          role: role,
+          kind: 'text',
+          text: payload,
+        };
+      }
+
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return null;
+      }
+
+      if (payload.kind === 'text') {
+        return {
+          role: role,
+          kind: 'text',
+          text: typeof payload.text === 'string' ? payload.text : '',
+        };
+      }
+
+      if (role === 'assistant' && payload.kind === 'response') {
+        return {
+          role: role,
+          kind: 'response',
+          response: this.snapshotAssistantResponse(payload.response || {}),
+        };
+      }
+
+      if (role === 'assistant' && payload.kind === 'recovery') {
+        return {
+          role: role,
+          kind: 'recovery',
+          errorCode: typeof payload.errorCode === 'string' ? payload.errorCode : '',
+          lastMessageText: typeof payload.lastMessageText === 'string' ? payload.lastMessageText : '',
+        };
+      }
+
+      return null;
+    },
+
+    /**
+     * Clone the subset of response data needed to restore assistant turns.
+     *
+     * @param {Object} response - Raw response object.
+     * @return {Object} JSON-safe response snapshot.
+     */
+    snapshotAssistantResponse: function (response) {
+      var allowedKeys = [
+        'type',
+        'message',
+        'results',
+        'fallback_url',
+        'fallback_label',
+        'disclaimer',
+        'caveat',
+        'url',
+        'cta',
+        'topic',
+        'service_area_url',
+        'links',
+        'actions',
+        'service_areas',
+        'suggestions',
+        'topic_suggestions',
+        'primary_action',
+        'followup',
+        'apply_methods',
+        'text_fallback'
+      ];
+      var snapshot = {};
+
+      if (!response || typeof response !== 'object') {
+        return snapshot;
+      }
+
+      allowedKeys.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(response, key)) {
+          snapshot[key] = response[key];
+        }
+      });
+
+      try {
+        return JSON.parse(JSON.stringify(snapshot));
+      } catch (e) {
+        return {
+          type: typeof snapshot.type === 'string' ? snapshot.type : '',
+          message: typeof snapshot.message === 'string' ? snapshot.message : '',
+        };
+      }
+    },
+
+    /**
+     * Convert legacy rich assistant HTML into a readable text fallback.
+     *
+     * @param {string} html - Legacy stored assistant markup.
+     * @return {string} Human-readable fallback text.
+     */
+    extractLegacyAssistantText: function (html) {
+      var input = String(html || '');
+      var output = '';
+      var suppressedTag = '';
+      var whitespaceChars = ' \t\r\n\f';
+      var tagNameChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-';
+
+      function isWhitespace(char) {
+        return whitespaceChars.indexOf(char) !== -1;
+      }
+
+      function isClosingTag(tagText) {
+        var index = 0;
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+        return tagText.charAt(index) === '/';
+      }
+
+      function readTagName(tagText) {
+        var index = 0;
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+        if (tagText.charAt(index) === '/') {
+          index++;
+        }
+        while (index < tagText.length && isWhitespace(tagText.charAt(index))) {
+          index++;
+        }
+
+        var start = index;
+        while (index < tagText.length && tagNameChars.indexOf(tagText.charAt(index)) !== -1) {
+          index++;
+        }
+
+        return tagText.slice(start, index).toLowerCase();
+      }
+
+      function appendSpace() {
+        if (output && output.charAt(output.length - 1) !== ' ') {
+          output += ' ';
+        }
+      }
+
+      for (var i = 0; i < input.length; i++) {
+        if (input.charAt(i) === '<') {
+          var tagEnd = i + 1;
+          var quote = '';
+
+          while (tagEnd < input.length) {
+            var tagChar = input.charAt(tagEnd);
+            if (quote) {
+              if (tagChar === quote) {
+                quote = '';
+              }
+            } else if (tagChar === '"' || tagChar === '\'') {
+              quote = tagChar;
+            } else if (tagChar === '>') {
+              break;
+            }
+            tagEnd++;
+          }
+
+          if (tagEnd >= input.length) {
+            break;
+          }
+
+          var tagText = input.slice(i + 1, tagEnd);
+          var tagName = readTagName(tagText);
+          var closingTag = isClosingTag(tagText);
+
+          if (suppressedTag) {
+            if (closingTag && tagName === suppressedTag) {
+              suppressedTag = '';
+            }
+          } else if (tagName === 'script' || tagName === 'style') {
+            if (!closingTag) {
+              suppressedTag = tagName;
+            }
+          } else {
+            appendSpace();
+          }
+
+          i = tagEnd;
+          continue;
+        }
+
+        if (!suppressedTag) {
+          output += input.charAt(i);
+        }
+      }
+
+      var text = output
+        .replace(/&nbsp;|&#160;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (text) {
+        return text;
+      }
+
+      return Drupal.t('Previous assistant response restored as text.');
+    },
+
+    /**
+     * Normalize stored messages from schema v1/v2/v3.
+     *
+     * @param {Object} message - Persisted message entry.
+     * @return {Object|null} Normalized v3 message or null.
+     */
+    migrateStoredDisplayMessage: function (message) {
+      if (!message || typeof message !== 'object') {
+        return null;
+      }
+
+      var role = message.role === 'assistant' ? 'assistant' : (message.role === 'user' ? 'user' : '');
+      if (!role) {
+        return null;
+      }
+
+      if (typeof message.kind === 'string') {
+        return this.normalizeDisplayMessage(role, message);
+      }
+
+      if (typeof message.content === 'string') {
+        if (role === 'assistant' && message.isHtml) {
+          return this.normalizeDisplayMessage(role, {
+            kind: 'text',
+            text: this.extractLegacyAssistantText(message.content),
+          });
+        }
+
+        return this.normalizeDisplayMessage(role, {
+          kind: 'text',
+          text: message.content,
+        });
+      }
+
+      return null;
+    },
+
+    /**
+     * Persist a normalized display message and enforce the history cap.
+     *
+     * @param {Object} message - Normalized v3 message payload.
+     */
+    storeDisplayMessage: function (message) {
+      if (!this._displayMessages || !message) {
+        return;
+      }
+
+      this._displayMessages.push(message);
+      if (this._displayMessages.length > 50) {
+        this._displayMessages = this._displayMessages.slice(-50);
+      }
+      this.saveState();
+    },
+
+    /**
      * Save widget state to sessionStorage for cross-navigation persistence.
      *
      * Stores conversation ID, display messages, and panel open/close state.
@@ -245,7 +511,7 @@
     saveState: function () {
       try {
         var state = {
-          v: 2,
+          v: 3,
           conversationId: this.conversationId,
           lastResponseRequestId: this.lastResponseRequestId,
           activeSelection: this.activeSelection,
@@ -275,7 +541,7 @@
         var state = JSON.parse(raw);
 
         // Schema version check.
-        if (!state || (state.v !== 1 && state.v !== 2)) return null;
+        if (!state || (state.v !== 1 && state.v !== 2 && state.v !== 3)) return null;
 
         // Staleness check: 30 minutes (matches server CONVERSATION_STATE_TTL).
         if (!state.savedAt || (Date.now() - state.savedAt) > 1800000) {
@@ -290,12 +556,18 @@
 
         // Validate messages is an array.
         if (!Array.isArray(state.messages)) return null;
+        state.messages = state.messages
+          .map(this.migrateStoredDisplayMessage.bind(this))
+          .filter(function (message) {
+            return !!message;
+          });
+        state.v = 3;
 
         if (state.lastResponseRequestId && !this.isUuidV4(state.lastResponseRequestId)) {
           state.lastResponseRequestId = null;
         }
 
-        if (state.v >= 2 && state.activeSelection) {
+        if (state.activeSelection) {
           state.activeSelection = this.normalizeSelection(state.activeSelection);
         } else {
           state.activeSelection = null;
@@ -328,17 +600,16 @@
      * rebuild for user messages. Feedback thumbs are omitted because the
      * original request IDs are no longer available.
      *
-     * @param {Array} messages - Array of {role, content, isHtml} objects.
+     * @param {Array} messages - Array of structured v3 display messages.
      */
     restoreMessages: function (messages) {
       var maxRestore = 50;
       var count = 0;
       for (var i = 0; i < messages.length && count < maxRestore; i++) {
-        var msg = messages[i];
-        if (!msg || !msg.role || typeof msg.content !== 'string') continue;
-        if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+        var msg = this.migrateStoredDisplayMessage(messages[i]);
+        if (!msg) continue;
 
-        this.addMessage(msg.role, msg.content, !!msg.isHtml);
+        this.addMessage(msg.role, msg);
         count++;
       }
     },
@@ -1094,143 +1365,10 @@
         this.trackEvent('topic_selected', String(response.topic.id || ''));
       }
 
-      // Build response message.
-      let html = '';
-
-      if (response.message) {
-        html += '<p>' + this.escapeHtml(response.message) + '</p>';
-      }
-
-      // Handle different response types.
-      switch (response.type) {
-        case 'faq':
-          html += this.renderFaqResults(response.results, response.fallback_url);
-          break;
-
-        case 'resources':
-          html += this.renderResourceResults(response.results, response.fallback_url, response.fallback_label);
-          if (response.disclaimer) {
-            html += '<p class="resource-disclaimer"><em>' + this.escapeHtml(response.disclaimer) + '</em></p>';
-          }
-          break;
-
-        case 'navigation':
-          html += this.renderNavigation(response);
-          break;
-
-        case 'apply_cta':
-          html += this.renderApplyCta(response);
-          break;
-
-        case 'topic':
-          html += this.renderTopicInfo(response.topic, response.service_area_url);
-          break;
-
-        case 'escalation':
-          // Render links array if present (new format).
-          if (response.links && response.links.length > 0) {
-            html += this.renderLinks(response.links);
-          }
-          if (response.actions) {
-            html += this.renderEscalation(response.actions);
-          }
-          break;
-
-        case 'eligibility':
-          // Show caveat if present.
-          if (response.caveat) {
-            html += '<p class="eligibility-caveat"><em>' + this.escapeHtml(response.caveat) + '</em></p>';
-          }
-          if (response.links && response.links.length > 0) {
-            html += this.renderLinks(response.links);
-          }
-          break;
-
-        case 'services_overview':
-          if (response.service_areas && response.service_areas.length > 0) {
-            html += this.renderServiceAreas(response.service_areas);
-          }
-          if (response.url) {
-            html += this.renderNavigation(response);
-          }
-          break;
-
-        case 'forms_inventory':
-        case 'guides_inventory':
-        case 'services_inventory':
-        case 'form_finder_clarify':
-        case 'guide_finder_clarify':
-          // Multi-turn finder: show topic chips for narrowing down.
-          // Wrapped in try/catch with text_fallback degradation path.
-          if (response.topic_suggestions) {
-            try {
-              var chipsHtml = this.renderTopicSuggestions(response.topic_suggestions);
-              if (chipsHtml && chipsHtml.trim() !== '') {
-                html += chipsHtml;
-              } else {
-                throw new Error('Empty chip render');
-              }
-            } catch (e) {
-              console.warn('ILAS Assistant: chip render failed, using text fallback', e);
-              var fallbackMode = this.resolveTopicSuggestionFallbackMode(response);
-              if (fallbackMode === 'none') {
-                fallbackMode = 'generic_text';
-                html += '<p class="chip-fallback-text">' + this.escapeHtml(Drupal.t('The topic buttons did not load. You can use the link below or refresh the page and try again.')) + '</p>';
-              } else if (response.text_fallback) {
-                html += '<p class="chip-fallback-text">' + this.escapeHtml(response.text_fallback) + '</p>';
-              }
-              this.emitAssistantError(e, 'chip_render', false, {
-                responseType: response.type || '',
-                fallbackMode: fallbackMode,
-                renderedFallback: fallbackMode !== 'none',
-                path: this.currentPagePath(),
-              });
-              this.trackEvent('ui_fallback_used', response.type || '', {
-                responseType: response.type || '',
-                fallbackMode: fallbackMode,
-                renderedFallback: fallbackMode !== 'none',
-                path: this.currentPagePath(),
-              });
-            }
-          }
-          // Show "Browse All ..." fallback link.
-          if (response.primary_action && response.primary_action.url) {
-            html += '<p class="form-finder-fallback"><a href="' + this.escapeAttr(this.sanitizeUrl(response.primary_action.url)) + '" class="result-link" data-assistant-track="resource_click">' + this.escapeHtml(response.primary_action.label) + '</a></p>';
-          }
-          break;
-
-        case 'ui_troubleshooting':
-          if (response.links && response.links.length > 0) {
-            html += this.renderLinks(response.links);
-          }
-          if (response.followup) {
-            html += '<p class="ui-troubleshoot-tip"><em>' + this.escapeHtml(response.followup) + '</em></p>';
-          }
-          this.trackEvent('ui_troubleshooting', 'displayed');
-          break;
-
-        case 'fallback':
-          if (response.topic_suggestions) {
-            html += this.renderTopicSuggestions(response.topic_suggestions);
-          }
-          if (response.actions) {
-            html += this.renderEscalation(response.actions);
-          }
-          break;
-
-        case 'greeting':
-          if (response.suggestions) {
-            html += this.renderSuggestions(response.suggestions);
-          }
-          break;
-      }
-
-      // Render TopIntentsPack chips for any response type that has them.
-      if (response.suggestions && !html.includes('topic-suggestions') && !html.includes('inline-suggestions')) {
-        html += this.renderSuggestions(response.suggestions);
-      }
-
-      var msgEl = this.addMessage('assistant', html, true);
+      var msgEl = this.addMessage('assistant', {
+        kind: 'response',
+        response: response,
+      });
 
       // Append feedback controls for substantive response types.
       var noFeedbackTypes = ['greeting', 'clarify', 'form_finder_clarify', 'guide_finder_clarify'];
@@ -1265,19 +1403,267 @@
     },
 
     /**
+     * Create a DOM element with optional class and text content.
+     */
+    createElement: function (tagName, className, text) {
+      var element = document.createElement(tagName);
+      if (className) {
+        element.className = className;
+      }
+      if (typeof text === 'string') {
+        element.textContent = text;
+      }
+      return element;
+    },
+
+    /**
+     * Create a Font Awesome icon element.
+     */
+    createIconElement: function (iconName) {
+      var safeIcon = String(iconName || 'arrow-right').replace(/[^a-z0-9_-]/gi, '') || 'arrow-right';
+      var icon = document.createElement('i');
+      icon.className = 'fas fa-' + safeIcon;
+      icon.setAttribute('aria-hidden', 'true');
+      return icon;
+    },
+
+    /**
+     * Sanitize a token for use in CSS modifier classes.
+     */
+    sanitizeClassToken: function (value) {
+      return String(value || '').trim().replace(/[^a-z0-9_-]/gi, '-');
+    },
+
+    /**
+     * Build a tracked anchor element.
+     */
+    createTrackedLink: function (url, className, label, trackType) {
+      var link = document.createElement('a');
+      link.href = this.sanitizeUrl(url);
+      if (className) {
+        link.className = className;
+      }
+      if (trackType) {
+        link.setAttribute('data-assistant-track', trackType);
+      }
+      if (typeof label === 'string') {
+        link.textContent = label;
+      }
+      return link;
+    },
+
+    /**
+     * Apply normalized selection metadata to a suggestion button.
+     */
+    applySelectionDataAttrs: function (element, selection, fallbackAction, fallbackLabel) {
+      var normalized = this.normalizeSelection(selection) || this.normalizeSelection({
+        button_id: fallbackAction || '',
+        label: fallbackLabel || '',
+        parent_button_id: '',
+        source: 'widget_fallback',
+      });
+
+      if (!element || !normalized) {
+        return;
+      }
+
+      element.dataset.selectionButtonId = normalized.button_id;
+      element.dataset.selectionLabel = normalized.label;
+      element.dataset.selectionParentId = normalized.parent_button_id;
+      element.dataset.selectionSource = normalized.source;
+    },
+
+    /**
+     * Append a text paragraph to a message fragment.
+     */
+    appendMessageParagraph: function (container, text, className, emphasize) {
+      if (typeof text !== 'string' || text === '') {
+        return;
+      }
+
+      var paragraph = this.createElement('p', className || '');
+      if (emphasize) {
+        var emphasis = document.createElement('em');
+        emphasis.textContent = text;
+        paragraph.appendChild(emphasis);
+      } else {
+        paragraph.textContent = text;
+      }
+      container.appendChild(paragraph);
+    },
+
+    /**
+     * Render an assistant response into DOM nodes.
+     */
+    renderAssistantResponse: function (response) {
+      var fragment = document.createDocumentFragment();
+      var renderedInlineSuggestions = false;
+      var renderedTopicSuggestions = false;
+
+      if (response.message) {
+        this.appendMessageParagraph(fragment, response.message);
+      }
+
+      switch (response.type) {
+        case 'faq':
+          fragment.appendChild(this.renderFaqResults(response.results, response.fallback_url));
+          break;
+
+        case 'resources':
+          fragment.appendChild(this.renderResourceResults(response.results, response.fallback_url, response.fallback_label));
+          if (response.disclaimer) {
+            this.appendMessageParagraph(fragment, response.disclaimer, 'resource-disclaimer', true);
+          }
+          break;
+
+        case 'navigation':
+          fragment.appendChild(this.renderNavigation(response));
+          break;
+
+        case 'apply_cta':
+          fragment.appendChild(this.renderApplyCta(response));
+          break;
+
+        case 'topic':
+          fragment.appendChild(this.renderTopicInfo(response.topic, response.service_area_url));
+          break;
+
+        case 'escalation':
+          if (response.links && response.links.length > 0) {
+            fragment.appendChild(this.renderLinks(response.links));
+          }
+          if (response.actions) {
+            fragment.appendChild(this.renderEscalation(response.actions));
+          }
+          break;
+
+        case 'eligibility':
+          if (response.caveat) {
+            this.appendMessageParagraph(fragment, response.caveat, 'eligibility-caveat', true);
+          }
+          if (response.links && response.links.length > 0) {
+            fragment.appendChild(this.renderLinks(response.links));
+          }
+          break;
+
+        case 'services_overview':
+          if (response.service_areas && response.service_areas.length > 0) {
+            fragment.appendChild(this.renderServiceAreas(response.service_areas));
+          }
+          if (response.url) {
+            fragment.appendChild(this.renderNavigation(response));
+          }
+          break;
+
+        case 'forms_inventory':
+        case 'guides_inventory':
+        case 'services_inventory':
+        case 'form_finder_clarify':
+        case 'guide_finder_clarify':
+          if (response.topic_suggestions) {
+            try {
+              var chipsNode = this.renderTopicSuggestions(response.topic_suggestions);
+              if (!chipsNode || !chipsNode.childElementCount) {
+                throw new Error('Empty chip render');
+              }
+              fragment.appendChild(chipsNode);
+              renderedTopicSuggestions = true;
+            } catch (e) {
+              console.warn('ILAS Assistant: chip render failed, using text fallback', e);
+              var fallbackMode = this.resolveTopicSuggestionFallbackMode(response);
+              if (fallbackMode === 'none') {
+                fallbackMode = 'generic_text';
+                this.appendMessageParagraph(
+                  fragment,
+                  Drupal.t('The topic buttons did not load. You can use the link below or refresh the page and try again.'),
+                  'chip-fallback-text'
+                );
+              } else if (response.text_fallback) {
+                this.appendMessageParagraph(fragment, response.text_fallback, 'chip-fallback-text');
+              }
+              this.emitAssistantError(e, 'chip_render', false, {
+                responseType: response.type || '',
+                fallbackMode: fallbackMode,
+                renderedFallback: fallbackMode !== 'none',
+                path: this.currentPagePath(),
+              });
+              this.trackEvent('ui_fallback_used', response.type || '', {
+                responseType: response.type || '',
+                fallbackMode: fallbackMode,
+                renderedFallback: fallbackMode !== 'none',
+                path: this.currentPagePath(),
+              });
+            }
+          }
+          if (response.primary_action && response.primary_action.url) {
+            fragment.appendChild(this.renderPrimaryActionLink(response.primary_action));
+          }
+          break;
+
+        case 'ui_troubleshooting':
+          if (response.links && response.links.length > 0) {
+            fragment.appendChild(this.renderLinks(response.links));
+          }
+          if (response.followup) {
+            this.appendMessageParagraph(fragment, response.followup, 'ui-troubleshoot-tip', true);
+          }
+          this.trackEvent('ui_troubleshooting', 'displayed');
+          break;
+
+        case 'fallback':
+          if (response.topic_suggestions) {
+            var topicSuggestions = this.renderTopicSuggestions(response.topic_suggestions);
+            if (topicSuggestions.childElementCount) {
+              fragment.appendChild(topicSuggestions);
+              renderedTopicSuggestions = true;
+            }
+          }
+          if (response.actions) {
+            fragment.appendChild(this.renderEscalation(response.actions));
+          }
+          break;
+
+        case 'greeting':
+          if (response.suggestions) {
+            var inlineSuggestions = this.renderSuggestions(response.suggestions);
+            if (inlineSuggestions.childElementCount) {
+              fragment.appendChild(inlineSuggestions);
+              renderedInlineSuggestions = true;
+            }
+          }
+          break;
+      }
+
+      if (response.suggestions && !renderedInlineSuggestions && !renderedTopicSuggestions) {
+        var suggestions = this.renderSuggestions(response.suggestions);
+        if (suggestions.childElementCount) {
+          fragment.appendChild(suggestions);
+        }
+      }
+
+      return fragment;
+    },
+
+    /**
      * Render semantic source indicator for vector-sourced results.
      *
      * @param {Object} result - A result object with optional source field.
-     * @return {string} HTML string for the indicator, or empty string.
+     * @return {HTMLElement|null} DOM element for the indicator, or null.
      */
     renderSourceIndicator: function (result) {
       if (!result || result.source !== 'vector') {
-        return '';
+        return null;
       }
-      return '<span class="source-indicator" aria-label="' + Drupal.t('Found via similar questions') + '">' +
-        '<span aria-hidden="true">&#x1f4a1;</span> ' +
-        Drupal.t('Based on similar questions') +
-        '</span>';
+      var wrapper = this.createElement('span', 'source-indicator');
+      wrapper.setAttribute('aria-label', Drupal.t('Found via similar questions'));
+
+      var icon = document.createElement('span');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = '\uD83D\uDCA1';
+      wrapper.appendChild(icon);
+      wrapper.appendChild(document.createTextNode(' ' + Drupal.t('Based on similar questions')));
+
+      return wrapper;
     },
 
     /**
@@ -1304,54 +1690,56 @@
      */
     renderFaqResults: function (results, fallbackUrl) {
       if (!results || results.length === 0) {
-        return '<p><a href="' + this.escapeAttr(this.sanitizeUrl(fallbackUrl)) + '" class="result-link" data-assistant-track="resource_click">' + Drupal.t('Browse all FAQs') + '</a></p>';
+        var fallbackParagraph = document.createElement('p');
+        fallbackParagraph.appendChild(
+          this.createTrackedLink(fallbackUrl, 'result-link', Drupal.t('Browse all FAQs'), 'resource_click')
+        );
+        return fallbackParagraph;
       }
 
       var self = this;
       var mode = this.classifyResults(results);
-      var html = '<div class="faq-results">';
+      var container = this.createElement('div', 'faq-results');
 
       results.forEach(function (faq, index) {
         var isBest = (index === 0 && (mode === 'single_best' || mode === 'best_match'));
         var isSecondary = (!isBest && (mode === 'single_best' || mode === 'best_match'));
         var sourceIndicator = self.renderSourceIndicator(faq);
-        var safeUrl = self.escapeAttr(self.sanitizeUrl(faq.url));
+        var safeUrl = faq && faq.url ? faq.url : '#';
+        var readMoreText = Drupal.t('Read more on page') + ' \u2192';
 
         if (isBest) {
-          // Elevated best-match card.
-          var truncatedAnswer = self.truncateText(self.escapeHtml(faq.answer), 120);
-          html += '<div class="faq-result faq-result--best">' +
-            '<span class="best-match-label">' + Drupal.t('Best match') + '</span>' +
-            sourceIndicator +
-            '<h4 class="faq-question">' + self.escapeHtml(faq.question) + '</h4>' +
-            '<p class="faq-answer">' + truncatedAnswer + '</p>' +
-            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + Drupal.t('Read more on page') + ' \u2192</a>' +
-            '</div>';
-        }
-        else if (isSecondary) {
-          // Show "Also helpful" heading before the first secondary result.
-          if (index === 1) {
-            html += '<p class="also-helpful-heading">' + Drupal.t('Also helpful:') + '</p>';
+          var bestCard = self.createElement('div', 'faq-result faq-result--best');
+          bestCard.appendChild(self.createElement('span', 'best-match-label', Drupal.t('Best match')));
+          if (sourceIndicator) {
+            bestCard.appendChild(sourceIndicator);
           }
-          // Secondary: question + link only.
-          html += '<div class="faq-result faq-result--secondary">' +
-            sourceIndicator +
-            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + self.escapeHtml(faq.question) + '</a>' +
-            '</div>';
-        }
-        else {
-          // Ambiguous mode: all results equally with truncated answers.
-          var truncatedAnswer = self.truncateText(self.escapeHtml(faq.answer), 120);
-          html += '<div class="faq-result">' +
-            sourceIndicator +
-            '<h4 class="faq-question">' + self.escapeHtml(faq.question) + '</h4>' +
-            '<p class="faq-answer">' + truncatedAnswer + '</p>' +
-            '<a href="' + safeUrl + '" class="faq-link" data-assistant-track="resource_click">' + Drupal.t('Read more on page') + ' \u2192</a>' +
-            '</div>';
+          bestCard.appendChild(self.createElement('h4', 'faq-question', String(faq.question || '')));
+          bestCard.appendChild(self.createElement('p', 'faq-answer', self.truncateText(String(faq.answer || ''), 120)));
+          bestCard.appendChild(self.createTrackedLink(safeUrl, 'faq-link', readMoreText, 'resource_click'));
+          container.appendChild(bestCard);
+        } else if (isSecondary) {
+          if (index === 1) {
+            container.appendChild(self.createElement('p', 'also-helpful-heading', Drupal.t('Also helpful:')));
+          }
+          var secondaryCard = self.createElement('div', 'faq-result faq-result--secondary');
+          if (sourceIndicator) {
+            secondaryCard.appendChild(sourceIndicator);
+          }
+          secondaryCard.appendChild(self.createTrackedLink(safeUrl, 'faq-link', String(faq.question || ''), 'resource_click'));
+          container.appendChild(secondaryCard);
+        } else {
+          var resultCard = self.createElement('div', 'faq-result');
+          if (sourceIndicator) {
+            resultCard.appendChild(sourceIndicator);
+          }
+          resultCard.appendChild(self.createElement('h4', 'faq-question', String(faq.question || '')));
+          resultCard.appendChild(self.createElement('p', 'faq-answer', self.truncateText(String(faq.answer || ''), 120)));
+          resultCard.appendChild(self.createTrackedLink(safeUrl, 'faq-link', readMoreText, 'resource_click'));
+          container.appendChild(resultCard);
         }
       });
-      html += '</div>';
-      return html;
+      return container;
     },
 
     /**
@@ -1359,82 +1747,86 @@
      */
     renderResourceResults: function (results, fallbackUrl, fallbackLabel) {
       if (!results || results.length === 0) {
-        var label = fallbackLabel ? this.escapeHtml(fallbackLabel) : Drupal.t('Browse all resources');
-        return '<p><a href="' + this.escapeAttr(this.sanitizeUrl(fallbackUrl)) + '" class="result-link" data-assistant-track="resource_click">' + label + '</a></p>';
+        var fallback = document.createElement('p');
+        var label = fallbackLabel || Drupal.t('Browse all resources');
+        fallback.appendChild(this.createTrackedLink(fallbackUrl, 'result-link', label, 'resource_click'));
+        return fallback;
       }
 
       var self = this;
       var mode = this.classifyResults(results);
-      var html = '<ul class="resource-results">';
+      var list = this.createElement('ul', 'resource-results');
 
       results.forEach(function (resource, index) {
         var isBest = (index === 0 && (mode === 'single_best' || mode === 'best_match'));
         var isSecondary = (!isBest && (mode === 'single_best' || mode === 'best_match'));
         var icon = resource.type === 'form' ? 'file-alt' : (resource.type === 'guide' ? 'book' : 'file');
         var sourceIndicator = self.renderSourceIndicator(resource);
-        var safeUrl = self.escapeAttr(self.sanitizeUrl(resource.url));
-        var badge = resource.has_file ? '<span class="badge">PDF</span>' : '';
+        var safeUrl = resource && resource.url ? resource.url : '#';
+
+        function buildResourceLink(className) {
+          var link = self.createTrackedLink(safeUrl, className, null, 'resource_click');
+          link.appendChild(self.createIconElement(icon));
+          link.appendChild(self.createElement('span', 'resource-title', String(resource.title || '')));
+          if (resource.has_file) {
+            link.appendChild(self.createElement('span', 'badge', 'PDF'));
+          }
+          return link;
+        }
 
         if (isBest) {
-          html += '<li class="resource-result resource-result--best">' +
-            '<span class="best-match-label">' + Drupal.t('Best match') + '</span>' +
-            sourceIndicator +
-            '<a href="' + safeUrl + '" class="resource-link" data-assistant-track="resource_click">' +
-            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
-            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
-            badge +
-            '</a>' +
-            (resource.description ? '<p class="resource-desc">' + self.escapeHtml(resource.description) + '</p>' : '') +
-            '</li>';
-          // "Also helpful" heading after best match if there are more results.
-          if (results.length > 1) {
-            html += '<li class="also-helpful-heading" aria-hidden="true">' + Drupal.t('Also helpful:') + '</li>';
+          var bestItem = self.createElement('li', 'resource-result resource-result--best');
+          bestItem.appendChild(self.createElement('span', 'best-match-label', Drupal.t('Best match')));
+          if (sourceIndicator) {
+            bestItem.appendChild(sourceIndicator);
           }
-        }
-        else if (isSecondary) {
-          // Secondary: link only, no description, no background.
-          html += '<li class="resource-result resource-result--secondary">' +
-            sourceIndicator +
-            '<a href="' + safeUrl + '" class="resource-link resource-link--secondary" data-assistant-track="resource_click">' +
-            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
-            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
-            badge +
-            '</a>' +
-            '</li>';
-        }
-        else {
-          // Ambiguous: all equal.
-          html += '<li class="resource-result">' +
-            sourceIndicator +
-            '<a href="' + safeUrl + '" class="resource-link" data-assistant-track="resource_click">' +
-            '<i class="fas fa-' + icon + '" aria-hidden="true"></i>' +
-            '<span class="resource-title">' + self.escapeHtml(resource.title) + '</span>' +
-            badge +
-            '</a>' +
-            (resource.description ? '<p class="resource-desc">' + self.escapeHtml(resource.description) + '</p>' : '') +
-            '</li>';
+          bestItem.appendChild(buildResourceLink('resource-link'));
+          if (resource.description) {
+            bestItem.appendChild(self.createElement('p', 'resource-desc', String(resource.description)));
+          }
+          list.appendChild(bestItem);
+          if (results.length > 1) {
+            var divider = self.createElement('li', 'also-helpful-heading', Drupal.t('Also helpful:'));
+            divider.setAttribute('aria-hidden', 'true');
+            list.appendChild(divider);
+          }
+        } else if (isSecondary) {
+          var secondaryItem = self.createElement('li', 'resource-result resource-result--secondary');
+          if (sourceIndicator) {
+            secondaryItem.appendChild(sourceIndicator);
+          }
+          secondaryItem.appendChild(buildResourceLink('resource-link resource-link--secondary'));
+          list.appendChild(secondaryItem);
+        } else {
+          var item = self.createElement('li', 'resource-result');
+          if (sourceIndicator) {
+            item.appendChild(sourceIndicator);
+          }
+          item.appendChild(buildResourceLink('resource-link'));
+          if (resource.description) {
+            item.appendChild(self.createElement('p', 'resource-desc', String(resource.description)));
+          }
+          list.appendChild(item);
         }
       });
-      html += '</ul>';
-      return html;
+      return list;
     },
 
     /**
      * Render navigation response.
      */
     renderNavigation: function (response) {
-      var html = '';
+      var fragment = document.createDocumentFragment();
       if (response.url) {
-        var safeUrl = this.escapeAttr(this.sanitizeUrl(response.url));
-        var ctaText = response.cta ? this.escapeHtml(response.cta) : Drupal.t('Go to page');
-        html += '<p>' +
-          '<a href="' + safeUrl + '" class="cta-button" data-assistant-track="resource_click">' +
-          ctaText +
-          ' <i class="fas fa-arrow-right" aria-hidden="true"></i>' +
-          '</a>' +
-          '</p>';
+        var paragraph = document.createElement('p');
+        var ctaText = response.cta || Drupal.t('Go to page');
+        var link = this.createTrackedLink(response.url, 'cta-button', null, 'resource_click');
+        link.appendChild(document.createTextNode(ctaText + ' '));
+        link.appendChild(this.createIconElement('arrow-right'));
+        paragraph.appendChild(link);
+        fragment.appendChild(paragraph);
       }
-      return html;
+      return fragment;
     },
 
     /**
@@ -1442,35 +1834,50 @@
      */
     renderApplyCta: function (response) {
       var self = this;
-      var html = '<div class="apply-methods">';
+      var fragment = document.createDocumentFragment();
+      var container = this.createElement('div', 'apply-methods');
 
       if (response.apply_methods && response.apply_methods.length > 0) {
         response.apply_methods.forEach(function (method) {
-          var iconClass = self.escapeAttr(method.icon || 'arrow-right');
-          var methodClass = self.escapeAttr(method.method || '');
-          var ctaUrl = self.escapeAttr(self.sanitizeUrl(method.cta_url));
+          var iconClass = self.sanitizeClassToken(method.icon || 'arrow-right') || 'arrow-right';
+          var methodClass = self.sanitizeClassToken(method.method || '');
+          var cardClass = 'apply-method' + (methodClass ? ' apply-method--' + methodClass : '');
+          var card = self.createElement('div', cardClass);
+          var heading = self.createElement('h4', 'apply-method__heading');
 
-          html += '<div class="apply-method apply-method--' + methodClass + '">';
-          html += '<h4 class="apply-method__heading"><i class="fas fa-' + iconClass + '" aria-hidden="true"></i> ' + self.escapeHtml(method.heading) + '</h4>';
-          html += '<p class="apply-method__desc">' + self.escapeHtml(method.description) + '</p>';
-          html += '<a href="' + ctaUrl + '" class="cta-button" data-assistant-track="apply_cta_click">' + self.escapeHtml(method.cta_label) + ' <i class="fas fa-arrow-right" aria-hidden="true"></i></a>';
+          heading.appendChild(self.createIconElement(iconClass));
+          heading.appendChild(document.createTextNode(' ' + String(method.heading || '')));
+          card.appendChild(heading);
+          card.appendChild(self.createElement('p', 'apply-method__desc', String(method.description || '')));
+
+          var cta = self.createTrackedLink(method.cta_url, 'cta-button', null, 'apply_cta_click');
+          cta.appendChild(document.createTextNode(String(method.cta_label || '') + ' '));
+          cta.appendChild(self.createIconElement('arrow-right'));
+          card.appendChild(cta);
 
           if (method.secondary_label && method.secondary_url) {
-            var secUrl = self.escapeAttr(self.sanitizeUrl(method.secondary_url));
-            html += ' <a href="' + secUrl + '" class="apply-method__secondary-link" data-assistant-track="apply_secondary_click">' + self.escapeHtml(method.secondary_label) + '</a>';
+            card.appendChild(document.createTextNode(' '));
+            card.appendChild(
+              self.createTrackedLink(
+                method.secondary_url,
+                'apply-method__secondary-link',
+                String(method.secondary_label),
+                'apply_secondary_click'
+              )
+            );
           }
 
-          html += '</div>';
+          container.appendChild(card);
         });
       }
 
-      html += '</div>';
+      fragment.appendChild(container);
 
       if (response.followup) {
-        html += '<p class="apply-followup"><em>' + this.escapeHtml(response.followup) + '</em></p>';
+        this.appendMessageParagraph(fragment, response.followup, 'apply-followup', true);
       }
 
-      return html;
+      return fragment;
     },
 
     /**
@@ -1478,140 +1885,227 @@
      */
     renderTopicInfo: function (topic, serviceAreaUrl) {
       var self = this;
-      var html = '';
+      var fragment = document.createDocumentFragment();
       if (topic && topic.service_areas && topic.service_areas.length > 0) {
-        html += '<p>' + Drupal.t('Related service areas:') + '</p><ul>';
+        fragment.appendChild(this.createElement('p', '', Drupal.t('Related service areas:')));
+        var list = document.createElement('ul');
         topic.service_areas.forEach(function (area) {
-          html += '<li>' + self.escapeHtml(area.name) + '</li>';
+          list.appendChild(self.createElement('li', '', String(area.name || '')));
         });
-        html += '</ul>';
+        fragment.appendChild(list);
       }
       if (serviceAreaUrl) {
-        var safeUrl = this.escapeAttr(this.sanitizeUrl(serviceAreaUrl));
-        html += '<p>' +
-          '<a href="' + safeUrl + '" class="cta-button" data-assistant-track="resource_click">' +
-          Drupal.t('Learn more') +
-          ' <i class="fas fa-arrow-right" aria-hidden="true"></i>' +
-          '</a>' +
-          '</p>';
+        var paragraph = document.createElement('p');
+        var link = this.createTrackedLink(serviceAreaUrl, 'cta-button', null, 'resource_click');
+        link.appendChild(document.createTextNode(Drupal.t('Learn more') + ' '));
+        link.appendChild(this.createIconElement('arrow-right'));
+        paragraph.appendChild(link);
+        fragment.appendChild(paragraph);
       }
-      return html;
+      return fragment;
     },
 
     /**
      * Render escalation actions.
      */
     renderEscalation: function (actions) {
-      if (!actions || actions.length === 0) return '';
+      if (!actions || actions.length === 0) return document.createDocumentFragment();
 
       var self = this;
-      var html = '<div class="escalation-actions">';
+      var container = this.createElement('div', 'escalation-actions');
       actions.forEach(function (action) {
-        var safeUrl = self.escapeAttr(self.sanitizeUrl(action.url));
-        var trackType = self.escapeAttr((action.type || 'link') + '_click');
-        html += '<a href="' + safeUrl + '" class="escalation-btn" data-assistant-track="' + trackType + '">' +
-          self.escapeHtml(action.label) +
-          '</a>';
+        var trackType = self.normalizeTrackToken((action.type || 'link') + '_click') || 'link_click';
+        container.appendChild(
+          self.createTrackedLink(action.url, 'escalation-btn', String(action.label || ''), trackType)
+        );
       });
-      html += '</div>';
-      return html;
+      return container;
     },
 
     /**
      * Render suggestions.
      */
     renderSuggestions: function (suggestions) {
-      if (!suggestions || suggestions.length === 0) return '';
+      if (!suggestions || suggestions.length === 0) {
+        return this.createElement('div', 'inline-suggestions');
+      }
 
       var self = this;
-      var html = '<div class="inline-suggestions">';
+      var container = this.createElement('div', 'inline-suggestions');
       suggestions.forEach(function (suggestion) {
-        html += '<button type="button" class="inline-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '"'
-          + self.renderSelectionDataAttrs(suggestion.selection, suggestion.action, suggestion.label) + '>' +
-          self.escapeHtml(suggestion.label) +
-          '</button>';
+        var button = self.createElement('button', 'inline-suggestion-btn', String(suggestion.label || ''));
+        button.type = 'button';
+        button.dataset.action = String(suggestion.action || '');
+        self.applySelectionDataAttrs(button, suggestion.selection, suggestion.action, suggestion.label);
+        container.appendChild(button);
       });
-      html += '</div>';
-      return html;
+      return container;
     },
 
     /**
      * Render topic suggestions (for fallback).
      */
     renderTopicSuggestions: function (suggestions) {
-      if (!suggestions || suggestions.length === 0) return '';
+      if (!suggestions || suggestions.length === 0) {
+        return this.createElement('div', 'topic-suggestions');
+      }
 
       var self = this;
-      var html = '<div class="topic-suggestions">';
+      var container = this.createElement('div', 'topic-suggestions');
       suggestions.forEach(function (suggestion) {
-        html += '<button type="button" class="topic-suggestion-btn" data-action="' + self.escapeAttr(suggestion.action) + '"'
-          + self.renderSelectionDataAttrs(suggestion.selection, suggestion.action, suggestion.label) + '>' +
-          self.escapeHtml(suggestion.label) +
-          '</button>';
+        var button = self.createElement('button', 'topic-suggestion-btn', String(suggestion.label || ''));
+        button.type = 'button';
+        button.dataset.action = String(suggestion.action || '');
+        self.applySelectionDataAttrs(button, suggestion.selection, suggestion.action, suggestion.label);
+        container.appendChild(button);
       });
-      html += '</div>';
-      return html;
+      return container;
     },
 
     /**
      * Render links (for policy responses and eligibility).
      */
     renderLinks: function (links) {
-      if (!links || links.length === 0) return '';
+      if (!links || links.length === 0) return document.createDocumentFragment();
 
       var self = this;
-      var html = '<div class="response-links">';
+      var container = this.createElement('div', 'response-links');
       links.forEach(function (link) {
-        var safeUrl = self.escapeAttr(self.sanitizeUrl(link.url));
-        var trackType = self.escapeAttr((link.type || 'link') + '_click');
-        html += '<a href="' + safeUrl + '" class="response-link-btn" data-assistant-track="' + trackType + '">' +
-          self.escapeHtml(link.label) +
-          '</a>';
+        var trackType = self.normalizeTrackToken((link.type || 'link') + '_click') || 'link_click';
+        container.appendChild(
+          self.createTrackedLink(link.url, 'response-link-btn', String(link.label || ''), trackType)
+        );
       });
-      html += '</div>';
-      return html;
+      return container;
     },
 
     /**
      * Render service areas (for services overview).
      */
     renderServiceAreas: function (areas) {
-      if (!areas || areas.length === 0) return '';
+      if (!areas || areas.length === 0) return document.createDocumentFragment();
 
       var self = this;
-      var html = '<div class="service-areas-grid">';
+      var container = this.createElement('div', 'service-areas-grid');
       areas.forEach(function (area) {
-        var safeUrl = self.escapeAttr(self.sanitizeUrl(area.url));
-        html += '<a href="' + safeUrl + '" class="service-area-btn" data-assistant-track="service_area_click">' +
-          self.escapeHtml(area.label) +
-          '</a>';
+        container.appendChild(
+          self.createTrackedLink(area.url, 'service-area-btn', String(area.label || ''), 'service_area_click')
+        );
       });
-      html += '</div>';
-      return html;
+      return container;
+    },
+
+    /**
+     * Render a stored display message into its content container.
+     */
+    renderDisplayMessage: function (contentEl, message) {
+      if (!contentEl || !message) {
+        return;
+      }
+
+      switch (message.kind) {
+        case 'response':
+          contentEl.appendChild(this.renderAssistantResponse(message.response || {}));
+          break;
+
+        case 'recovery':
+          contentEl.appendChild(this.buildRecoveryMessageContent(message.errorCode, message.lastMessageText));
+          break;
+
+        case 'text':
+        default:
+          contentEl.textContent = typeof message.text === 'string' ? message.text : '';
+          break;
+      }
+    },
+
+    /**
+     * Render the persistent "Browse all ..." primary action link.
+     */
+    renderPrimaryActionLink: function (primaryAction) {
+      var paragraph = this.createElement('p', 'form-finder-fallback');
+      if (!primaryAction || !primaryAction.url) {
+        return paragraph;
+      }
+
+      paragraph.appendChild(
+        this.createTrackedLink(
+          primaryAction.url,
+          'result-link',
+          String(primaryAction.label || ''),
+          'resource_click'
+        )
+      );
+      return paragraph;
+    },
+
+    /**
+     * Build the recovery UI for a stored assistant recovery message.
+     */
+    buildRecoveryMessageContent: function (errorCode, lastMessageText) {
+      var recoveryText;
+      var showRetry = false;
+
+      switch (String(errorCode || '')) {
+        case 'csrf_missing':
+        case 'csrf_invalid':
+          recoveryText = Drupal.t('Security session could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
+          showRetry = true;
+          break;
+        case 'csrf_expired':
+        case 'session_expired':
+          recoveryText = Drupal.t('Your secure session has expired. Refresh page to restart your secure session.');
+          break;
+        default:
+          recoveryText = Drupal.t('Your session could not be verified. Refresh the page to start a new secure session.');
+          break;
+      }
+
+      var container = this.createElement('div', 'recovery-message');
+      container.setAttribute('role', 'alert');
+      container.appendChild(this.createElement('p', 'recovery-text', recoveryText));
+
+      var actions = this.createElement('div', 'recovery-actions');
+      if (showRetry) {
+        var retryButton = this.createElement('button', 'recovery-btn--retry');
+        retryButton.type = 'button';
+        retryButton.dataset.retryMessage = typeof lastMessageText === 'string' ? lastMessageText : '';
+        retryButton.setAttribute('aria-label', Drupal.t('Try sending your message again'));
+        retryButton.appendChild(this.createIconElement('redo'));
+        retryButton.appendChild(document.createTextNode(' ' + Drupal.t('Try again')));
+        actions.appendChild(retryButton);
+      }
+
+      var refreshButton = this.createElement('button', 'recovery-btn--refresh');
+      refreshButton.type = 'button';
+      refreshButton.setAttribute('aria-label', Drupal.t('Refresh this page to start a new session'));
+      refreshButton.appendChild(this.createIconElement('sync-alt'));
+      refreshButton.appendChild(document.createTextNode(' ' + Drupal.t('Refresh page')));
+      actions.appendChild(refreshButton);
+
+      container.appendChild(actions);
+      return container;
     },
 
     /**
      * Add a message to the chat.
      */
-    addMessage: function (sender, content, isHtml) {
-      isHtml = isHtml || false;
+    addMessage: function (sender, payload) {
       var chat = this.isPageMode
         ? document.getElementById('assistant-chat')
         : this.widget.querySelector('.assistant-chat');
 
       if (!chat) return;
 
+      var message = this.normalizeDisplayMessage(sender, payload);
+      if (!message) return null;
+
       var messageEl = document.createElement('div');
       messageEl.className = 'chat-message chat-message--' + sender;
 
       var contentEl = document.createElement('div');
       contentEl.className = 'message-content';
-
-      if (isHtml) {
-        contentEl.innerHTML = content;
-      } else {
-        contentEl.textContent = content;
-      }
+      this.renderDisplayMessage(contentEl, message);
 
       messageEl.appendChild(contentEl);
 
@@ -1633,8 +2127,8 @@
       }
 
       // Store in history (text only).
-      if (sender === 'user') {
-        this.messageHistory.push({ role: 'user', content: typeof content === 'string' ? content : '' });
+      if (sender === 'user' && message.kind === 'text') {
+        this.messageHistory.push({ role: 'user', content: message.text });
       }
 
       // Bind events to new inline buttons.
@@ -1668,18 +2162,7 @@
       });
 
       // Track display message for session persistence.
-      if (this._displayMessages) {
-        this._displayMessages.push({
-          role: sender,
-          content: content,
-          isHtml: !!isHtml
-        });
-        // Cap at 50 to prevent unbounded growth.
-        if (this._displayMessages.length > 50) {
-          this._displayMessages = this._displayMessages.slice(-50);
-        }
-        this.saveState();
-      }
+      this.storeDisplayMessage(message);
 
       return messageEl;
     },
@@ -1991,48 +2474,15 @@
      */
     addRecoveryMessage: function (error, lastMessageText) {
       var errorCode = (error && error.errorCode) || '';
-      var recoveryText;
-      var showRetry = false;
-
-      switch (errorCode) {
-        case 'csrf_missing':
-        case 'csrf_invalid':
-          recoveryText = Drupal.t('Security session could not be verified. Choose Try again to resend, or Refresh page to restart your secure session.');
-          showRetry = true;
-          break;
-        case 'csrf_expired':
-        case 'session_expired':
-          recoveryText = Drupal.t('Your secure session has expired. Refresh page to restart your secure session.');
-          this.clearState();
-          break;
-        default:
-          recoveryText = Drupal.t('Your session could not be verified. Refresh the page to start a new secure session.');
-          break;
+      if (errorCode === 'csrf_expired' || errorCode === 'session_expired') {
+        this.clearState();
       }
 
-      var safeMessage = this.escapeAttr(lastMessageText || '');
-      var html = '<div class="recovery-message" role="alert">';
-      html += '<p class="recovery-text">' + this.escapeHtml(recoveryText) + '</p>';
-      html += '<div class="recovery-actions">';
-
-      if (showRetry) {
-        html += '<button type="button" class="recovery-btn--retry"'
-          + ' data-retry-message="' + safeMessage + '"'
-          + ' aria-label="' + this.escapeAttr(Drupal.t('Try sending your message again')) + '">'
-          + '<i class="fas fa-redo" aria-hidden="true"></i> '
-          + this.escapeHtml(Drupal.t('Try again'))
-          + '</button>';
-      }
-
-      html += '<button type="button" class="recovery-btn--refresh"'
-        + ' aria-label="' + this.escapeAttr(Drupal.t('Refresh this page to start a new session')) + '">'
-        + '<i class="fas fa-sync-alt" aria-hidden="true"></i> '
-        + this.escapeHtml(Drupal.t('Refresh page'))
-        + '</button>';
-
-      html += '</div></div>';
-
-      this.addMessage('assistant', html, true);
+      this.addMessage('assistant', {
+        kind: 'recovery',
+        errorCode: errorCode,
+        lastMessageText: lastMessageText || '',
+      });
 
       // Focus the first recovery button for keyboard / screen-reader users.
       var self = this;

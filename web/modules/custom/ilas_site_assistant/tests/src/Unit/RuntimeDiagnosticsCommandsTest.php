@@ -110,7 +110,7 @@ final class RuntimeDiagnosticsCommandsTest extends TestCase {
         ],
         'vector_search' => [
           'enabled' => FALSE,
-          'override_channel' => 'settings.php live branch',
+          'override_channel' => 'config export',
         ],
         'embeddings' => [
           'runtime_ready' => TRUE,
@@ -145,7 +145,7 @@ final class RuntimeDiagnosticsCommandsTest extends TestCase {
         'llm.provider' => 'Cohere-first request-time transport contract',
         'llm.model' => 'Cohere-first request-time transport contract',
         'llm.request_time_generation_reachable' => 'LlmEnhancer::isEnabled()',
-        'vector_search.enabled' => 'settings.php live branch',
+        'vector_search.enabled' => 'config export',
       ],
       'divergences' => [],
     ]);

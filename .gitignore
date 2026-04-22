@@ -95,6 +95,7 @@
 
 # Claude Code (session state, memory, settings — may contain tokens)
 .claude/
+AGENTS.md
 
 # IDE / editor files
 .idea/

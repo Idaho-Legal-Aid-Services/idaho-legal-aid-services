@@ -9,6 +9,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Guards Phase 2 Exit criterion #3 closure artifacts (`P2-EXT-03`).
+ *
+ * Historical Phase 2 proof remains locked here, while current live vector
+ * runtime-toggle behavior is covered by the newer TOVR-17-era contract tests.
  */
 #[Group('ilas_site_assistant')]
 final class PhaseTwoExitCriteriaThreeGateTest extends TestCase {
@@ -96,7 +99,7 @@ final class PhaseTwoExitCriteriaThreeGateTest extends TestCase {
   }
 
   /**
-   * Runtime artifact must contain required verification markers.
+   * Historical runtime artifact must contain required verification markers.
    */
   public function testRuntimeArtifactContainsPhaseTwoExitThreeProofMarkers(): void {
     $artifact = self::readFile('docs/aila/runtime/phase2-exit3-live-llm-disabled-phase3-readiness.txt');
@@ -109,7 +112,11 @@ final class PhaseTwoExitCriteriaThreeGateTest extends TestCase {
   }
 
   /**
-   * Runtime guard anchors must remain present in code paths.
+   * Current code anchors must keep the live LLM guard posture intact.
+   *
+   * Live vector runtime-toggle behavior is covered separately by
+   * Tovr17LiveEnablementContractTest, VoyageLiveRuntimeGateGuardTest, and
+   * SafetyConfigGovernanceTest.
    */
   public function testRuntimeGuardAnchorsRemainPresent(): void {
     $settings = self::readFile('web/sites/default/settings.php');
@@ -119,7 +126,6 @@ final class PhaseTwoExitCriteriaThreeGateTest extends TestCase {
 
     $this->assertStringContainsString("_ilas_get_secret('ILAS_LLM_ENABLED')", $settings);
     $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE;", $settings);
-    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
     $this->assertStringContainsString('Live enablement is runtime-only. Set <code>ILAS_LLM_ENABLED</code>', $form);
     $this->assertStringContainsString('$llm_enabled = FALSE;', $form);
     $this->assertStringContainsString('public function isEnabled(): bool', $enhancer);

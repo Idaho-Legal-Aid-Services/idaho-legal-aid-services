@@ -1,5 +1,10 @@
 # TOVR-13 Pinecone Live Readiness Review (2026-03-17)
 
+- Historical note:
+  - This report is preserved as the blocked live-readiness baseline.
+  - The current live runtime-toggle contract is superseded by `TOVR-17` in
+    `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`.
+
 - Prior status:
   - `TOVR-12` proved runtime-only vector enablement on `local`, `dev`, and `test`.
   - `live` remained hard-forced off in `settings.php` and the admin form.

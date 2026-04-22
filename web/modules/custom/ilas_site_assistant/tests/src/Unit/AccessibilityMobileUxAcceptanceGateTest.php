@@ -132,7 +132,8 @@ final class AccessibilityMobileUxAcceptanceGateTest extends TestCase {
   public function testRecoveryMessageHasRoleAlert(): void {
     $js = self::widgetJs();
 
-    $this->assertStringContainsString('recovery-message" role="alert"', $js);
+    $this->assertStringContainsString('buildRecoveryMessageContent: function', $js);
+    $this->assertStringContainsString("setAttribute('role', 'alert')", $js);
   }
 
   // =========================================================================

@@ -660,6 +660,66 @@ final class VectorIndexHygieneServiceTest extends TestCase {
     $this->assertSame('skipped', $snapshot['indexes']['faq_vector']['indexing_status']);
   }
 
+  public function testRefreshSnapshotReplacesStaleExpectedMetadataWithCurrentPolicy(): void {
+    $faqIndex = $this->buildCompliantIndexMock();
+    $resourceIndex = $this->buildCompliantIndexMock(serverId: 'pinecone_vector_resources');
+
+    $faqIndex->expects($this->never())->method('indexItems');
+    $resourceIndex->expects($this->never())->method('indexItems');
+    $faqIndex->expects($this->never())->method('query');
+    $resourceIndex->expects($this->never())->method('query');
+
+    $service = $this->buildService([
+      'faq_accordion_vector' => $faqIndex,
+      'assistant_resources_vector' => $resourceIndex,
+    ]);
+
+    $now = time();
+    $this->stateStore['ilas_site_assistant.vector_index_hygiene.snapshot'] = [
+      'policy_version' => 'legacy_contract',
+      'recorded_at' => $now,
+      'refresh_mode' => 'incremental',
+      'indexes' => [
+        'faq_vector' => [
+          'index_key' => 'faq_vector',
+          'index_id' => 'legacy_faq_vector',
+          'owner_role' => 'Legacy Owner',
+          'expected' => [
+            'server_id' => 'pinecone_vector',
+            'metric' => 'dotproduct',
+            'embeddings_engine' => 'legacy_engine',
+            'dimensions' => 3072,
+          ],
+          'last_refresh_at' => $now,
+          'last_probe_at' => $now,
+          'last_backfill_at' => $now - 60,
+          'last_stop_reason' => 'batch_limit_reached',
+          'status' => 'healthy',
+        ],
+        'resource_vector' => [
+          'index_id' => 'assistant_resources_vector',
+          'last_refresh_at' => $now,
+          'last_probe_at' => $now,
+          'status' => 'healthy',
+        ],
+      ],
+      'totals' => [],
+      'thresholds' => [],
+    ];
+
+    $snapshot = $service->refreshSnapshot(FALSE, 'faq_vector');
+    $faqSnapshot = $snapshot['indexes']['faq_vector'];
+
+    $this->assertSame('faq_accordion_vector', $faqSnapshot['index_id']);
+    $this->assertSame('Content Operations Lead', $faqSnapshot['owner_role']);
+    $this->assertSame('pinecone_vector_faq', $faqSnapshot['expected']['server_id']);
+    $this->assertSame('cosine_similarity', $faqSnapshot['expected']['metric']);
+    $this->assertSame('ilas_voyage__voyage-law-2', $faqSnapshot['expected']['embeddings_engine']);
+    $this->assertSame(1024, $faqSnapshot['expected']['dimensions']);
+    $this->assertSame($now - 60, $faqSnapshot['last_backfill_at']);
+    $this->assertSame('batch_limit_reached', $faqSnapshot['last_stop_reason']);
+  }
+
   public function testGetSnapshotSuppressesStoredDegradedVectorStateWhenVectorSearchDisabled(): void {
     $service = $this->buildService(vectorEnabled: FALSE);
     $lastRefresh = time() - ((24 * 3600) + (61 * 60));

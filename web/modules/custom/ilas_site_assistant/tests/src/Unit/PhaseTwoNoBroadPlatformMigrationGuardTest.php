@@ -9,6 +9,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Guards P2-NDO-02: no broad platform migration outside Pantheon baseline.
+ *
+ * This boundary test keeps Pantheon baseline anchors intact without
+ * reasserting the newer live vector runtime-toggle contract.
  */
 #[Group('ilas_site_assistant')]
 final class PhaseTwoNoBroadPlatformMigrationGuardTest extends TestCase {
@@ -110,6 +113,10 @@ final class PhaseTwoNoBroadPlatformMigrationGuardTest extends TestCase {
 
   /**
    * Pantheon baseline anchors must remain present in baseline files.
+   *
+   * Current live vector runtime-toggle behavior is covered by
+   * Tovr17LiveEnablementContractTest, VoyageLiveRuntimeGateGuardTest, and
+   * SafetyConfigGovernanceTest rather than this boundary-only guard.
    */
   public function testPantheonBaselineAnchorsRemainPresent(): void {
     $pantheon = self::readFile('pantheon.yml');
@@ -128,7 +135,7 @@ final class PhaseTwoNoBroadPlatformMigrationGuardTest extends TestCase {
     $this->assertStringContainsString('include __DIR__ . "/settings.pantheon.php";', $settings);
     $this->assertStringContainsString('PANTHEON_ENVIRONMENT', $settings);
     $this->assertStringContainsString("_ilas_get_secret('ILAS_LLM_ENABLED')", $settings);
-    $this->assertStringContainsString("\$config['ilas_site_assistant.settings']['vector_search']['enabled'] = FALSE;", $settings);
+    $this->assertStringContainsString("_ilas_get_secret('ILAS_VECTOR_SEARCH_ENABLED')", $settings);
   }
 
   /**

@@ -282,9 +282,12 @@ test.describe('journey: ui regressions', () => {
         await page.evaluate(() => sessionStorage.getItem('ilas_assistant_state')),
       );
       expect(state, 'sessionStorage should contain state').not.toBeNull();
-      expect(state.v).toBe(2);
+      expect(state.v).toBe(3);
       // 3 display messages: welcome (assistant), user "Forms", category response (assistant).
       expect(state.messages.length, 'stored messages should match visible conversation').toBe(3);
+      expect(state.messages[0]?.kind).toBe('text');
+      expect(state.messages[1]?.kind).toBe('text');
+      expect(state.messages[2]?.kind).toBe('response');
 
       await assistant.captureTurnEvidence('cycle-4-intact', {
         screenshotLocator: panel,

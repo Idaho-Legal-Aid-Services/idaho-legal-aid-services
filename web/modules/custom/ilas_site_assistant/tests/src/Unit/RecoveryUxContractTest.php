@@ -52,8 +52,10 @@ final class RecoveryUxContractTest extends TestCase {
   public function testRecoveryAccessibilitySemanticsArePresent(): void {
     $source = self::widgetSource();
 
-    $this->assertStringContainsString('role="alert"', $source);
-    $this->assertStringContainsString('aria-label="', $source);
+    $this->assertStringContainsString('buildRecoveryMessageContent: function', $source);
+    $this->assertStringContainsString("setAttribute('role', 'alert')", $source);
+    $this->assertStringContainsString("setAttribute('aria-label', Drupal.t('Try sending your message again'))", $source);
+    $this->assertStringContainsString("setAttribute('aria-label', Drupal.t('Refresh this page to start a new session'))", $source);
     $this->assertStringContainsString('.recovery-btn--retry, .recovery-btn--refresh', $source);
     $this->assertStringContainsString('firstBtn.focus()', $source);
   }

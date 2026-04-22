@@ -177,8 +177,11 @@ window._assistantWidgetSelectionTestDone = (async function () {
   assert(firstBody.context.quickAction === 'forms', 'top-level quick action still sends quickAction');
   assert(firstBody.context.selection.button_id === 'forms', 'top-level quick action sends structured selection button_id');
   assert(firstBody.context.selection.label === 'Forms', 'top-level quick action preserves clicked label');
+  assert(savedState.v === 3, 'session state persists under v3 schema');
   assert(savedState.activeSelection.button_id === 'forms', 'session state persists active selection from response');
   assert(savedState.lastResponseRequestId === '11111111-1111-4111-8111-111111111111', 'session state persists the last assistant request ID after first reply');
+  assert(savedState.messages[savedState.messages.length - 1].kind === 'response', 'assistant replies persist as structured response messages');
+  assert(savedState.messages[savedState.messages.length - 1].response.type === 'forms_inventory', 'first assistant reply snapshot keeps response type');
   assert(lastUserText === 'Forms', 'visible user message preserves exact clicked label');
   var childSuggestion = await waitForSelector('.topic-suggestion-btn[data-action="forms_family"]', 20);
   await click(childSuggestion);
@@ -196,6 +199,8 @@ window._assistantWidgetSelectionTestDone = (async function () {
   assert(secondBody.context.selection.label === 'Family & Custody', 'rendered suggestion click preserves exact clicked label');
   assert(savedState.activeSelection.button_id === 'forms_family', 'session state updates to latest active child selection');
   assert(savedState.lastResponseRequestId === '22222222-2222-4222-8222-222222222222', 'session state updates to the latest assistant request ID');
+  assert(savedState.messages[savedState.messages.length - 1].kind === 'response', 'latest assistant reply stays in structured response form');
+  assert(savedState.messages[savedState.messages.length - 1].response.type === 'form_finder_clarify', 'follow-up assistant reply keeps its response type');
   assert(lastUserText === 'Family & Custody', 'child click displays exact suggestion label as the user turn');
 
   await tick();
@@ -214,7 +219,7 @@ window._assistantWidgetSelectionTestDone = (async function () {
       source: 'selection'
     },
     messages: [
-      { role: 'assistant', content: 'Restored conversation', isHtml: false }
+      { role: 'assistant', content: '<p>Restored <strong>conversation</strong></p>', isHtml: true }
     ],
     isOpen: false,
     savedAt: Date.now()
@@ -240,6 +245,16 @@ window._assistantWidgetSelectionTestDone = (async function () {
   ], calls);
 
   attachWidget();
+  await waitFor(function () {
+    return document.querySelectorAll('.chat-message--assistant .message-content').length > 0;
+  }, 20);
+  var restoredMessageText = document.querySelector('.chat-message--assistant .message-content').textContent.replace(/\s+/g, ' ').trim();
+  savedState = JSON.parse(String(window.sessionStorage.getItem('ilas_assistant_state') || '{}'));
+  assert(restoredMessageText === 'Restored conversation', 'legacy v2 rich assistant turn restores as readable text');
+  assert(savedState.v === 3, 'legacy v2 state migrates in place to v3');
+  assert(savedState.messages[0].kind === 'text', 'legacy rich assistant turn migrates to structured text');
+  assert(savedState.messages[0].text === 'Restored conversation', 'legacy rich assistant turn strips markup during migration');
+  assert(!Object.prototype.hasOwnProperty.call(savedState.messages[0], 'isHtml'), 'migrated v3 message no longer stores isHtml');
   await click(document.querySelector('.quick-action-btn[data-action="forms"]'));
   await waitFor(function () {
     return getMessageCalls(calls).length >= 1;
@@ -253,6 +268,7 @@ window._assistantWidgetSelectionTestDone = (async function () {
   savedState = JSON.parse(String(window.sessionStorage.getItem('ilas_assistant_state') || '{}'));
   assert(restoredBody.conversation_id === '44444444-4444-4444-8444-444444444444', 'restored widget state preserves conversationId across reload');
   assert(Object.prototype.hasOwnProperty.call(savedState, 'lastResponseRequestId'), 'restored widget state keeps request ID tracking live after reload');
+  assert(savedState.messages[savedState.messages.length - 1].kind === 'response', 'post-reload assistant reply persists as structured response message');
 
   window._assistantWidgetSelectionTestResults = results;
 })();

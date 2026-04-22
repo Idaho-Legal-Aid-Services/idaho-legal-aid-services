@@ -136,8 +136,7 @@ console.log(
  * navigation URLs for the topic.
  */
 function buildThemeCoherenceJs(keywords, navUrls = []) {
-  const escaped = keywords.map((kw) => kw.replace(/'/g, "\\'"));
-  const arrayLiteral = escaped.map((kw) => `'${kw}'`).join(', ');
+  const arrayLiteral = keywords.map((kw) => JSON.stringify(kw)).join(', ');
 
   // Meta keywords that are always on-topic (navigational / service-level)
   const metaKw =
@@ -150,7 +149,7 @@ function buildThemeCoherenceJs(keywords, navUrls = []) {
 
   // Navigation URLs for this topic
   if (Array.isArray(navUrls) && navUrls.length > 0) {
-    const urlParts = navUrls.map((u) => `'${u.replace(/'/g, "\\'")}'`).join(', ');
+    const urlParts = navUrls.map((u) => JSON.stringify(u)).join(', ');
     js += ` || [${urlParts}].some(u => output.includes(u))`;
   }
 

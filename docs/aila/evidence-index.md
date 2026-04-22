@@ -4090,3 +4090,47 @@ that remained open after 2026-03-13.
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/LangfuseProbeCommandTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/AssistantApiControllerQueueLossSurfaceTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/RuntimeDiagnosticsCommandsTest.php`
+
+## TOVR-17 Pinecone Live Runtime-Toggle Enablement (2026-04-21)
+
+### CLAIM-279
+- Claim: TOVR-17 refreshes the repo-side live Pinecone contract so `live` is
+  now eligible for the existing runtime-only `ILAS_VECTOR_SEARCH_ENABLED`
+  toggle without changing exported `vector_search.enabled=false`.
+- Evidence:
+  - `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`
+  - `web/sites/default/settings.php`
+  - `docs/env-vars.md`
+
+### CLAIM-280
+- Claim: The live admin/config path still cannot persist vector enablement.
+  `AssistantSettingsForm` keeps the checkbox disabled on `live`, raises a
+  validation error if a live save attempts to enable it, and still coerces the
+  stored config value back to `false` during submit.
+- Evidence:
+  - `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Form/AssistantSettingsForm.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SafetyConfigGovernanceTest.php`
+
+### CLAIM-281
+- Claim: Vector-index hygiene refresh now treats the current managed-index
+  policy as authoritative for `index_id`, `owner_role`, and `expected.*`
+  metadata, so stale stored snapshots cannot preserve legacy Pinecone contract
+  values after refresh/backfill operations.
+- Evidence:
+  - `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`
+  - `web/modules/custom/ilas_site_assistant/src/Service/VectorIndexHygieneService.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/VectorIndexHygieneServiceTest.php`
+
+### CLAIM-282
+- Claim: TOVR-13 remains preserved as the historical blocked live-readiness
+  baseline, while TOVR-17 becomes the canonical current live enablement path in
+  current-state, roadmap, runbook, and contract tests.
+- Evidence:
+  - `docs/aila/runtime/tovr-13-pinecone-live-readiness.txt`
+  - `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`
+  - `docs/aila/current-state.md`
+  - `docs/aila/roadmap.md`
+  - `docs/aila/runbook.md`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/Tovr13LiveGateContractTest.php`
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/Tovr17LiveEnablementContractTest.php`

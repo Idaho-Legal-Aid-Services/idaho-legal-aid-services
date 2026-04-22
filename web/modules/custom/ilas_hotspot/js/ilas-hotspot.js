@@ -181,7 +181,9 @@
       // Add click handler for custom tooltip
       trigger.addEventListener('click', function(e) {
         e.preventDefault();
-        alert(`${title}\n\n${content.replace(/<[^>]*>/g, '')}`); // Strip HTML for alert
+        var tempEl = document.createElement('div');
+        tempEl.innerHTML = content;
+        alert(`${title}\n\n${tempEl.textContent}`);
       });
     });
   }
