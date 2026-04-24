@@ -695,8 +695,11 @@ if ($sentry_dsn) {
   $config['raven.settings']['seckit_set_report_uri'] = TRUE;
 }
 
+// Only monitor cron on production-like environments. Pantheon dev cron is
+// traffic-dependent and runs sporadically — monitoring it generates constant
+// missed check-in noise with no operational signal.
 $sentry_cron_monitor_id = _ilas_get_secret('SENTRY_CRON_MONITOR_ID');
-if ($sentry_cron_monitor_id) {
+if ($sentry_cron_monitor_id && in_array($observability_environment ?? '', ['pantheon-live', 'pantheon-test'], TRUE)) {
   $config['raven.settings']['cron_monitor_id'] = $sentry_cron_monitor_id;
 }
 

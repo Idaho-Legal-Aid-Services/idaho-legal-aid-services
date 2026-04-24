@@ -654,6 +654,9 @@ class IlasLiveTransport {
       Accept: 'application/json',
       'X-CSRF-Token': this.csrfToken,
     };
+    if (this.options.evalRunId) {
+      headers['X-ILAS-Eval-Run-ID'] = this.options.evalRunId;
+    }
     if (this.cookie) {
       headers.Cookie = this.cookie;
     }

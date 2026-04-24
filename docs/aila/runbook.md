@@ -2158,8 +2158,8 @@ Expected verification result:
   - Anonymous/sessionless callers continue to receive JSON
     `error_code=access_denied` with no public diagnostic payload.
   - `/admin/reports/ilas-assistant`,
-    `/admin/reports/ilas-assistant/conversations`, and conversation detail
-    remain Drupal-only manual-review surfaces.
+    `/admin/reports/ilas-assistant/governance/conversations`, and canonical
+    conversation detail remain Drupal-only manual-review surfaces.
   - `ilas_site_assistant_stats`, `ilas_site_assistant_no_answer`, and
     `ilas_site_assistant_conversations` remain metadata-only stores; do not add
     raw transcript or query retention to make monitoring easier.

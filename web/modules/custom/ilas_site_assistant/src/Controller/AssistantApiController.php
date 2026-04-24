@@ -23,6 +23,7 @@ use Drupal\ilas_site_assistant\Service\AssistantReadEndpointGuard;
 use Drupal\ilas_site_assistant\Service\ResponseGrounder;
 use Drupal\ilas_site_assistant\Service\PostGenerationLegalAdviceDetector;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
+use Drupal\ilas_site_assistant\Service\GapReviewDecider;
 use Drupal\ilas_site_assistant\Service\InputNormalizer;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\HistoryIntentResolver;
@@ -3078,34 +3079,23 @@ class AssistantApiController extends ControllerBase {
     }
 
     $gap_item_id = NULL;
-    $governance_context = [
+    $governance_context = GapReviewDecider::buildGovernanceContext(
+      $intent,
+      $response,
+      $response_selection_state,
+      $resolved_selection,
+      $active_selection,
+    ) + [
       'conversation_id' => $conversation_id ?? '',
       'request_id' => $request_id,
-      'intent' => $intent,
-      'intent_type' => (string) ($intent['type'] ?? 'unknown'),
-      'active_selection_key' => (string) (($response_selection_state['button_id'] ?? $resolved_selection['button_id'] ?? $active_selection['button_id'] ?? '')),
-      'selection_label' => (string) (($response_selection_state['label'] ?? $resolved_selection['label'] ?? $active_selection['label'] ?? '')),
-      'topic_id' => $response['topic']['id'] ?? ($intent['topic_id'] ?? NULL),
-      'topic_label' => $response['topic']['name'] ?? ($intent['topic'] ?? ''),
-      'service_area_id' => $response['topic']['service_areas'][0]['id'] ?? NULL,
-      'service_area_label' => $response['topic']['service_areas'][0]['name'] ?? ($intent['area'] ?? ''),
-      'topic_confidence' => isset($intent['confidence']) && is_numeric($intent['confidence'])
-        ? (int) round(((float) $intent['confidence']) * 100)
-        : NULL,
-      'assignment_source' => !empty($response_selection_state['button_id']) || !empty($resolved_selection['button_id'])
-        ? 'selection'
-        : (!empty($intent['topic_id']) || !empty($intent['topic'])
-          ? 'router'
-          : (!empty($response['topic']) ? 'retrieval' : 'unknown')),
     ];
 
-    // Check if we found any results.
-    if (empty($response['results']) && $response['type'] !== 'navigation') {
+    if (GapReviewDecider::shouldRecordGapItem($response, $intent, $governance_context, $request, $data)) {
       $gap_item_id = $this->analyticsLogger->logNoAnswer($user_message, $governance_context);
       $analytics_events[] = 'no_answer';
 
       if ($debug_mode) {
-        $debug_meta['reason_code'] = 'no_results_found';
+        $debug_meta['reason_code'] = (string) ($response['reason_code'] ?? 'no_match_fallback');
       }
     }
     $this->langfuseTracer?->endSpan([

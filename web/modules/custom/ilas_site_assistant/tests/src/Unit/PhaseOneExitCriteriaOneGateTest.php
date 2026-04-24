@@ -119,7 +119,7 @@ final class PhaseOneExitCriteriaOneGateTest extends TestCase {
     $this->assertStringContainsString('## Local (DDEV) non-live verification', $artifact);
     $this->assertStringContainsString('health_keys=status,timestamp,checks', $artifact);
     $this->assertStringContainsString('metrics_keys=timestamp,metrics,thresholds,cron,queue', $artifact);
-    $this->assertStringContainsString('report_sections=summary,topics,destinations,no_answer', $artifact);
+    $this->assertStringContainsString('report_sections=summary,topics,destinations,quality', $artifact);
     $this->assertStringContainsString('@slo_dimension', $artifact);
     $this->assertStringContainsString('## Pantheon dev non-live verification', $artifact);
     $this->assertStringContainsString('## Pantheon test non-live verification', $artifact);

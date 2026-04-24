@@ -40,6 +40,7 @@
    - **Recovery threshold:** 1 (resolve after first successful check-in)
    - Store the monitor slug in Pantheon runtime secret `SENTRY_CRON_MONITOR_ID`.
    - The Raven module's cron hook automatically sends in_progress/ok check-ins on every `drush cron` run.
+   - **Env scope:** `settings.php` only wires `cron_monitor_id` on `pantheon-live` and `pantheon-test`. Dev is excluded by design — Pantheon dev cron is traffic-dependent and runs sporadically, generating false missed check-in noise with no operational signal.
 4. Add a public uptime monitor for the live site homepage.
 
 ## Verification Evidence (PHARD-01)

@@ -242,3 +242,4 @@ docs/aila/artifacts/*
 
 # Local pull-live configuration (may contain environment-specific overrides)
 scripts/pull-live.conf
+scripts/recover_wayback_files.py

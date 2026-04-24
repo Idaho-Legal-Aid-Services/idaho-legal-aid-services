@@ -14,7 +14,6 @@ use Drupal\Core\Entity\Form\ContentEntityForm;
 use Drupal\Core\Entity\Form\RevisionDeleteForm;
 use Drupal\Core\Entity\Form\RevisionRevertForm;
 use Drupal\Core\Entity\RevisionableContentEntityBase;
-use Drupal\Core\Entity\Routing\AdminHtmlRouteProvider;
 use Drupal\Core\Entity\Routing\RevisionHtmlRouteProvider;
 use Drupal\Core\Field\BaseFieldDefinition;
 use Drupal\Core\Session\AccountInterface;
@@ -22,9 +21,11 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant_governance\AssistantGapItemAccessControlHandler;
+use Drupal\ilas_site_assistant_governance\AssistantGapItemHtmlRouteProvider;
 use Drupal\ilas_site_assistant_governance\AssistantGapItemListBuilder;
 use Drupal\ilas_site_assistant_governance\AssistantGapItemStorageSchema;
 use Drupal\ilas_site_assistant_governance\Form\AssistantGapItemForm;
+use Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger;
 use Drupal\user\EntityOwnerInterface;
 use Drupal\user\EntityOwnerTrait;
 use Drupal\views\EntityViewsData;
@@ -52,7 +53,7 @@ use Drupal\views\EntityViewsData;
     ],
     'views_data' => EntityViewsData::class,
     'route_provider' => [
-      'html' => AdminHtmlRouteProvider::class,
+      'html' => AssistantGapItemHtmlRouteProvider::class,
       'revision' => RevisionHtmlRouteProvider::class,
     ],
   ],
@@ -111,6 +112,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
   public const RESOLUTION_EXPECTED_OOS = 'expected_oos';
   public const RESOLUTION_DUPLICATE = 'duplicate';
   public const RESOLUTION_FALSE_POSITIVE = 'false_positive';
+  public const RESOLUTION_TEST_EVAL_TRAFFIC = 'test_eval_traffic';
   public const RESOLUTION_OTHER = 'other';
 
   /**
@@ -151,6 +153,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       self::RESOLUTION_EXPECTED_OOS => (string) t('Expected out of scope'),
       self::RESOLUTION_DUPLICATE => (string) t('Duplicate'),
       self::RESOLUTION_FALSE_POSITIVE => (string) t('False positive'),
+      self::RESOLUTION_TEST_EVAL_TRAFFIC => (string) t('Test or eval traffic'),
       self::RESOLUTION_OTHER => (string) t('Other'),
     ];
   }
@@ -177,9 +180,9 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
    */
   public static function transitionMap(): array {
     return [
-      self::STATE_NEW => [self::STATE_NEEDS_REVIEW],
-      self::STATE_NEEDS_REVIEW => [self::STATE_REVIEWED],
-      self::STATE_REVIEWED => [self::STATE_RESOLVED],
+      self::STATE_NEW => [self::STATE_NEEDS_REVIEW, self::STATE_REVIEWED, self::STATE_RESOLVED],
+      self::STATE_NEEDS_REVIEW => [self::STATE_REVIEWED, self::STATE_RESOLVED],
+      self::STATE_REVIEWED => [self::STATE_NEEDS_REVIEW, self::STATE_RESOLVED, self::STATE_ARCHIVED],
       self::STATE_RESOLVED => [self::STATE_ARCHIVED, self::STATE_NEEDS_REVIEW],
       self::STATE_ARCHIVED => [self::STATE_NEEDS_REVIEW],
     ];
@@ -221,6 +224,45 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
    */
   public function getReviewState(): string {
     return (string) ($this->get('review_state')->value ?? self::STATE_NEW);
+  }
+
+  /**
+   * Returns TRUE when the item no longer represents open reviewer work.
+   */
+  public function isClosed(): bool {
+    return in_array($this->getReviewState(), [self::STATE_RESOLVED, self::STATE_ARCHIVED], TRUE)
+      || (int) ($this->get('occurrence_count_unresolved')->value ?? 0) <= 0;
+  }
+
+  /**
+   * Returns TRUE when the topic assignment still needs reviewer attention.
+   */
+  public function needsTopicAssignment(): bool {
+    return $this->get('primary_topic_tid')->isEmpty()
+      || in_array((string) ($this->get('topic_assignment_source')->value ?? 'unknown'), ['unknown', 'legacy_none'], TRUE);
+  }
+
+  /**
+   * Returns a concise next-action label for reviewer queues.
+   */
+  public function getNextActionLabel(): string {
+    if ($this->isClosed()) {
+      return (string) t('Closed');
+    }
+
+    if (!empty($this->get('is_held')->value)) {
+      return (string) t('Held');
+    }
+
+    if ($this->needsTopicAssignment()) {
+      return (string) t('Assign topic');
+    }
+
+    if ($this->getReviewState() === self::STATE_REVIEWED) {
+      return (string) t('Resolve or dismiss');
+    }
+
+    return (string) t('Review');
   }
 
   /**
@@ -308,14 +350,10 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
   public function refreshDerivedLabel(): self {
     $cluster_hash = (string) ($this->get('cluster_hash')->value ?? '');
     $lang = (string) ($this->get('language_hint')->value ?? 'unknown');
-    $topic_token = 'unknown';
-    $topic = $this->get('primary_topic_tid')->entity;
-    if ($topic) {
-      $topic_token = self::normalizeTopicToken((string) $topic->label());
-    }
+    $context_token = self::normalizeLabelToken((string) ($this->get('identity_context_key')->value ?? 'unknown'));
 
     $prefix = $cluster_hash !== '' ? ObservabilityPayloadMinimizer::hashPrefix($cluster_hash, 12) : 'pending';
-    $this->set('label', sprintf('gap:%s:%s:%s', $prefix, $lang !== '' ? $lang : 'unknown', $topic_token));
+    $this->set('label', sprintf('gap:%s:%s:%s', $prefix, $lang !== '' ? $lang : 'unknown', $context_token));
 
     return $this;
   }
@@ -332,18 +370,66 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
     if (!$this->get('hold_reason_summary')->isEmpty()) {
       $this->set('hold_reason_summary', PiiRedactor::redactForStorage((string) $this->get('hold_reason_summary')->value, 255));
     }
+    if ($this->get('primary_topic_tid')->isEmpty()) {
+      $this->set('topic_assignment_confidence', NULL);
+    }
 
     $this->refreshDerivedLabel();
   }
 
   /**
+   * {@inheritdoc}
+   */
+  public function postSave(EntityStorageInterface $storage, $update = TRUE): void {
+    parent::postSave($storage, $update);
+
+    if (!$update || !$this->id()) {
+      return;
+    }
+
+    $original = $this->getOriginal();
+    if (!$original instanceof self || $original->getReviewState() === $this->getReviewState()) {
+      return;
+    }
+
+    $database = \Drupal::database();
+    $schema = $database->schema();
+    if (
+      !$schema->tableExists('ilas_site_assistant_gap_hit')
+      || !$schema->fieldExists('ilas_site_assistant_gap_hit', 'is_unresolved')
+    ) {
+      return;
+    }
+
+    if (!in_array($this->getReviewState(), [self::STATE_RESOLVED, self::STATE_ARCHIVED], TRUE)) {
+      return;
+    }
+
+    $conversation_ids = $database->select('ilas_site_assistant_gap_hit', 'h')
+      ->fields('h', ['conversation_id'])
+      ->condition('gap_item_id', (int) $this->id())
+      ->isNotNull('conversation_id')
+      ->distinct()
+      ->execute()
+      ->fetchCol();
+
+    $database->update('ilas_site_assistant_gap_hit')
+      ->fields(['is_unresolved' => 0])
+      ->condition('gap_item_id', (int) $this->id())
+      ->execute();
+
+    GovernanceConversationLogger::refreshUnresolvedGapFlags($database, $conversation_ids);
+  }
+
+  /**
    * Normalizes a taxonomy label into a safe token for generated labels.
    */
-  protected static function normalizeTopicToken(string $value): string {
+  protected static function normalizeLabelToken(string $value): string {
     $normalized = mb_strtolower(trim($value));
     $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
     $normalized = trim((string) $normalized, '_');
-    return $normalized !== '' ? $normalized : 'unknown';
+    $normalized = $normalized !== '' ? $normalized : 'unknown';
+    return mb_substr($normalized, 0, 48);
   }
 
   /**
@@ -431,6 +517,78 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
         'weight' => -13,
       ]);
 
+    $fields['identity_context_key'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Identity context key'))
+      ->setDescription(t('Immutable deduplication boundary for this gap item.'))
+      ->setSetting('max_length', 255)
+      ->setRequired(TRUE)
+      ->setDefaultValue('legacy:unknown')
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'string',
+        'weight' => -12,
+      ]);
+
+    $fields['identity_source'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Identity source'))
+      ->setDescription(t('The immutable source family used to build the identity boundary.'))
+      ->setSetting('max_length', 32)
+      ->setRequired(TRUE)
+      ->setDefaultValue('legacy')
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'string',
+        'weight' => -11,
+      ]);
+
+    $fields['identity_selection_key'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Identity selection key'))
+      ->setDescription(t('Immutable structured selection boundary when present.'))
+      ->setSetting('max_length', 64)
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'string',
+        'weight' => -10,
+      ]);
+
+    $fields['identity_intent'] = BaseFieldDefinition::create('string')
+      ->setLabel(t('Identity intent'))
+      ->setDescription(t('Immutable routed intent boundary for non-selection misses.'))
+      ->setSetting('max_length', 64)
+      ->setRequired(TRUE)
+      ->setDefaultValue('unknown')
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'string',
+        'weight' => -9,
+      ]);
+
+    $fields['identity_topic_tid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Identity topic term ID'))
+      ->setDescription(t('Immutable topic term boundary captured at creation time.'))
+      ->setSetting('unsigned', TRUE)
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'number_integer',
+        'weight' => -8,
+      ]);
+
+    $fields['identity_service_area_tid'] = BaseFieldDefinition::create('integer')
+      ->setLabel(t('Identity service area term ID'))
+      ->setDescription(t('Immutable service-area boundary captured at creation time.'))
+      ->setSetting('unsigned', TRUE)
+      ->setRevisionable(FALSE)
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'number_integer',
+        'weight' => -7,
+      ]);
+
     $fields['review_state'] = BaseFieldDefinition::create('list_string')
       ->setLabel(t('Review state'))
       ->setRequired(TRUE)
@@ -440,11 +598,11 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'list_default',
-        'weight' => -12,
+        'weight' => -6,
       ])
       ->setDisplayOptions('form', [
         'type' => 'options_select',
-        'weight' => -12,
+        'weight' => -6,
       ]);
 
     $fields['primary_topic_tid'] = BaseFieldDefinition::create('entity_reference')
@@ -456,11 +614,11 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'entity_reference_label',
-        'weight' => -11,
+        'weight' => -5,
       ])
       ->setDisplayOptions('form', [
         'type' => 'entity_reference_autocomplete',
-        'weight' => -11,
+        'weight' => -5,
         'settings' => [
           'match_operator' => 'CONTAINS',
           'size' => 60,
@@ -477,11 +635,11 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'entity_reference_label',
-        'weight' => -10,
+        'weight' => -4,
       ])
       ->setDisplayOptions('form', [
         'type' => 'entity_reference_autocomplete',
-        'weight' => -10,
+        'weight' => -4,
         'settings' => [
           'match_operator' => 'CONTAINS',
           'size' => 60,
@@ -498,7 +656,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'list_default',
-        'weight' => -9,
+        'weight' => -3,
       ]);
 
     $fields['topic_assignment_confidence'] = BaseFieldDefinition::create('integer')
@@ -508,7 +666,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'number_integer',
-        'weight' => -8,
+        'weight' => -2,
       ]);
 
     $fields['first_seen'] = BaseFieldDefinition::create('timestamp')
@@ -517,7 +675,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'timestamp',
-        'weight' => -7,
+        'weight' => -1,
         'settings' => ['date_format' => 'short'],
       ]);
 
@@ -527,12 +685,12 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'timestamp',
-        'weight' => -6,
+        'weight' => 0,
         'settings' => ['date_format' => 'short'],
       ]);
 
     $fields['occurrence_count_total'] = BaseFieldDefinition::create('integer')
-      ->setLabel(t('Total occurrences'))
+      ->setLabel(t('Lifetime occurrences'))
       ->setRequired(TRUE)
       ->setDefaultValue(0)
       ->setSetting('unsigned', TRUE)
@@ -540,7 +698,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'number_integer',
-        'weight' => -5,
+        'weight' => 1,
       ]);
 
     $fields['occurrence_count_unresolved'] = BaseFieldDefinition::create('integer')
@@ -552,7 +710,7 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       ->setDisplayOptions('view', [
         'label' => 'above',
         'type' => 'number_integer',
-        'weight' => -4,
+        'weight' => 2,
       ]);
 
     $fields['first_conversation_id'] = BaseFieldDefinition::create('string')

@@ -251,7 +251,7 @@ class SafetyAlertService {
         implode("\n", $reason_lines),
         '',
         'Review the full report at: /admin/reports/ilas-assistant',
-        'Review conversation logs at: /admin/reports/ilas-assistant/conversations',
+        'Review conversation logs at: /admin/reports/ilas-assistant/governance/conversations',
         '',
         'This alert contains no personally identifiable information (PII).',
         'This is an automated message from the ILAS Site Assistant module.',

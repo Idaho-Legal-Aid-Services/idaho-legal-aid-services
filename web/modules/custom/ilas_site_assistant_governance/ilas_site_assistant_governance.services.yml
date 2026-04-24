@@ -3,6 +3,9 @@ services:
     parent: logger.channel_base
     arguments: ['ilas_site_assistant_governance']
 
+  ilas_site_assistant_governance.gap_item_identity_builder:
+    class: Drupal\ilas_site_assistant_governance\Service\GapItemIdentityBuilder
+
   ilas_site_assistant_governance.gap_item_manager:
     class: Drupal\ilas_site_assistant_governance\Service\GapItemManager
     arguments:
@@ -12,6 +15,7 @@ services:
       - '@config.factory'
       - '@logger.channel.ilas_site_assistant_governance'
       - '@ilas_site_assistant.topic_resolver'
+      - '@ilas_site_assistant_governance.gap_item_identity_builder'
 
   ilas_site_assistant_governance.conversation_logger:
     class: Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger

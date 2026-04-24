@@ -176,6 +176,13 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
+      // Drop Drupal's cron re-run lock warning. This fires in web context when
+      // Pantheon's traffic-triggered cron collides with an active drush cron
+      // lock. The lock is working correctly — there is no defect to act on.
+      if (static::isCronRerunNoise($sentryEvent)) {
+        return NULL;
+      }
+
       // Drop temporary SMTP transport failures from drush cron. These are
       // provider-side deferrals/noise, not application defects.
       if (static::isTemporaryCronMailNoise($sentryEvent)) {
@@ -526,6 +533,23 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
     return str_contains($normalized, 'currently unavailable')
       || str_contains($normalized, 'service is unavailable')
       || str_contains($normalized, '503');
+  }
+
+  /**
+   * Checks if the event is Drupal's cron re-run lock collision warning.
+   *
+   * Fires in web context when Pantheon's traffic-triggered cron hits an active
+   * drush cron lock. The lock is working correctly — not a defect.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as cron lock noise.
+   */
+  public static function isCronRerunNoise(\Sentry\Event $sentryEvent): bool {
+    $message = $sentryEvent->getMessage() ?? '';
+    return str_contains($message, 'Attempting to re-run cron while it is already running');
   }
 
   /**

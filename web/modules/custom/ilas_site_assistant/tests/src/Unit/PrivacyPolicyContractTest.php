@@ -153,43 +153,49 @@ class PrivacyPolicyContractTest extends TestCase {
   }
 
   /**
-   * Tests permission file gates conversation view with restrict_access.
+   * Tests the obsolete base-module conversation permission is removed.
    */
-  public function testPermissionFileHasConversationViewRestriction(): void {
+  public function testLegacyConversationPermissionIsRemoved(): void {
     $perms = self::parseYaml(
       'web/modules/custom/ilas_site_assistant/ilas_site_assistant.permissions.yml'
     );
 
-    $this->assertArrayHasKey('view ilas site assistant conversations', $perms);
-    $perm = $perms['view ilas site assistant conversations'];
-    $this->assertTrue(
-      $perm['restrict access'] ?? FALSE,
-      'Conversation view permission must have restrict access: true.',
+    $this->assertArrayNotHasKey(
+      'view ilas site assistant ' . 'conversations',
+      $perms,
+      'The retired base-module conversation permission must not remain assignable.',
     );
   }
 
   /**
-   * Tests conversation routes require the correct permission.
+   * Tests legacy conversation routes are removed.
    */
-  public function testConversationRoutesRequireViewPermission(): void {
+  public function testLegacyConversationRoutesAreRemoved(): void {
     $routes = self::parseYaml(
       'web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml'
     );
 
-    $expected_permission = 'view ilas site assistant conversations';
-    $route_names = [
+    foreach ([
       'ilas_site_assistant.admin.conversations',
       'ilas_site_assistant.admin.conversation_detail',
-    ];
-
-    foreach ($route_names as $route_name) {
-      $this->assertArrayHasKey($route_name, $routes, "Route {$route_name} must exist.");
-      $this->assertSame(
-        $expected_permission,
-        $routes[$route_name]['requirements']['_permission'] ?? '',
-        "Route {$route_name} must require '{$expected_permission}'.",
-      );
+    ] as $route_name) {
+      $this->assertArrayNotHasKey($route_name, $routes, "Route {$route_name} must be removed.");
     }
+  }
+
+  /**
+   * Tests the retired legacy conversation route is hidden from admin menus.
+   */
+  public function testLegacyConversationMenuLinkIsRemoved(): void {
+    $menu = self::parseYaml(
+      'web/modules/custom/ilas_site_assistant/ilas_site_assistant.links.menu.yml'
+    );
+
+    $this->assertArrayNotHasKey(
+      'ilas_site_assistant.admin.conversations',
+      $menu,
+      'The base module must not expose the legacy conversation shim as a staff-facing menu link.',
+    );
   }
 
   /**

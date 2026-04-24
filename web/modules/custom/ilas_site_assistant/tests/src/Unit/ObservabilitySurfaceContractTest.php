@@ -118,20 +118,35 @@ class ObservabilitySurfaceContractTest extends TestCase {
   }
 
   /**
-   * Tests that admin/report views no longer reference text-bearing columns.
+   * Tests retired staff-facing reporting surfaces stay removed.
    */
-  public function testAdminViewsUseMetadataOnlyColumns(): void {
+  public function testRetiredStaffReportingSurfacesStayRemoved(): void {
+    $baseRouting = self::readFile(
+      'web/modules/custom/ilas_site_assistant/ilas_site_assistant.routing.yml'
+    );
+    $governanceRouting = self::readFile(
+      'web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.routing.yml'
+    );
+    $governanceMenu = self::readFile(
+      'web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.links.menu.yml'
+    );
     $reportSource = self::readFile(
       'web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php'
     );
-    $conversationSource = self::readFile(
-      'web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php'
+    $governanceConversationSource = self::readFile(
+      'web/modules/custom/ilas_site_assistant_governance/src/Controller/GovernanceConversationController.php'
     );
 
     $this->assertStringNotContainsString('sanitized_query', $reportSource);
-    $this->assertStringNotContainsString('redacted_message', $conversationSource);
-    $this->assertStringContainsString('query_hash', $reportSource);
-    $this->assertStringContainsString('message_hash', $conversationSource);
+    $this->assertStringNotContainsString('buildNoAnswerTable', $reportSource);
+    $this->assertStringNotContainsString('ilas_site_assistant_no_answer', $reportSource);
+    $this->assertStringNotContainsString('Content Gaps' . ' (No-Answer Queries)', $reportSource);
+    $this->assertStringNotContainsString('AssistantConversation' . 'Controller', $baseRouting);
+    $this->assertStringNotContainsString('admin.conversations', $baseRouting);
+    $this->assertStringNotContainsString('governance/conversations/' . 'legacy', $governanceRouting);
+    $this->assertStringNotContainsString('topic_gap' . '_analysis', $governanceRouting . $governanceMenu);
+    $this->assertStringContainsString('ilas_site_assistant_conversation_session', $governanceConversationSource);
+    $this->assertStringContainsString('message_redacted', $governanceConversationSource);
   }
 
 }

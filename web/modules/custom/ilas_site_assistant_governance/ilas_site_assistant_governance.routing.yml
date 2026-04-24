@@ -1,16 +1,32 @@
-ilas_site_assistant_governance.conversations:
-  path: '/admin/reports/ilas-assistant/governance/conversations/legacy'
-  defaults:
-    _controller: '\Drupal\ilas_site_assistant_governance\Controller\GovernanceConversationController::list'
-    _title: 'Assistant Governance Conversations (Legacy)'
-  requirements:
-    _permission: 'view assistant governance conversations'
-
 ilas_site_assistant_governance.conversation_detail:
   path: '/admin/reports/ilas-assistant/governance/conversations/{conversation_id}'
   defaults:
     _controller: '\Drupal\ilas_site_assistant_governance\Controller\GovernanceConversationController::detail'
-    _title: 'Assistant Governance Conversation'
+    _title: 'Conversation Detail'
   requirements:
     _permission: 'view assistant governance conversations'
     conversation_id: '[a-f0-9\-]{36}'
+
+ilas_site_assistant_governance.gap_bulk_resolve_confirm:
+  path: '/admin/reports/ilas-assistant/gaps/bulk/resolve'
+  defaults:
+    _form: '\Drupal\ilas_site_assistant_governance\Form\AssistantGapItemBulkDispositionForm'
+    _title: 'Bulk resolve gap items'
+  requirements:
+    _permission: 'view assistant gap items'
+
+ilas_site_assistant_governance.gap_bulk_archive_confirm:
+  path: '/admin/reports/ilas-assistant/gaps/bulk/archive'
+  defaults:
+    _form: '\Drupal\ilas_site_assistant_governance\Form\AssistantGapItemBulkDispositionForm'
+    _title: 'Bulk archive gap items'
+  requirements:
+    _permission: 'view assistant gap items'
+
+ilas_site_assistant_governance.gap_start_review:
+  path: '/admin/reports/ilas-assistant/gaps/{assistant_gap_item}/start-review'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\GapReviewWorkflowController::startReview'
+  requirements:
+    _custom_access: '\Drupal\ilas_site_assistant_governance\Controller\GapReviewWorkflowController::startReviewAccess'
+    _csrf_token: 'TRUE'

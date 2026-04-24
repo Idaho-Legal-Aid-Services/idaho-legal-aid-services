@@ -1,0 +1,64 @@
+action.configuration.assistant_gap_item_assign_to_current_user_action:
+  type: mapping
+  label: 'Assign gap item to current user action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_to_needs_review_action:
+  type: mapping
+  label: 'Move gap item to needs review action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_to_reviewed_action:
+  type: mapping
+  label: 'Move gap item to reviewed action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_to_resolved_action:
+  type: mapping
+  label: 'Move gap item to resolved action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_to_archived_action:
+  type: mapping
+  label: 'Move gap item to archived action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_reopen_action:
+  type: mapping
+  label: 'Reopen gap item action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_flag_potential_faq_candidate_action:
+  type: mapping
+  label: 'Flag potential FAQ candidate action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_flag_possible_taxonomy_gap_action:
+  type: mapping
+  label: 'Flag possible taxonomy gap action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_flag_needs_content_update_action:
+  type: mapping
+  label: 'Flag needs content update action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_flag_escalate_to_editor_action:
+  type: mapping
+  label: 'Flag escalate to editor action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_flag_duplicate_issue_action:
+  type: mapping
+  label: 'Flag duplicate issue action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_place_legal_hold_action:
+  type: mapping
+  label: 'Place legal hold action configuration'
+  mapping: {  }
+
+action.configuration.assistant_gap_item_release_legal_hold_action:
+  type: mapping
+  label: 'Release legal hold action configuration'
+  mapping: {  }

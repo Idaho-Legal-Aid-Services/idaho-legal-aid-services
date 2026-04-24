@@ -4,6 +4,7 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
+use Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
@@ -226,6 +227,148 @@ class ConversationLoggerKernelTest extends AssistantKernelTestBase {
 
     $count = $this->countTableRows('ilas_site_assistant_conversations');
     $this->assertEquals(0, $count);
+  }
+
+  /**
+   * Tests canonical governance writes continue when legacy logging is disabled.
+   */
+  public function testLogExchangeWritesGovernanceRowsWhenLegacyLoggingIsDisabled(): void {
+    $timestamp = 1700000000;
+    \Drupal::getContainer()->set('ilas_site_assistant_governance.conversation_logger', new GovernanceConversationLogger(
+      $this->database,
+      $this->createMockTime($timestamp),
+      $this->createStub(LoggerInterface::class),
+    ));
+
+    $logger = $this->createConversationLogger([
+      'conversation_logging.enabled' => FALSE,
+    ], $timestamp);
+    $conversation_id = '12345678-1234-4123-8123-123456789abc';
+
+    $logger->logExchange(
+      $conversation_id,
+      'Necesito ayuda con un desalojo',
+      'Here are housing resources that may help.',
+      'housing',
+      'resources',
+      'abcdef01-2345-4678-9abc-def012345678',
+    );
+
+    $this->assertSame(0, $this->countTableRows('ilas_site_assistant_conversations'));
+
+    $session = $this->database->select('ilas_site_assistant_conversation_session', 's')
+      ->fields('s', ['conversation_id', 'exchange_count', 'last_intent', 'last_response_type'])
+      ->condition('conversation_id', $conversation_id)
+      ->execute()
+      ->fetchAssoc();
+
+    $this->assertNotFalse($session);
+    $this->assertSame($conversation_id, $session['conversation_id']);
+    $this->assertSame('1', (string) $session['exchange_count']);
+    $this->assertSame('housing', $session['last_intent']);
+    $this->assertSame('resources', $session['last_response_type']);
+
+    $turn_count = (int) $this->database->select('ilas_site_assistant_conversation_turn', 't')
+      ->condition('conversation_id', $conversation_id)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+
+    $this->assertSame(2, $turn_count);
+  }
+
+  /**
+   * Tests governance sessions store separate historical and current gap flags.
+   */
+  public function testGovernanceSessionTracksHistoricalAndCurrentNoAnswerState(): void {
+    $timestamp = 1700000100;
+    \Drupal::getContainer()->set('ilas_site_assistant_governance.conversation_logger', new GovernanceConversationLogger(
+      $this->database,
+      $this->createMockTime($timestamp),
+      $this->createStub(LoggerInterface::class),
+    ));
+
+    $logger = $this->createConversationLogger([
+      'conversation_logging.enabled' => FALSE,
+    ], $timestamp);
+    $conversation_id = '12345678-1234-4123-8123-123456789abe';
+
+    $logger->logExchange(
+      $conversation_id,
+      'I still cannot find the right form.',
+      'I could not confidently answer that request.',
+      'forms',
+      'no_answer',
+      'abcdef01-2345-4678-9abc-def012345679',
+      [
+        'is_no_answer' => TRUE,
+        'gap_item_id' => 42,
+      ],
+    );
+
+    $session = $this->database->select('ilas_site_assistant_conversation_session', 's')
+      ->fields('s', ['has_no_answer', 'has_unresolved_gap', 'latest_gap_item_id', 'exchange_count'])
+      ->condition('conversation_id', $conversation_id)
+      ->execute()
+      ->fetchAssoc();
+
+    $this->assertIsArray($session);
+    $this->assertSame('1', (string) $session['has_no_answer']);
+    $this->assertSame('1', (string) $session['has_unresolved_gap']);
+    $this->assertSame('42', (string) $session['latest_gap_item_id']);
+    $this->assertSame('1', (string) $session['exchange_count']);
+  }
+
+  /**
+   * Tests later normal replies do not clear historical or current gap state.
+   */
+  public function testGovernanceSessionKeepsGapFlagsAfterLaterNormalExchange(): void {
+    $timestamp = 1700000200;
+    \Drupal::getContainer()->set('ilas_site_assistant_governance.conversation_logger', new GovernanceConversationLogger(
+      $this->database,
+      $this->createMockTime($timestamp),
+      $this->createStub(LoggerInterface::class),
+    ));
+
+    $logger = $this->createConversationLogger([
+      'conversation_logging.enabled' => FALSE,
+    ], $timestamp);
+    $conversation_id = '12345678-1234-4123-8123-123456789abf';
+
+    $logger->logExchange(
+      $conversation_id,
+      'I still cannot find the right form.',
+      'I could not confidently answer that request.',
+      'forms',
+      'no_answer',
+      'abcdef01-2345-4678-9abc-def012345680',
+      [
+        'is_no_answer' => TRUE,
+        'gap_item_id' => 77,
+      ],
+    );
+
+    $logger->logExchange(
+      $conversation_id,
+      'Thanks, I will try a different search.',
+      'Here are a few general resources.',
+      'forms',
+      'resources',
+      'abcdef01-2345-4678-9abc-def012345681',
+    );
+
+    $session = $this->database->select('ilas_site_assistant_conversation_session', 's')
+      ->fields('s', ['has_no_answer', 'has_unresolved_gap', 'latest_gap_item_id', 'exchange_count', 'last_response_type'])
+      ->condition('conversation_id', $conversation_id)
+      ->execute()
+      ->fetchAssoc();
+
+    $this->assertIsArray($session);
+    $this->assertSame('1', (string) $session['has_no_answer']);
+    $this->assertSame('1', (string) $session['has_unresolved_gap']);
+    $this->assertSame('77', (string) $session['latest_gap_item_id']);
+    $this->assertSame('2', (string) $session['exchange_count']);
+    $this->assertSame('resources', $session['last_response_type']);
   }
 
   /**

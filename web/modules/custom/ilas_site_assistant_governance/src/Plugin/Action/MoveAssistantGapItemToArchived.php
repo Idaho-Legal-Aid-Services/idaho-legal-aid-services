@@ -14,9 +14,10 @@ use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 #[Action(
   id: 'assistant_gap_item_to_archived_action',
   label: new TranslatableMarkup('Move selected gap items to archived'),
+  confirm_form_route_name: 'ilas_site_assistant_governance.gap_bulk_archive_confirm',
   type: 'assistant_gap_item',
 )]
-class MoveAssistantGapItemToArchived extends AssistantGapItemStateActionBase {
+class MoveAssistantGapItemToArchived extends AssistantGapItemDeferredCloseActionBase {
 
   /**
    * {@inheritdoc}

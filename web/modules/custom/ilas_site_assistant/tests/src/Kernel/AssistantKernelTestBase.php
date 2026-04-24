@@ -209,6 +209,210 @@ abstract class AssistantKernelTestBase extends KernelTestBase {
       ],
     ]);
 
+    // Canonical governance conversation session table.
+    $schema->createTable('ilas_site_assistant_conversation_session', [
+      'fields' => [
+        'conversation_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => TRUE,
+        ],
+        'first_message_at' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'last_message_at' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'turn_count' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'exchange_count' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'language_hint' => [
+          'type' => 'varchar',
+          'length' => 16,
+          'not null' => TRUE,
+          'default' => 'unknown',
+        ],
+        'last_intent' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => FALSE,
+        ],
+        'last_response_type' => [
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => FALSE,
+        ],
+        'first_request_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => FALSE,
+        ],
+        'last_request_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => FALSE,
+        ],
+        'has_no_answer' => [
+          'type' => 'int',
+          'size' => 'tiny',
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'has_unresolved_gap' => [
+          'type' => 'int',
+          'size' => 'tiny',
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'latest_gap_item_id' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => FALSE,
+        ],
+        'is_held' => [
+          'type' => 'int',
+          'size' => 'tiny',
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'held_at' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => FALSE,
+        ],
+        'held_by_uid' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => FALSE,
+        ],
+        'hold_reason_summary' => [
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => FALSE,
+        ],
+        'purge_after' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+      ],
+      'primary key' => ['conversation_id'],
+      'indexes' => [
+        'purge_hold' => ['purge_after', 'is_held'],
+        'last_message' => ['last_message_at'],
+      ],
+    ]);
+
+    // Canonical governance conversation turn table.
+    $schema->createTable('ilas_site_assistant_conversation_turn', [
+      'fields' => [
+        'id' => [
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'conversation_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => TRUE,
+        ],
+        'turn_sequence' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'request_id' => [
+          'type' => 'varchar',
+          'length' => 36,
+          'not null' => FALSE,
+        ],
+        'direction' => [
+          'type' => 'varchar',
+          'length' => 10,
+          'not null' => TRUE,
+        ],
+        'message_redacted' => [
+          'type' => 'text',
+          'size' => 'big',
+          'not null' => TRUE,
+        ],
+        'message_hash' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => TRUE,
+        ],
+        'message_length_bucket' => [
+          'type' => 'varchar',
+          'length' => 16,
+          'not null' => TRUE,
+        ],
+        'redaction_profile' => [
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ],
+        'redaction_version' => [
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+          'default' => 'v1',
+        ],
+        'language_hint' => [
+          'type' => 'varchar',
+          'length' => 16,
+          'not null' => TRUE,
+          'default' => 'unknown',
+        ],
+        'intent' => [
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => FALSE,
+        ],
+        'response_type' => [
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => FALSE,
+        ],
+        'is_no_answer' => [
+          'type' => 'int',
+          'size' => 'tiny',
+          'not null' => TRUE,
+          'default' => 0,
+        ],
+        'gap_item_id' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => FALSE,
+        ],
+        'created' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => [
+        'conversation_sequence' => ['conversation_id', 'turn_sequence'],
+      ],
+      'indexes' => [
+        'conversation_created' => ['conversation_id', 'created'],
+        'request_id' => ['request_id'],
+      ],
+    ]);
+
     // Durable assistant conversation state table.
     $schema->createTable('ilas_site_assistant_conversation_state', [
       'fields' => [

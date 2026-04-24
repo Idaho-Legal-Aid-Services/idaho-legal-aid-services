@@ -35,7 +35,7 @@
     now use hash/bucket metadata and deterministic `error_signature` values.
 - Reporting + client tracking:
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php`
+  - `web/modules/custom/ilas_site_assistant_governance/src/Controller/GovernanceConversationController.php`
   - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
   - `web/modules/custom/ilas_site_assistant/tests/js/assistant-widget-hardening.test.js`
   - Admin/report views render topic IDs and message/query fingerprints instead
@@ -74,8 +74,8 @@
 - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.install`
 - `web/modules/custom/ilas_site_assistant/js/assistant-widget.js`
 - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
-- `web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php`
 - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
+- `web/modules/custom/ilas_site_assistant_governance/src/Controller/GovernanceConversationController.php`
 - `web/modules/custom/ilas_site_assistant/src/EventSubscriber/LangfuseTerminateSubscriber.php`
 - `web/modules/custom/ilas_site_assistant/src/Plugin/QueueWorker/LangfuseExportWorker.php`
 - `web/modules/custom/ilas_site_assistant/src/Service/AnalyticsLogger.php`

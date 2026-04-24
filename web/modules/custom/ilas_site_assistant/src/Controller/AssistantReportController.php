@@ -139,19 +139,6 @@ class AssistantReportController extends ControllerBase {
 
     $build['destinations']['table'] = $this->buildTopDestinationsTable();
 
-    // No-answer queries.
-    $build['no_answer'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Content Gaps (No-Answer Queries)'),
-      '#open' => TRUE,
-    ];
-
-    $build['no_answer']['description'] = [
-      '#markup' => '<p>' . $this->t('Queries that did not find matching content. Raw query text is intentionally not stored; this report uses hashes and low-cardinality metadata so content gaps can be analyzed without persisting user text.') . '</p>',
-    ];
-
-    $build['no_answer']['table'] = $this->buildNoAnswerTable();
-
     // Quality signals.
     $build['quality'] = [
       '#type' => 'details',
@@ -351,49 +338,6 @@ class AssistantReportController extends ControllerBase {
       '#header' => $header,
       '#rows' => $rows,
       '#empty' => $this->t('No destination data available yet.'),
-    ];
-  }
-
-  /**
-   * Builds the no-answer queries table.
-   *
-   * @return array
-   *   Render array for the table.
-   */
-  protected function buildNoAnswerTable() {
-    $header = [
-      $this->t('Query Fingerprint'),
-      $this->t('Language'),
-      $this->t('Length'),
-      $this->t('Redaction Profile'),
-      $this->t('Count'),
-      $this->t('Last Seen'),
-    ];
-
-    $query = $this->database->select('ilas_site_assistant_no_answer', 'n')
-      ->fields('n', ['query_hash', 'language_hint', 'length_bucket', 'redaction_profile', 'count', 'last_seen'])
-      ->orderBy('count', 'DESC')
-      ->range(0, 20);
-
-    $results = $query->execute()->fetchAll();
-
-    $rows = [];
-    foreach ($results as $row) {
-      $rows[] = [
-        ObservabilityPayloadMinimizer::hashPrefix($row->query_hash) . '...',
-        $row->language_hint,
-        $row->length_bucket,
-        $row->redaction_profile,
-        $row->count,
-        $this->dateFormatter->format($row->last_seen, 'short'),
-      ];
-    }
-
-    return [
-      '#type' => 'table',
-      '#header' => $header,
-      '#rows' => $rows,
-      '#empty' => $this->t('No unmatched queries recorded yet.'),
     ];
   }
 

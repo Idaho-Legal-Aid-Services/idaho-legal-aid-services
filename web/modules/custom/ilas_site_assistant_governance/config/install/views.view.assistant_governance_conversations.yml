@@ -7,7 +7,7 @@ dependencies:
     - user
     - views
 id: assistant_governance_conversations
-label: 'Assistant governance conversations'
+label: 'Conversation Logs'
 module: views
 description: 'Canonical PII-redacted assistant conversation sessions.'
 tag: ''
@@ -20,7 +20,7 @@ display:
     display_plugin: default
     position: 0
     display_options:
-      title: 'Assistant governance conversations'
+      title: 'Conversation Logs'
       access:
         type: perm
         options:
@@ -48,6 +48,7 @@ display:
             exchange_count: exchange_count
             last_intent: last_intent
             last_response_type: last_response_type
+            has_unresolved_gap: has_unresolved_gap
             has_no_answer: has_no_answer
             is_held: is_held
             latest_gap_item_id: latest_gap_item_id
@@ -62,6 +63,8 @@ display:
             last_intent:
               sortable: false
             last_response_type:
+              sortable: false
+            has_unresolved_gap:
               sortable: false
             has_no_answer:
               sortable: false
@@ -222,8 +225,7 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          thousand_separator: ''
-          prefix_suffix: true
+          separator: ''
         last_intent:
           id: last_intent
           table: ilas_site_assistant_conversation_session
@@ -322,15 +324,15 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-        has_no_answer:
-          id: has_no_answer
+        has_unresolved_gap:
+          id: has_unresolved_gap
           table: ilas_site_assistant_conversation_session
-          field: has_no_answer
+          field: has_unresolved_gap
           relationship: none
           group_type: group
           admin_label: ''
           plugin_id: boolean
-          label: 'Has no answer'
+          label: 'Needs follow-up now'
           exclude: false
           alter:
             alter_text: false
@@ -371,11 +373,63 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          type: boolean
-          settings:
-            format: default
-            format_custom_true: 'Yes'
-            format_custom_false: 'No'
+          type: yes-no
+          type_custom_true: ''
+          type_custom_false: ''
+          not: false
+        has_no_answer:
+          id: has_no_answer
+          table: ilas_site_assistant_conversation_session
+          field: has_no_answer
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: boolean
+          label: 'Ever had no-answer event'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: yes-no
+          type_custom_true: ''
+          type_custom_false: ''
+          not: false
         is_held:
           id: is_held
           table: ilas_site_assistant_conversation_session
@@ -425,11 +479,10 @@ display:
           hide_empty: false
           empty_zero: false
           hide_alter_empty: true
-          type: boolean
-          settings:
-            format: default
-            format_custom_true: 'Yes'
-            format_custom_false: 'No'
+          type: yes-no
+          type_custom_true: ''
+          type_custom_false: ''
+          not: false
         latest_gap_item_id:
           id: latest_gap_item_id
           table: ilas_site_assistant_conversation_session
@@ -479,8 +532,7 @@ display:
           hide_empty: true
           empty_zero: true
           hide_alter_empty: true
-          thousand_separator: ''
-          prefix_suffix: true
+          separator: ''
       filters: {  }
       sorts:
         last_message_at:
@@ -496,7 +548,14 @@ display:
             label: ''
             field_identifier: last_message_at
           exposed: false
-      empty: {  }
+      empty:
+        area_text_custom:
+          id: area_text_custom
+          table: views
+          field: area_text_custom
+          plugin_id: text_custom
+          empty: true
+          content: 'No canonical conversation logs are available yet.'
       relationships: {  }
       arguments: {  }
       header: {  }
