@@ -3276,17 +3276,17 @@
         },
         {
             "name": "drupal/ckeditor5_plugin_pack",
-            "version": "1.5.1",
+            "version": "1.5.2",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/ckeditor5_plugin_pack.git",
-                "reference": "1.5.1"
+                "reference": "1.5.2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ckeditor5_plugin_pack-1.5.1.zip",
-                "reference": "1.5.1",
-                "shasum": "72db1f52607486c67e9b1aea572b22b217c17b21"
+                "url": "https://ftp.drupal.org/files/projects/ckeditor5_plugin_pack-1.5.2.zip",
+                "reference": "1.5.2",
+                "shasum": "bc771a827b3802a346d7243ffd23e235ebd5e4a3"
             },
             "require": {
                 "drupal/ckeditor5_premium_features": "^1.6.4 || ^1.7",
@@ -3299,8 +3299,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.5.1",
-                    "datestamp": "1770801202",
+                    "version": "1.5.2",
+                    "datestamp": "1776940483",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -3332,17 +3332,17 @@
         },
         {
             "name": "drupal/ckeditor5_premium_features",
-            "version": "1.8.0",
+            "version": "1.8.1",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/ckeditor5_premium_features.git",
-                "reference": "1.8.0"
+                "reference": "1.8.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ckeditor5_premium_features-1.8.0.zip",
-                "reference": "1.8.0",
-                "shasum": "ce8eccce6494b8d27d110f43627dee1e0fa9bca0"
+                "url": "https://ftp.drupal.org/files/projects/ckeditor5_premium_features-1.8.1.zip",
+                "reference": "1.8.1",
+                "shasum": "ffdf7c0af12177975bb297bcf30bdca14148b330"
             },
             "require": {
                 "drupal/core": "^10.3 || ^11.0",
@@ -3364,8 +3364,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.8.0",
-                    "datestamp": "1773315858",
+                    "version": "1.8.1",
+                    "datestamp": "1776940299",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
