@@ -11,10 +11,3 @@ ilas_site_assistant.admin.report:
   parent: system.admin_reports
   route_name: ilas_site_assistant.admin.report
   weight: 50
-
-ilas_site_assistant.admin.conversations:
-  title: 'Conversation Logs'
-  description: 'View PII-redacted conversation logs for QA and debugging.'
-  parent: ilas_site_assistant.admin.report
-  route_name: ilas_site_assistant.admin.conversations
-  weight: 10

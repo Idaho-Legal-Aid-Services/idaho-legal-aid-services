@@ -269,7 +269,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['logging']['conversation_logging_enabled'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Enable Conversation Logging'),
-      '#description' => $this->t('Log individual chat exchanges (with PII redaction) for QA and debugging. Viewable at <em>Reports &gt; ILAS Assistant &gt; Conversations</em>.'),
+      '#description' => $this->t('Log individual chat exchanges to the legacy QA/debug table. The <em>Conversation Logs</em> report uses the canonical governance conversation store even when this legacy option is disabled.'),
       '#default_value' => $conversation_logging['enabled'] ?? FALSE,
     ];
 

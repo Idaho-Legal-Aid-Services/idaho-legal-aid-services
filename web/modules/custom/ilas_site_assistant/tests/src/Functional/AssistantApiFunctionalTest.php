@@ -38,8 +38,10 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     'views',
     'search_api',
     'search_api_db',
+    'token',
     'paragraphs',
     'ilas_site_assistant',
+    'ilas_site_assistant_governance',
   ];
 
   /**
@@ -77,7 +79,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
       'access content',
       'administer ilas site assistant',
       'view ilas site assistant reports',
-      'view ilas site assistant conversations',
+      'view assistant governance conversations',
     ]);
 
     $this->regularUser = $this->drupalCreateUser([
@@ -687,8 +689,8 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Summary Statistics');
     $this->assertSession()->pageTextContains('Top Topics Selected');
-    $this->assertSession()->pageTextContains('Top Clicked Destinations');
-    $this->assertSession()->pageTextContains('Content Gaps (No-Answer Queries)');
+    $this->assertSession()->pageTextContains('Top Resource Links Clicked');
+    $this->assertSession()->pageTextNotContains('Content Gaps' . ' (No-Answer Queries)');
   }
 
   /**
@@ -697,7 +699,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   public function testConversationListPermissionCheck(): void {
     $this->drupalLogin($this->regularUser);
 
-    $url = $this->buildUrl('/admin/reports/ilas-assistant/conversations');
+    $url = $this->buildUrl('/admin/reports/ilas-assistant/governance/conversations');
     $response = $this->getHttpClient()->get($url, [
       'http_errors' => FALSE,
     ]);
@@ -709,11 +711,26 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
    * Tests that admin users can access the conversation list.
    */
   public function testConversationListAccessibleToAdmin(): void {
+    $conversation_id = '12345678-1234-4123-8123-123456789abc';
+    $this->insertGovernanceConversation($conversation_id);
     $this->drupalLogin($this->adminUser);
 
-    $this->drupalGet('/admin/reports/ilas-assistant/conversations');
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations');
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Conversation');
+    $this->assertSession()->pageTextContains('Conversation Logs');
+    $this->assertSession()->pageTextContains($conversation_id);
+  }
+
+  /**
+   * Tests that the canonical empty state is truthful when no rows exist.
+   */
+  public function testConversationListShowsTruthfulEmptyState(): void {
+    $this->drupalLogin($this->adminUser);
+
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('No canonical conversation logs are available yet.');
+    $this->assertSession()->pageTextNotContains('No conversations found matching the current filters.');
   }
 
   /**
@@ -723,12 +740,26 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     $this->drupalLogin($this->adminUser);
 
     // Invalid UUID format should return 404 (route pattern doesn't match).
-    $this->drupalGet('/admin/reports/ilas-assistant/conversations/not-a-uuid');
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations/not-a-uuid');
     $this->assertSession()->statusCodeEquals(404);
 
     // Valid UUID format should return 200 (even if empty).
-    $this->drupalGet('/admin/reports/ilas-assistant/conversations/12345678-1234-4123-8123-123456789abc');
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations/12345678-1234-4123-8123-123456789abc');
     $this->assertSession()->statusCodeEquals(200);
+  }
+
+  /**
+   * Tests that canonical conversation detail renders redacted turns.
+   */
+  public function testConversationDetailRendersCanonicalDetail(): void {
+    $conversation_id = 'abcdef12-3456-4789-8abc-def012345678';
+    $this->insertGovernanceConversation($conversation_id, 'Necesito ayuda con vivienda');
+    $this->drupalLogin($this->adminUser);
+
+    $this->drupalGet("/admin/reports/ilas-assistant/governance/conversations/{$conversation_id}");
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains($conversation_id);
+    $this->assertSession()->pageTextContains('Necesito ayuda con vivienda');
   }
 
   /**
@@ -1531,6 +1562,70 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
       'Content-Type' => 'application/json',
       'Origin' => $this->siteOrigin(),
     ];
+  }
+
+  /**
+   * Inserts a canonical governance conversation for admin-route assertions.
+   */
+  protected function insertGovernanceConversation(string $conversationId, string $userMessage = 'Redacted housing question', int $timestamp = 1700000000): void {
+    $database = \Drupal::database();
+
+    $database->insert('ilas_site_assistant_conversation_session')
+      ->fields([
+        'conversation_id' => $conversationId,
+        'first_message_at' => $timestamp,
+        'last_message_at' => $timestamp,
+        'turn_count' => 2,
+        'exchange_count' => 1,
+        'language_hint' => 'en',
+        'last_intent' => 'housing',
+        'last_response_type' => 'resources',
+        'first_request_id' => '11111111-1111-4111-8111-111111111111',
+        'last_request_id' => '11111111-1111-4111-8111-111111111111',
+        'has_no_answer' => 0,
+        'is_held' => 0,
+        'purge_after' => $timestamp + 86400,
+      ])
+      ->execute();
+
+    $database->insert('ilas_site_assistant_conversation_turn')
+      ->fields([
+        'conversation_id' => $conversationId,
+        'turn_sequence' => 1,
+        'request_id' => '11111111-1111-4111-8111-111111111111',
+        'direction' => 'user',
+        'message_redacted' => $userMessage,
+        'message_hash' => hash('sha256', $userMessage),
+        'message_length_bucket' => 'medium',
+        'redaction_profile' => 'none',
+        'redaction_version' => 'v1',
+        'language_hint' => 'en',
+        'intent' => 'housing',
+        'response_type' => NULL,
+        'is_no_answer' => 0,
+        'created' => $timestamp,
+      ])
+      ->execute();
+
+    $assistantMessage = 'Here are housing resources that may help.';
+    $database->insert('ilas_site_assistant_conversation_turn')
+      ->fields([
+        'conversation_id' => $conversationId,
+        'turn_sequence' => 2,
+        'request_id' => '11111111-1111-4111-8111-111111111111',
+        'direction' => 'assistant',
+        'message_redacted' => $assistantMessage,
+        'message_hash' => hash('sha256', $assistantMessage),
+        'message_length_bucket' => 'medium',
+        'redaction_profile' => 'none',
+        'redaction_version' => 'v1',
+        'language_hint' => 'en',
+        'intent' => 'housing',
+        'response_type' => 'resources',
+        'is_no_answer' => 0,
+        'created' => $timestamp,
+      ])
+      ->execute();
   }
 
 }

@@ -476,9 +476,9 @@ Evidence precedence used in this audit:
 ### CLAIM-059
 - Claim: Conversation admin report displays only pre-redacted stored messages and requires restricted permission.
 - Evidence:
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php:13-17`
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php:198-248`
-  - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.permissions.yml:10-13`
+  - `config/views.view.assistant_governance_conversations.yml`
+  - `web/modules/custom/ilas_site_assistant_governance/src/Controller/GovernanceConversationController.php`
+  - `web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.permissions.yml`
 
 ---
 
@@ -2576,7 +2576,7 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Service/ConversationLogger.php`
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php`
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php`
-  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantConversationController.php`
+  - `web/modules/custom/ilas_site_assistant_governance/src/Controller/GovernanceConversationController.php`
   - `web/modules/custom/ilas_site_assistant/src/Service/FaqIndex.php`
   - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php`
   - `web/modules/custom/ilas_site_assistant/src/Service/LangfuseTracer.php`

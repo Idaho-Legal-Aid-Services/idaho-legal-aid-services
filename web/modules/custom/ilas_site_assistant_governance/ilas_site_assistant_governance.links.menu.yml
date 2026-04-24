@@ -2,16 +2,12 @@ ilas_site_assistant_governance.gap_dashboard:
   title: 'Gap Review Queue'
   description: 'Review unanswered assistant queries.'
   route_name: view.assistant_gap_items.page_queue
-  parent: ilas_site_assistant.admin.report
+  parent: system.admin_reports
+  weight: 51
 
-ilas_site_assistant_governance.conversations:
-  title: 'Governance Conversations'
-  description: 'View canonical redacted assistant conversations.'
+ilas_site_assistant_governance.conversation_logs:
+  title: 'Conversation Logs'
+  description: 'View canonical PII-redacted assistant governance conversations.'
   route_name: view.assistant_governance_conversations.page_all
-  parent: ilas_site_assistant.admin.report
-
-ilas_site_assistant_governance.topic_gap_analysis:
-  title: 'Topic Gap Analysis'
-  description: 'Review unresolved assistant gaps grouped by topic taxonomy.'
-  route_name: view.assistant_gap_topic_analysis.page_topics
-  parent: ilas_site_assistant.admin.report
+  parent: system.admin_reports
+  weight: 52

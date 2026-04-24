@@ -26,5 +26,13 @@
     "@playwright/test": "^1.59.1",
     "jest-environment-jsdom": "^30.3.0",
     "promptfoo": "^0.121.7"
+  },
+  "overrides": {
+    "protobufjs": "8.0.1",
+    "mathjs": "15.2.0",
+    "drizzle-orm": "0.45.2",
+    "node-forge": "1.4.0",
+    "follow-redirects": "1.16.0",
+    "picomatch": "4.0.4"
   }
 }

@@ -56,23 +56,6 @@ ilas_site_assistant.admin.report:
   requirements:
     _permission: 'view ilas site assistant reports'
 
-ilas_site_assistant.admin.conversations:
-  path: '/admin/reports/ilas-assistant/conversations'
-  defaults:
-    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantConversationController::list'
-    _title: 'Conversation Logs'
-  requirements:
-    _permission: 'view ilas site assistant conversations'
-
-ilas_site_assistant.admin.conversation_detail:
-  path: '/admin/reports/ilas-assistant/conversations/{conversation_id}'
-  defaults:
-    _controller: '\Drupal\ilas_site_assistant\Controller\AssistantConversationController::detail'
-    _title: 'Conversation Detail'
-  requirements:
-    _permission: 'view ilas site assistant conversations'
-    conversation_id: '[a-f0-9\-]{36}'
-
 ilas_site_assistant.api.health:
   path: '/assistant/api/health'
   defaults:

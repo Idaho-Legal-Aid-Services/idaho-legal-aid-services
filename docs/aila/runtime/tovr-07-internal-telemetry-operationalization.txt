@@ -16,8 +16,8 @@
   `view ilas site assistant reports`, so external monitors without a Drupal
   session could not consume the existing SLO/cron/queue/metrics payloads.
 - `/admin/reports/ilas-assistant`,
-  `/admin/reports/ilas-assistant/conversations`, and conversation detail were
-  already Drupal-admin/manual-review surfaces.
+  `/admin/reports/ilas-assistant/governance/conversations`, and canonical
+  conversation detail were already Drupal-admin/manual-review surfaces.
 
 ## Post-change status
 
@@ -56,7 +56,7 @@
 | `/assistant/api/health` | JSON `status`, `timestamp`, `checks` | Private machine-consumable | Anonymous denied; no-store on deny path | Yes; direct synthetic target | Fixed |
 | `/assistant/api/metrics` | JSON `timestamp`, `metrics`, `thresholds`, `cron`, `queue` and nested observability blocks | Private machine-consumable | Anonymous denied; detailed internals stay private | Yes; direct synthetic/dashboard target | Fixed |
 | `/admin/reports/ilas-assistant` | Drupal render arrays over stats/no-answer/quality/feedback/review loop | Drupal-only | Admin permission only | Manual review only | Explicitly remains Drupal-only |
-| `/admin/reports/ilas-assistant/conversations/*` | Drupal render arrays over conversation metadata logs | Drupal-only, sensitive | Conversation permission only; metadata-only but sensitive | Manual QA/debug only | Explicitly remains Drupal-only |
+| `/admin/reports/ilas-assistant/governance/conversations/*` | Drupal render arrays over canonical governance conversation logs | Drupal-only, sensitive | Governance conversation permission only; metadata-only but sensitive | Manual QA/debug only | Explicitly remains Drupal-only |
 
 ## Signals that can currently drive alerts
 

@@ -1,0 +1,17 @@
+view.assistant_gap_items.page_new_tab:
+  route_name: view.assistant_gap_items.page_new
+  title: 'New'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 10
+
+view.assistant_gap_items.page_needs_review_tab:
+  route_name: view.assistant_gap_items.page_needs_review
+  title: 'Needs Review'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 20
+
+view.assistant_gap_items.page_all_tab:
+  route_name: view.assistant_gap_items.page_all
+  title: 'All'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 30

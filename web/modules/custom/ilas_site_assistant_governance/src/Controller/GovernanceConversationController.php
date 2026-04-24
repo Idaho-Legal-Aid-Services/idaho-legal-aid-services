@@ -34,68 +34,6 @@ class GovernanceConversationController extends ControllerBase {
   }
 
   /**
-   * Lists canonical conversation sessions.
-   */
-  public function list(): array {
-    if (!$this->database->schema()->tableExists('ilas_site_assistant_conversation_session')) {
-      return ['#markup' => $this->t('Governance conversation storage is not installed yet.')];
-    }
-
-    $query = $this->database->select('ilas_site_assistant_conversation_session', 's')
-      ->fields('s', [
-        'conversation_id',
-        'first_message_at',
-        'last_message_at',
-        'exchange_count',
-        'last_intent',
-        'has_no_answer',
-        'is_held',
-      ])
-      ->orderBy('last_message_at', 'DESC')
-      ->extend('Drupal\Core\Database\Query\PagerSelectExtender')
-      ->limit(50);
-
-    $rows = [];
-    foreach ($query->execute() as $row) {
-      $rows[] = [
-        substr((string) $row->conversation_id, 0, 8) . '...',
-        $this->dateFormatter->format((int) $row->first_message_at, 'short'),
-        $this->dateFormatter->format((int) $row->last_message_at, 'short'),
-        (int) $row->exchange_count,
-        $row->last_intent ?: '-',
-        (int) $row->has_no_answer ? $this->t('Yes') : $this->t('No'),
-        (int) $row->is_held ? $this->t('Yes') : $this->t('No'),
-        [
-          'data' => [
-            '#type' => 'link',
-            '#title' => $this->t('View'),
-            '#url' => Url::fromRoute('ilas_site_assistant_governance.conversation_detail', ['conversation_id' => $row->conversation_id]),
-          ],
-        ],
-      ];
-    }
-
-    $build['table'] = [
-      '#type' => 'table',
-      '#header' => [
-        $this->t('Conversation'),
-        $this->t('Started'),
-        $this->t('Last message'),
-        $this->t('Exchanges'),
-        $this->t('Last intent'),
-        $this->t('No answer'),
-        $this->t('Held'),
-        $this->t('Actions'),
-      ],
-      '#rows' => $rows,
-      '#empty' => $this->t('No governance conversations available.'),
-    ];
-    $build['pager'] = ['#type' => 'pager'];
-
-    return $build;
-  }
-
-  /**
    * Shows one canonical conversation session.
    */
   public function detail(string $conversation_id): array {
@@ -132,7 +70,7 @@ class GovernanceConversationController extends ControllerBase {
           'data' => [
             '#type' => 'link',
             '#title' => (string) $turn->gap_item_id,
-            '#url' => Url::fromRoute('entity.assistant_gap_item.canonical', ['assistant_gap_item' => $turn->gap_item_id]),
+            '#url' => Url::fromRoute('entity.assistant_gap_item.edit_form', ['assistant_gap_item' => $turn->gap_item_id]),
           ],
         ];
       }

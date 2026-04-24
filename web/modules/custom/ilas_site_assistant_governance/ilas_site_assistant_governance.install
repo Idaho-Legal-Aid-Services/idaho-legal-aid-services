@@ -5,6 +5,8 @@
  * Install and update hooks for the assistant governance module.
  */
 
+use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
+
 /**
  * Implements hook_schema().
  */
@@ -68,6 +70,12 @@ function ilas_site_assistant_governance_schema(): array {
         'not null' => FALSE,
       ],
       'has_no_answer' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'has_unresolved_gap' => [
         'type' => 'int',
         'size' => 'tiny',
         'not null' => TRUE,
@@ -240,6 +248,13 @@ function ilas_site_assistant_governance_schema(): array {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
+      'is_unresolved' => [
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ],
       'query_hash' => [
         'type' => 'varchar',
         'length' => 64,
@@ -365,4 +380,210 @@ function ilas_site_assistant_governance_update_11001(): void {
   if (!$schema->indexExists($table, 'assistant_gap_item__state_assigned_changed')) {
     $schema->addIndex($table, 'assistant_gap_item__state_assigned_changed', ['review_state', 'assigned_uid', 'changed']);
   }
+}
+
+/**
+ * Adds unresolved-hit tracking to per-occurrence gap evidence rows.
+ */
+function ilas_site_assistant_governance_update_11002(): void {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'ilas_site_assistant_gap_hit';
+
+  if (!$schema->tableExists($table) || $schema->fieldExists($table, 'is_unresolved')) {
+    return;
+  }
+
+  $schema->addField($table, 'is_unresolved', [
+    'type' => 'int',
+    'size' => 'tiny',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 1,
+  ]);
+
+  $database->update($table)
+    ->fields(['is_unresolved' => 1])
+    ->execute();
+}
+
+/**
+ * Resets polluted no-answer history and frees the primary topic-gap path.
+ */
+function ilas_site_assistant_governance_update_11003(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  foreach (['ilas_site_assistant_gap_hit', 'assistant_gap_item_revision', 'assistant_gap_item'] as $table) {
+    if ($schema->tableExists($table)) {
+      $database->delete($table)->execute();
+    }
+  }
+
+  if ($schema->tableExists('ilas_site_assistant_conversation_turn')) {
+    $database->update('ilas_site_assistant_conversation_turn')
+      ->fields([
+        'gap_item_id' => NULL,
+        'is_no_answer' => 0,
+      ])
+      ->execute();
+  }
+
+  if ($schema->tableExists('ilas_site_assistant_conversation_session')) {
+    $database->update('ilas_site_assistant_conversation_session')
+      ->fields([
+        'latest_gap_item_id' => NULL,
+        'has_no_answer' => 0,
+      ])
+      ->execute();
+  }
+
+  if ($schema->tableExists('ilas_site_assistant_no_answer')) {
+    $database->delete('ilas_site_assistant_no_answer')->execute();
+  }
+
+  if ($schema->tableExists('ilas_site_assistant_stats')) {
+    $database->delete('ilas_site_assistant_stats')
+      ->condition('event_type', ['no_answer', 'no_answer_topic', 'no_answer_service_area'], 'IN')
+      ->execute();
+  }
+
+  $config = \Drupal::service('config.factory')
+    ->getEditable('views.view.' . 'assistant_gap_topic' . '_analysis');
+  if (!$config->isNew()) {
+    $config->delete();
+  }
+
+  return (string) t('Reset polluted gap history and deleted the retired topic-gap View config.');
+}
+
+/**
+ * Adds immutable identity fields and indexes to assistant gap items.
+ */
+function ilas_site_assistant_governance_update_11004(): void {
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $entity_type = $entity_type_manager->getDefinition('assistant_gap_item');
+  $field_definitions = AssistantGapItem::baseFieldDefinitions($entity_type);
+  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $installed_field_definitions = \Drupal::service('entity.last_installed_schema.repository')
+    ->getLastInstalledFieldStorageDefinitions('assistant_gap_item');
+
+  foreach ([
+    'identity_context_key',
+    'identity_source',
+    'identity_selection_key',
+    'identity_intent',
+    'identity_topic_tid',
+    'identity_service_area_tid',
+  ] as $field_name) {
+    if (!isset($installed_field_definitions[$field_name])) {
+      $entity_definition_update_manager->installFieldStorageDefinition(
+        $field_name,
+        'assistant_gap_item',
+        'ilas_site_assistant_governance',
+        $field_definitions[$field_name],
+      );
+    }
+  }
+
+  $schema = \Drupal::database()->schema();
+  $table = 'assistant_gap_item';
+  if (!$schema->tableExists($table)) {
+    return;
+  }
+
+  $index_field_spec = [
+    'fields' => [
+      'identity_context_key' => [
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 'legacy:unknown',
+      ],
+      'identity_selection_key' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => FALSE,
+      ],
+      'identity_intent' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => 'unknown',
+      ],
+    ],
+  ];
+
+  foreach ([
+    'assistant_gap_item__identity_context_key' => ['identity_context_key'],
+    'assistant_gap_item__identity_selection_key' => ['identity_selection_key'],
+    'assistant_gap_item__identity_intent' => ['identity_intent'],
+  ] as $index_name => $columns) {
+    if (!$schema->indexExists($table, $index_name)) {
+      $schema->addIndex($table, $index_name, $columns, $index_field_spec);
+    }
+  }
+}
+
+/**
+ * Adds current unresolved-gap status to conversation sessions.
+ */
+function ilas_site_assistant_governance_update_11005(): void {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'ilas_site_assistant_conversation_session';
+
+  if (!$schema->tableExists($table)) {
+    return;
+  }
+
+  if (!$schema->fieldExists($table, 'has_unresolved_gap')) {
+    $schema->addField($table, 'has_unresolved_gap', [
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+
+  $database->update($table)
+    ->fields(['has_unresolved_gap' => 0])
+    ->execute();
+
+  if (
+    !$schema->tableExists('ilas_site_assistant_gap_hit')
+    || !$schema->fieldExists('ilas_site_assistant_gap_hit', 'is_unresolved')
+  ) {
+    return;
+  }
+
+  $conversation_ids = $database->select('ilas_site_assistant_gap_hit', 'h')
+    ->fields('h', ['conversation_id'])
+    ->condition('is_unresolved', 1)
+    ->isNotNull('conversation_id')
+    ->distinct()
+    ->execute()
+    ->fetchCol();
+
+  foreach (array_chunk(array_values(array_filter($conversation_ids)), 250) as $chunk) {
+    $database->update($table)
+      ->fields(['has_unresolved_gap' => 1])
+      ->condition('conversation_id', $chunk, 'IN')
+      ->execute();
+  }
+}
+
+/**
+ * Deletes the retired topic-gap View config on sites that already ran 11003.
+ */
+function ilas_site_assistant_governance_update_11006(): string {
+  $config = \Drupal::service('config.factory')
+    ->getEditable('views.view.' . 'assistant_gap_topic' . '_analysis');
+
+  if ($config->isNew()) {
+    return (string) t('Retired topic-gap View config was already absent.');
+  }
+
+  $config->delete();
+  return (string) t('Deleted the retired topic-gap View config.');
 }

@@ -27,7 +27,7 @@ display:
         options:
           perm: 'view assistant gap items'
       cache:
-        type: tag
+        type: none
         options: {  }
       query:
         type: views_query
@@ -45,29 +45,47 @@ display:
         options:
           columns:
             assistant_gap_item_bulk_form: assistant_gap_item_bulk_form
-            label: label
+            exemplar_redacted_query: exemplar_redacted_query
             review_state: review_state
+            next_action: next_action
+            identity_context_key: identity_context_key
             primary_topic_tid: primary_topic_tid
+            primary_service_area_tid: primary_service_area_tid
+            topic_assignment_source: topic_assignment_source
+            topic_assignment_confidence: topic_assignment_confidence
             assigned_uid: assigned_uid
-            occurrence_count_total: occurrence_count_total
+            occurrence_count_unresolved: occurrence_count_unresolved
             last_seen: last_seen
+            latest_conversation_id: latest_conversation_id
             is_held: is_held
             operations: operations
           default: last_seen
           info:
             assistant_gap_item_bulk_form:
               sortable: false
-            label:
+            exemplar_redacted_query:
               sortable: false
             review_state:
               sortable: false
+            next_action:
+              sortable: false
+            identity_context_key:
+              sortable: false
             primary_topic_tid:
+              sortable: false
+            primary_service_area_tid:
+              sortable: false
+            topic_assignment_source:
+              sortable: false
+            topic_assignment_confidence:
               sortable: false
             assigned_uid:
               sortable: false
-            occurrence_count_total:
+            occurrence_count_unresolved:
               sortable: false
             last_seen:
+              sortable: false
+            latest_conversation_id:
               sortable: false
             is_held:
               sortable: false
@@ -142,6 +160,28 @@ display:
             - assistant_gap_item_flag_duplicate_issue_action
             - assistant_gap_item_place_legal_hold_action
             - assistant_gap_item_release_legal_hold_action
+        id:
+          id: id
+          table: assistant_gap_item
+          field: id
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: id
+          plugin_id: field
+          label: ''
+          exclude: true
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: number_integer
+          settings:
+            thousand_separator: ''
+            prefix_suffix: true
         label:
           id: label
           table: assistant_gap_item
@@ -153,7 +193,7 @@ display:
           entity_field: label
           plugin_id: field
           label: 'Gap item'
-          exclude: false
+          exclude: true
           alter:
             alter_text: false
           element_default_classes: true
@@ -162,7 +202,52 @@ display:
           hide_alter_empty: true
           type: string
           settings:
-            link_to_entity: true
+            link_to_entity: false
+        exemplar_redacted_query:
+          id: exemplar_redacted_query
+          table: assistant_gap_item
+          field: exemplar_redacted_query
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: exemplar_redacted_query
+          plugin_id: field
+          label: Exemplar
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: true
+            path: 'admin/reports/ilas-assistant/gaps/{{ id }}'
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: basic_string
+          settings: {  }
         review_state:
           id: review_state
           table: assistant_gap_item
@@ -182,6 +267,42 @@ display:
           empty_zero: false
           hide_alter_empty: true
           type: list_default
+          settings: {  }
+        next_action:
+          id: next_action
+          table: assistant_gap_item
+          field: next_action
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: assistant_gap_item_next_action
+          label: 'Next action'
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+        identity_context_key:
+          id: identity_context_key
+          table: assistant_gap_item
+          field: identity_context_key
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: identity_context_key
+          plugin_id: field
+          label: Context
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: string
           settings: {  }
         primary_topic_tid:
           id: primary_topic_tid
@@ -204,6 +325,94 @@ display:
           type: entity_reference_label
           settings:
             link: true
+        primary_service_area_tid:
+          id: primary_service_area_tid
+          table: assistant_gap_item
+          field: primary_service_area_tid
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: primary_service_area_tid
+          plugin_id: field
+          label: 'Service area'
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: entity_reference_label
+          settings:
+            link: true
+        topic_assignment_source:
+          id: topic_assignment_source
+          table: assistant_gap_item
+          field: topic_assignment_source
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: topic_assignment_source
+          plugin_id: field
+          label: Source
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: list_default
+          settings: {  }
+        topic_assignment_confidence:
+          id: topic_assignment_confidence
+          table: assistant_gap_item
+          field: topic_assignment_confidence
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: topic_assignment_confidence
+          plugin_id: field
+          label: Confidence
+          exclude: false
+          alter:
+            alter_text: true
+            text: '{{ topic_assignment_confidence }}%'
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_default_classes: true
+          hide_empty: true
+          empty_zero: false
+          hide_alter_empty: true
+          type: number_integer
+          settings:
+            thousand_separator: ''
+            prefix_suffix: true
         assigned_uid:
           id: assigned_uid
           table: assistant_gap_item
@@ -225,17 +434,17 @@ display:
           type: entity_reference_label
           settings:
             link: true
-        occurrence_count_total:
-          id: occurrence_count_total
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
           table: assistant_gap_item
-          field: occurrence_count_total
+          field: occurrence_count_unresolved
           relationship: none
           group_type: group
           admin_label: ''
           entity_type: assistant_gap_item
-          entity_field: occurrence_count_total
+          entity_field: occurrence_count_unresolved
           plugin_id: field
-          label: Occurrences
+          label: 'Open occurrences'
           exclude: false
           alter:
             alter_text: false
@@ -279,6 +488,51 @@ display:
               past_format: '@interval ago'
               granularity: 2
               refresh: 60
+        latest_conversation_id:
+          id: latest_conversation_id
+          table: assistant_gap_item
+          field: latest_conversation_id
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: latest_conversation_id
+          plugin_id: field
+          label: Conversation
+          exclude: false
+          alter:
+            alter_text: true
+            text: Open
+            make_link: true
+            path: 'admin/reports/ilas-assistant/governance/conversations/{{ latest_conversation_id }}'
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_default_classes: true
+          hide_empty: true
+          empty_zero: false
+          hide_alter_empty: true
+          type: string
+          settings: {  }
         is_held:
           id: is_held
           table: assistant_gap_item
@@ -333,8 +587,6 @@ display:
           entity_field: last_seen
           plugin_id: date
           order: DESC
-          expose:
-            operator: false
       empty: {  }
       relationships: {  }
       arguments: {  }
@@ -346,8 +598,93 @@ display:
     display_plugin: page
     position: 1
     display_options:
-      title: 'Gap items needing review'
+      defaults:
+        title: false
+        filters: false
+      title: 'Actionable gap review queue'
       path: admin/reports/ilas-assistant/gaps
+      filters:
+        review_state:
+          id: review_state
+          table: assistant_gap_item
+          field: review_state
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: review_state
+          plugin_id: list_field
+          operator: or
+          value:
+            new: new
+            needs_review: needs_review
+            reviewed: reviewed
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: numeric
+          operator: '>'
+          value:
+            value: '0'
+      menu:
+        type: none
+  page_new:
+    id: page_new
+    display_title: New
+    display_plugin: page
+    position: 2
+    display_options:
+      defaults:
+        title: false
+        filters: false
+      title: 'New gap items'
+      path: admin/reports/ilas-assistant/gaps/new
+      filters:
+        review_state:
+          id: review_state
+          table: assistant_gap_item
+          field: review_state
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: review_state
+          plugin_id: list_field
+          operator: or
+          value:
+            new: new
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: numeric
+          operator: '>'
+          value:
+            value: '0'
+      menu:
+        type: none
+  page_needs_review:
+    id: page_needs_review
+    display_title: 'Needs Review'
+    display_plugin: page
+    position: 3
+    display_options:
+      defaults:
+        title: false
+        filters: false
+      title: 'Gap items in review'
+      path: admin/reports/ilas-assistant/gaps/needs-review
       filters:
         review_state:
           id: review_state
@@ -374,19 +711,109 @@ display:
           plugin_id: numeric
           operator: '>'
           value:
-            min: '0'
-            max: ''
+            value: '0'
       menu:
         type: none
-  page_new:
-    id: page_new
-    display_title: New
+  page_all:
+    id: page_all
+    display_title: All
     display_plugin: page
-    position: 2
+    position: 4
     display_options:
-      title: 'New gap items'
-      path: admin/reports/ilas-assistant/gaps/new
-      filters:
+      defaults:
+        title: false
+        style: false
+        fields: false
+      title: 'All gap items'
+      style:
+        type: table
+        options:
+          columns:
+            exemplar_redacted_query: exemplar_redacted_query
+            review_state: review_state
+            occurrence_count_total: occurrence_count_total
+            last_seen: last_seen
+            operations: operations
+          default: last_seen
+          info:
+            exemplar_redacted_query:
+              sortable: false
+            review_state:
+              sortable: false
+            occurrence_count_total:
+              sortable: false
+            last_seen:
+              sortable: false
+            operations:
+              sortable: false
+      fields:
+        id:
+          id: id
+          table: assistant_gap_item
+          field: id
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: id
+          plugin_id: field
+          label: ''
+          exclude: true
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: number_integer
+          settings:
+            thousand_separator: ''
+            prefix_suffix: true
+        exemplar_redacted_query:
+          id: exemplar_redacted_query
+          table: assistant_gap_item
+          field: exemplar_redacted_query
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: exemplar_redacted_query
+          plugin_id: field
+          label: Exemplar
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: true
+            path: 'admin/reports/ilas-assistant/gaps/{{ id }}'
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: basic_string
+          settings: {  }
         review_state:
           id: review_state
           table: assistant_gap_item
@@ -396,19 +823,89 @@ display:
           admin_label: ''
           entity_type: assistant_gap_item
           entity_field: review_state
-          plugin_id: list_field
-          operator: or
-          value:
-            new: new
-      menu:
-        type: none
-  page_all:
-    id: page_all
-    display_title: All
-    display_plugin: page
-    position: 3
-    display_options:
-      title: 'All gap items'
+          plugin_id: field
+          label: State
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: list_default
+          settings: {  }
+        occurrence_count_total:
+          id: occurrence_count_total
+          table: assistant_gap_item
+          field: occurrence_count_total
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_total
+          plugin_id: field
+          label: 'Lifetime occurrences'
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: number_integer
+          settings:
+            thousand_separator: ''
+            prefix_suffix: true
+        last_seen:
+          id: last_seen
+          table: assistant_gap_item
+          field: last_seen
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: last_seen
+          plugin_id: field
+          label: 'Last seen'
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: timestamp
+          settings:
+            date_format: short
+            custom_date_format: ''
+            timezone: ''
+            tooltip:
+              date_format: long
+              custom_date_format: ''
+            time_diff:
+              enabled: false
+              future_format: '@interval hence'
+              past_format: '@interval ago'
+              granularity: 2
+              refresh: 60
+        operations:
+          id: operations
+          table: assistant_gap_item
+          field: operations
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          plugin_id: entity_operations
+          label: Operations
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          destination: false
       path: admin/reports/ilas-assistant/gaps/all
       menu:
         type: none

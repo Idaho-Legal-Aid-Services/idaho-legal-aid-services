@@ -70,7 +70,8 @@ function ilas_site_assistant_governance_views_data(): array {
   }
 
   foreach ([
-    'has_no_answer' => t('Has no answer'),
+    'has_unresolved_gap' => t('Needs follow-up now'),
+    'has_no_answer' => t('Ever had no-answer event'),
     'is_held' => t('Legal hold'),
   ] as $field_name => $title) {
     $data['ilas_site_assistant_conversation_session'][$field_name] = [
@@ -105,5 +106,27 @@ function ilas_site_assistant_governance_views_data(): array {
     'field' => 'latest_gap_item_id',
   ];
 
+  $data['assistant_gap_item']['latest_conversation_id']['relationship'] = [
+    'title' => t('Latest governance conversation'),
+    'help' => t('Relates a gap item to its latest governance conversation session.'),
+    'id' => 'standard',
+    'base' => 'ilas_site_assistant_conversation_session',
+    'base field' => 'conversation_id',
+    'field' => 'latest_conversation_id',
+  ];
+
   return $data;
+}
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function ilas_site_assistant_governance_views_data_alter(array &$data): void {
+  $data['assistant_gap_item']['next_action'] = [
+    'title' => t('Next action'),
+    'help' => t('Reviewer guidance based on the current gap-item state and topic assignment.'),
+    'field' => [
+      'id' => 'assistant_gap_item_next_action',
+    ],
+  ];
 }

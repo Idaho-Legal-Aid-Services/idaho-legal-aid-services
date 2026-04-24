@@ -56,10 +56,20 @@ class AssignAssistantGapItemToCurrentUser extends ActionBase implements Containe
       return;
     }
 
-    $entity->set('assigned_uid', (int) $this->currentUser->id());
+    $acting_uid = (int) $this->currentUser->id();
+    $entity->set('assigned_uid', $acting_uid);
+    if (
+      $entity->getReviewState() === AssistantGapItem::STATE_NEW &&
+      AssistantGapItem::canTransition(AssistantGapItem::STATE_NEW, AssistantGapItem::STATE_NEEDS_REVIEW, $this->currentUser)
+    ) {
+      $entity->applyTransition(AssistantGapItem::STATE_NEEDS_REVIEW, $acting_uid);
+      $entity->setRevisionLogMessage('Bulk action assigned the gap item to the current reviewer and started review.');
+    }
+    else {
+      $entity->setRevisionLogMessage('Bulk action assigned gap item to the current reviewer.');
+    }
     $entity->setNewRevision(TRUE);
-    $entity->setRevisionUserId((int) $this->currentUser->id());
-    $entity->setRevisionLogMessage('Bulk action assigned gap item to the current reviewer.');
+    $entity->setRevisionUserId($acting_uid);
     $entity->save();
   }
 

@@ -11,8 +11,8 @@ use Psr\Log\LoggerInterface;
  * Opt-in conversation logger with metadata-only persistence for QA/debugging.
  *
  * Default: OFF. When enabled, stores hashed/minimized message metadata with a
- * short retention TTL. Access is gated by the
- * 'view ilas site assistant conversations' permission.
+ * short retention TTL. Staff access is through canonical governance surfaces
+ * gated by the 'view assistant governance conversations' permission.
  */
 class ConversationLogger {
 

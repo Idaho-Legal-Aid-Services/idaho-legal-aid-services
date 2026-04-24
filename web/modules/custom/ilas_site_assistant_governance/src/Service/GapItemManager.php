@@ -29,6 +29,7 @@ class GapItemManager {
     protected ConfigFactoryInterface $configFactory,
     protected LoggerInterface $logger,
     protected TopicResolver $topicResolver,
+    protected GapItemIdentityBuilder $identityBuilder,
   ) {}
 
   /**
@@ -42,23 +43,34 @@ class GapItemManager {
       }
 
       $now = $this->time->getRequestTime();
-      $cluster_hash = hash('sha256', $metadata['text_hash'] . '|' . $metadata['language_hint']);
       $topic_context = $this->deriveTopicContext($query, $context);
+      $identity = $this->identityBuilder->buildFromRuntimeContext(
+        $metadata['text_hash'],
+        $metadata['language_hint'],
+        $context,
+        $topic_context,
+      );
 
       /** @var \Drupal\Core\Entity\ContentEntityStorageInterface $storage */
       $storage = $this->entityTypeManager->getStorage('assistant_gap_item');
-      $existing = $storage->loadByProperties(['cluster_hash' => $cluster_hash]);
+      $existing = $storage->loadByProperties(['cluster_hash' => $identity['cluster_hash']]);
       /** @var \Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem|null $entity */
       $entity = $existing ? reset($existing) : NULL;
 
       if (!$entity instanceof AssistantGapItem) {
         $entity = $storage->create([
-          'cluster_hash' => $cluster_hash,
+          'cluster_hash' => $identity['cluster_hash'],
           'query_hash' => $metadata['text_hash'],
           'exemplar_redacted_query' => PiiRedactor::redactForStorage($query, 2000),
           'language_hint' => $metadata['language_hint'],
           'query_length_bucket' => $metadata['length_bucket'],
           'redaction_profile' => $metadata['redaction_profile'],
+          'identity_context_key' => $identity['identity_context_key'],
+          'identity_source' => $identity['identity_source'],
+          'identity_selection_key' => $identity['identity_selection_key'],
+          'identity_intent' => $identity['identity_intent'],
+          'identity_topic_tid' => $identity['identity_topic_tid'],
+          'identity_service_area_tid' => $identity['identity_service_area_tid'],
           'review_state' => AssistantGapItem::STATE_NEW,
           'first_seen' => $now,
           'last_seen' => $now,
@@ -87,13 +99,31 @@ class GapItemManager {
         }
       }
 
-      if ($topic_context['topic_id'] !== NULL && ($entity->get('primary_topic_tid')->isEmpty() || (string) $entity->get('topic_assignment_source')->value !== 'reviewer')) {
+      if ($entity->get('primary_topic_tid')->isEmpty() && $topic_context['topic_id'] !== NULL) {
         $entity->set('primary_topic_tid', $topic_context['topic_id']);
-        $entity->set('topic_assignment_source', $topic_context['assignment_source']);
+      }
+      if ($entity->get('primary_service_area_tid')->isEmpty() && $topic_context['service_area_id'] !== NULL) {
+        $entity->set('primary_service_area_tid', $topic_context['service_area_id']);
+      }
+
+      $current_assignment_source = (string) ($entity->get('topic_assignment_source')->value ?? 'unknown');
+      if ($entity->get('primary_topic_tid')->isEmpty()) {
+        $entity->set('topic_assignment_confidence', NULL);
+      }
+      elseif ($entity->get('topic_assignment_confidence')->isEmpty() && $topic_context['confidence'] !== NULL) {
         $entity->set('topic_assignment_confidence', $topic_context['confidence']);
       }
-      if ($topic_context['service_area_id'] !== NULL && ($entity->get('primary_service_area_tid')->isEmpty() || (string) $entity->get('topic_assignment_source')->value !== 'reviewer')) {
-        $entity->set('primary_service_area_tid', $topic_context['service_area_id']);
+
+      if (
+        $current_assignment_source !== 'reviewer'
+        && in_array($current_assignment_source, ['unknown', 'legacy_none', ''], TRUE)
+        && $topic_context['assignment_source'] !== 'unknown'
+      ) {
+          $entity->set('topic_assignment_source', $topic_context['assignment_source']);
+      }
+
+      if ($entity->isNew()) {
+        $entity->set('topic_assignment_confidence', $topic_context['confidence']);
       }
 
       $entity->save();
@@ -105,6 +135,7 @@ class GapItemManager {
           'conversation_id' => $this->nullableString($context['conversation_id'] ?? '', 36),
           'request_id' => $this->nullableString($context['request_id'] ?? '', 36),
           'occurred_at' => $now,
+          'is_unresolved' => 1,
           'query_hash' => $metadata['text_hash'],
           'language_hint' => $metadata['language_hint'],
           'observed_topic_tid' => $topic_context['topic_id'],
@@ -142,12 +173,21 @@ class GapItemManager {
     $assignment_source = (string) ($context['assignment_source'] ?? 'unknown');
     $topic_id = $this->normalizeInt($context['topic_id'] ?? NULL);
     $service_area_id = $this->normalizeInt($context['service_area_id'] ?? NULL);
+    $selection_topic_candidates = array_values(array_filter([
+      trim((string) ($context['selection_query_label'] ?? '')),
+      trim((string) ($context['selection_label'] ?? '')),
+    ]));
+
+    if ($assignment_source === 'unknown' && ($selection_topic_candidates !== [] || trim((string) ($context['active_selection_key'] ?? '')) !== '')) {
+      $assignment_source = 'selection';
+    }
 
     if ($topic_id === NULL) {
       $topic_label_candidates = [
         (string) ($context['topic_label'] ?? ''),
         (string) ($context['selection_label'] ?? ''),
       ];
+      $topic_label_candidates = array_merge($selection_topic_candidates, $topic_label_candidates);
 
       foreach ($topic_label_candidates as $candidate) {
         if ($candidate === '') {
@@ -165,6 +205,10 @@ class GapItemManager {
       }
     }
 
+    if ($service_area_id === NULL && !empty($context['selection_service_area'])) {
+      $service_area_id = $this->resolveServiceAreaIdByName((string) $context['selection_service_area']);
+    }
+
     if ($service_area_id === NULL && !empty($context['service_area_label'])) {
       $service_area_id = $this->resolveServiceAreaIdByName((string) $context['service_area_label']);
     }
@@ -177,8 +221,11 @@ class GapItemManager {
     }
 
     $confidence = $this->normalizeInt($context['topic_confidence'] ?? NULL);
-    if ($confidence === NULL) {
-      $confidence = $topic_id !== NULL ? 80 : NULL;
+    if ($topic_id === NULL) {
+      $confidence = NULL;
+    }
+    elseif ($confidence === NULL) {
+      $confidence = 80;
     }
 
     return [
@@ -213,6 +260,10 @@ class GapItemManager {
    * Writes a single aggregated analytics rollup row.
    */
   protected function rollupStat(string $event_type, string $event_value): void {
+    if (!$this->database->schema()->tableExists('ilas_site_assistant_stats')) {
+      return;
+    }
+
     $date = date('Y-m-d', $this->time->getRequestTime());
 
     $this->database->merge('ilas_site_assistant_stats')

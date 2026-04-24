@@ -1210,6 +1210,54 @@ class SentryOptionsSubscriberTest extends TestCase {
     return $bag;
   }
 
+  // ─── Cron re-run lock noise filter tests ──────────────────────────
+
+  /**
+   * Tests before_send drops the Drupal cron re-run lock collision warning.
+   */
+  public function testCronRerunNoiseFilterDropsLockWarning(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setMessage('Attempting to re-run cron while it is already running.');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, 'Cron lock collision warning should be dropped regardless of context.');
+  }
+
+  /**
+   * Tests the filter is context-agnostic — drops in web context, not just CLI.
+   */
+  public function testCronRerunNoiseFilterDropsInWebContext(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    // Simulate event arriving from web context (no CLI argv).
+    $event->setMessage('Attempting to re-run cron while it is already running.');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, 'Cron lock collision warning should be dropped in web context too.');
+  }
+
+  /**
+   * Tests isCronRerunNoise() returns FALSE for unrelated warning messages.
+   */
+  public function testCronRerunNoiseFilterKeepsUnrelatedWarnings(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = \Sentry\Event::createEvent();
+    $event->setMessage('Cron completed successfully.');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNotNull($result, 'Unrelated messages must not be dropped by the cron re-run filter.');
+  }
+
   // ─── Minimum-context guarantee tests ──────────────────────────────
 
   /**
