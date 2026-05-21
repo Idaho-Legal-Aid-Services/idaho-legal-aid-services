@@ -3764,7 +3764,7 @@
         },
         {
             "name": "drupal/core-project-message",
-            "version": "11.3.9",
+            "version": "11.3.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/drupal/core-project-message.git",
@@ -3799,7 +3799,7 @@
                 "drupal"
             ],
             "support": {
-                "source": "https://github.com/drupal/core-project-message/tree/11.3.9"
+                "source": "https://github.com/drupal/core-project-message/tree/11.3.10"
             },
             "time": "2025-02-03T10:59:29+00:00"
         },
