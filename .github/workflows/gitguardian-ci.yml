@@ -45,7 +45,7 @@ jobs:
 
       - name: Scan new commits for secrets
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: GitGuardian/ggshield/actions/secret@887cfae8f31533a243e53f14cbec78781b67c4a6 # v1.50.3
+        uses: GitGuardian/ggshield/actions/secret@0314bfd58b75042fd42bc3418edb3e37f6179853 # v1.51.0
         env:
           GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
