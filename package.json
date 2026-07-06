@@ -45,7 +45,7 @@
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.59.1",
     "jest-environment-jsdom": "^30.3.0",
-    "promptfoo": "^0.121.7"
+    "promptfoo": "^0.121.11"
   },
   "overrides": {
     "protobufjs": "8.0.1",
