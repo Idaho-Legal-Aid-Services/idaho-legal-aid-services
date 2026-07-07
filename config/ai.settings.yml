@@ -9,3 +9,4 @@ default_providers:
   embeddings:
     provider_id: ilas_voyage
     model_id: voyage-law-2
+global_guardrails: {  }
