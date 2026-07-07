@@ -18,15 +18,15 @@ class PiiRedactor {
   /**
    * Redaction tokens.
    */
-  const TOKEN_EMAIL   = '[REDACTED-EMAIL]';
-  const TOKEN_PHONE   = '[REDACTED-PHONE]';
-  const TOKEN_SSN     = '[REDACTED-SSN]';
-  const TOKEN_CC      = '[REDACTED-CC]';
-  const TOKEN_DOB     = '[REDACTED-DOB]';
-  const TOKEN_DATE    = '[REDACTED-DATE]';
-  const TOKEN_ADDRESS = '[REDACTED-ADDRESS]';
-  const TOKEN_NAME    = '[REDACTED-NAME]';
-  const TOKEN_CASE    = '[REDACTED-CASE]';
+  const TOKEN_EMAIL      = '[REDACTED-EMAIL]';
+  const TOKEN_PHONE      = '[REDACTED-PHONE]';
+  const TOKEN_SSN        = '[REDACTED-SSN]';
+  const TOKEN_CC         = '[REDACTED-CC]';
+  const TOKEN_DOB        = '[REDACTED-DOB]';
+  const TOKEN_DATE       = '[REDACTED-DATE]';
+  const TOKEN_ADDRESS    = '[REDACTED-ADDRESS]';
+  const TOKEN_NAME       = '[REDACTED-NAME]';
+  const TOKEN_CASE       = '[REDACTED-CASE]';
   const TOKEN_CREDENTIAL = '[REDACTED-CREDENTIAL]';
 
   /**
