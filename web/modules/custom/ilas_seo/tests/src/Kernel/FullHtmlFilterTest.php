@@ -52,7 +52,7 @@ class FullHtmlFilterTest extends KernelTestBase {
    */
   public function testScriptTagStripped(): void {
     $input = '<p>Safe content</p><script>alert("XSS")</script><p>More safe</p>';
-    $result = check_markup($input, 'full_html');
+    $result = $this->applyFullHtml($input);
 
     $this->assertStringNotContainsString('<script', (string) $result);
     $this->assertStringNotContainsString('</script>', (string) $result);
@@ -64,7 +64,7 @@ class FullHtmlFilterTest extends KernelTestBase {
    */
   public function testIframeSrcdocStripped(): void {
     $input = '<iframe srcdoc="<script>alert(1)</script>" width="100"></iframe>';
-    $result = check_markup($input, 'full_html');
+    $result = $this->applyFullHtml($input);
 
     $this->assertStringNotContainsString('srcdoc', (string) $result);
     $this->assertStringContainsString('<iframe', (string) $result);
@@ -75,7 +75,7 @@ class FullHtmlFilterTest extends KernelTestBase {
    */
   public function testIframeAllowedAttributesPreserved(): void {
     $input = '<iframe src="https://www.youtube.com/embed/test" width="560" height="315" title="Video" allowfullscreen loading="lazy"></iframe>';
-    $result = check_markup($input, 'full_html');
+    $result = $this->applyFullHtml($input);
 
     $this->assertStringContainsString('src="https://www.youtube.com/embed/test"', (string) $result);
     $this->assertStringContainsString('width="560"', (string) $result);
@@ -86,11 +86,23 @@ class FullHtmlFilterTest extends KernelTestBase {
    */
   public function testAllowedTagsSurvive(): void {
     $input = '<p>Paragraph</p><strong>Bold</strong><em>Italic</em>';
-    $result = check_markup($input, 'full_html');
+    $result = $this->applyFullHtml($input);
 
     $this->assertStringContainsString('<p>Paragraph</p>', (string) $result);
     $this->assertStringContainsString('<strong>Bold</strong>', (string) $result);
     $this->assertStringContainsString('<em>Italic</em>', (string) $result);
+  }
+
+  /**
+   * Runs text through the full_html format's filter pipeline.
+   */
+  private function applyFullHtml(string $text): string {
+    $build = [
+      '#type' => 'processed_text',
+      '#text' => $text,
+      '#format' => 'full_html',
+    ];
+    return (string) $this->container->get('renderer')->renderInIsolation($build);
   }
 
 }

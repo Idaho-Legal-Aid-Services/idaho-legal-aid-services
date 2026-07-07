@@ -35,7 +35,7 @@ final class AssistantGapItemHtmlRouteProvider extends AdminHtmlRouteProvider {
       ])
       ->setOption('_admin_route', TRUE);
 
-    if ($this->getEntityTypeIdKeyType($entity_type) === 'integer') {
+    if ($entity_type->hasIntegerId()) {
       $route->setRequirement($entity_type_id, '\d+');
     }
 

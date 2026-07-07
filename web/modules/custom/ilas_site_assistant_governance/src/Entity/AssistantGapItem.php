@@ -928,11 +928,12 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
         'settings' => ['date_format' => 'short'],
       ]);
 
-    $fields['revision_log_message']
-      ->setDisplayOptions('form', [
-        'type' => 'string_textarea',
-        'weight' => 50,
-      ]);
+    $revision_log_message = $fields['revision_log_message'];
+    assert($revision_log_message instanceof BaseFieldDefinition);
+    $revision_log_message->setDisplayOptions('form', [
+      'type' => 'string_textarea',
+      'weight' => 50,
+    ]);
 
     return $fields;
   }

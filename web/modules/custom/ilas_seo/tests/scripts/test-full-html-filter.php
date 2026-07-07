@@ -17,6 +17,15 @@ $pass = 0;
 $fail = 0;
 $output = [];
 
+$apply_full_html = static function (string $text): string {
+  $build = [
+    '#type' => 'processed_text',
+    '#text' => $text,
+    '#format' => 'full_html',
+  ];
+  return (string) \Drupal::service('renderer')->renderInIsolation($build);
+};
+
 echo "=== Full HTML Text Format Security Tests ===\n\n";
 
 // Verify the format exists.
@@ -31,7 +40,7 @@ echo "Testing format: full_html (status: " . ($format->status() ? 'enabled' : 'd
 
 // --- Test 1: <script> tag stripped ---
 $input = '<p>Safe</p><script>alert("XSS")</script><p>More</p>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (str_contains($result, '<p>Safe</p>') && !str_contains($result, '<script')) {
   $pass++;
@@ -44,7 +53,7 @@ else {
 
 // --- Test 2: <script> with attributes stripped ---
 $input = '<script type="text/javascript" src="https://evil.com/xss.js"></script>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (!str_contains($result, '<script') && !str_contains($result, 'evil.com')) {
   $pass++;
@@ -57,7 +66,7 @@ else {
 
 // --- Test 3: <iframe srcdoc> stripped ---
 $input = '<iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;" width="100"></iframe>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (!str_contains($result, 'srcdoc') && str_contains($result, '<iframe')) {
   $pass++;
@@ -70,7 +79,7 @@ else {
 
 // --- Test 4: <iframe> event handlers stripped ---
 $input = '<iframe src="https://example.com" onload="alert(1)" onerror="alert(2)"></iframe>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (!str_contains($result, 'onload') && !str_contains($result, 'onerror')) {
   $pass++;
@@ -83,7 +92,7 @@ else {
 
 // --- Test 5: <iframe> allowed attributes preserved ---
 $input = '<iframe src="https://www.youtube.com/embed/test" width="560" height="315" title="Video" allowfullscreen loading="lazy"></iframe>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (str_contains($result, 'src="https://www.youtube.com/embed/test"')
     && str_contains($result, 'width="560"')
@@ -100,7 +109,7 @@ else {
 
 // --- Test 6: <iframe> embed-reality attributes preserved ---
 $input = '<iframe src="https://donorbox.org/embed" allow="payment" referrerpolicy="no-referrer" sandbox="allow-scripts" scrolling="no" class="donorbox" id="embed-1"></iframe>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (str_contains($result, 'allow="payment"')
     && str_contains($result, 'referrerpolicy="no-referrer"')
@@ -118,7 +127,7 @@ else {
 
 // --- Test 7: <svg> stripped ---
 $input = '<svg onload="alert(1)"><circle r="50"/></svg>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (!str_contains($result, '<svg') && !str_contains($result, 'onload')) {
   $pass++;
@@ -131,7 +140,7 @@ else {
 
 // --- Test 8: Allowed tags survive ---
 $input = '<p>Paragraph</p><strong>Bold</strong><em>Italic</em><a href="https://example.com" title="Link">Link text</a>';
-$result = (string) check_markup($input, 'full_html');
+$result = $apply_full_html($input);
 
 if (str_contains($result, '<p>Paragraph</p>')
     && str_contains($result, '<strong>Bold</strong>')
