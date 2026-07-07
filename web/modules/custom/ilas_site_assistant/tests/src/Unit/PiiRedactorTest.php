@@ -480,4 +480,51 @@ class PiiRedactorTest extends TestCase {
       'Non-PII portion of message should be preserved');
   }
 
+  /**
+   * Tests credential redaction.
+   *
+   * Regression test for the Sentry audit finding (2026-07-07): a Google
+   * Translate API key survived redaction inside a breadcrumb http.query value.
+   */
+  #[DataProvider('credentialProvider')]
+  public function testRedactsCredentials(string $input, string $expected): void {
+    $this->assertSame($expected, PiiRedactor::redact($input));
+  }
+
+  /**
+   *
+   */
+  public static function credentialProvider(): array {
+    return [
+      'google api key in query string' => [
+        '&key=AIzaSyTEST-ONLY-NOT-A-REAL-KEY-00000000&source=en&target=es',
+        '&key=' . PiiRedactor::TOKEN_CREDENTIAL . '&source=en&target=es',
+      ],
+      'bare google api key' => [
+        'called with AIzaSyTEST-ONLY-NOT-A-REAL-KEY-00000000 today',
+        'called with ' . PiiRedactor::TOKEN_CREDENTIAL . ' today',
+      ],
+      'token query parameter' => [
+        'GET /endpoint?token=abc123def456&page=2',
+        'GET /endpoint?token=' . PiiRedactor::TOKEN_CREDENTIAL . '&page=2',
+      ],
+      'api_key query parameter' => [
+        'https://api.example.com/v1?api_key=s3cr3tvalue',
+        'https://api.example.com/v1?api_key=' . PiiRedactor::TOKEN_CREDENTIAL,
+      ],
+      'openai-style secret key' => [
+        'using sk-abcdefghijklmnopqrstuvwxyz123456',
+        'using ' . PiiRedactor::TOKEN_CREDENTIAL,
+      ],
+      'non-credential params untouched' => [
+        '?source=en&target=es&page=3',
+        '?source=en&target=es&page=3',
+      ],
+      'ordinary word key untouched' => [
+        'the key point is that keys are fine',
+        'the key point is that keys are fine',
+      ],
+    ];
+  }
+
 }

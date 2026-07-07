@@ -32,6 +32,7 @@ class PiiRedactorContractTest extends TestCase {
       'TOKEN_ADDRESS',
       'TOKEN_NAME',
       'TOKEN_CASE',
+      'TOKEN_CREDENTIAL',
     ];
 
     $ref = new \ReflectionClass(PiiRedactor::class);

@@ -3,10 +3,14 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.storage.paragraph.field_accordion_body
+    - field.storage.paragraph.field_accordion_title
+    - field.storage.paragraph.field_anchor_id
+    - field.storage.paragraph.field_faq_answer
+    - field.storage.paragraph.field_faq_question
     - search_api.server.database
   module:
     - paragraphs
-    - search_api
 id: faq_accordion
 name: 'FAQ & Accordion Content'
 description: 'Indexes FAQ and accordion paragraph items for the Site Assistant chatbot.'
@@ -17,43 +21,67 @@ field_settings:
     datasource_id: 'entity:paragraph'
     property_path: field_accordion_body
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_accordion_body
   accordion_title:
     label: 'Accordion Title'
     datasource_id: 'entity:paragraph'
     property_path: field_accordion_title
     type: text
     boost: 3.0
+    dependencies:
+      config:
+        - field.storage.paragraph.field_accordion_title
   anchor_id:
     label: 'Anchor ID'
     datasource_id: 'entity:paragraph'
     property_path: field_anchor_id
     type: string
+    dependencies:
+      config:
+        - field.storage.paragraph.field_anchor_id
   faq_answer:
     label: 'FAQ Answer'
     datasource_id: 'entity:paragraph'
     property_path: field_faq_answer
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_faq_answer
   faq_question:
     label: 'FAQ Question'
     datasource_id: 'entity:paragraph'
     property_path: field_faq_question
     type: text
     boost: 3.0
+    dependencies:
+      config:
+        - field.storage.paragraph.field_faq_question
   paragraph_type:
     label: 'Paragraph Type'
     datasource_id: 'entity:paragraph'
     property_path: type
     type: string
+    dependencies:
+      module:
+        - paragraphs
   parent_id:
     label: 'Parent Entity ID'
     datasource_id: 'entity:paragraph'
     property_path: parent_id
     type: integer
+    dependencies:
+      module:
+        - paragraphs
   parent_type:
     label: 'Parent Entity Type'
     datasource_id: 'entity:paragraph'
     property_path: parent_type
     type: string
+    dependencies:
+      module:
+        - paragraphs
 datasource_settings:
   'entity:paragraph':
     bundles:
@@ -66,7 +94,10 @@ datasource_settings:
       selected: {  }
 processor_settings:
   add_url: {  }
+  aggregated_field: {  }
+  custom_value: {  }
   entity_status: {  }
+  entity_type: {  }
   html_filter:
     weights:
       preprocess_index: -15
@@ -90,6 +121,8 @@ processor_settings:
       - accordion_title
       - faq_answer
       - faq_question
+  language_with_fallback: {  }
+  rendered_item: {  }
   stemmer:
     weights:
       preprocess_index: 0

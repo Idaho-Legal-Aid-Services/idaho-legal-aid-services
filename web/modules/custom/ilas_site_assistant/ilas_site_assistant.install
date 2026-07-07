@@ -1063,9 +1063,9 @@ function ilas_site_assistant_raud21_load_canonical_index_definition(string $inde
   }
 
   $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
-  $path = DRUPAL_ROOT . '/' . $module_path . '/config/install/' . $config_name . '.yml';
+  $path = DRUPAL_ROOT . '/' . $module_path . '/config/optional/' . $config_name . '.yml';
   if (!is_file($path)) {
-    throw new UpdateException(sprintf('Canonical Search API index definition "%s" is missing from config sync and module install config.', $config_name));
+    throw new UpdateException(sprintf('Canonical Search API index definition "%s" is missing from config sync and module optional config.', $config_name));
   }
 
   $definition = Yaml::decode(file_get_contents($path));

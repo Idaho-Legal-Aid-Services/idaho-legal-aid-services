@@ -5543,7 +5543,12 @@ class AssistantApiController extends ControllerBase {
         break;
 
       case 'topic':
-        $topic_info = $this->intentRouter->getTopicInfo($intent['topic_id']);
+        // Intent classification (including LLM-derived intents) can emit a
+        // `topic` intent without a usable topic_id (Sentry PHP-2N/PHP-76).
+        $topic_id = $intent['topic_id'] ?? NULL;
+        $topic_info = is_numeric($topic_id)
+          ? $this->intentRouter->getTopicInfo((int) $topic_id)
+          : NULL;
         if ($topic_info) {
           $response['message'] = $this->t('Here\'s information about @topic:', ['@topic' => $topic_info['name']]);
           $response['topic'] = $topic_info;

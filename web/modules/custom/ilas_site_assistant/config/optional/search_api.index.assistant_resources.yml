@@ -3,10 +3,12 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.storage.node.field_main_content
+    - field.storage.node.field_service_areas
+    - field.storage.node.field_topics
     - search_api.server.database
   module:
     - node
-    - search_api
     - taxonomy
 id: assistant_resources
 name: 'Assistant Resource Finder'
@@ -19,29 +21,48 @@ field_settings:
     property_path: field_main_content
     type: text
     boost: 2.0
+    dependencies:
+      config:
+        - field.storage.node.field_main_content
   service_area_names:
     label: 'Service Area Names'
     datasource_id: 'entity:node'
     property_path: 'field_service_areas:entity:name'
     type: text
     boost: 1.5
+    dependencies:
+      config:
+        - field.storage.node.field_service_areas
+      module:
+        - taxonomy
   status:
     label: Published
     datasource_id: 'entity:node'
     property_path: status
     type: boolean
+    dependencies:
+      module:
+        - node
   title:
     label: Title
     datasource_id: 'entity:node'
     property_path: title
     type: text
     boost: 5.0
+    dependencies:
+      module:
+        - node
   topic_names:
     label: 'Topic Names'
     datasource_id: 'entity:node'
     property_path: 'field_topics:entity:name'
     type: text
     boost: 3.0
+    dependencies:
+      config:
+        - field.storage.node.field_topics
+      module:
+        - taxonomy
 datasource_settings:
   'entity:node':
     bundles:
@@ -53,7 +74,10 @@ datasource_settings:
       selected: {  }
 processor_settings:
   add_url: {  }
+  aggregated_field: {  }
+  custom_value: {  }
   entity_status: {  }
+  entity_type: {  }
   html_filter:
     weights:
       preprocess_index: -15
@@ -76,6 +100,8 @@ processor_settings:
       - service_area_names
       - title
       - topic_names
+  language_with_fallback: {  }
+  rendered_item: {  }
   stemmer:
     weights:
       preprocess_index: 0

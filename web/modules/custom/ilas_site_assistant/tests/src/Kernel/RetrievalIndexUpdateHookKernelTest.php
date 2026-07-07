@@ -6,6 +6,7 @@ namespace Drupal\Tests\ilas_site_assistant\Kernel;
 
 use Drupal\Component\Serialization\Yaml;
 use Drupal\KernelTests\KernelTestBase;
+use Drupal\Tests\ilas_site_assistant\Traits\RetrievalIndexFieldScaffoldingTrait;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -14,6 +15,8 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('ilas_site_assistant')]
 final class RetrievalIndexUpdateHookKernelTest extends KernelTestBase {
 
+  use RetrievalIndexFieldScaffoldingTrait;
+
   /**
    * {@inheritdoc}
    */
@@ -21,6 +24,7 @@ final class RetrievalIndexUpdateHookKernelTest extends KernelTestBase {
     'system',
     'user',
     'field',
+    'file',
     'filter',
     'text',
     'node',
@@ -43,6 +47,7 @@ final class RetrievalIndexUpdateHookKernelTest extends KernelTestBase {
     $this->installEntitySchema('taxonomy_term');
     $this->installEntitySchema('paragraph');
     $this->installEntitySchema('search_api_task');
+    $this->scaffoldRetrievalIndexFields();
     $this->installConfig(['search_api', 'search_api_db', 'ilas_site_assistant']);
   }
 
