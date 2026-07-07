@@ -140,6 +140,10 @@ output/playwright-a11y/
 !.ddev/web-build/
 !.ddev/web-build/README.txt
 !.ddev/.env.example
+!.ddev/docker-compose.redis.yaml
+!.ddev/redis/
+!.ddev/commands/redis/
+!.ddev/commands/host/redis-backend
 .ddev/.env
 .ddev/.env.local
 

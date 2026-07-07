@@ -770,6 +770,13 @@ if ($ilas_assistant_diagnostics_token) {
 }
 
 /**
+ * Redis object cache (Pantheon Object Cache add-on / DDEV redis service).
+ * No-ops when no Redis service is reachable, so CI and plain checkouts
+ * stay on the database cache backend.
+ */
+include __DIR__ . '/settings.redis.php';
+
+/**
  * Include DDEV settings if present.
  * Safe: this file doesn't exist on Pantheon.
  */
@@ -784,4 +791,9 @@ if (is_readable($ddev_settings)) {
 $local_settings = __DIR__ . '/settings.local.php';
 if (file_exists($local_settings)) {
   include $local_settings;
+}
+
+// Include settings required for Redis cache.
+if ((file_exists(__DIR__ . '/settings.ddev.redis.php') && getenv('IS_DDEV_PROJECT') == 'true')) {
+  include __DIR__ . '/settings.ddev.redis.php';
 }

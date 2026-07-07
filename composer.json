@@ -63,6 +63,7 @@
         "drupal/project_browser": "@beta",
         "drupal/raven": "^7.3",
         "drupal/recipe_installer_kit": "^1-alpha3@alpha",
+        "drupal/redis": "^1.11",
         "drupal/schema_metatag": "^3.0",
         "drupal/search_api_db": "^1.0",
         "drupal/search_api_page": "^1.1",
