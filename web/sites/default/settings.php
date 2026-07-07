@@ -692,7 +692,13 @@ if ($public_site_url !== '') {
     $trace_targets_backend[] = '^https?://' . $escaped_host . '(?:/|$)';
   }
 }
-if ($sentry_dsn) {
+// Local development stays out of Sentry: drush eval typos, DDEV host
+// resolution failures, etc. polluted the shared project (Sentry audit
+// 2026-07-07). Set ILAS_SENTRY_FORCE_LOCAL=1 in .ddev/.env to opt back in
+// when testing the Sentry integration itself.
+$sentry_enabled = $sentry_dsn
+  && ($observability_environment !== 'local' || getenv('ILAS_SENTRY_FORCE_LOCAL') === '1');
+if ($sentry_enabled) {
   $config['raven.settings']['client_key'] = $sentry_dsn;
   $config['raven.settings']['public_dsn'] = $sentry_public_dsn;
   $config['raven.settings']['environment'] = $observability_environment;
@@ -720,10 +726,13 @@ if ($sentry_dsn) {
     'debug' => FALSE,
   ];
   $config['raven.settings']['logs_log_levels'] = $config['raven.settings']['log_levels'];
-  // Route browser CSP violation reports directly to Sentry's native CSP
-  // endpoint so violated directives and blocked URIs are properly structured
-  // instead of lost in Drupal's @placeholder parameterization (PHP-12).
-  $config['raven.settings']['seckit_set_report_uri'] = TRUE;
+  // CSP violation reports are NOT routed to Sentry (reversal of the PHP-12
+  // decision): browsers POST them straight to Sentry's security endpoint,
+  // bypassing all before_send scrubbing (client IPs stored), and they consumed
+  // ~97% of event quota — 121k of 125k lifetime events, mostly the Cloudflare
+  // RUM beacon before it was CSP-allowlisted (Sentry audit 2026-07-07).
+  // seckit's own report-uri is blank, so no CSP reports are emitted at all.
+  $config['raven.settings']['seckit_set_report_uri'] = FALSE;
 }
 
 // Only monitor cron on production-like environments. Pantheon dev cron is

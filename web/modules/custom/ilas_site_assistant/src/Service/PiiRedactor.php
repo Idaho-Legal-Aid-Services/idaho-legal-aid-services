@@ -27,6 +27,7 @@ class PiiRedactor {
   const TOKEN_ADDRESS = '[REDACTED-ADDRESS]';
   const TOKEN_NAME    = '[REDACTED-NAME]';
   const TOKEN_CASE    = '[REDACTED-CASE]';
+  const TOKEN_CREDENTIAL = '[REDACTED-CREDENTIAL]';
 
   /**
    * Redacts PII patterns from text without truncation.
@@ -43,6 +44,23 @@ class PiiRedactor {
     }
 
     $name_pattern = self::fullNamePattern();
+
+    // 0a. Known API-key formats (Google AIza…, OpenAI sk-…, Slack xox…).
+    // Runs first so credentials never survive later passes. Escaped API keys
+    // in Sentry breadcrumb http.query values are the observed leak vector.
+    $text = preg_replace(
+      '/\b(?:AIza[0-9A-Za-z_\-]{35}|sk-[A-Za-z0-9_\-]{20,}|xox[baprs]-[A-Za-z0-9\-]{10,})\b/',
+      self::TOKEN_CREDENTIAL,
+      $text
+    );
+
+    // 0b. Values of credential-named URL query parameters, wherever a
+    // query-string fragment appears in free text (URLs, http.query, logs).
+    $text = preg_replace(
+      '/((?:^|[?&;\s])(?:key|api[_-]?key|apikey|token|access[_-]?token|secret|client[_-]?secret|password|signature|auth)=)[^&\s"\']+/i',
+      '$1' . self::TOKEN_CREDENTIAL,
+      $text
+    );
 
     // 1. Email addresses.
     $text = preg_replace(

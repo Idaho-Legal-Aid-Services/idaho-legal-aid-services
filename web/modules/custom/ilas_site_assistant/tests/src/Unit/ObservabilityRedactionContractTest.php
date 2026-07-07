@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  * Contract tests proving Sentry and Langfuse pipelines never emit raw PII.
  *
  * End-to-end validation that the before_send callback and PiiRedactor
- * cooperate to replace all 9 PII types with [REDACTED-*] tokens.
+ * cooperate to replace all 10 PII types with [REDACTED-*] tokens.
  */
 #[Group('ilas_site_assistant')]
 class ObservabilityRedactionContractTest extends TestCase {
@@ -30,7 +30,7 @@ class ObservabilityRedactionContractTest extends TestCase {
   }
 
   /**
-   * Returns a string containing all 9 PII types.
+   * Returns a string containing all 10 PII types.
    */
   private function allPiiString(): string {
     return implode(' | ', [
@@ -43,11 +43,12 @@ class ObservabilityRedactionContractTest extends TestCase {
       '123 Main Street',
       'name John Smith',
       'CV-24-0001',
+      'key AIzaSyABfMXhlKmdXQ57qlLhXyCatDqZPzUm8Zg',
     ]);
   }
 
   /**
-   * Returns the expected redaction tokens for all 9 PII types.
+   * Returns the expected redaction tokens for all 10 PII types.
    */
   private function allTokens(): array {
     return [
@@ -60,6 +61,7 @@ class ObservabilityRedactionContractTest extends TestCase {
       PiiRedactor::TOKEN_ADDRESS,
       PiiRedactor::TOKEN_NAME,
       PiiRedactor::TOKEN_CASE,
+      PiiRedactor::TOKEN_CREDENTIAL,
     ];
   }
 
@@ -139,7 +141,7 @@ class ObservabilityRedactionContractTest extends TestCase {
   }
 
   /**
-   * Tests that beforeSend redacts all 9 PII types from event messages.
+   * Tests that beforeSend redacts all 10 PII types from event messages.
    */
   public function testSentryBeforeSendRedactsAllNinePiiTypes(): void {
     $this->requireSentry();
@@ -205,7 +207,7 @@ class ObservabilityRedactionContractTest extends TestCase {
   }
 
   /**
-   * Tests that PiiRedactor covers all 9 TOKEN_* constants.
+   * Tests that PiiRedactor covers all 10 TOKEN_* constants.
    */
   public function testPiiRedactorCoversAllNineTokenTypes(): void {
     $ref = new \ReflectionClass(PiiRedactor::class);
@@ -215,7 +217,7 @@ class ObservabilityRedactionContractTest extends TestCase {
       ARRAY_FILTER_USE_KEY,
     );
 
-    $this->assertCount(9, $tokenConstants, 'PiiRedactor must define exactly 9 TOKEN_* constants');
+    $this->assertCount(10, $tokenConstants, 'PiiRedactor must define exactly 10 TOKEN_* constants');
 
     // Verify each token can be produced by redaction.
     $input = $this->allPiiString();
