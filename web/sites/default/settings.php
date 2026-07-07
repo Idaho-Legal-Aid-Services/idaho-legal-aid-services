@@ -366,27 +366,6 @@ function _ilas_observability_settings(): array {
 include __DIR__ . "/settings.pantheon.php";
 
 /**
- * Reverse-proxy trust contract for request identity and flood controls.
- *
- * This stays fail-closed by default: forwarded headers are only trusted when
- * operators explicitly provide a proxy allowlist through the
- * `ILAS_TRUSTED_PROXY_ADDRESSES` runtime environment variable.
- */
-$ilas_trusted_proxy_contract = _ilas_parse_trusted_proxy_addresses(getenv('ILAS_TRUSTED_PROXY_ADDRESSES'));
-$settings['ilas_trusted_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
-$settings['ilas_trusted_proxy_addresses_invalid'] = $ilas_trusted_proxy_contract['invalid'];
-if ($ilas_trusted_proxy_contract['valid'] !== []) {
-  $settings['reverse_proxy'] = TRUE;
-  $settings['reverse_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
-  $settings['reverse_proxy_trusted_headers'] =
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO |
-    \Symfony\Component\HttpFoundation\Request::HEADER_FORWARDED;
-}
-
-/**
  * Permissions-Policy header.
  *
  * Restricts browser features not needed by this site. Uses the modern
@@ -450,6 +429,31 @@ function _ilas_get_secret(string $name) {
   // Local / DDEV fallback: read from environment variable.
   return getenv($name);
 }
+}
+
+/**
+ * Reverse-proxy trust contract for request identity and flood controls.
+ *
+ * This stays fail-closed by default: forwarded headers are only trusted when
+ * operators explicitly provide a proxy allowlist through the
+ * `ILAS_TRUSTED_PROXY_ADDRESSES` secret (Pantheon: type "runtime", scope
+ * "web"; locally: env var in .ddev/.env). Read through _ilas_get_secret()
+ * like every other secret — a raw getenv() here silently ignored runtime-type
+ * secrets, which left reverse-proxy trust unset on Pantheon for months
+ * (RAUD-08; Sentry PHP-5H).
+ */
+$ilas_trusted_proxy_contract = _ilas_parse_trusted_proxy_addresses(_ilas_get_secret('ILAS_TRUSTED_PROXY_ADDRESSES'));
+$settings['ilas_trusted_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+$settings['ilas_trusted_proxy_addresses_invalid'] = $ilas_trusted_proxy_contract['invalid'];
+if ($ilas_trusted_proxy_contract['valid'] !== []) {
+  $settings['reverse_proxy'] = TRUE;
+  $settings['reverse_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+  $settings['reverse_proxy_trusted_headers'] =
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO |
+    \Symfony\Component\HttpFoundation\Request::HEADER_FORWARDED;
 }
 
 /**
