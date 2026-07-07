@@ -1,0 +1,13 @@
+version: 2
+
+secret:
+  ignored-matches:
+    # Google API key that leaked into production logs and was embedded in the
+    # PII-redaction test fixtures to validate scrubbing (introduced in commit
+    # e016e230b8, replaced with a synthetic value in 83e61c859e). The literal
+    # remains in those two historical commit patches, so ggshield flags every
+    # push containing them. The key itself must be revoked in Google Cloud
+    # Console — this entry only silences the known, already-remediated
+    # fixture occurrence.
+    - match: a26b55c91fcd52945b26e662ae773f91e15c4d0a8afa09e810b824d93d77c1cc
+      name: Leaked Google API key formerly used as redaction test fixture
