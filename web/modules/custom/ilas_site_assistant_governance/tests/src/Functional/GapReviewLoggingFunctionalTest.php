@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\ilas_site_assistant_governance\Functional;
 
 use Drupal\Tests\BrowserTestBase;
+use Drupal\Tests\ilas_site_assistant\Traits\RetrievalIndexFieldScaffoldingTrait;
 use GuzzleHttp\Cookie\CookieJarInterface;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -13,6 +14,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('ilas_site_assistant_governance')]
 final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
+
+  use RetrievalIndexFieldScaffoldingTrait;
 
   /**
    * Governance functional coverage should not be blocked by config-schema drift.
@@ -35,6 +38,7 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
     'system',
     'user',
     'field',
+    'file',
     'filter',
     'text',
     'node',
@@ -62,6 +66,13 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
    */
   protected function setUp(): void {
     parent::setUp();
+
+    // Materialize the lexical retrieval indexes so the message pipeline runs
+    // in its production shape (index present, empty) instead of the
+    // fail-closed retrieval-unavailable path, which reclassifies every
+    // message as a "navigation" response.
+    $this->scaffoldRetrievalIndexFields();
+    \Drupal::service('config.installer')->installOptionalConfig();
 
     $this->regularUser = $this->drupalCreateUser([
       'access content',

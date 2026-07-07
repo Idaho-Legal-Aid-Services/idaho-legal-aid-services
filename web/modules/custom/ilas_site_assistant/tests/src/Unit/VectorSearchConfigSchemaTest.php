@@ -173,11 +173,11 @@ class VectorSearchConfigSchemaTest extends TestCase {
     $pairs = [
       'faq_accordion' => [
         'active' => 'config/search_api.index.faq_accordion.yml',
-        'install' => self::MODULE_PATH . '/config/install/search_api.index.faq_accordion.yml',
+        'install' => self::MODULE_PATH . '/config/optional/search_api.index.faq_accordion.yml',
       ],
       'assistant_resources' => [
         'active' => 'config/search_api.index.assistant_resources.yml',
-        'install' => self::MODULE_PATH . '/config/install/search_api.index.assistant_resources.yml',
+        'install' => self::MODULE_PATH . '/config/optional/search_api.index.assistant_resources.yml',
       ],
     ];
 
