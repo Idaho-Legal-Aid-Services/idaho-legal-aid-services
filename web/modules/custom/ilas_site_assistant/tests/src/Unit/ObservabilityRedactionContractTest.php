@@ -43,7 +43,7 @@ class ObservabilityRedactionContractTest extends TestCase {
       '123 Main Street',
       'name John Smith',
       'CV-24-0001',
-      'key AIzaSyABfMXhlKmdXQ57qlLhXyCatDqZPzUm8Zg',
+      'key AIzaSyTEST-ONLY-NOT-A-REAL-KEY-00000000',
     ]);
   }
 

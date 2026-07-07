@@ -496,12 +496,12 @@ class PiiRedactorTest extends TestCase {
    */
   public static function credentialProvider(): array {
     return [
-      'google api key in query string (observed leak)' => [
-        '&key=AIzaSyABfMXhlKmdXQ57qlLhXyCatDqZPzUm8Zg&source=en&target=es',
+      'google api key in query string' => [
+        '&key=AIzaSyTEST-ONLY-NOT-A-REAL-KEY-00000000&source=en&target=es',
         '&key=' . PiiRedactor::TOKEN_CREDENTIAL . '&source=en&target=es',
       ],
       'bare google api key' => [
-        'called with AIzaSyABfMXhlKmdXQ57qlLhXyCatDqZPzUm8Zg today',
+        'called with AIzaSyTEST-ONLY-NOT-A-REAL-KEY-00000000 today',
         'called with ' . PiiRedactor::TOKEN_CREDENTIAL . ' today',
       ],
       'token query parameter' => [
