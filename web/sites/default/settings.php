@@ -395,6 +395,21 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
 }
 
 /**
+ * Dev-only: raise the assistant hourly cap so the weekly hosted eval suite
+ * (~485 serial requests, paced to the per-minute limit) can complete.
+ * Live keeps 15/min + 120/hr via its own override above.
+ */
+if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'dev') {
+  $config['ilas_site_assistant.settings']['rate_limit_per_hour'] = 600;
+
+  // Dev-only: run with request-time LLM generation enabled so the hosted
+  // eval suites grade the intended production configuration. The Cohere
+  // runtime key is already provisioned on dev (ILAS_COHERE_API_KEY).
+  // Live remains opt-in via the ILAS_LLM_ENABLED runtime secret above.
+  $config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE;
+}
+
+/**
  * Skipping permissions hardening will make scaffolding
  * work better, but will also raise a warning when you
  * install Drupal.
