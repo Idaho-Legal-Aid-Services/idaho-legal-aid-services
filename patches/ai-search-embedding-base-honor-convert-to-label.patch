@@ -10,3 +10,28 @@
          && $definition->getDataType() === 'field_item:entity_reference'
          && !empty($settings['target_type'])
        ) {
+@@ -438,7 +439,9 @@
+       return (float) reset($values);
+     }
+     elseif (count($values) == 1) {
+-      return $this->converter->convert((string) reset($values));
++      return $convert_to_label
++        ? $this->converter->convert((string) reset($values))
++        : (string) reset($values);
+     }
+     elseif (count($values) > 1) {
+ 
+@@ -449,9 +452,12 @@
+         if (in_array($field->getType(), ['date', 'boolean', 'integer'])) {
+           $parts[] = (int) $this->converter->convert((string) $value);
+         }
+-        else {
++        elseif ($convert_to_label) {
+           $parts[] = $this->converter->convert((string) $value);
+         }
++        else {
++          $parts[] = (string) $value;
++        }
+       }
+       return $parts;
+     }

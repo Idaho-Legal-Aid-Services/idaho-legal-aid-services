@@ -1,5 +1,5 @@
 {
-    "_hash": "3029c476a02d6e403ecfaeb165be50ae9721354e971af494257adf6531080fa0",
+    "_hash": "88e742e1fbe1aa6e0e22c50a822ecea49848bfed13f257490c3cab85c0ef5c01",
     "patches": {
         "drupal/core": [
             {
@@ -54,7 +54,7 @@
                 "package": "drupal/ai",
                 "description": "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names",
                 "url": "patches/ai-search-embedding-base-honor-convert-to-label.patch",
-                "sha256": "c77e2ece6d2d20a2f8d930c882455cbf988e7a966e5ef491b1f4765ac96c0b26",
+                "sha256": "43c0c1f3c248922787e312fdc378b0f9ac6903159534752ae91d37f993722568",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"
