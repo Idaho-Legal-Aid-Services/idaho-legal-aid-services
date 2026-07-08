@@ -1,0 +1,12 @@
+# Redis service overrides — cache-tags checksum only.
+#
+# Deliberately NOT the module's example.services.yml: that file also moves
+# lock and flood to Redis, which this site keeps on the database (assistant
+# rate-limit guards and LlmAdmissionCoordinator must not lose records to
+# LRU eviction).
+services:
+  cache_tags.invalidator.checksum:
+    class: Drupal\redis\Cache\RedisCacheTagsChecksum
+    arguments: ['@redis.factory']
+    tags:
+      - { name: cache_tags_invalidator }

@@ -1,5 +1,5 @@
 {
-    "_hash": "1e627efba7fb45e120644c6d39b12b58e7a026a6c3d15ccb1ac3c1a115f07b11",
+    "_hash": "3029c476a02d6e403ecfaeb165be50ae9721354e971af494257adf6531080fa0",
     "patches": {
         "drupal/core": [
             {
@@ -43,6 +43,18 @@
                 "description": "Add query-only Pinecone timeout client and config controls",
                 "url": "patches/ai-vdb-provider-pinecone-query-timeouts.patch",
                 "sha256": "6eb8f289b7cb75e9fc1d3f5f08c74553de2e2ef0e5f6efd5f8eb6ca8066d357d",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ],
+        "drupal/ai": [
+            {
+                "package": "drupal/ai",
+                "description": "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names",
+                "url": "patches/ai-search-embedding-base-honor-convert-to-label.patch",
+                "sha256": "c77e2ece6d2d20a2f8d930c882455cbf988e7a966e5ef491b1f4765ac96c0b26",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"

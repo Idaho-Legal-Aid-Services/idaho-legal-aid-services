@@ -366,27 +366,6 @@ function _ilas_observability_settings(): array {
 include __DIR__ . "/settings.pantheon.php";
 
 /**
- * Reverse-proxy trust contract for request identity and flood controls.
- *
- * This stays fail-closed by default: forwarded headers are only trusted when
- * operators explicitly provide a proxy allowlist through the
- * `ILAS_TRUSTED_PROXY_ADDRESSES` runtime environment variable.
- */
-$ilas_trusted_proxy_contract = _ilas_parse_trusted_proxy_addresses(getenv('ILAS_TRUSTED_PROXY_ADDRESSES'));
-$settings['ilas_trusted_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
-$settings['ilas_trusted_proxy_addresses_invalid'] = $ilas_trusted_proxy_contract['invalid'];
-if ($ilas_trusted_proxy_contract['valid'] !== []) {
-  $settings['reverse_proxy'] = TRUE;
-  $settings['reverse_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
-  $settings['reverse_proxy_trusted_headers'] =
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
-    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO |
-    \Symfony\Component\HttpFoundation\Request::HEADER_FORWARDED;
-}
-
-/**
  * Permissions-Policy header.
  *
  * Restricts browser features not needed by this site. Uses the modern
@@ -413,6 +392,21 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'l
 
   // Hard live guard: never allow assistant response debug metadata on live.
   $settings['ilas_site_assistant_debug_metadata_force_disable'] = TRUE;
+}
+
+/**
+ * Dev-only: raise the assistant hourly cap so the weekly hosted eval suite
+ * (~485 serial requests, paced to the per-minute limit) can complete.
+ * Live keeps 15/min + 120/hr via its own override above.
+ */
+if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'dev') {
+  $config['ilas_site_assistant.settings']['rate_limit_per_hour'] = 600;
+
+  // Dev-only: run with request-time LLM generation enabled so the hosted
+  // eval suites grade the intended production configuration. The Cohere
+  // runtime key is already provisioned on dev (ILAS_COHERE_API_KEY).
+  // Live remains opt-in via the ILAS_LLM_ENABLED runtime secret above.
+  $config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE;
 }
 
 /**
@@ -450,6 +444,31 @@ function _ilas_get_secret(string $name) {
   // Local / DDEV fallback: read from environment variable.
   return getenv($name);
 }
+}
+
+/**
+ * Reverse-proxy trust contract for request identity and flood controls.
+ *
+ * This stays fail-closed by default: forwarded headers are only trusted when
+ * operators explicitly provide a proxy allowlist through the
+ * `ILAS_TRUSTED_PROXY_ADDRESSES` secret (Pantheon: type "runtime", scope
+ * "web"; locally: env var in .ddev/.env). Read through _ilas_get_secret()
+ * like every other secret — a raw getenv() here silently ignored runtime-type
+ * secrets, which left reverse-proxy trust unset on Pantheon for months
+ * (RAUD-08; Sentry PHP-5H).
+ */
+$ilas_trusted_proxy_contract = _ilas_parse_trusted_proxy_addresses(_ilas_get_secret('ILAS_TRUSTED_PROXY_ADDRESSES'));
+$settings['ilas_trusted_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+$settings['ilas_trusted_proxy_addresses_invalid'] = $ilas_trusted_proxy_contract['invalid'];
+if ($ilas_trusted_proxy_contract['valid'] !== []) {
+  $settings['reverse_proxy'] = TRUE;
+  $settings['reverse_proxy_addresses'] = $ilas_trusted_proxy_contract['valid'];
+  $settings['reverse_proxy_trusted_headers'] =
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_FOR |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_HOST |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PORT |
+    \Symfony\Component\HttpFoundation\Request::HEADER_X_FORWARDED_PROTO |
+    \Symfony\Component\HttpFoundation\Request::HEADER_FORWARDED;
 }
 
 /**
@@ -766,6 +785,13 @@ if ($ilas_assistant_diagnostics_token) {
 }
 
 /**
+ * Redis object cache (Pantheon Object Cache add-on / DDEV redis service).
+ * No-ops when no Redis service is reachable, so CI and plain checkouts
+ * stay on the database cache backend.
+ */
+include __DIR__ . '/settings.redis.php';
+
+/**
  * Include DDEV settings if present.
  * Safe: this file doesn't exist on Pantheon.
  */
@@ -780,4 +806,9 @@ if (is_readable($ddev_settings)) {
 $local_settings = __DIR__ . '/settings.local.php';
 if (file_exists($local_settings)) {
   include $local_settings;
+}
+
+// Include settings required for Redis cache.
+if ((file_exists(__DIR__ . '/settings.ddev.redis.php') && getenv('IS_DDEV_PROJECT') == 'true')) {
+  include __DIR__ . '/settings.ddev.redis.php';
 }

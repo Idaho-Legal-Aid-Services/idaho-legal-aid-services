@@ -1,3 +1,9 @@
 # Put overrides to your pantheon.upstream.yml file here.
 # For more information, see: https://pantheon.io/docs/pantheon-yml/
 api_version: 1
+
+# Pantheon Object Cache (Redis). The platform default is Redis 2.8 (EOL);
+# pin the supported 6.2 engine. Drupal wiring lives in
+# web/sites/default/settings.redis.php.
+cache:
+  redis: 6.2

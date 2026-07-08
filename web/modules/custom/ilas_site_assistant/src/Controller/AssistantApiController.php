@@ -3355,6 +3355,7 @@ class AssistantApiController extends ControllerBase {
             $response,
             $conversation_context_summary,
             $canonical_urls,
+            $user_message,
           );
         }
       }
@@ -3597,7 +3598,9 @@ class AssistantApiController extends ControllerBase {
       // PHARD-03: Refuse when answerable + low confidence + no citations.
       $is_citation_required = in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE);
       if ($is_citation_required && empty($response['citations']) && ($response['confidence'] ?? 0) <= 0.5) {
-        $response['message'] = (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
+        $response['message'] = ResponseBuilder::looksLikeSpanish($user_message)
+          ? (string) $this->t('No encontré información específica sobre ese tema. Para ayuda con su situación, llame a nuestra Línea de Consejos Legales o solicite ayuda legal gratuita. / For help, please call our Legal Advice Line or apply for help.')
+          : (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
         $response['type'] = 'clarify_no_grounding';
         $response['confidence'] = 0.0;
         $response['decision_reason'] = 'answerable_type_no_citations_low_confidence';
@@ -5943,6 +5946,11 @@ class AssistantApiController extends ControllerBase {
           $response['primary_action'] = ['label' => 'Call Hotline', 'url' => $canonical_urls['hotline']];
           $response['message'] = $this->t('With an urgent deadline, please call our Legal Advice Line right away for immediate assistance.');
         }
+        // Preserve the user's language on urgent escalations: a Spanish
+        // speaker with a deadline must not get an English-only response.
+        if (ResponseBuilder::looksLikeSpanish($message)) {
+          $response['message'] .= ' ' . $this->t('Es urgente: llame a nuestra Línea de Consejos Legales ahora mismo o solicite ayuda legal gratuita.');
+        }
         break;
 
       case 'out_of_scope':
@@ -6379,7 +6387,7 @@ class AssistantApiController extends ControllerBase {
   /**
    * Replaces a generic clarify with context-aware next steps when possible.
    */
-  protected function recoverClarifyFromConversationContext(array $response, array $summary, array $canonical_urls): array {
+  protected function recoverClarifyFromConversationContext(array $response, array $summary, array $canonical_urls, string $user_message = ''): array {
     $summary = $this->conversationContextSummary
       ? $this->conversationContextSummary->normalizeStoredSummary($summary)
       : [];
@@ -6398,6 +6406,9 @@ class AssistantApiController extends ControllerBase {
     $response['message'] = (string) $this->t('You\'re still asking about @topic. I can\'t tell you what to say to win, but here are the safest next steps I can offer right now.', [
       '@topic' => $topic_label,
     ]);
+    if (ResponseBuilder::looksLikeSpanish($user_message)) {
+      $response['message'] .= ResponseBuilder::spanishActionsText();
+    }
     $response['links'] = $links;
     $response['primary_action'] = $links[0];
     $response['reason_code'] = 'conversation_context_recovery';

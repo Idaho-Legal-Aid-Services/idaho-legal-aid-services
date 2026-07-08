@@ -4,6 +4,7 @@ namespace Drupal\Tests\ilas_site_assistant\Functional;
 
 use Drupal\Core\Site\Settings;
 use Drupal\Tests\BrowserTestBase;
+use Drupal\Tests\ilas_site_assistant\Traits\RetrievalIndexFieldScaffoldingTrait;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\CookieJarInterface;
 
@@ -20,6 +21,8 @@ use GuzzleHttp\Cookie\CookieJarInterface;
  * @group ilas_site_assistant
  */
 class AssistantApiFunctionalTest extends BrowserTestBase {
+
+  use RetrievalIndexFieldScaffoldingTrait;
 
   /**
    * {@inheritdoc}
@@ -40,6 +43,7 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
     'search_api_db',
     'token',
     'paragraphs',
+    'file',
     'ilas_site_assistant',
     'ilas_site_assistant_governance',
   ];
@@ -74,6 +78,12 @@ class AssistantApiFunctionalTest extends BrowserTestBase {
   protected function setUp(): void {
     parent::setUp();
     \Drupal::service('router.builder')->rebuild();
+
+    // Materialize the lexical retrieval indexes so the read endpoints run in
+    // their production shape (index present, empty) instead of the
+    // fail-closed retrieval-unavailable path, which returns 503.
+    $this->scaffoldRetrievalIndexFields();
+    \Drupal::service('config.installer')->installOptionalConfig();
 
     // Pin all paid providers off — these tests must never reach
     // Pinecone/Voyage/Cohere even by accident if shipped-config defaults flip.

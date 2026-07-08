@@ -140,6 +140,17 @@ class ResponseBuilder {
    * a Phase-4 follow-up.
    */
   protected function spanishBilingualPostscript(): string {
+    return self::spanishActionsText();
+  }
+
+  /**
+   * Shared Spanish action sentence for bilingual responses.
+   *
+   * Public/static so response paths outside this builder (e.g. the API
+   * controller's high-risk and grounding-refusal branches) can reuse the
+   * same wording instead of duplicating it.
+   */
+  public static function spanishActionsText(): string {
     return ' Si prefiere español: solicite ayuda legal gratuita o llame a nuestra Línea de Consejos Legales — también puede consultar nuestras formas y guías.';
   }
 

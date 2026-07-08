@@ -171,7 +171,7 @@ class IntentRouter {
           '/\blegal\s+(help|aid|services?|assistance)\s+(for\s+)?(veterans?|military|vets?)\b/i',
           '/\b(veterans?|military|vets?)\s+(legal\s+)?(help|aid|services?|assistance|lawyer|attorney)\b/i',
         ],
-        'keywords' => ['apply', 'application', 'sign_up', 'get_help', 'need_help', 'get_started', 'necesito', 'aplicar', 'abogado'],
+        'keywords' => ['apply', 'application', 'sign_up', 'get_help', 'need_help', 'get_started', 'necesito', 'aplicar', 'abogado', 'solicito', 'solicitar', 'solicite', 'solicitud'],
         'weight' => 0.95,
       ],
 
@@ -1726,9 +1726,10 @@ class IntentRouter {
 
       case 'legal_advice_line':
         return [
-          'message' => $this->t('Our Legal Advice Line can help answer your legal questions and determine if you qualify for ILAS services.'),
+          'message' => $this->t('Our Legal Advice Line can help answer your legal questions and determine if you qualify for ILAS services. Call (208) 746-7541, or see the Legal Advice Line page for hours and details.'),
           'links' => [
             ['label' => $this->t('Contact Legal Advice Line'), 'url' => $canonical_urls['hotline'], 'type' => 'primary'],
+            ['label' => $this->t('Call (208) 746-7541'), 'url' => 'tel:208-746-7541', 'type' => 'hotline'],
           ],
         ];
 
