@@ -118,6 +118,9 @@
             },
             "drupal/ai_vdb_provider_pinecone": {
                 "Add query-only Pinecone timeout client and config controls": "patches/ai-vdb-provider-pinecone-query-timeouts.patch"
+            },
+            "drupal/ai": {
+                "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names": "patches/ai-search-embedding-base-honor-convert-to-label.patch"
             }
         },
         "compile-mode": "all",

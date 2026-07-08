@@ -1,0 +1,12 @@
+--- a/modules/ai_search/src/Plugin/EmbeddingStrategy/EmbeddingBase.php
++++ b/modules/ai_search/src/Plugin/EmbeddingStrategy/EmbeddingBase.php
+@@ -399,7 +399,8 @@
+       $definition = $field->getDataDefinition();
+       $settings = $definition->getSettings();
+       if (
+-        in_array($field->getType(), ['fulltext', 'string'])
++        $convert_to_label
++        && in_array($field->getType(), ['fulltext', 'string'])
+         && $definition->getDataType() === 'field_item:entity_reference'
+         && !empty($settings['target_type'])
+       ) {
