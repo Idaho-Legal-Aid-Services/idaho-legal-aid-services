@@ -53,7 +53,7 @@ class PreRoutingDecisionEngine {
     '/\b(file\s*by\s*(today|tomorrow|friday|monday)|have\s*to\s*file\s*by|need\s*to\s*file\s*by|paperwork\s*by\s*(today|tomorrow|friday|monday))\b/i',
     '/\b(served\s*(with\s*)?(papers|summons)|got\s*served|answer\s*(the\s*)?(lawsuit|complaint)|respond\s*to\s*(the\s*)?(lawsuit|summons|complaint))\b/i',
     '/\b(fecha\s*limite\s*(hoy|manana|mañana|viernes|lunes)|vence\s*(hoy|manana|mañana|viernes|lunes)|tengo\s*que\s*responder)\b/i',
-    '/\b(fecha\s*de\s*corte\s*(hoy|manana|mañana)|tengo\s*(una\s*)?corte\s*(hoy|manana|mañana)|audiencia\s*(hoy|manana|mañana))\b/i',
+    '/\b(fecha\s*de\s*corte\s*(de\s*\w+\s*)?(hoy|manana|mañana)|tengo\s*(una\s*)?(corte|audiencia)\s*(de\s*\w+\s*)?(hoy|manana|mañana)|audiencia\s*(de\s*\w+\s*)?(hoy|manana|mañana))\b/iu',
     '/\b(corte\s*date\s*(manana|mañana|hoy)?|court\s*date\s*(manana|mañana)|court\s*manana)\b/i',
   ];
 

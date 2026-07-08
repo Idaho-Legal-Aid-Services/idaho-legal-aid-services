@@ -221,12 +221,15 @@ class NavigationIntent {
         }
       }
 
-      // 4. Keyword match.
+      // 4. Keyword match. Whole-word only: substring matching made the
+      // keyword 'form' hit inside "information", routing informational
+      // queries to the Forms page.
       $keywords = $page['keywords'] ?? [];
       $kw_hits = 0;
       foreach ($keywords as $keyword) {
         $kw_lower = strtolower($keyword);
-        if (strpos($residual, $kw_lower) !== FALSE || strpos($message_lower, $kw_lower) !== FALSE) {
+        $kw_pattern = '/\b' . preg_quote($kw_lower, '/') . '\b/u';
+        if (preg_match($kw_pattern, $residual) || preg_match($kw_pattern, $message_lower)) {
           $kw_hits++;
         }
       }
