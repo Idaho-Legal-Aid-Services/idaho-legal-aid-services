@@ -499,8 +499,13 @@ class Disambiguator {
     // Fold Spanish accents so tokens match the accent-folded vocabulary in
     // disambiguation.yml ('cómo' → 'como', 'ayúdame' → 'ayudame', …).
     $normalized = strtr($normalized, [
-      'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-      'ü' => 'u', 'ñ' => 'n',
+      'á' => 'a',
+      'é' => 'e',
+      'í' => 'i',
+      'ó' => 'o',
+      'ú' => 'u',
+      'ü' => 'u',
+      'ñ' => 'n',
     ]);
     $normalized = str_replace('_', ' ', $normalized);
     $normalized = preg_replace('/[?.!,]+$/u', '', $normalized);
