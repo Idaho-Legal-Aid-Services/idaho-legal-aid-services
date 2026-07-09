@@ -3,10 +3,14 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.storage.paragraph.field_accordion_body
+    - field.storage.paragraph.field_accordion_title
+    - field.storage.paragraph.field_anchor_id
+    - field.storage.paragraph.field_faq_answer
+    - field.storage.paragraph.field_faq_question
     - search_api.server.pinecone_vector_faq
   module:
     - paragraphs
-    - search_api
 id: faq_accordion_vector
 name: 'FAQ Accordion (Vector)'
 description: 'Vector search index for FAQ and accordion paragraph content.'
@@ -31,31 +35,49 @@ field_settings:
     datasource_id: 'entity:paragraph'
     property_path: field_accordion_body
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_accordion_body
   field_accordion_title:
     label: 'Accordion Title'
     datasource_id: 'entity:paragraph'
     property_path: field_accordion_title
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_accordion_title
   field_anchor_id:
     label: 'Anchor ID'
     datasource_id: 'entity:paragraph'
     property_path: field_anchor_id
     type: string
+    dependencies:
+      config:
+        - field.storage.paragraph.field_anchor_id
   field_faq_answer:
     label: 'FAQ Answer'
     datasource_id: 'entity:paragraph'
     property_path: field_faq_answer
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_faq_answer
   field_faq_question:
     label: 'FAQ Question'
     datasource_id: 'entity:paragraph'
     property_path: field_faq_question
     type: text
+    dependencies:
+      config:
+        - field.storage.paragraph.field_faq_question
   paragraph_type:
     label: 'Paragraph type'
     datasource_id: 'entity:paragraph'
     property_path: type
     type: string
+    dependencies:
+      module:
+        - paragraphs
 datasource_settings:
   'entity:paragraph':
     bundles:

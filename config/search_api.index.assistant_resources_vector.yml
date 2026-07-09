@@ -3,10 +3,13 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.storage.node.field_main_content
+    - field.storage.node.field_service_areas
+    - field.storage.node.field_topics
     - search_api.server.pinecone_vector_resources
   module:
     - node
-    - search_api
+    - taxonomy
 id: assistant_resources_vector
 name: 'Assistant Resources (Vector)'
 description: 'Vector search index for resource content used by the site assistant.'
@@ -17,16 +20,29 @@ field_settings:
     datasource_id: 'entity:node'
     property_path: field_main_content
     type: text
+    dependencies:
+      config:
+        - field.storage.node.field_main_content
   field_service_areas:
     label: 'Service Areas'
     datasource_id: 'entity:node'
     property_path: 'field_service_areas:entity:name'
     type: string
+    dependencies:
+      config:
+        - field.storage.node.field_service_areas
+      module:
+        - taxonomy
   field_topics:
     label: Topics
     datasource_id: 'entity:node'
     property_path: 'field_topics:entity:name'
     type: string
+    dependencies:
+      config:
+        - field.storage.node.field_topics
+      module:
+        - taxonomy
   title:
     label: Title
     datasource_id: 'entity:node'
