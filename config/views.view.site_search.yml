@@ -3,7 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
-    - search_api.index.content
+    - search_api.index.content_solr
   module:
     - search_api
 id: site_search
@@ -11,7 +11,7 @@ label: 'Site Search'
 module: views
 description: ''
 tag: ''
-base_table: search_api_index_content
+base_table: search_api_index_content_solr
 base_field: search_api_id
 display:
   default:
@@ -24,7 +24,7 @@ display:
       fields:
         rendered_item:
           id: rendered_item
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: rendered_item
           relationship: none
           group_type: group
@@ -119,7 +119,7 @@ display:
       filters:
         search_api_fulltext:
           id: search_api_fulltext
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: search_api_fulltext
           relationship: none
           group_type: group
@@ -185,7 +185,7 @@ display:
         - url.query_args
         - 'user.node_grants:view'
       tags:
-        - 'config:search_api.index.content'
+        - 'config:search_api.index.content_solr'
         - 'search_api_list:content'
   page_1:
     id: page_1
@@ -203,5 +203,5 @@ display:
         - url.query_args
         - 'user.node_grants:view'
       tags:
-        - 'config:search_api.index.content'
+        - 'config:search_api.index.content_solr'
         - 'search_api_list:content'
