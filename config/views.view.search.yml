@@ -3,7 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
-    - search_api.index.content
+    - search_api.index.content_solr
   module:
     - file
     - media
@@ -16,7 +16,7 @@ label: Search
 module: views
 description: 'Displays search results.'
 tag: ''
-base_table: search_api_index_content
+base_table: search_api_index_content_solr
 base_field: search_api_id
 display:
   default:
@@ -243,7 +243,7 @@ display:
             multi_separator: ', '
         search_api_excerpt:
           id: search_api_excerpt
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: search_api_excerpt
           relationship: none
           group_type: group
@@ -346,7 +346,7 @@ display:
       sorts:
         search_api_relevance:
           id: search_api_relevance
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: search_api_relevance
           relationship: none
           group_type: group
@@ -361,7 +361,7 @@ display:
       filters:
         search_api_fulltext:
           id: search_api_fulltext
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: search_api_fulltext
           relationship: none
           group_type: group
@@ -406,7 +406,7 @@ display:
           fields: {  }
         search_api_language:
           id: search_api_language
-          table: search_api_index_content
+          table: search_api_index_content_solr
           field: search_api_language
           relationship: none
           group_type: group
@@ -474,7 +474,7 @@ display:
         - 'user.node_grants:view'
         - user.permissions
       tags:
-        - 'config:search_api.index.content'
+        - 'config:search_api.index.content_solr'
         - 'search_api_list:content'
   page_1:
     id: page_1
@@ -494,5 +494,5 @@ display:
         - 'user.node_grants:view'
         - user.permissions
       tags:
-        - 'config:search_api.index.content'
+        - 'config:search_api.index.content_solr'
         - 'search_api_list:content'

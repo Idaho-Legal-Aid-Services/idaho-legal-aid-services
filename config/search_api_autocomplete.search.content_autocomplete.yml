@@ -3,7 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
-    - search_api.index.content
+    - search_api.index.content_solr
     - views.view.search
   module:
     - views
@@ -11,7 +11,7 @@ _core:
   default_config_hash: ylHys2z_hYCUek2RsTuXsgZZdl1u9dW6euggFxPJi1o
 id: content_autocomplete
 label: 'Content Autocomplete'
-index_id: content
+index_id: content_solr
 suggester_settings:
   live_results:
     fields: {  }
