@@ -792,6 +792,11 @@ if ($ilas_assistant_diagnostics_token) {
 include __DIR__ . '/settings.redis.php';
 
 /**
+ * Solr search per-environment connector overrides.
+ */
+include __DIR__ . '/settings.solr.php';
+
+/**
  * Include DDEV settings if present.
  * Safe: this file doesn't exist on Pantheon.
  */

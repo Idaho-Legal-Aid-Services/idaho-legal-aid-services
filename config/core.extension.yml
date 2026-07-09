@@ -144,6 +144,9 @@ module:
   search_api_db: 0
   search_api_exclude: 0
   search_api_page: 0
+  search_api_pantheon: 0
+  search_api_solr: 0
+  search_api_solr_admin: 0
   search_node: 0
   seckit: 0
   seo_checklist: 0

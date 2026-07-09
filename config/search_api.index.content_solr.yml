@@ -1,0 +1,135 @@
+uuid: 6366f3aa-1cc6-4239-906a-285a4e551f61
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.node.search_index
+    - field.storage.node.field_body
+    - search_api.server.pantheon_search
+  module:
+    - media
+    - node
+    - search_api_exclude
+    - search_api_solr
+_core:
+  default_config_hash: 0usFQzVg6ljrgtY3p3dw7aazVR-QLphH3PwmSNrq3WQ
+id: content_solr
+name: 'Content (Solr)'
+description: 'Solr copy of the Content index. Serves the public search views; the database-backed content index remains as rollback and assistant fallback.'
+read_only: false
+field_settings:
+  field_body:
+    label: Body
+    datasource_id: 'entity:node'
+    property_path: field_body
+    type: text
+    dependencies:
+      config:
+        - field.storage.node.field_body
+  media_file_url:
+    label: 'Media File URL'
+    datasource_id: 'entity:media'
+    property_path: 'field_media_document:entity:uri'
+    type: string
+    dependencies:
+      module:
+        - media
+  name:
+    label: 'Media Name'
+    datasource_id: 'entity:media'
+    property_path: name
+    type: text
+    dependencies:
+      module:
+        - media
+  rendered_item:
+    label: 'Rendered HTML output'
+    property_path: rendered_item
+    type: text
+    configuration:
+      roles:
+        - anonymous
+      view_mode:
+        'entity:media':
+          ':default': default
+        'entity:node':
+          ':default': search_index
+  title:
+    label: Title
+    datasource_id: 'entity:node'
+    property_path: title
+    type: text
+    boost: 5.0
+    dependencies:
+      module:
+        - node
+  type:
+    label: 'Content type'
+    datasource_id: 'entity:node'
+    property_path: type
+    type: string
+    dependencies:
+      module:
+        - node
+datasource_settings:
+  'entity:media':
+    bundles:
+      default: true
+      selected: {  }
+    languages:
+      default: true
+      selected: {  }
+  'entity:node':
+    bundles:
+      default: true
+      selected: {  }
+    languages:
+      default: true
+      selected: {  }
+processor_settings:
+  add_url: {  }
+  aggregated_field: {  }
+  custom_value: {  }
+  entity_status: {  }
+  entity_type: {  }
+  highlight:
+    weights:
+      postprocess_query: 0
+    prefix: '<strong>'
+    suffix: '</strong>'
+    excerpt: true
+    excerpt_always: false
+    excerpt_length: 256
+    exclude_fields: {  }
+    highlight: always
+    highlight_partial: false
+  html_filter:
+    weights:
+      preprocess_index: -15
+      preprocess_query: -15
+    all_fields: false
+    fields:
+      - rendered_item
+      - title
+      - type
+    title: true
+    alt: true
+    tags:
+      b: 2.0
+      h1: 5.0
+      h2: 3.0
+      h3: 2.0
+      strong: 2.0
+  language_with_fallback: {  }
+  node_exclude: {  }
+  rendered_item: {  }
+  reverse_entity_references: {  }
+tracker_settings:
+  default:
+    indexing_order: lifo
+options:
+  cron_limit: 10
+  delete_on_fail: true
+  index_directly: false
+  track_changes_in_references: true
+server: pantheon_search
