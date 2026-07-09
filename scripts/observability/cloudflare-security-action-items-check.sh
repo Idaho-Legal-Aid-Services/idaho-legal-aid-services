@@ -105,6 +105,11 @@ if [[ "$security_code" == "200" ]] \
   && grep -qi '^Expires:' "$security_body" \
   && grep -qi '^Canonical:' "$security_body"; then
   echo "security_txt_status=present"
+elif [[ "$security_code" == "403" ]] && grep -q 'cdn-cgi/styles/cf\.errors\.css' "$security_body"; then
+  # Cloudflare bot protection blocked this non-browser client, so the origin
+  # file was never reached. Fix is a bot-protection skip for this path, not
+  # the file itself.
+  echo "security_txt_status=blocked_by_bot_protection"
 else
   echo "security_txt_status=review_required"
 fi
@@ -113,6 +118,12 @@ echo
 echo "== robots.txt crawler posture =="
 robots_code="$(curl -sS -o "$robots_body" -w '%{http_code}' "https://${ZONE_NAME}/robots.txt" || true)"
 echo "status=${robots_code}"
+if grep -qi 'BEGIN Cloudflare Managed content' "$robots_body"; then
+  echo "robots_source=cloudflare_managed_content_present"
+  # When Cloudflare's managed robots.txt REPLACES (rather than prepends to)
+  # the origin file, every robots_missing line below is a regression: the
+  # origin directives in web/robots.txt are no longer served.
+fi
 for pattern in 'Disallow: /assistant/api/' 'Disallow: /search' 'Disallow: /user/login' 'Sitemap:'; do
   if grep -Fq "$pattern" "$robots_body"; then
     echo "robots_contains=${pattern}"
