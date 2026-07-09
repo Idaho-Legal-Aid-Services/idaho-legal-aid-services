@@ -67,6 +67,7 @@
         "drupal/schema_metatag": "^3.0",
         "drupal/search_api_db": "^1.0",
         "drupal/search_api_page": "^1.1",
+        "drupal/search_api_solr": "^4.3",
         "drupal/seckit": "^2.0",
         "drupal/tmgmt": "^1.17",
         "drupal/tmgmt_google": "^1.2",
@@ -76,6 +77,7 @@
         "drupal/webform": "@beta",
         "drush/drush": "^13.6",
         "pantheon-systems/drupal-integrations": "^11",
+        "pantheon-systems/search_api_pantheon": "^8.5",
         "pantheon-upstreams/upstream-configuration": "dev-main",
         "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6"

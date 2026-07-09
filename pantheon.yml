@@ -9,3 +9,10 @@ api_version: 1
 # object_cache.version ('cache: redis:' fails pantheon.yml validation).
 object_cache:
   version: 6.2
+
+# Pantheon Search (Solr). Omitting this key defaults to deprecated Solr 3;
+# Drupal 10+ requires 8 (stable) or 9 (beta as of 2026-04). Server config in
+# config/search_api.server.pantheon_search.yml; local connector override in
+# web/sites/default/settings.solr.php.
+search:
+  version: 8

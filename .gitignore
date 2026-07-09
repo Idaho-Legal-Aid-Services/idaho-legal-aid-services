@@ -144,6 +144,10 @@ output/playwright-a11y/
 !.ddev/redis/
 !.ddev/commands/redis/
 !.ddev/commands/host/redis-backend
+!.ddev/docker-compose.solr.yaml
+!.ddev/solr/
+!.ddev/commands/solr/
+!.ddev/commands/host/solr-admin
 .ddev/.env
 .ddev/.env.local
 
