@@ -16,3 +16,10 @@ secret:
     # PiiRedactor pattern matches it; it is not a credential.
     - match: 18e6489fd1e611055a063b12382a84f15957d81b944f3efe40419cdb36f5020e
       name: Synthetic Google API key test fixture (not a real credential)
+    # The ddev-solr add-on's stock local-dev credentials (solr:SolrRocks) in
+    # .ddev/docker-compose.solr.yaml and web/sites/default/settings.solr.php.
+    # These are the add-on's published defaults for the local Solr container
+    # only — they never guard anything outside the developer's machine, and
+    # Pantheon Search uses its own client-certificate auth.
+    - match: d74f128ffd04ad854fc49da5677cebc44d0b3732ad219fa426ece61d7b885697
+      name: DDEV Solr add-on default dev credentials (solr:SolrRocks)
