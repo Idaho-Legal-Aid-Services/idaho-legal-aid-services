@@ -51,7 +51,6 @@
         "drupal/editor_advanced_link": "^2.3",
         "drupal/gemini_provider": "^1.0",
         "drupal/google_analytics": "^4.0",
-        "drupal/google_cse": "^5.0",
         "drupal/google_translator": "^2.3",
         "drupal/hreflang": "^1.16",
         "drupal/imce": "^3.1",
