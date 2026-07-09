@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2988caf6980855632594ff6fabec4e1c",
+    "content-hash": "da1a37921ed599a555fd104d47d5998a",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -2520,55 +2520,6 @@
             "homepage": "https://www.drupal.org/project/ai_provider_openai",
             "support": {
                 "source": "https://git.drupalcode.org/project/ai_provider_openai"
-            }
-        },
-        {
-            "name": "drupal/ai_seo",
-            "version": "1.1.2",
-            "source": {
-                "type": "git",
-                "url": "https://git.drupalcode.org/project/ai_seo.git",
-                "reference": "1.1.2"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ai_seo-1.1.2.zip",
-                "reference": "1.1.2",
-                "shasum": "6f606dfae039cc56fb57d2a4c745a7ef357c6580"
-            },
-            "require": {
-                "drupal/ai": "^1",
-                "drupal/core": "^10.3 || ^11",
-                "league/commonmark": "^2.5"
-            },
-            "type": "drupal-module",
-            "extra": {
-                "drupal": {
-                    "version": "1.1.2",
-                    "datestamp": "1779872671",
-                    "security-coverage": {
-                        "status": "covered",
-                        "message": "Covered by Drupal's security advisory policy"
-                    }
-                }
-            },
-            "notification-url": "https://packages.drupal.org/8/downloads",
-            "license": [
-                "GPL-2.0-or-later"
-            ],
-            "authors": [
-                {
-                    "name": "Juhani Väätäjä",
-                    "homepage": "https://www.drupal.org/u/j-vee",
-                    "email": "juhani@koodijarivi.fi",
-                    "role": "Maintainer"
-                }
-            ],
-            "description": "The AI SEO Analyzer is a Drupal module that integrates with the Drupal's AI-module to provide SEO analysis directly within the node view.",
-            "homepage": "http://drupal.org/project/ai_seo",
-            "support": {
-                "source": "https://git.drupalcode.org/project/ai_seo",
-                "issues": "https://drupal.org/project/ai_seo"
             }
         },
         {
@@ -5394,17 +5345,17 @@
         },
         {
             "name": "drupal/eca",
-            "version": "2.1.18",
+            "version": "2.1.20",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/eca.git",
-                "reference": "2.1.18"
+                "reference": "2.1.20"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/eca-2.1.18.zip",
-                "reference": "2.1.18",
-                "shasum": "dd4d5c8f0cfc60169c4da9ae06060a5a869e5ccb"
+                "url": "https://ftp.drupal.org/files/projects/eca-2.1.20.zip",
+                "reference": "2.1.20",
+                "shasum": "2f7cb7a25ef6fdaecce43fab97f5f6661f625107"
             },
             "require": {
                 "dragonmantank/cron-expression": "^3.1",
@@ -5428,8 +5379,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "2.1.18",
-                    "datestamp": "1768560406",
+                    "version": "2.1.20",
+                    "datestamp": "1783530581",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -5463,7 +5414,7 @@
         },
         {
             "name": "drupal/eca_modeller_bpmn",
-            "version": "2.1.18",
+            "version": "2.1.20",
             "require": {
                 "drupal/core": "^10.3 || ^11",
                 "drupal/eca": "^2",
@@ -5472,8 +5423,8 @@
             "type": "metapackage",
             "extra": {
                 "drupal": {
-                    "version": "2.1.18",
-                    "datestamp": "1768560406",
+                    "version": "2.1.20",
+                    "datestamp": "1783530581",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -5506,7 +5457,7 @@
         },
         {
             "name": "drupal/eca_ui",
-            "version": "3.1.2",
+            "version": "3.1.4",
             "require": {
                 "drupal/core": "^11.3 || ^12.0",
                 "drupal/eca": "*"
@@ -5514,8 +5465,8 @@
             "type": "metapackage",
             "extra": {
                 "drupal": {
-                    "version": "3.1.2",
-                    "datestamp": "1777999263",
+                    "version": "3.1.4",
+                    "datestamp": "1783530591",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -6353,131 +6304,6 @@
             "support": {
                 "source": "https://git.drupalcode.org/project/google_analytics",
                 "issues": "https://www.drupal.org/project/issues/google_analytics"
-            }
-        },
-        {
-            "name": "drupal/google_cse",
-            "version": "5.0.4",
-            "source": {
-                "type": "git",
-                "url": "https://git.drupalcode.org/project/google_cse.git",
-                "reference": "5.0.4"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/google_cse-5.0.4.zip",
-                "reference": "5.0.4",
-                "shasum": "efbf6a0beaa9434b2b4c8170e29feff4cfe0f5a3"
-            },
-            "require": {
-                "drupal/core": "^10|| ^11"
-            },
-            "type": "drupal-module",
-            "extra": {
-                "drupal": {
-                    "version": "5.0.4",
-                    "datestamp": "1777059154",
-                    "security-coverage": {
-                        "status": "covered",
-                        "message": "Covered by Drupal's security advisory policy"
-                    }
-                }
-            },
-            "notification-url": "https://packages.drupal.org/8/downloads",
-            "license": [
-                "GPL-2.0-or-later"
-            ],
-            "authors": [
-                {
-                    "name": "AlBCole",
-                    "homepage": "https://www.drupal.org/user/3652053"
-                },
-                {
-                    "name": "bjc2265",
-                    "homepage": "https://www.drupal.org/user/3759740"
-                },
-                {
-                    "name": "daddison",
-                    "homepage": "https://www.drupal.org/user/51447"
-                },
-                {
-                    "name": "flaviovs",
-                    "homepage": "https://www.drupal.org/user/22288"
-                },
-                {
-                    "name": "gaurav.kapoor",
-                    "homepage": "https://www.drupal.org/user/3495331"
-                },
-                {
-                    "name": "gravelpot",
-                    "homepage": "https://www.drupal.org/user/748208"
-                },
-                {
-                    "name": "ianwesty",
-                    "homepage": "https://www.drupal.org/user/1492732"
-                },
-                {
-                    "name": "jcsparks",
-                    "homepage": "https://www.drupal.org/user/3086593"
-                },
-                {
-                    "name": "jeff cardwell",
-                    "homepage": "https://www.drupal.org/user/2913129"
-                },
-                {
-                    "name": "jeor0980",
-                    "homepage": "https://www.drupal.org/user/3540293"
-                },
-                {
-                    "name": "kreynen",
-                    "homepage": "https://www.drupal.org/user/48877"
-                },
-                {
-                    "name": "lreynaga",
-                    "homepage": "https://www.drupal.org/user/3400232"
-                },
-                {
-                    "name": "malcomio",
-                    "homepage": "https://www.drupal.org/user/418511"
-                },
-                {
-                    "name": "mark_fullmer",
-                    "homepage": "https://www.drupal.org/user/2612816"
-                },
-                {
-                    "name": "mmarler",
-                    "homepage": "https://www.drupal.org/user/500192"
-                },
-                {
-                    "name": "navneet0693",
-                    "homepage": "https://www.drupal.org/user/3200545"
-                },
-                {
-                    "name": "ricksta",
-                    "homepage": "https://www.drupal.org/user/311042"
-                },
-                {
-                    "name": "tsphethean",
-                    "homepage": "https://www.drupal.org/user/881620"
-                },
-                {
-                    "name": "twfahey",
-                    "homepage": "https://www.drupal.org/user/3403722"
-                },
-                {
-                    "name": "university of colorado boulder",
-                    "homepage": "https://www.drupal.org/user/3299791"
-                },
-                {
-                    "name": "utexas",
-                    "homepage": "https://www.drupal.org/user/3716409"
-                }
-            ],
-            "description": "Use Google Programmable Search to search your site and/or any other sites.",
-            "homepage": "https://drupal.org/project/google_cse",
-            "support": {
-                "source": "https://git.drupalcode.org/project/google_cse",
-                "issues": "https://www.drupal.org/project/issues/google_cse"
             }
         },
         {
@@ -11284,22 +11110,22 @@
         },
         {
             "name": "guzzlehttp/guzzle",
-            "version": "7.13.2",
+            "version": "7.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "bcd989ad36c92d42a3715379af91f2defee5b8dd"
+                "reference": "aef242412e13128b5049864867bb49fc37dd39de"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/bcd989ad36c92d42a3715379af91f2defee5b8dd",
-                "reference": "bcd989ad36c92d42a3715379af91f2defee5b8dd",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/aef242412e13128b5049864867bb49fc37dd39de",
+                "reference": "aef242412e13128b5049864867bb49fc37dd39de",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "guzzlehttp/promises": "^2.5",
-                "guzzlehttp/psr7": "^2.12.3",
+                "guzzlehttp/promises": "^2.5.1",
+                "guzzlehttp/psr7": "^2.12.4",
                 "php": "^7.2.5 || ^8.0",
                 "psr/http-client": "^1.0",
                 "symfony/deprecation-contracts": "^2.5 || ^3.0",
@@ -11392,7 +11218,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/guzzle/issues",
-                "source": "https://github.com/guzzle/guzzle/tree/7.13.2"
+                "source": "https://github.com/guzzle/guzzle/tree/7.14.0"
             },
             "funding": [
                 {
@@ -11408,20 +11234,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-05T19:00:11+00:00"
+            "time": "2026-07-08T22:54:09+00:00"
         },
         {
             "name": "guzzlehttp/promises",
-            "version": "2.5.0",
+            "version": "2.5.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/promises.git",
-                "reference": "4360e982f87f5f258bf872d094647791db2f4c8e"
+                "reference": "9ad1e4fc607446a055b95870c7f668e93b5cff29"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/promises/zipball/4360e982f87f5f258bf872d094647791db2f4c8e",
-                "reference": "4360e982f87f5f258bf872d094647791db2f4c8e",
+                "url": "https://api.github.com/repos/guzzle/promises/zipball/9ad1e4fc607446a055b95870c7f668e93b5cff29",
+                "reference": "9ad1e4fc607446a055b95870c7f668e93b5cff29",
                 "shasum": ""
             },
             "require": {
@@ -11476,7 +11302,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/promises/issues",
-                "source": "https://github.com/guzzle/promises/tree/2.5.0"
+                "source": "https://github.com/guzzle/promises/tree/2.5.1"
             },
             "funding": [
                 {
@@ -11492,20 +11318,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-06-02T12:23:43+00:00"
+            "time": "2026-07-08T15:48:39+00:00"
         },
         {
             "name": "guzzlehttp/psr7",
-            "version": "2.12.3",
+            "version": "2.12.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/psr7.git",
-                "reference": "7ec62dc3f44aa218487dbed81a9bf9bc647be55d"
+                "reference": "51e27f9e2b332ab3e72f4520d5ff4f3c68c3577c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/psr7/zipball/7ec62dc3f44aa218487dbed81a9bf9bc647be55d",
-                "reference": "7ec62dc3f44aa218487dbed81a9bf9bc647be55d",
+                "url": "https://api.github.com/repos/guzzle/psr7/zipball/51e27f9e2b332ab3e72f4520d5ff4f3c68c3577c",
+                "reference": "51e27f9e2b332ab3e72f4520d5ff4f3c68c3577c",
                 "shasum": ""
             },
             "require": {
@@ -11595,7 +11421,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/psr7/issues",
-                "source": "https://github.com/guzzle/psr7/tree/2.12.3"
+                "source": "https://github.com/guzzle/psr7/tree/2.12.4"
             },
             "funding": [
                 {
@@ -11611,7 +11437,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-06-23T15:21:08+00:00"
+            "time": "2026-07-08T15:56:20+00:00"
         },
         {
             "name": "halaxa/json-machine",

@@ -72,4 +72,37 @@ if ($ilas_redis_host !== NULL
   // before the module is enabled, plus the checksum-only override.
   $settings['container_yamls'][] = 'modules/contrib/redis/redis.services.yml';
   $settings['container_yamls'][] = __DIR__ . '/services.redis.yml';
+
+  // Serve the compiled container definition from Redis instead of the
+  // database on every bootstrap. Classes resolve through the Composer
+  // autoloader, so this works under the same guard as the service
+  // registration above even before the redis module is enabled.
+  $settings['bootstrap_container_definition'] = [
+    'parameters' => [],
+    'services' => [
+      'redis.factory' => [
+        'class' => 'Drupal\redis\ClientFactory',
+      ],
+      'cache.backend.redis' => [
+        'class' => 'Drupal\redis\Cache\CacheBackendFactory',
+        'arguments' => [
+          '@redis.factory',
+          '@cache_tags_provider.container',
+          '@serialization.phpserialize',
+        ],
+      ],
+      'cache.container' => [
+        'class' => '\Drupal\redis\Cache\PhpRedis',
+        'factory' => ['@cache.backend.redis', 'get'],
+        'arguments' => ['container'],
+      ],
+      'cache_tags_provider.container' => [
+        'class' => 'Drupal\redis\Cache\RedisCacheTagsChecksum',
+        'arguments' => ['@redis.factory'],
+      ],
+      'serialization.phpserialize' => [
+        'class' => 'Drupal\Component\Serialization\PhpSerialize',
+      ],
+    ],
+  ];
 }

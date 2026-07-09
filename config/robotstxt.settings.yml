@@ -15,6 +15,9 @@ content: |
   # http://www.robotstxt.org/robotstxt.html
 
   User-agent: *
+  # Content Signals (https://contentsignals.org/): allow search indexing,
+  # disallow AI training. Mirrors the Cloudflare bot-management policy.
+  Content-Signal: search=yes, ai-train=no
   # CSS, JS, Images
   Allow: /core/*.css$
   Allow: /core/*.css?
@@ -90,6 +93,40 @@ content: |
   Disallow: /index.php/user/logout
   Disallow: /index.php/media/oembed
   Disallow: /index.php/*/media/oembed
+
+  # AI training crawlers — served from origin so the policy holds even when
+  # Cloudflare's managed robots.txt is disabled. Search engines and
+  # user-triggered AI fetchers remain governed by the rules above and by
+  # Cloudflare bot management.
+  User-agent: Applebot-Extended
+  Disallow: /
+
+  User-agent: anthropic-ai
+  Disallow: /
+
+  User-agent: Bytespider
+  Disallow: /
+
+  User-agent: CCBot
+  Disallow: /
+
+  User-agent: ClaudeBot
+  Disallow: /
+
+  User-agent: CloudflareBrowserRenderingCrawler
+  Disallow: /
+
+  User-agent: Google-Extended
+  Disallow: /
+
+  User-agent: GPTBot
+  Disallow: /
+
+  User-agent: meta-externalagent
+  Disallow: /
+
+  User-agent: TikTokSpider
+  Disallow: /
 
   # XML sitemap
   Sitemap: https://idaholegalaid.org/sitemap.xml

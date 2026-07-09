@@ -66,6 +66,14 @@ if [[ ! "$WINDOW_HOURS" =~ ^[0-9]+$ ]] || [[ "$WINDOW_HOURS" -lt 1 ]]; then
   exit 2
 fi
 
+# Cloudflare caps firewallEventsAdaptive queries at a 3-day span per query on
+# this zone. The window is pinned with an explicit upper bound below so 72
+# stays valid, but anything larger cannot be served in one query.
+if [[ "$WINDOW_HOURS" -gt 72 ]]; then
+  echo "--hours must be 72 or less (Cloudflare limits security-event queries to a 3-day span)" >&2
+  exit 2
+fi
+
 CF_TOKEN="${CLOUDFLARE_API_TOKEN:-}"
 if [[ -z "$CF_TOKEN" && -n "$TOKEN_FILE" ]]; then
   if [[ ! -s "$TOKEN_FILE" ]]; then
@@ -174,13 +182,17 @@ for phase in http_request_firewall_custom http_ratelimit; do
 done
 echo
 
-since="$(date -u -d "${WINDOW_HOURS} hours ago" +%Y-%m-%dT%H:%M:%SZ)"
-query='query($zone: String!, $since: Time!) {
+# Pin both bounds from the same instant so the query span is exactly
+# WINDOW_HOURS; an open-ended upper bound drifts past the 3-day span cap by
+# the seconds this script takes to run.
+until_ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+since="$(date -u -d "${until_ts} - ${WINDOW_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)"
+query='query($zone: String!, $since: Time!, $until: Time!) {
   viewer {
     zones(filter: { zoneTag: $zone }) {
       firewallEventsAdaptive(
         limit: 1000
-        filter: { datetime_geq: $since }
+        filter: { datetime_geq: $since, datetime_leq: $until }
         orderBy: [datetime_DESC]
       ) {
         action
@@ -196,8 +208,8 @@ query='query($zone: String!, $since: Time!) {
     }
   }
 }'
-payload="$(jq -n --arg query "$query" --arg zone "$zone_id" --arg since "$since" \
-  '{query:$query, variables:{zone:$zone, since:$since}}')"
+payload="$(jq -n --arg query "$query" --arg zone "$zone_id" --arg since "$since" --arg until "$until_ts" \
+  '{query:$query, variables:{zone:$zone, since:$since, until:$until}}')"
 
 events_json="$(api_post "https://api.cloudflare.com/client/v4/graphql" "$payload")"
 if jq -e '.errors and (.errors | length > 0)' >/dev/null <<<"$events_json"; then
@@ -205,7 +217,11 @@ if jq -e '.errors and (.errors | length > 0)' >/dev/null <<<"$events_json"; then
   echo "security_events_status=unavailable"
   jq -r '.errors[] | "error=\(.message)"' <<<"$events_json"
   echo
-  echo "Grant the token Cloudflare Security Events/analytics read permission, then rerun this script."
+  if jq -e '[.errors[].message] | any(test("auth|permission|not authorized|access"; "i"))' >/dev/null <<<"$events_json"; then
+    echo "Grant the token Cloudflare Security Events/analytics read permission, then rerun this script."
+  else
+    echo "Query rejected by the Cloudflare GraphQL API; see the error above (e.g. reduce --hours if the time range exceeds the zone limit)."
+  fi
   exit 1
 fi
 
