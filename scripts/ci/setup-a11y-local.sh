@@ -40,7 +40,9 @@ if [[ "${SKIP_THEME_BUILD:-0}" != "1" ]]; then
   ddev exec --dir /var/www/html/web/themes/custom/b5subtheme bash -c '
     set -euo pipefail
     if [[ ! -d node_modules ]]; then
-      npm ci --no-audit --no-fund
+      # --omit=optional: the imagemin family (native binary downloads that
+      # flake on GitHub rate limits) is optional and unused by `npm run prod`.
+      npm ci --no-audit --no-fund --omit=optional
     fi
     npm run prod
   '
