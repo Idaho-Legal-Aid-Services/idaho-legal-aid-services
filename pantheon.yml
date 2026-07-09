@@ -5,5 +5,7 @@ api_version: 1
 # Pantheon Object Cache (Redis). The platform default is Redis 2.8 (EOL);
 # pin the supported 6.2 engine. Drupal wiring lives in
 # web/sites/default/settings.redis.php.
-cache:
-  redis: 6.2
+# Schema per https://docs.pantheon.io/object-cache/faq — the key is
+# object_cache.version ('cache: redis:' fails pantheon.yml validation).
+object_cache:
+  version: 6.2
