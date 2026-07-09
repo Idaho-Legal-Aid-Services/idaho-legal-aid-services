@@ -37,10 +37,14 @@ fi
 
 if [[ "${SKIP_THEME_BUILD:-0}" != "1" ]]; then
   log "build b5subtheme"
+  # --omit=optional: the imagemin family (native binary downloads that flake
+  # on GitHub rate limits) is optional and unused by the prod webpack build.
+  # NOTE: no comments/backticks inside the quoted block — ddev exec re-evaluates
+  # the string and executes backticks even in comment position.
   ddev exec --dir /var/www/html/web/themes/custom/b5subtheme bash -c '
     set -euo pipefail
     if [[ ! -d node_modules ]]; then
-      npm ci --no-audit --no-fund
+      npm ci --no-audit --no-fund --omit=optional
     fi
     npm run prod
   '
