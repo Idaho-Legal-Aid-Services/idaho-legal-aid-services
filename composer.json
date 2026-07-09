@@ -179,6 +179,12 @@
         "squizlabs/php_codesniffer": "^3.10"
     },
     "scripts": {
+        "post-install-cmd": [
+            "@php scripts/composer/ensure-patches.php"
+        ],
+        "post-update-cmd": [
+            "@php scripts/composer/ensure-patches.php"
+        ],
         "test:pure": "vendor/bin/phpunit -c phpunit.pure.xml",
         "test:drupal": "vendor/bin/phpunit -c phpunit.xml --testsuite drupal-unit",
         "test:all": "vendor/bin/phpunit -c phpunit.xml",
