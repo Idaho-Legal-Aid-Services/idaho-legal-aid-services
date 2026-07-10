@@ -281,6 +281,9 @@ intents:
       - elderly
       - elder
       - nursing home
+      - guardianship
+      - grandchild
+      - grandchildren
       - personas mayores
 
   topic_health:
@@ -298,6 +301,8 @@ intents:
       - medicaid
       - benefits
       - disability
+      - ssi
+      - social security
       - salud
 
   topic_consumer:
@@ -354,6 +359,8 @@ intents:
       - employment
       - fired
       - wages
+      - not paid
+      - migrant worker
       - empleo
 
   # ─── SUB-TOPIC INTENTS ──────────────────────────────────────────
@@ -484,6 +491,7 @@ intents:
       - { label: Call Hotline, intent: legal_advice_line }
     synonyms:
       - foreclosure
+      - mortgage
       - losing my house
       - ejecucion hipotecaria
 

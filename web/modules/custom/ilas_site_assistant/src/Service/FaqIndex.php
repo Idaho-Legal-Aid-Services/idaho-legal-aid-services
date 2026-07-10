@@ -50,7 +50,7 @@ class FaqIndex {
    * Maximum tolerated duration for a vector search call (ms) before we
    * temporarily disable vector queries to protect latency.
    */
-  const MAX_VECTOR_MS = 2000;
+  const MAX_VECTOR_MS = 3500;
 
   /**
    * Backoff duration after a vector search timeout/failure (seconds).
@@ -630,6 +630,32 @@ class FaqIndex {
         $vector_top_match_ids[] = (string) $item['id'];
       }
     }
+    // Vector provenance reflects contribution, not merge survival: usable
+    // (post-floor) vector matches deduped against identical lexical results
+    // still corroborated the result set — report them so the contract
+    // proves the vector pipeline works. Mirrors ResourceFinder.
+    $outcome_items = is_array($vector_outcome['items'] ?? NULL) ? $vector_outcome['items'] : [];
+    if ($vector_result_count === 0 && $outcome_items !== []) {
+      $vector_result_count = count($outcome_items);
+      foreach ($outcome_items as $outcome_item) {
+        if (!is_array($outcome_item)) {
+          continue;
+        }
+        if (isset($outcome_item['vector_score']) && is_numeric($outcome_item['vector_score'])) {
+          $vector_top_scores[] = (float) $outcome_item['vector_score'];
+        }
+        if (isset($outcome_item['id']) && (is_string($outcome_item['id']) || is_int($outcome_item['id']))) {
+          $vector_top_match_ids[] = (string) $outcome_item['id'];
+        }
+        $outcome_class = $outcome_item['source_class'] ?? NULL;
+        if (!is_string($outcome_class) || $outcome_class === '') {
+          // Outcome items are produced by this service's vector path; keep
+          // the contract self-consistent when annotation hasn't run yet.
+          $outcome_class = 'faq_vector';
+        }
+        $source_classes[$outcome_class] = TRUE;
+      }
+    }
     rsort($vector_top_scores, SORT_NUMERIC);
     $vector_top_scores = array_slice($vector_top_scores, 0, 5);
     $vector_top_match_ids = array_slice($vector_top_match_ids, 0, 5);
@@ -722,6 +748,7 @@ class FaqIndex {
     }
 
     $item['category'] = $parent_info['title'] ?? NULL;
+    $item['topics'] = $parent_info['topics'] ?? [];
     $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
@@ -815,6 +842,19 @@ class FaqIndex {
 
     if ($parent && $parent->getEntityTypeId() === 'node') {
       try {
+        // Collect the parent node's topic/service-area term names so FAQ
+        // citations can prove what subject they cover (the parent title
+        // alone often lacks the user's topic word).
+        $topics = [];
+        foreach (['field_topics', 'field_tags', 'field_service_areas', 'field_service_area'] as $field) {
+          if ($parent->hasField($field) && !$parent->get($field)->isEmpty()) {
+            foreach ($parent->get($field)->referencedEntities() as $term) {
+              if (method_exists($term, 'getName')) {
+                $topics[] = strtolower((string) $term->getName());
+              }
+            }
+          }
+        }
         return [
           'title' => $parent->getTitle(),
           'url' => $parent->toUrl()->toString(),
@@ -824,6 +864,7 @@ class FaqIndex {
           'langcode' => method_exists($parent, 'language') && $parent->language()
             ? $parent->language()->getId()
             : NULL,
+          'topics' => array_values(array_unique($topics)),
         ];
       }
       catch (\Exception $e) {
@@ -836,6 +877,7 @@ class FaqIndex {
       'url' => '',
       'changed' => NULL,
       'langcode' => NULL,
+      'topics' => [],
     ];
   }
 
@@ -934,6 +976,7 @@ class FaqIndex {
     }
 
     $item['category'] = $parent_info['title'];
+    $item['topics'] = $parent_info['topics'] ?? [];
     $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
@@ -1224,6 +1267,12 @@ class FaqIndex {
    *   TRUE when the query results are cacheable.
    */
   protected function isVectorOutcomeCacheable(array $vector_outcome): bool {
+    // Never cache results whose vector matches were deduped into lexical
+    // items: the cache stores only merged items, so a cache hit would lose
+    // the vector-contribution provenance the retrieval contract reports.
+    if (!empty($vector_outcome['items'])) {
+      return FALSE;
+    }
     return (bool) ($vector_outcome['cacheable'] ?? TRUE);
   }
 

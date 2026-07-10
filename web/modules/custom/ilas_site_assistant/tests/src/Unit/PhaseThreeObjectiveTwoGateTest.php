@@ -199,9 +199,17 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $monitor = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/PerformanceMonitor.php');
     $sloAlert = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/SloAlertService.php');
 
-    $this->assertStringContainsString('protected function isLiveEnvironment(): bool', $enhancer);
-    $this->assertStringContainsString('LLM circuit breaker is open, skipping API call.', $enhancer);
-    $this->assertStringContainsString('LLM global rate limit exceeded, skipping API call.', $enhancer);
+    // The live-environment guard moved out of LlmEnhancer in 4f0eca1dcb:
+    // the enhancer keeps an injected EnvironmentDetector and the guard
+    // method itself lives on the detector (consumed via FallbackGate).
+    $this->assertStringContainsString('protected ?EnvironmentDetector $environmentDetector', $enhancer);
+    $detector = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/EnvironmentDetector.php');
+    $this->assertStringContainsString('public function isLiveEnvironment(): bool', $detector);
+    $this->assertStringContainsString('Skipping request-time LLM classification because the circuit breaker is open.', $enhancer);
+    // Rate limiting is enforced through CostControlPolicy::beginRequest()
+    // (per-identity budget gate) with the limiter injected alongside.
+    $this->assertStringContainsString('protected ?LlmRateLimiter $rateLimiter', $enhancer);
+    $this->assertStringContainsString('Request-time LLM budget exceeded', $enhancer);
 
     $this->assertStringContainsString('class LlmCircuitBreaker', $breaker);
     $this->assertStringContainsString('public function isAvailable(): bool', $breaker);

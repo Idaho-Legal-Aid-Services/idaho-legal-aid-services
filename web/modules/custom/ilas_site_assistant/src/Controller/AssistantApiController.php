@@ -47,6 +47,7 @@ use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
+use Drupal\ilas_site_assistant\Service\RetrievalAugmenter;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\ilas_site_assistant\Service\VoyageReranker;
 use Drupal\Component\Uuid\Php as UuidGenerator;
@@ -207,6 +208,13 @@ class AssistantApiController extends ControllerBase {
    * @var \Drupal\ilas_site_assistant\Service\ResponseGrounder|null
    */
   protected $responseGrounder;
+
+  /**
+   * The retrieval augmenter service (retrieve-first).
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalAugmenter|null
+   */
+  protected $retrievalAugmenter;
 
   /**
    * The safety classifier service.
@@ -449,6 +457,7 @@ class AssistantApiController extends ControllerBase {
     ?ConversationContextSummary $conversation_context_summary = NULL,
     ?HousingEvictionContinuityDecider $housing_eviction_continuity_decider = NULL,
     ?OfficeDirectory $office_directory = NULL,
+    ?RetrievalAugmenter $retrieval_augmenter = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -488,6 +497,7 @@ class AssistantApiController extends ControllerBase {
     $this->conversationContextSummary = $conversation_context_summary;
     $this->housingEvictionContinuityDecider = $housing_eviction_continuity_decider;
     $this->officeDirectory = $office_directory;
+    $this->retrievalAugmenter = $retrieval_augmenter;
   }
 
   /**
@@ -506,7 +516,8 @@ class AssistantApiController extends ControllerBase {
    * - OPTIONAL (has/get/NULL): response_grounder, performance_monitor,
    *   conversation_logger, ab_testing, safety_violation_tracker,
    *   langfuse_tracer, top_intents_pack, source_governance,
-   *   vector_index_hygiene, retrieval_configuration, voyage_reranker.
+   *   vector_index_hygiene, retrieval_configuration, voyage_reranker,
+   *   retrieval_augmenter.
    */
   public static function create(ContainerInterface $container) {
     return new static(
@@ -548,6 +559,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.conversation_context_summary') ? $container->get('ilas_site_assistant.conversation_context_summary') : NULL,
       $container->has('ilas_site_assistant.housing_eviction_continuity_decider') ? $container->get('ilas_site_assistant.housing_eviction_continuity_decider') : NULL,
       $container->has('ilas_site_assistant.office_directory') ? $container->get('ilas_site_assistant.office_directory') : NULL,
+      $container->has('ilas_site_assistant.retrieval_augmenter') ? $container->get('ilas_site_assistant.retrieval_augmenter') : NULL,
     );
   }
 
@@ -2328,6 +2340,25 @@ class AssistantApiController extends ControllerBase {
           $session_fingerprint,
         );
 
+        // Retrieve-first for informational emergencies (eviction/DV): keep
+        // the urgent safety copy first, append topical resources/citations
+        // so grounding provenance is provable. Additive and fail-open —
+        // safety copy and safety metadata are never modified.
+        if ($this->retrievalAugmenter) {
+          $response_data = $this->retrievalAugmenter->augmentEscalation($response_data, $safety_classification);
+          if (!empty($response_data['results']) && $this->responseGrounder) {
+            try {
+              $response_data = $this->responseGrounder->groundResponse($response_data, $response_data['results'], [
+                'remove_invented' => FALSE,
+                'add_caveats' => FALSE,
+              ]);
+            }
+            catch (\Throwable $e) {
+              $this->logger->warning('Escalation grounding failed: @class @error_signature', $this->buildExceptionContext($e));
+            }
+          }
+        }
+
         $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
         $public_meta['safety']['blocked'] = TRUE;
         // Generation never ran on the safety-exit path: the pre-routing
@@ -2351,6 +2382,14 @@ class AssistantApiController extends ControllerBase {
           ['type' => 'safety_' . ($safety_classification['class'] ?? 'unknown'), 'source' => 'safety_classifier'],
           'safety_classifier'
         );
+        // Surface retrieval proof when escalation augmentation ran;
+        // refusal-style classes remain retrieval-free.
+        if (!empty($response_data['results']) || !empty($response_data['retrieval_attempted'])) {
+          $public_meta['retrieval']['used'] = !empty($response_data['results']);
+          $public_meta['retrieval']['attempted'] = TRUE;
+          $public_meta['grounding']['used'] = !empty($response_data['citations']) || !empty($response_data['sources']);
+          $response_data['retrieval'] = $this->buildPublicRetrievalContract($this->collectRetrievalTraceMetadata($response_data));
+        }
         $response_data['meta'] = $public_meta;
         if (is_array($diagnostics_meta)) {
           $diagnostics_meta = array_replace_recursive($diagnostics_meta, $public_meta);
@@ -3200,6 +3239,16 @@ class AssistantApiController extends ControllerBase {
           $debug_meta['intent_source'] = 'selection_recovery';
         }
       }
+      // Retrieve-first: template-only response types (navigation, topic,
+      // service_area, ...) get retrieval results attached so grounding,
+      // citations, and the public retrieval contract carry real evidence.
+      // The template message is never replaced.
+      if ($this->retrievalAugmenter && $this->retrievalAugmenter->applies($response)) {
+        $response = $this->retrievalAugmenter->augment($response, $intent, $user_message, $early_retrieval);
+        if ($debug_mode && !empty($response['retrieval_supplemented'])) {
+          $debug_meta['processing_stages'][] = 'retrieve_first_augmented';
+        }
+      }
       $this->langfuseTracer?->endSpan([
         'response_type' => $response['type'] ?? 'unknown',
         'result_count' => count($response['results'] ?? []),
@@ -3588,6 +3637,18 @@ class AssistantApiController extends ControllerBase {
       if ($turn_type !== TurnClassifier::TURN_NEW) {
         $response['turn_type'] = $turn_type;
       }
+      // Spanish-input parity: individual processIntent branches overwrite
+      // ResponseBuilder copy and lose its bilingual postscript, so apply it
+      // centrally. Only appended when the message has no Spanish action
+      // cues yet (guards against double-append). Messages are often
+      // TranslatableMarkup, so accept any stringable value.
+      $central_message = $response['message'] ?? NULL;
+      if ((is_string($central_message) || $central_message instanceof \Stringable)
+        && (string) $central_message !== ''
+        && ResponseBuilder::looksLikeSpanish($user_message)
+        && !preg_match('/(solicite|llame|l[ií]nea|ayuda)/iu', (string) $central_message)) {
+        $response['message'] = ((string) $central_message) . ResponseBuilder::spanishActionsText();
+      }
       $response = $this->assembleContractFields($response, $gate_decision, 'normal');
 
       // Attach governance summary to every normal response.
@@ -3625,6 +3686,7 @@ class AssistantApiController extends ControllerBase {
       $retrieval_used = !empty($early_retrieval) || !empty($response['results']);
       $public_meta['retrieval']['used'] = $retrieval_used;
       $public_meta['retrieval']['attempted'] = $retrieval_used
+        || !empty($response['retrieval_attempted'])
         || !empty($response['retrieval']['lexical_result_count'])
         || !empty($response['retrieval']['vector_attempted']);
       $public_meta['safety']['blocked'] = FALSE;
@@ -5747,7 +5809,8 @@ class AssistantApiController extends ControllerBase {
           if (!empty($resource_results)) {
             $response['type'] = 'resources';
             if ($is_housing_eviction_followup) {
-              $response['message'] = $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications from your landlord. Here are housing and eviction resources that may help:");
+              $response['message'] = $this->buildConversationContextAck($message, $server_history)
+                . $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications from your landlord. Here are housing and eviction resources that may help:");
               $response['primary_action'] = [
                 'label' => $this->t('Apply for Help'),
                 'url' => $canonical_urls['apply'],
@@ -5756,6 +5819,11 @@ class AssistantApiController extends ControllerBase {
                 ['label' => $this->t('Call Legal Advice Line'), 'url' => $canonical_urls['hotline']],
                 ['label' => $this->t('Apply for Help'), 'url' => $canonical_urls['apply']],
               ];
+            }
+            elseif (preg_match('/\b(court|hearing|tomorrow|deadline|urgent|right away|immediately|asap)\b/i', $message)) {
+              // Urgent follow-up in a known service area: acknowledge the
+              // deadline and lead with direct help before the resource list.
+              $response['message'] = $this->t("If your court date or deadline is coming up, don't wait — call our Legal Advice Line right away or apply for help now. Here are @area resources that may help:", ['@area' => $area_label]);
             }
             else {
               $response['message'] = $this->t('Here are @area resources that may help:', ['@area' => $area_label]);
@@ -5774,7 +5842,8 @@ class AssistantApiController extends ControllerBase {
           // No resource results — show actionable options instead of dead-end.
           $area_url = $canonical_urls['service_areas'][$area] ?? $canonical_urls['services'];
           if ($is_housing_eviction_followup) {
-            $response['message'] = $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications, and reach out for help right away. Here are options:");
+            $response['message'] = $this->buildConversationContextAck($message, $server_history)
+              . $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications, and reach out for help right away. Here are options:");
           }
           else {
             $response['message'] = $this->t('I can help you find more @area resources. Here are some options:', ['@area' => $area_label]);
@@ -5792,8 +5861,9 @@ class AssistantApiController extends ControllerBase {
           break;
         }
 
-        // First mention of this service area — show the service area page.
-        $response['message'] = $this->t('Here\'s our @area legal help page: @hint', [
+        // First mention of this service area — show the service area page,
+        // and always name a concrete next step in the visible message.
+        $response['message'] = $this->t("Here's our @area legal help page: @hint You can apply for free legal help online or call our Legal Advice Line.", [
           '@area' => $area_label,
           '@hint' => $this->getServiceAreaContextHint($area),
         ]);
@@ -6001,7 +6071,23 @@ class AssistantApiController extends ControllerBase {
           if ($pack_entry !== NULL) {
             $response['type'] = 'topic';
             $response['response_mode'] = 'topic';
-            $response['message'] = (string) ($pack_entry['answer_text'] ?? $response['message']);
+            $answer_text = (string) ($pack_entry['answer_text'] ?? $response['message']);
+            // Echo the user's own topic terms so the answer names what was
+            // asked about (SSI, guardianship, custody, ...) instead of only
+            // the generic area page, and always close with a concrete next
+            // step.
+            $matched_terms = $this->topIntentsPack->findMatchingSynonyms($original_intent_type, mb_strtolower(trim($message)));
+            if ($intent['matched_synonym'] ?? NULL) {
+              array_unshift($matched_terms, (string) $intent['matched_synonym']);
+              $matched_terms = array_values(array_unique($matched_terms));
+            }
+            if ($matched_terms !== []) {
+              $answer_text .= ' ' . $this->t('It includes help with @topics.', [
+                '@topics' => implode(', ', array_slice($matched_terms, 0, 3)),
+              ]);
+            }
+            $answer_text .= ' ' . $this->t('You can apply for free legal help online or call our Legal Advice Line.');
+            $response['message'] = $answer_text;
             if (!empty($pack_entry['primary_action']) && is_array($pack_entry['primary_action'])) {
               $response['primary_action'] = $pack_entry['primary_action'];
               if (!empty($pack_entry['primary_action']['url'])) {
@@ -6818,6 +6904,39 @@ class AssistantApiController extends ControllerBase {
       $is_location_like_reply,
       $is_next_step_followup,
     );
+  }
+
+  /**
+   * Builds a short acknowledgment of user-shared conversation context.
+   *
+   * Scans the current message and recent history for household/locality
+   * details the user volunteered (county, kids) and reflects them back so
+   * follow-up answers demonstrably keep the conversation's context instead
+   * of resetting to generic copy. Returns '' when nothing recognizable was
+   * shared.
+   */
+  protected function buildConversationContextAck(string $current_message, array $server_history): string {
+    $probe_parts = [mb_strtolower($current_message)];
+    foreach (array_slice($server_history, -8) as $entry) {
+      if (is_array($entry) && ($entry['role'] ?? '') === 'user' && is_string($entry['text'] ?? NULL)) {
+        $probe_parts[] = mb_strtolower($entry['text']);
+      }
+    }
+    $probe = implode(' ', $probe_parts);
+
+    $bits = [];
+    if (preg_match('/\b([a-z]+)\s+county\b/', $probe, $county_match)) {
+      $bits[] = ucfirst($county_match[1]) . ' County';
+    }
+    if (preg_match('/\b(kids?|children|child)\b/', $probe)) {
+      $bits[] = 'your kids';
+    }
+    if ($bits === []) {
+      return '';
+    }
+    return (string) $this->t('Since you mentioned @bits, family and local resources may also help. ', [
+      '@bits' => implode(' and ', $bits),
+    ]);
   }
 
   /**

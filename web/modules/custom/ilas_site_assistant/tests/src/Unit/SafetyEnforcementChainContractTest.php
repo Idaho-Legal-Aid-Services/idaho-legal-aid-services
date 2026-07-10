@@ -148,6 +148,54 @@ class SafetyEnforcementChainContractTest extends TestCase {
         PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
         'Lease drafting defers from safety; PolicyFilter catches doc_drafting patterns',
       ],
+      // Court-script requests: SafetyClassifier catches
+      // legal_advice_court_script and defers; PolicyFilter's courtroom
+      // strategy patterns must produce the pre_generation_block policy exit.
+      'exact court script → policy exit' => [
+        'Tell me exactly what to say in court.',
+        PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
+        'Court-script with "exactly" defers from safety; PolicyFilter courtroom patterns catch it',
+      ],
+      'court script no exactly → policy exit' => [
+        'tell me what to say in court',
+        PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
+        'Court-script without "exactly" also caught by courtroom patterns',
+      ],
+      'what to say at the hearing → policy exit' => [
+        'what to say at the hearing',
+        PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
+        'Hearing variant caught by courtroom patterns',
+      ],
+      'frustration confusion → policy exit' => [
+        'This is confusing.',
+        PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
+        'Whole-message confusion signal gets supportive frustration copy',
+      ],
+    ];
+  }
+
+  /**
+   * Informational court questions must NOT trip the courtroom-script exit.
+   */
+  #[DataProvider('informationalCourtProvider')]
+  public function testInformationalCourtQuestionsAreNotBlocked(string $input): void {
+    $decision = $this->evaluateChain($input);
+    $this->assertNotSame(
+      PreRoutingDecisionEngine::DECISION_POLICY_EXIT,
+      $decision['decision_type'],
+      "Informational court question '$input' must not policy-exit (got: {$decision['decision_type']}, reason: {$decision['reason_code']})"
+    );
+  }
+
+  /**
+   * Data provider: informational court phrasings that stay in scope.
+   */
+  public static function informationalCourtProvider(): array {
+    return [
+      'what happens in court' => ['what happens in court'],
+      'where is the courthouse' => ['where is the courthouse in boise'],
+      'court hearing process' => ['how does an eviction hearing work'],
+      'topical confusion stays topical' => ['this eviction notice is confusing'],
     ];
   }
 

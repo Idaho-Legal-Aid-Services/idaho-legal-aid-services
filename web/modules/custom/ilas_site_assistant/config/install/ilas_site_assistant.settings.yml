@@ -132,11 +132,23 @@ retrieval:
 vector_search:
   enabled: false
   fallback_threshold: 2        # Min lexical results before vector fires
-  min_vector_score: 0.70       # Min cosine similarity to include (0-1)
+  min_vector_score: 0.25       # Min cosine similarity to include (0-1).
+                               # Calibrated for voyage-law-2 on this corpus
+                               # (measured 2026-07): off-topic noise scores
+                               # <= 0.18, topical matches 0.27-0.55. The old
+                               # 0.70 floor was unreachable — it filtered
+                               # every result and vector_result_count was
+                               # permanently 0.
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
-  min_lexical_score: 0         # Min lexical score for quality check (0 = disabled)
+  min_lexical_score: 130       # Min lexical score for quality check (0 = disabled)
                                # If set > 0 and all lexical results score below this,
-                               # vector search fires even when count >= fallback_threshold
+                               # vector search fires even when count >= fallback_threshold.
+                               # Calibrated against document-media scoring: a topically
+                               # weak match (topic 80 + topic-name 18 + keyword overlap = 110-122)
+                               # stays below it; a strong match (topic 80 + phrase-in-title
+                               # 35 + keyword overlap >= 24 = 139+) clears it. Search API
+                               # lexical scores sit far below 120, so vector supplements
+                               # those queries whenever the backend is enabled.
 
 # Voyage AI reranking (second-stage semantic reranking)
 # Reorders retrieval results using Voyage AI before response grounding.
@@ -173,6 +185,29 @@ retrieval_contract:
   supplement_source_classes:
     - 'faq_vector'
     - 'resource_vector'
+
+# Retrieve-first augmentation
+# Template-only response types (navigation, topic, service_area, escalation,
+# ...) historically carried no retrieval results, leaving grounding,
+# citations, and the public retrieval contract empty. When enabled, the
+# RetrievalAugmenter runs retrieval for these types and attaches results
+# WITHOUT replacing the template message. enabled: false is the instant
+# kill-switch (no deploy needed beyond config).
+retrieve_first:
+  enabled: true
+  max_results: 3
+  intent_types:
+    - navigation
+    - topic
+    - service_area
+    - disambiguation
+    - eligibility
+    - apply_cta
+    - services
+    - services_overview
+    - escalation
+    - high_risk
+    - office_location
 
 # Safety spike alerting (cron-driven, default OFF)
 # Sends email when safety violations exceed threshold within window.

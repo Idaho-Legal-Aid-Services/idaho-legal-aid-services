@@ -399,7 +399,7 @@ If you'd like to apply for ILAS services, you can do so securely using the link 
       'escalation_type' => 'legal_advice',
       'message' => (string) $this->t("I can't give legal advice, but I can help you find resources. ILAS has guides on many legal topics that may help you understand your options.
 
-To speak with someone who can give legal advice, call the ILAS Legal Advice Line or apply for help."),
+To speak with someone who can give legal advice, call the ILAS Legal Advice Line at 208-746-7541 or apply for help."),
       'links' => [
         ['label' => $this->t('Find Guides'), 'url' => $urls['guides'], 'type' => 'guides'],
         ['label' => $this->t('Find Resources'), 'url' => $urls['resources'], 'type' => 'resources'],

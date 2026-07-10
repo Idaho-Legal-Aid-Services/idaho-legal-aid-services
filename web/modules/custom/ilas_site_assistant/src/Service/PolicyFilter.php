@@ -255,6 +255,10 @@ class PolicyFilter {
     '/\b(frustrated|annoyed|angry|upset)\b/i',
     '/\b(can\'?t\s+you\s+understand|don\'?t\s+you\s+understand)/i',
     '/\b(talk\s+to\s+a\s+(real\s+)?(person|human)|real\s+person)/i',
+    // Whole-message confusion signals only — "this eviction notice is
+    // confusing" must keep routing to topical help, not frustration copy.
+    '/^\s*(this|that|it)\s+is\s+(so\s+|really\s+|very\s+)?confusing\s*[.!?]*\s*$/i',
+    '/^\s*i\s*(\'?m|\s+am)\s+(so\s+|really\s+|very\s+)?(confused|lost)\s*[.!?]*\s*$/i',
   ];
 
   /**
@@ -436,7 +440,7 @@ If you have questions about a civil matter related to your situation, I can help
         'type' => self::VIOLATION_LEGAL_ADVICE,
         'response' => $this->t('I can\'t give legal advice, but I can help you find resources. ILAS has guides on many legal topics that may help.
 
-To speak with someone who can give legal advice, call the ILAS Hotline or apply for help.'),
+To speak with someone who can give legal advice, call the ILAS Legal Advice Line at 208-746-7541 or apply for help.'),
         'escalation_level' => 'standard',
         'links' => [
           ['label' => $this->t('Find Guides'), 'url' => $urls['guides'], 'type' => 'guides'],
@@ -580,7 +584,9 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
       '/\b(what\s+should\s+i\s+tell\s+(the\s+)?judge\s+to\s+win)\b/i',
       // "tell me what to say (in court|to the judge)" / "what to say to the judge".
       '/\b(what\s+to\s+(say|tell)\s+(to\s+)?(the\s+)?(judge|court))\b/i',
-      '/\b(tell\s+me\s+what\s+to\s+(say|tell)\s+(in\s+(the\s+)?court|to\s+(the\s+)?(judge|court)))\b/i',
+      '/\b(tell\s+me\s+(exactly\s+)?what\s+to\s+(say|tell)\s+((in|at)\s+(the\s+)?(court|hearing)|during\s+(the\s+)?(hearing|trial)|to\s+(the\s+)?(judge|court)))\b/i',
+      // "what to say (in|at|during) (the) (court|hearing|trial)".
+      '/\bwhat\s+to\s+say\s+(in|at|during)\s+(the\s+)?(court|hearing|trial)\b/i',
       // "what (exactly) (should|do|can) i say (in court|to the (court|judge))".
       '/\b(what\s+(exactly\s+)?(should|do|can)\s+i\s+say\s+(in\s+(the\s+)?court|to\s+(the\s+)?(court|judge)))\b/i',
       // "(write|draft|prepare|create|help me write) … (court|legal|closing|opening|trial) argument".

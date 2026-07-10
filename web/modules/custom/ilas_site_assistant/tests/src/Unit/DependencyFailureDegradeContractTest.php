@@ -322,7 +322,13 @@ class DependencyFailureDegradeContractTest extends TestCase {
   }
 
   /**
-   * FAQ healthy and policy-skipped outcomes still write the normal query cache.
+   * Vector-contributing outcomes skip the cache; policy-skipped ones don't.
+   *
+   * The query cache stores only merged items, so caching a result whose
+   * vector matches were merged/deduped would serve later hits with no
+   * vector-contribution provenance in the retrieval contract. Healthy
+   * outcomes WITH vector items therefore skip the cache; vector-disabled
+   * (policy-skipped) outcomes remain cacheable.
    */
   public function testFaqHealthyAndPolicySkippedOutcomesRemainCacheable(): void {
     $healthy_cache = new MemoryBackend(new Time());
@@ -365,7 +371,9 @@ class DependencyFailureDegradeContractTest extends TestCase {
 
     $this->assertCount(2, $healthy_result);
     $this->assertSame(1, $healthy->vectorAttemptCount);
-    $this->assertNotFalse($healthy_cache->get($healthy->exposeQueryCacheKey('custody', 3, NULL)));
+    // Vector contributed items — result must NOT be cached, or later cache
+    // hits would lose the vector provenance from the retrieval contract.
+    $this->assertFalse($healthy_cache->get($healthy->exposeQueryCacheKey('custody', 3, NULL)));
 
     $policy_cache = new MemoryBackend(new Time());
     $policy_skipped = new CacheAwareFaqIndex(

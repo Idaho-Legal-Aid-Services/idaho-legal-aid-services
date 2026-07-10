@@ -46,8 +46,15 @@ class ResourceFinder {
 
   /**
    * Maximum tolerated duration for a vector search call (ms).
+   *
+   * A breach latches cross-request backoff, silently disabling vector
+   * retrieval for VECTOR_BACKOFF_SECONDS — so the budget must tolerate
+   * cold-start latency (measured 2.0-4.3s for the first Voyage+Pinecone
+   * call after a cache clear). 2000ms latched backoff on marginal
+   * (2033ms) first calls and cost far more in retrieval quality than the
+   * extra wait on one request.
    */
-  const MAX_VECTOR_MS = 2000;
+  const MAX_VECTOR_MS = 3500;
 
   /**
    * Backoff duration after a vector search timeout/failure (seconds).
@@ -572,19 +579,24 @@ class ResourceFinder {
 
     $document_results = $this->findPublishedDocumentMatches($query, $document_type, $limit);
     if ($document_results !== []) {
+      // Document matches are strong lexical evidence, but they must not
+      // suppress the vector supplement: topically weak matches (scored
+      // below vector_search.min_lexical_score) still benefit from semantic
+      // retrieval, and the retrieval contract should reflect a real vector
+      // decision instead of 'not_evaluated'. The supplement deliberately
+      // drops the form/guide type filter — vector matches are topical
+      // resource pages (where the documents live), which are the right
+      // companion results for a document request.
+      $supplement = $this->supplementWithVectorResultsDetailed($document_results, $query, NULL, $limit);
       $this->recordRetrievalTelemetry(
         $query,
         $document_type,
-        $document_results,
-        [
-          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
-          'should_attempt' => FALSE,
-          'reason' => 'document_media_match',
-        ],
-        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'document_media_match'),
+        $supplement['items'],
+        ($supplement['decision'] ?? []) + ['reason' => 'document_media_match'],
+        $supplement['vector_outcome'] ?? $this->buildVectorOutcome(FALSE, 'not_evaluated', 'document_media_match'),
         'document_media',
       );
-      return $document_results;
+      return $supplement['items'];
     }
 
     return $this->findByType($query, $document_type, $limit);
@@ -1066,6 +1078,32 @@ class ResourceFinder {
       }
       if (isset($item['id']) && (is_string($item['id']) || is_int($item['id']))) {
         $vector_top_match_ids[] = (string) $item['id'];
+      }
+    }
+    // Vector provenance reflects contribution, not merge survival: when the
+    // vector search produced usable (post-floor) matches that were deduped
+    // against identical lexical results, they still corroborated the result
+    // set — report them so the contract proves the vector pipeline works.
+    $outcome_items = is_array($vector_outcome['items'] ?? NULL) ? $vector_outcome['items'] : [];
+    if ($vector_result_count === 0 && $outcome_items !== []) {
+      $vector_result_count = count($outcome_items);
+      foreach ($outcome_items as $outcome_item) {
+        if (!is_array($outcome_item)) {
+          continue;
+        }
+        if (isset($outcome_item['vector_score']) && is_numeric($outcome_item['vector_score'])) {
+          $vector_top_scores[] = (float) $outcome_item['vector_score'];
+        }
+        if (isset($outcome_item['id']) && (is_string($outcome_item['id']) || is_int($outcome_item['id']))) {
+          $vector_top_match_ids[] = (string) $outcome_item['id'];
+        }
+        $outcome_class = $outcome_item['source_class'] ?? NULL;
+        if (!is_string($outcome_class) || $outcome_class === '') {
+          // Outcome items are produced by this service's vector path; keep
+          // the contract self-consistent when annotation hasn't run yet.
+          $outcome_class = 'resource_vector';
+        }
+        $source_classes[$outcome_class] = TRUE;
       }
     }
     rsort($vector_top_scores, SORT_NUMERIC);
@@ -1607,6 +1645,12 @@ class ResourceFinder {
    *   TRUE when the query results are cacheable.
    */
   protected function isVectorOutcomeCacheable(array $vector_outcome): bool {
+    // Never cache results whose vector matches were deduped into lexical
+    // items: the cache stores only merged items, so a cache hit would lose
+    // the vector-contribution provenance the retrieval contract reports.
+    if (!empty($vector_outcome['items'])) {
+      return FALSE;
+    }
     return (bool) ($vector_outcome['cacheable'] ?? TRUE);
   }
 
