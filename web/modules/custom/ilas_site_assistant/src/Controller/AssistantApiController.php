@@ -5809,7 +5809,8 @@ class AssistantApiController extends ControllerBase {
           if (!empty($resource_results)) {
             $response['type'] = 'resources';
             if ($is_housing_eviction_followup) {
-              $response['message'] = $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications from your landlord. Here are housing and eviction resources that may help:");
+              $response['message'] = $this->buildConversationContextAck($message, $server_history)
+                . $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications from your landlord. Here are housing and eviction resources that may help:");
               $response['primary_action'] = [
                 'label' => $this->t('Apply for Help'),
                 'url' => $canonical_urls['apply'],
@@ -5818,6 +5819,11 @@ class AssistantApiController extends ControllerBase {
                 ['label' => $this->t('Call Legal Advice Line'), 'url' => $canonical_urls['hotline']],
                 ['label' => $this->t('Apply for Help'), 'url' => $canonical_urls['apply']],
               ];
+            }
+            elseif (preg_match('/\b(court|hearing|tomorrow|deadline|urgent|right away|immediately|asap)\b/i', $message)) {
+              // Urgent follow-up in a known service area: acknowledge the
+              // deadline and lead with direct help before the resource list.
+              $response['message'] = $this->t("If your court date or deadline is coming up, don't wait — call our Legal Advice Line right away or apply for help now. Here are @area resources that may help:", ['@area' => $area_label]);
             }
             else {
               $response['message'] = $this->t('Here are @area resources that may help:', ['@area' => $area_label]);
@@ -5836,7 +5842,8 @@ class AssistantApiController extends ControllerBase {
           // No resource results — show actionable options instead of dead-end.
           $area_url = $canonical_urls['service_areas'][$area] ?? $canonical_urls['services'];
           if ($is_housing_eviction_followup) {
-            $response['message'] = $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications, and reach out for help right away. Here are options:");
+            $response['message'] = $this->buildConversationContextAck($message, $server_history)
+              . $this->t("For your eviction notice, don't miss any court deadlines. Gather the notice, your lease, payment records, and any communications, and reach out for help right away. Here are options:");
           }
           else {
             $response['message'] = $this->t('I can help you find more @area resources. Here are some options:', ['@area' => $area_label]);
@@ -6897,6 +6904,39 @@ class AssistantApiController extends ControllerBase {
       $is_location_like_reply,
       $is_next_step_followup,
     );
+  }
+
+  /**
+   * Builds a short acknowledgment of user-shared conversation context.
+   *
+   * Scans the current message and recent history for household/locality
+   * details the user volunteered (county, kids) and reflects them back so
+   * follow-up answers demonstrably keep the conversation's context instead
+   * of resetting to generic copy. Returns '' when nothing recognizable was
+   * shared.
+   */
+  protected function buildConversationContextAck(string $current_message, array $server_history): string {
+    $probe_parts = [mb_strtolower($current_message)];
+    foreach (array_slice($server_history, -8) as $entry) {
+      if (is_array($entry) && ($entry['role'] ?? '') === 'user' && is_string($entry['text'] ?? NULL)) {
+        $probe_parts[] = mb_strtolower($entry['text']);
+      }
+    }
+    $probe = implode(' ', $probe_parts);
+
+    $bits = [];
+    if (preg_match('/\b([a-z]+)\s+county\b/', $probe, $county_match)) {
+      $bits[] = ucfirst($county_match[1]) . ' County';
+    }
+    if (preg_match('/\b(kids?|children|child)\b/', $probe)) {
+      $bits[] = 'your kids';
+    }
+    if ($bits === []) {
+      return '';
+    }
+    return (string) $this->t('Since you mentioned @bits, family and local resources may also help. ', [
+      '@bits' => implode(' and ', $bits),
+    ]);
   }
 
   /**

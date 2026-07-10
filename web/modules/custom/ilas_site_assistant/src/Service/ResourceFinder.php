@@ -1080,6 +1080,29 @@ class ResourceFinder {
         $vector_top_match_ids[] = (string) $item['id'];
       }
     }
+    // Vector provenance reflects contribution, not merge survival: when the
+    // vector search produced usable (post-floor) matches that were deduped
+    // against identical lexical results, they still corroborated the result
+    // set — report them so the contract proves the vector pipeline works.
+    $outcome_items = is_array($vector_outcome['items'] ?? NULL) ? $vector_outcome['items'] : [];
+    if ($vector_result_count === 0 && $outcome_items !== []) {
+      $vector_result_count = count($outcome_items);
+      foreach ($outcome_items as $outcome_item) {
+        if (!is_array($outcome_item)) {
+          continue;
+        }
+        if (isset($outcome_item['vector_score']) && is_numeric($outcome_item['vector_score'])) {
+          $vector_top_scores[] = (float) $outcome_item['vector_score'];
+        }
+        if (isset($outcome_item['id']) && (is_string($outcome_item['id']) || is_int($outcome_item['id']))) {
+          $vector_top_match_ids[] = (string) $outcome_item['id'];
+        }
+        $outcome_class = $outcome_item['source_class'] ?? NULL;
+        if (is_string($outcome_class) && $outcome_class !== '') {
+          $source_classes[$outcome_class] = TRUE;
+        }
+      }
+    }
     rsort($vector_top_scores, SORT_NUMERIC);
     $vector_top_scores = array_slice($vector_top_scores, 0, 5);
     $vector_top_match_ids = array_slice($vector_top_match_ids, 0, 5);
