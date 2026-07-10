@@ -80,16 +80,25 @@ final class RetrievalAugmenterTest extends TestCase {
     ];
   }
 
+  /**
+   * Augmentation is skipped when the kill-switch is off.
+   */
   public function testAppliesFalseWhenDisabled(): void {
     $augmenter = $this->buildAugmenter(['enabled' => FALSE] + self::DEFAULT_SETTINGS);
     $this->assertFalse($augmenter->applies(['type' => 'navigation']));
   }
 
+  /**
+   * Missing retrieve_first config disables augmentation.
+   */
   public function testAppliesFalseWhenConfigMissing(): void {
     $augmenter = $this->buildAugmenter(NULL);
     $this->assertFalse($augmenter->applies(['type' => 'navigation']));
   }
 
+  /**
+   * Responses that already carry results are never re-augmented.
+   */
   public function testAppliesFalseWhenResultsAlreadyPresent(): void {
     $augmenter = $this->buildAugmenter();
     $this->assertFalse($augmenter->applies([
@@ -98,6 +107,9 @@ final class RetrievalAugmenterTest extends TestCase {
     ]));
   }
 
+  /**
+   * Retrieval-backed response types stay out of scope.
+   */
   public function testAppliesFalseForUnlistedType(): void {
     $augmenter = $this->buildAugmenter();
     $this->assertFalse($augmenter->applies(['type' => 'faq']));
@@ -105,6 +117,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertFalse($augmenter->applies([]));
   }
 
+  /**
+   * Configured template-only types are eligible.
+   */
   public function testAppliesTrueForConfiguredTemplateTypes(): void {
     $augmenter = $this->buildAugmenter();
     foreach (['navigation', 'topic', 'service_area', 'apply_cta', 'escalation'] as $type) {
@@ -112,6 +127,9 @@ final class RetrievalAugmenterTest extends TestCase {
     }
   }
 
+  /**
+   * Augmentation attaches results without replacing the message.
+   */
   public function testAugmentAttachesResultsWithoutTouchingMessage(): void {
     $augmenter = $this->buildAugmenter(
       self::DEFAULT_SETTINGS,
@@ -129,6 +147,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame('SSI Benefits Guide', $augmented['results'][0]['title']);
   }
 
+  /**
+   * FAQ and resource results merge deduplicated and capped.
+   */
   public function testAugmentMergesFaqAndResourcesDeduplicatedAndCapped(): void {
     $resources = [
       self::resourceItem('r1', 'https://idaholegalaid.org/a'),
@@ -154,6 +175,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame('r2', $augmented['results'][2]['id']);
   }
 
+  /**
+   * Document-style queries put resource results first.
+   */
   public function testAugmentResourceLeadingForDocumentQueries(): void {
     $resources = [self::resourceItem('r1', 'https://idaholegalaid.org/forms/custody')];
     $faq = [['id' => 'faq_1', 'title' => 'FAQ', 'url' => 'https://idaholegalaid.org/faq', 'source_class' => 'faq_lexical']];
@@ -169,6 +193,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame('faq_1', $augmented['results'][1]['id']);
   }
 
+  /**
+   * Zero-match retrieval still records a provable attempt.
+   */
   public function testAugmentRecordsAttemptEvenWithoutMatches(): void {
     $augmenter = $this->buildAugmenter(self::DEFAULT_SETTINGS, []);
     $response = ['type' => 'navigation', 'message' => 'Nav.'];
@@ -180,6 +207,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertTrue($augmented['retrieval_attempted']);
   }
 
+  /**
+   * Retrieval exceptions leave the response untouched.
+   */
   public function testAugmentFailsOpenOnRetrievalException(): void {
     $augmenter = $this->buildAugmenter(
       self::DEFAULT_SETTINGS,
@@ -192,6 +222,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame($response, $augmented);
   }
 
+  /**
+   * Refusal-style safety classes get no escalation retrieval.
+   */
   public function testEscalationQueryForRefusalClassIsNull(): void {
     $augmenter = $this->buildAugmenter();
     $this->assertNull($augmenter->escalationQueryFor([
@@ -200,6 +233,9 @@ final class RetrievalAugmenterTest extends TestCase {
     ]));
   }
 
+  /**
+   * Non-emergency classes get no escalation retrieval.
+   */
   public function testEscalationQueryForNonEmergencyClassIsNull(): void {
     $augmenter = $this->buildAugmenter();
     $this->assertNull($augmenter->escalationQueryFor([
@@ -208,6 +244,9 @@ final class RetrievalAugmenterTest extends TestCase {
     ]));
   }
 
+  /**
+   * Informational emergencies map to curated retrieval queries.
+   */
   public function testEscalationQueryForEmergencyClasses(): void {
     $augmenter = $this->buildAugmenter();
     $this->assertSame(
@@ -220,6 +259,9 @@ final class RetrievalAugmenterTest extends TestCase {
     );
   }
 
+  /**
+   * Escalation retrieval honors the intent_types config.
+   */
   public function testEscalationQueryDisabledWhenEscalationTypeNotConfigured(): void {
     $settings = self::DEFAULT_SETTINGS;
     $settings['intent_types'] = ['navigation', 'topic'];
@@ -227,6 +269,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertNull($augmenter->escalationQueryFor(['class' => 'dv_emergency', 'requires_refusal' => FALSE]));
   }
 
+  /**
+   * Escalation augmentation is additive to safety copy.
+   */
   public function testAugmentEscalationAttachesResultsAdditively(): void {
     $augmenter = $this->buildAugmenter(
       self::DEFAULT_SETTINGS,
@@ -248,6 +293,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertTrue($augmented['retrieval_supplemented']);
   }
 
+  /**
+   * Refusals pass through escalation augmentation unchanged.
+   */
   public function testAugmentEscalationLeavesRefusalUntouched(): void {
     $augmenter = $this->buildAugmenter(
       self::DEFAULT_SETTINGS,
@@ -262,6 +310,9 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame($response_data, $augmented);
   }
 
+  /**
+   * Escalation augmentation fails open on retrieval errors.
+   */
   public function testAugmentEscalationFailsOpenOnException(): void {
     $augmenter = $this->buildAugmenter(
       self::DEFAULT_SETTINGS,
