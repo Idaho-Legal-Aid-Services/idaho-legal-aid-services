@@ -174,6 +174,27 @@ retrieval_contract:
     - 'faq_vector'
     - 'resource_vector'
 
+# Retrieve-first augmentation
+# Template-only response types (navigation, topic, service_area, escalation,
+# ...) historically carried no retrieval results, leaving grounding,
+# citations, and the public retrieval contract empty. When enabled, the
+# RetrievalAugmenter runs retrieval for these types and attaches results
+# WITHOUT replacing the template message. enabled: false is the instant
+# kill-switch (no deploy needed beyond config).
+retrieve_first:
+  enabled: true
+  max_results: 3
+  intent_types:
+    - navigation
+    - topic
+    - service_area
+    - disambiguation
+    - apply_cta
+    - services
+    - escalation
+    - high_risk
+    - office_location
+
 # Safety spike alerting (cron-driven, default OFF)
 # Sends email when safety violations exceed threshold within window.
 safety_alerting:

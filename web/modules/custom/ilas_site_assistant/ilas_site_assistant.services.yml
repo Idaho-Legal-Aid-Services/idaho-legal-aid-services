@@ -158,6 +158,10 @@ services:
     class: Drupal\ilas_site_assistant\Service\ResponseGrounder
     arguments: ['@ilas_site_assistant.source_governance', '@ilas_site_assistant.office_directory']
 
+  ilas_site_assistant.retrieval_augmenter:
+    class: Drupal\ilas_site_assistant\Service\RetrievalAugmenter
+    arguments: ['@config.factory', '@ilas_site_assistant.faq_index', '@ilas_site_assistant.resource_finder', '@logger.channel.ilas_site_assistant']
+
   ilas_site_assistant.safety_classifier:
     class: Drupal\ilas_site_assistant\Service\SafetyClassifier
     arguments: ['@config.factory']

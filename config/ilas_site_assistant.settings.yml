@@ -132,6 +132,23 @@ voyage:
     failure_threshold: 3
     cooldown_seconds: 300
   fallback_on_error: true
+retrieve_first:
+  # Retrieve-first augmentation: attaches retrieval results (and therefore
+  # citations + retrieval contract provenance) to template-only response
+  # types without replacing their message. enabled: false is the instant
+  # kill-switch.
+  enabled: true
+  max_results: 3
+  intent_types:
+    - navigation
+    - topic
+    - service_area
+    - disambiguation
+    - apply_cta
+    - services
+    - escalation
+    - high_risk
+    - office_location
 safety_alerting:
   enabled: false
   threshold: 20

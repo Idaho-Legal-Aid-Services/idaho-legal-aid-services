@@ -313,6 +313,22 @@ ilas_site_assistant.settings:
           sequence:
             type: string
             label: 'Source class'
+    retrieve_first:
+      type: mapping
+      label: 'Retrieve-first augmentation for template-only response types'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Enable retrieve-first augmentation (kill-switch)'
+        max_results:
+          type: integer
+          label: 'Maximum retrieval results attached per response'
+        intent_types:
+          type: sequence
+          label: 'Response types eligible for augmentation'
+          sequence:
+            type: string
+            label: 'Response type'
     vector_search:
       type: mapping
       label: 'Vector search enhancement settings'
