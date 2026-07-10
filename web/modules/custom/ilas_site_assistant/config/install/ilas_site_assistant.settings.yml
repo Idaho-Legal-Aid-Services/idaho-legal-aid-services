@@ -132,7 +132,13 @@ retrieval:
 vector_search:
   enabled: false
   fallback_threshold: 2        # Min lexical results before vector fires
-  min_vector_score: 0.70       # Min cosine similarity to include (0-1)
+  min_vector_score: 0.25       # Min cosine similarity to include (0-1).
+                               # Calibrated for voyage-law-2 on this corpus
+                               # (measured 2026-07): off-topic noise scores
+                               # <= 0.18, topical matches 0.27-0.55. The old
+                               # 0.70 floor was unreachable — it filtered
+                               # every result and vector_result_count was
+                               # permanently 0.
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
   min_lexical_score: 120       # Min lexical score for quality check (0 = disabled)
                                # If set > 0 and all lexical results score below this,

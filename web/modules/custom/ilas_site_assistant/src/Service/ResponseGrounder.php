@@ -217,6 +217,19 @@ class ResponseGrounder {
               : $result[$topic_key];
           }
         }
+        // Carry the full topic-term list (field_topics names) so citations
+        // are provably about the user's subject. Joined into the singular
+        // 'topic' field because downstream consumers (widget, eval
+        // normalizer) treat topic as one bounded string.
+        if (empty($source['topic']) && !empty($result['topics']) && is_array($result['topics'])) {
+          $topics = array_values(array_filter(array_map(
+            static fn($t) => is_string($t) ? trim($t) : '',
+            $result['topics'],
+          )));
+          if ($topics !== []) {
+            $source['topic'] = mb_substr(implode(', ', $topics), 0, 120);
+          }
+        }
         $sources[] = $source;
       }
     }

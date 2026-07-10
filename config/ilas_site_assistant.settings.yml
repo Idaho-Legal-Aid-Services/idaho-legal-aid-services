@@ -116,7 +116,9 @@ vector_search:
   # Drupal Settings override; see VectorRetrievalLiveEnablementTest.
   enabled: false
   fallback_threshold: 2
-  min_vector_score: 0.7
+  # 0.25: voyage-law-2 cosine calibration — noise <= 0.18, topical 0.27-0.55.
+  # The old 0.70 floor filtered every result. See module install config.
+  min_vector_score: 0.25
   score_normalization_factor: 100
   # 120: vector supplements whenever lexical lacks a strong topical match.
   # See module install config for the score-band calibration.
