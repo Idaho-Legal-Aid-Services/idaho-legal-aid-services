@@ -282,6 +282,8 @@ intents:
       - elder
       - nursing home
       - guardianship
+      - grandchild
+      - grandchildren
       - personas mayores
 
   topic_health:

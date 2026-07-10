@@ -1264,6 +1264,12 @@ class FaqIndex {
    *   TRUE when the query results are cacheable.
    */
   protected function isVectorOutcomeCacheable(array $vector_outcome): bool {
+    // Never cache results whose vector matches were deduped into lexical
+    // items: the cache stores only merged items, so a cache hit would lose
+    // the vector-contribution provenance the retrieval contract reports.
+    if (!empty($vector_outcome['items'])) {
+      return FALSE;
+    }
     return (bool) ($vector_outcome['cacheable'] ?? TRUE);
   }
 
