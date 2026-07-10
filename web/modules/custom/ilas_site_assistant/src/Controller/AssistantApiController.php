@@ -47,6 +47,7 @@ use Drupal\ilas_site_assistant\Service\PreRoutingDecisionEngine;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
+use Drupal\ilas_site_assistant\Service\RetrievalAugmenter;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\ilas_site_assistant\Service\VoyageReranker;
 use Drupal\Component\Uuid\Php as UuidGenerator;
@@ -207,6 +208,13 @@ class AssistantApiController extends ControllerBase {
    * @var \Drupal\ilas_site_assistant\Service\ResponseGrounder|null
    */
   protected $responseGrounder;
+
+  /**
+   * The retrieval augmenter service (retrieve-first).
+   *
+   * @var \Drupal\ilas_site_assistant\Service\RetrievalAugmenter|null
+   */
+  protected $retrievalAugmenter;
 
   /**
    * The safety classifier service.
@@ -449,6 +457,7 @@ class AssistantApiController extends ControllerBase {
     ?ConversationContextSummary $conversation_context_summary = NULL,
     ?HousingEvictionContinuityDecider $housing_eviction_continuity_decider = NULL,
     ?OfficeDirectory $office_directory = NULL,
+    ?RetrievalAugmenter $retrieval_augmenter = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -488,6 +497,7 @@ class AssistantApiController extends ControllerBase {
     $this->conversationContextSummary = $conversation_context_summary;
     $this->housingEvictionContinuityDecider = $housing_eviction_continuity_decider;
     $this->officeDirectory = $office_directory;
+    $this->retrievalAugmenter = $retrieval_augmenter;
   }
 
   /**
@@ -506,7 +516,8 @@ class AssistantApiController extends ControllerBase {
    * - OPTIONAL (has/get/NULL): response_grounder, performance_monitor,
    *   conversation_logger, ab_testing, safety_violation_tracker,
    *   langfuse_tracer, top_intents_pack, source_governance,
-   *   vector_index_hygiene, retrieval_configuration, voyage_reranker.
+   *   vector_index_hygiene, retrieval_configuration, voyage_reranker,
+   *   retrieval_augmenter.
    */
   public static function create(ContainerInterface $container) {
     return new static(
@@ -548,6 +559,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.conversation_context_summary') ? $container->get('ilas_site_assistant.conversation_context_summary') : NULL,
       $container->has('ilas_site_assistant.housing_eviction_continuity_decider') ? $container->get('ilas_site_assistant.housing_eviction_continuity_decider') : NULL,
       $container->has('ilas_site_assistant.office_directory') ? $container->get('ilas_site_assistant.office_directory') : NULL,
+      $container->has('ilas_site_assistant.retrieval_augmenter') ? $container->get('ilas_site_assistant.retrieval_augmenter') : NULL,
     );
   }
 
@@ -2328,6 +2340,25 @@ class AssistantApiController extends ControllerBase {
           $session_fingerprint,
         );
 
+        // Retrieve-first for informational emergencies (eviction/DV): keep
+        // the urgent safety copy first, append topical resources/citations
+        // so grounding provenance is provable. Additive and fail-open —
+        // safety copy and safety metadata are never modified.
+        if ($this->retrievalAugmenter) {
+          $response_data = $this->retrievalAugmenter->augmentEscalation($response_data, $safety_classification);
+          if (!empty($response_data['results']) && $this->responseGrounder) {
+            try {
+              $response_data = $this->responseGrounder->groundResponse($response_data, $response_data['results'], [
+                'remove_invented' => FALSE,
+                'add_caveats' => FALSE,
+              ]);
+            }
+            catch (\Throwable $e) {
+              $this->logger->warning('Escalation grounding failed: @class @error_signature', $this->buildExceptionContext($e));
+            }
+          }
+        }
+
         $response_data = $this->assembleContractFields($response_data, NULL, 'safety');
         $public_meta['safety']['blocked'] = TRUE;
         // Generation never ran on the safety-exit path: the pre-routing
@@ -2351,6 +2382,14 @@ class AssistantApiController extends ControllerBase {
           ['type' => 'safety_' . ($safety_classification['class'] ?? 'unknown'), 'source' => 'safety_classifier'],
           'safety_classifier'
         );
+        // Surface retrieval proof when escalation augmentation attached
+        // results; refusal-style classes remain retrieval-free.
+        if (!empty($response_data['results'])) {
+          $public_meta['retrieval']['used'] = TRUE;
+          $public_meta['retrieval']['attempted'] = TRUE;
+          $public_meta['grounding']['used'] = !empty($response_data['citations']) || !empty($response_data['sources']);
+          $response_data['retrieval'] = $this->buildPublicRetrievalContract($this->collectRetrievalTraceMetadata($response_data));
+        }
         $response_data['meta'] = $public_meta;
         if (is_array($diagnostics_meta)) {
           $diagnostics_meta = array_replace_recursive($diagnostics_meta, $public_meta);
@@ -3198,6 +3237,16 @@ class AssistantApiController extends ControllerBase {
           $debug_meta['processing_stages'][] = 'selection_repeat_menu_recovered';
           $debug_meta['intent_selected'] = $intent['type'];
           $debug_meta['intent_source'] = 'selection_recovery';
+        }
+      }
+      // Retrieve-first: template-only response types (navigation, topic,
+      // service_area, ...) get retrieval results attached so grounding,
+      // citations, and the public retrieval contract carry real evidence.
+      // The template message is never replaced.
+      if ($this->retrievalAugmenter && $this->retrievalAugmenter->applies($response)) {
+        $response = $this->retrievalAugmenter->augment($response, $intent, $user_message, $early_retrieval);
+        if ($debug_mode && !empty($response['retrieval_supplemented'])) {
+          $debug_meta['processing_stages'][] = 'retrieve_first_augmented';
         }
       }
       $this->langfuseTracer?->endSpan([

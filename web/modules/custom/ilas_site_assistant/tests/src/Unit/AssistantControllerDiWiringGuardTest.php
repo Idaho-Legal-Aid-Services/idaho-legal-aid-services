@@ -70,6 +70,7 @@ final class AssistantControllerDiWiringGuardTest extends TestCase {
     'ilas_site_assistant.vector_index_hygiene',
     'ilas_site_assistant.retrieval_configuration',
     'ilas_site_assistant.voyage_reranker',
+    'ilas_site_assistant.retrieval_augmenter',
   ];
 
   /**
