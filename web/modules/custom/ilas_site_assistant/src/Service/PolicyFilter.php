@@ -584,7 +584,9 @@ You can speak with a person by calling our Legal Advice Line, or share feedback 
       '/\b(what\s+should\s+i\s+tell\s+(the\s+)?judge\s+to\s+win)\b/i',
       // "tell me what to say (in court|to the judge)" / "what to say to the judge".
       '/\b(what\s+to\s+(say|tell)\s+(to\s+)?(the\s+)?(judge|court))\b/i',
-      '/\b(tell\s+me\s+what\s+to\s+(say|tell)\s+(in\s+(the\s+)?court|to\s+(the\s+)?(judge|court)))\b/i',
+      '/\b(tell\s+me\s+(exactly\s+)?what\s+to\s+(say|tell)\s+((in|at)\s+(the\s+)?(court|hearing)|during\s+(the\s+)?(hearing|trial)|to\s+(the\s+)?(judge|court)))\b/i',
+      // "what to say (in|at|during) (the) (court|hearing|trial)".
+      '/\bwhat\s+to\s+say\s+(in|at|during)\s+(the\s+)?(court|hearing|trial)\b/i',
       // "what (exactly) (should|do|can) i say (in court|to the (court|judge))".
       '/\b(what\s+(exactly\s+)?(should|do|can)\s+i\s+say\s+(in\s+(the\s+)?court|to\s+(the\s+)?(court|judge)))\b/i',
       // "(write|draft|prepare|create|help me write) … (court|legal|closing|opening|trial) argument".
