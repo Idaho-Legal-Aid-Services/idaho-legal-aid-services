@@ -134,9 +134,15 @@ vector_search:
   fallback_threshold: 2        # Min lexical results before vector fires
   min_vector_score: 0.70       # Min cosine similarity to include (0-1)
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
-  min_lexical_score: 0         # Min lexical score for quality check (0 = disabled)
+  min_lexical_score: 120       # Min lexical score for quality check (0 = disabled)
                                # If set > 0 and all lexical results score below this,
-                               # vector search fires even when count >= fallback_threshold
+                               # vector search fires even when count >= fallback_threshold.
+                               # Calibrated against document-media scoring: a topically
+                               # weak match (topic 80 + topic-name 18 + 1 keyword 12 = 110)
+                               # stays below it; a strong match (topic 80 + phrase-in-title
+                               # 35 + keyword overlap >= 24 = 139+) clears it. Search API
+                               # lexical scores sit far below 120, so vector supplements
+                               # those queries whenever the backend is enabled.
 
 # Voyage AI reranking (second-stage semantic reranking)
 # Reorders retrieval results using Voyage AI before response grounding.
