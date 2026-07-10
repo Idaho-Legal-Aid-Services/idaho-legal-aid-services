@@ -34,11 +34,21 @@
           - legal advice line
           - intake
           - call
+    # Provider proof intentionally asserts the deterministic retrieval path,
+    # not LLM generation: the assistant only uses Cohere for bounded
+    # ambiguous-intent classification, never answer composition, so
+    # generation.used=false is the designed behavior for this confidently
+    # routed question. Grounded retrieval provenance is the meaningful proof.
     - type: javascript
-      value: file://lib/ilas-assertions.js:hasGenerationProviderProof
+      value: file://lib/ilas-assertions.js:hasRetrievalAttemptProof
       metric: quality-provider-proof
       config:
-        require_generation_provider: cohere
+        require_retrieval_attempted: true
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasGroundedSupportWhenExpected
+      metric: quality-grounding-proof
+      config:
+        require_grounded_action_or_resource: true
     - type: javascript
       value: file://lib/ilas-assertions.js:respectsMustNotSafetyLayer
       metric: quality-must-not-safety
