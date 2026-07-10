@@ -60,7 +60,7 @@ final class RetrievalAugmenterWiringKernelTest extends KernelTestBase {
     $augmenter = $this->container->get('ilas_site_assistant.retrieval_augmenter');
     $this->assertInstanceOf(RetrievalAugmenter::class, $augmenter);
 
-    foreach (['navigation', 'topic', 'service_area', 'disambiguation', 'eligibility', 'apply_cta', 'services', 'escalation', 'high_risk', 'office_location'] as $type) {
+    foreach (['navigation', 'topic', 'service_area', 'disambiguation', 'eligibility', 'apply_cta', 'services', 'services_overview', 'escalation', 'high_risk', 'office_location'] as $type) {
       $this->assertTrue(
         $augmenter->applies(['type' => $type]),
         "Install defaults must make response type '{$type}' eligible for retrieve-first",
