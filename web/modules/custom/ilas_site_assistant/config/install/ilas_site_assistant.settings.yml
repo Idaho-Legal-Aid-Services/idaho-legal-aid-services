@@ -140,11 +140,11 @@ vector_search:
                                # every result and vector_result_count was
                                # permanently 0.
   score_normalization_factor: 100  # Multiply cosine score by this for ranking parity
-  min_lexical_score: 120       # Min lexical score for quality check (0 = disabled)
+  min_lexical_score: 130       # Min lexical score for quality check (0 = disabled)
                                # If set > 0 and all lexical results score below this,
                                # vector search fires even when count >= fallback_threshold.
                                # Calibrated against document-media scoring: a topically
-                               # weak match (topic 80 + topic-name 18 + 1 keyword 12 = 110)
+                               # weak match (topic 80 + topic-name 18 + keyword overlap = 110-122)
                                # stays below it; a strong match (topic 80 + phrase-in-title
                                # 35 + keyword overlap >= 24 = 139+) clears it. Search API
                                # lexical scores sit far below 120, so vector supplements

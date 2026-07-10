@@ -120,9 +120,9 @@ vector_search:
   # The old 0.70 floor filtered every result. See module install config.
   min_vector_score: 0.25
   score_normalization_factor: 100
-  # 120: vector supplements whenever lexical lacks a strong topical match.
+  # 130: vector supplements whenever lexical lacks a strong topical match.
   # See module install config for the score-band calibration.
-  min_lexical_score: 120
+  min_lexical_score: 130
 voyage:
   # NOTE: Active deployment config keeps this FALSE so CI / local dev never
   # call Voyage. Production enables it via admin form / Settings override.

@@ -357,6 +357,8 @@ intents:
       - employment
       - fired
       - wages
+      - not paid
+      - migrant worker
       - empleo
 
   # ─── SUB-TOPIC INTENTS ──────────────────────────────────────────
@@ -487,6 +489,7 @@ intents:
       - { label: Call Hotline, intent: legal_advice_line }
     synonyms:
       - foreclosure
+      - mortgage
       - losing my house
       - ejecucion hipotecaria
 

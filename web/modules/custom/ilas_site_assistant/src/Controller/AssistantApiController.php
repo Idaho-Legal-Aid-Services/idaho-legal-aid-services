@@ -3640,12 +3640,14 @@ class AssistantApiController extends ControllerBase {
       // Spanish-input parity: individual processIntent branches overwrite
       // ResponseBuilder copy and lose its bilingual postscript, so apply it
       // centrally. Only appended when the message has no Spanish action
-      // cues yet (guards against double-append).
-      if (is_string($response['message'] ?? NULL)
-        && $response['message'] !== ''
+      // cues yet (guards against double-append). Messages are often
+      // TranslatableMarkup, so accept any stringable value.
+      $central_message = $response['message'] ?? NULL;
+      if ((is_string($central_message) || $central_message instanceof \Stringable)
+        && (string) $central_message !== ''
         && ResponseBuilder::looksLikeSpanish($user_message)
-        && !preg_match('/(solicite|llame|l[ií]nea|ayuda)/iu', $response['message'])) {
-        $response['message'] .= ResponseBuilder::spanishActionsText();
+        && !preg_match('/(solicite|llame|l[ií]nea|ayuda)/iu', (string) $central_message)) {
+        $response['message'] = ((string) $central_message) . ResponseBuilder::spanishActionsText();
       }
       $response = $this->assembleContractFields($response, $gate_decision, 'normal');
 

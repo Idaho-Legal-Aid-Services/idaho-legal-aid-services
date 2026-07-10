@@ -440,7 +440,7 @@ If you have questions about a civil matter related to your situation, I can help
         'type' => self::VIOLATION_LEGAL_ADVICE,
         'response' => $this->t('I can\'t give legal advice, but I can help you find resources. ILAS has guides on many legal topics that may help.
 
-To speak with someone who can give legal advice, call the ILAS Hotline or apply for help.'),
+To speak with someone who can give legal advice, call the ILAS Legal Advice Line at 208-746-7541 or apply for help.'),
         'escalation_level' => 'standard',
         'links' => [
           ['label' => $this->t('Find Guides'), 'url' => $urls['guides'], 'type' => 'guides'],

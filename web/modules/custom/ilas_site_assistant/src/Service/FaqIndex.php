@@ -50,7 +50,7 @@ class FaqIndex {
    * Maximum tolerated duration for a vector search call (ms) before we
    * temporarily disable vector queries to protect latency.
    */
-  const MAX_VECTOR_MS = 2000;
+  const MAX_VECTOR_MS = 3500;
 
   /**
    * Backoff duration after a vector search timeout/failure (seconds).
@@ -722,6 +722,7 @@ class FaqIndex {
     }
 
     $item['category'] = $parent_info['title'] ?? NULL;
+    $item['topics'] = $parent_info['topics'] ?? [];
     $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
@@ -815,6 +816,19 @@ class FaqIndex {
 
     if ($parent && $parent->getEntityTypeId() === 'node') {
       try {
+        // Collect the parent node's topic/service-area term names so FAQ
+        // citations can prove what subject they cover (the parent title
+        // alone often lacks the user's topic word).
+        $topics = [];
+        foreach (['field_topics', 'field_tags', 'field_service_areas', 'field_service_area'] as $field) {
+          if ($parent->hasField($field) && !$parent->get($field)->isEmpty()) {
+            foreach ($parent->get($field)->referencedEntities() as $term) {
+              if (method_exists($term, 'getName')) {
+                $topics[] = strtolower((string) $term->getName());
+              }
+            }
+          }
+        }
         return [
           'title' => $parent->getTitle(),
           'url' => $parent->toUrl()->toString(),
@@ -824,6 +838,7 @@ class FaqIndex {
           'langcode' => method_exists($parent, 'language') && $parent->language()
             ? $parent->language()->getId()
             : NULL,
+          'topics' => array_values(array_unique($topics)),
         ];
       }
       catch (\Exception $e) {
@@ -836,6 +851,7 @@ class FaqIndex {
       'url' => '',
       'changed' => NULL,
       'langcode' => NULL,
+      'topics' => [],
     ];
   }
 
@@ -934,6 +950,7 @@ class FaqIndex {
     }
 
     $item['category'] = $parent_info['title'];
+    $item['topics'] = $parent_info['topics'] ?? [];
     $item['parent_url'] = $parent_info['url'];
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];

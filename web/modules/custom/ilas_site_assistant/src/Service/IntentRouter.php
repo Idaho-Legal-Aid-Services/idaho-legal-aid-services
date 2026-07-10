@@ -138,6 +138,8 @@ class IntentRouter {
           '/\b(can\s*i\s*(apply|get\s*help|qualify)|am\s*i\s*eligible)\s*if\b/i',
           // Requirements: "do i meet the requirements", "what are the requirements".
           '/\b(do\s*i\s*meet|what\s*are)\s*(the\s*)?(requirements?|criteria|qualifications?)/i',
+          // Representation: "will ILAS/you represent me", "can you represent me".
+          '/\b(will|can|would|do)\s+(ilas\s+|you\s+|someone\s+)?represent\s+me\b/i',
         ],
         'keywords' => ['qualify', 'eligible', 'eligibility', 'who can get help', 'calificar'],
         'weight' => 0.9,
@@ -855,7 +857,12 @@ class IntentRouter {
     // Skip TopicRouter when message contains an explicit resource type word
     // (e.g. "custody forms") so intent patterns can match directly.
     $has_resource_type_word = $this->hasResourceTypeWord($message);
-    if ($this->topicRouter && str_word_count($message) <= 4 && !$has_resource_type_word) {
+    // Auxiliary-verb questions ("Will ILAS represent me?", "Can you help?")
+    // are never bare topic words — without this guard "will" matches the
+    // wills/estate topic and the question gets a topic disambiguation
+    // instead of intent scoring.
+    $is_auxiliary_question = (bool) preg_match('/^\s*(will|can|could|would|do|does|am|is|are|should)\b/i', $message);
+    if ($this->topicRouter && str_word_count($message) <= 4 && !$has_resource_type_word && !$is_auxiliary_question) {
       $topic_route = $this->topicRouter->route($message);
       if ($topic_route) {
         $service_area = $topic_route['service_area'];

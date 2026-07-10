@@ -8,6 +8,10 @@ families:
     options:
       - { label: 'Apply for legal help', intent: apply_for_help }
       - { label: 'Call Legal Advice Line', intent: legal_advice_line }
+      - { label: 'Housing help', intent: topic_housing }
+      - { label: 'Family help', intent: topic_family }
+      - { label: 'Debt or money problems', intent: topic_consumer }
+      - { label: 'Benefits help', intent: topic_health }
       - { label: 'Find forms', intent: forms_finder }
       - { label: 'Read a guide', intent: guides_finder }
     exact_aliases:

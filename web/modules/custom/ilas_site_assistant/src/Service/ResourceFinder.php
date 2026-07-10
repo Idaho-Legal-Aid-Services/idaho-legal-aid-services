@@ -46,8 +46,15 @@ class ResourceFinder {
 
   /**
    * Maximum tolerated duration for a vector search call (ms).
+   *
+   * A breach latches cross-request backoff, silently disabling vector
+   * retrieval for VECTOR_BACKOFF_SECONDS — so the budget must tolerate
+   * cold-start latency (measured 2.0-4.3s for the first Voyage+Pinecone
+   * call after a cache clear). 2000ms latched backoff on marginal
+   * (2033ms) first calls and cost far more in retrieval quality than the
+   * extra wait on one request.
    */
-  const MAX_VECTOR_MS = 2000;
+  const MAX_VECTOR_MS = 3500;
 
   /**
    * Backoff duration after a vector search timeout/failure (seconds).
@@ -572,19 +579,24 @@ class ResourceFinder {
 
     $document_results = $this->findPublishedDocumentMatches($query, $document_type, $limit);
     if ($document_results !== []) {
+      // Document matches are strong lexical evidence, but they must not
+      // suppress the vector supplement: topically weak matches (scored
+      // below vector_search.min_lexical_score) still benefit from semantic
+      // retrieval, and the retrieval contract should reflect a real vector
+      // decision instead of 'not_evaluated'. The supplement deliberately
+      // drops the form/guide type filter — vector matches are topical
+      // resource pages (where the documents live), which are the right
+      // companion results for a document request.
+      $supplement = $this->supplementWithVectorResultsDetailed($document_results, $query, NULL, $limit);
       $this->recordRetrievalTelemetry(
         $query,
         $document_type,
-        $document_results,
-        [
-          'enabled' => !empty($this->getVectorSearchConfig()['enabled']),
-          'should_attempt' => FALSE,
-          'reason' => 'document_media_match',
-        ],
-        $this->buildVectorOutcome(FALSE, 'not_evaluated', 'document_media_match'),
+        $supplement['items'],
+        ($supplement['decision'] ?? []) + ['reason' => 'document_media_match'],
+        $supplement['vector_outcome'] ?? $this->buildVectorOutcome(FALSE, 'not_evaluated', 'document_media_match'),
         'document_media',
       );
-      return $document_results;
+      return $supplement['items'];
     }
 
     return $this->findByType($query, $document_type, $limit);
