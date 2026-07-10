@@ -79,6 +79,20 @@ class TopIntentsPack {
    *   The matching intent key, or NULL if no match.
    */
   public function matchSynonyms(string $normalized_input): ?string {
+    return $this->matchSynonymsWithTerm($normalized_input)['intent_key'] ?? NULL;
+  }
+
+  /**
+   * Reverse synonym lookup that also reports which synonym matched.
+   *
+   * @param string $normalized_input
+   *   Lowercased, trimmed user input.
+   *
+   * @return array|null
+   *   ['intent_key' => string, 'synonym' => string] for the first matching
+   *   synonym, or NULL if no match.
+   */
+  public function matchSynonymsWithTerm(string $normalized_input): ?array {
     $index = $this->buildSynonymIndex();
     $input = mb_strtolower(trim($normalized_input));
 
@@ -92,10 +106,47 @@ class TopIntentsPack {
         continue;
       }
 
-      return $intent_key;
+      return ['intent_key' => $intent_key, 'synonym' => (string) $synonym];
     }
 
     return NULL;
+  }
+
+  /**
+   * Returns every synonym of one intent entry present in the given input.
+   *
+   * Used to echo the user's own topic terms back in template answers so
+   * topic-page responses name what was asked about (SSI, guardianship,
+   * custody, ...) instead of only the generic area label.
+   *
+   * @param string $intent_key
+   *   The canonical intent key whose synonyms to check.
+   * @param string $normalized_input
+   *   Lowercased, trimmed user input.
+   *
+   * @return string[]
+   *   Matching synonyms in pack order (may be empty).
+   */
+  public function findMatchingSynonyms(string $intent_key, string $normalized_input): array {
+    $entry = $this->lookup($intent_key);
+    if ($entry === NULL) {
+      return [];
+    }
+    $input = mb_strtolower(trim($normalized_input));
+    if ($input === '') {
+      return [];
+    }
+
+    $matches = [];
+    foreach (($entry['synonyms'] ?? []) as $synonym) {
+      if (!is_string($synonym) || trim($synonym) === '') {
+        continue;
+      }
+      if ($this->matchesSynonym($input, $synonym)) {
+        $matches[] = trim($synonym);
+      }
+    }
+    return array_values(array_unique($matches));
   }
 
   /**

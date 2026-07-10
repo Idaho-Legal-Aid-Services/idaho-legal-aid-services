@@ -255,6 +255,10 @@ class PolicyFilter {
     '/\b(frustrated|annoyed|angry|upset)\b/i',
     '/\b(can\'?t\s+you\s+understand|don\'?t\s+you\s+understand)/i',
     '/\b(talk\s+to\s+a\s+(real\s+)?(person|human)|real\s+person)/i',
+    // Whole-message confusion signals only — "this eviction notice is
+    // confusing" must keep routing to topical help, not frustration copy.
+    '/^\s*(this|that|it)\s+is\s+(so\s+|really\s+|very\s+)?confusing\s*[.!?]*\s*$/i',
+    '/^\s*i\s*(\'?m|\s+am)\s+(so\s+|really\s+|very\s+)?(confused|lost)\s*[.!?]*\s*$/i',
   ];
 
   /**

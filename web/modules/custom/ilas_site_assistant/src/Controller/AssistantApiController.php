@@ -3637,6 +3637,16 @@ class AssistantApiController extends ControllerBase {
       if ($turn_type !== TurnClassifier::TURN_NEW) {
         $response['turn_type'] = $turn_type;
       }
+      // Spanish-input parity: individual processIntent branches overwrite
+      // ResponseBuilder copy and lose its bilingual postscript, so apply it
+      // centrally. Only appended when the message has no Spanish action
+      // cues yet (guards against double-append).
+      if (is_string($response['message'] ?? NULL)
+        && $response['message'] !== ''
+        && ResponseBuilder::looksLikeSpanish($user_message)
+        && !preg_match('/(solicite|llame|l[ií]nea|ayuda)/iu', $response['message'])) {
+        $response['message'] .= ResponseBuilder::spanishActionsText();
+      }
       $response = $this->assembleContractFields($response, $gate_decision, 'normal');
 
       // Attach governance summary to every normal response.
@@ -5841,8 +5851,9 @@ class AssistantApiController extends ControllerBase {
           break;
         }
 
-        // First mention of this service area — show the service area page.
-        $response['message'] = $this->t('Here\'s our @area legal help page: @hint', [
+        // First mention of this service area — show the service area page,
+        // and always name a concrete next step in the visible message.
+        $response['message'] = $this->t("Here's our @area legal help page: @hint You can apply for free legal help online or call our Legal Advice Line.", [
           '@area' => $area_label,
           '@hint' => $this->getServiceAreaContextHint($area),
         ]);
@@ -6050,7 +6061,23 @@ class AssistantApiController extends ControllerBase {
           if ($pack_entry !== NULL) {
             $response['type'] = 'topic';
             $response['response_mode'] = 'topic';
-            $response['message'] = (string) ($pack_entry['answer_text'] ?? $response['message']);
+            $answer_text = (string) ($pack_entry['answer_text'] ?? $response['message']);
+            // Echo the user's own topic terms so the answer names what was
+            // asked about (SSI, guardianship, custody, ...) instead of only
+            // the generic area page, and always close with a concrete next
+            // step.
+            $matched_terms = $this->topIntentsPack->findMatchingSynonyms($original_intent_type, mb_strtolower(trim($message)));
+            if ($intent['matched_synonym'] ?? NULL) {
+              array_unshift($matched_terms, (string) $intent['matched_synonym']);
+              $matched_terms = array_values(array_unique($matched_terms));
+            }
+            if ($matched_terms !== []) {
+              $answer_text .= ' ' . $this->t('It includes help with @topics.', [
+                '@topics' => implode(', ', array_slice($matched_terms, 0, 3)),
+              ]);
+            }
+            $answer_text .= ' ' . $this->t('You can apply for free legal help online or call our Legal Advice Line.');
+            $response['message'] = $answer_text;
             if (!empty($pack_entry['primary_action']) && is_array($pack_entry['primary_action'])) {
               $response['primary_action'] = $pack_entry['primary_action'];
               if (!empty($pack_entry['primary_action']['url'])) {

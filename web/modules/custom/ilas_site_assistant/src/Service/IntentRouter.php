@@ -970,8 +970,9 @@ class IntentRouter {
     // like "custody", "eviction", "debt collection" that have no regex
     // patterns but do have synonyms in the pack.
     if ($this->topIntentsPack && mb_strlen(trim($message)) >= 4) {
-      $pack_match = $this->topIntentsPack->matchSynonyms(mb_strtolower(trim($message)));
-      if ($pack_match) {
+      $pack_match_with_term = $this->topIntentsPack->matchSynonymsWithTerm(mb_strtolower(trim($message)));
+      if ($pack_match_with_term) {
+        $pack_match = $pack_match_with_term['intent_key'];
         $pack_entry = $this->topIntentsPack->lookup($pack_match);
         return [
           'type' => $pack_match,
@@ -979,6 +980,7 @@ class IntentRouter {
           'source' => 'top_intents_pack',
           'area' => $this->inferAreaFromIntentType($pack_match),
           'pack_entry' => $pack_entry,
+          'matched_synonym' => $pack_match_with_term['synonym'],
           'extraction' => $extraction,
         ];
       }

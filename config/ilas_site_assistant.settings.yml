@@ -146,6 +146,7 @@ retrieve_first:
     - topic
     - service_area
     - disambiguation
+    - eligibility
     - apply_cta
     - services
     - escalation

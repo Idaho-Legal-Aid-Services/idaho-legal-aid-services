@@ -146,6 +146,46 @@ class TopIntentsPackTest extends TestCase {
   }
 
   /**
+   * MatchSynonymsWithTerm reports both the intent key and matched synonym.
+   */
+  public function testMatchSynonymsWithTermReturnsSynonym(): void {
+    $result = $this->pack->matchSynonymsWithTerm('i need help with custody');
+    $this->assertNotNull($result);
+    $this->assertSame('topic_family_custody', $result['intent_key']);
+    $this->assertSame('custody', $result['synonym']);
+
+    $this->assertNull($this->pack->matchSynonymsWithTerm('qwerty asdf zxcvb'));
+  }
+
+  /**
+   * SSI and social security route to the health/benefits topic.
+   */
+  public function testSsiSynonymsRouteToHealthTopic(): void {
+    $this->assertSame('topic_health', $this->pack->matchSynonyms('i was denied ssi'));
+    $this->assertSame('topic_health', $this->pack->matchSynonyms('help with social security'));
+  }
+
+  /**
+   * Guardianship routes to the seniors topic.
+   */
+  public function testGuardianshipSynonymRoutesToSeniorsTopic(): void {
+    $this->assertSame('topic_seniors', $this->pack->matchSynonyms('guardianship of my grandchild'));
+  }
+
+  /**
+   * FindMatchingSynonyms returns every entry synonym present in the input.
+   */
+  public function testFindMatchingSynonymsReturnsAllMatchedTerms(): void {
+    $matches = $this->pack->findMatchingSynonyms('topic_health', 'where can i read about ssi or disability benefits?');
+    $this->assertContains('ssi', $matches);
+    $this->assertContains('disability', $matches);
+    $this->assertContains('benefits', $matches);
+
+    $this->assertSame([], $this->pack->findMatchingSynonyms('topic_health', 'custody forms'));
+    $this->assertSame([], $this->pack->findMatchingSynonyms('nonexistent_intent_xyz', 'benefits'));
+  }
+
+  /**
    * Phrase-level synonyms still match expected navigation intents.
    */
   public function testMatchSynonymsPhraseAliasesStillWork(): void {
