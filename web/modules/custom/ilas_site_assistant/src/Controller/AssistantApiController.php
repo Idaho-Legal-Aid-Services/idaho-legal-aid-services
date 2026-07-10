@@ -2382,10 +2382,10 @@ class AssistantApiController extends ControllerBase {
           ['type' => 'safety_' . ($safety_classification['class'] ?? 'unknown'), 'source' => 'safety_classifier'],
           'safety_classifier'
         );
-        // Surface retrieval proof when escalation augmentation attached
-        // results; refusal-style classes remain retrieval-free.
-        if (!empty($response_data['results'])) {
-          $public_meta['retrieval']['used'] = TRUE;
+        // Surface retrieval proof when escalation augmentation ran;
+        // refusal-style classes remain retrieval-free.
+        if (!empty($response_data['results']) || !empty($response_data['retrieval_attempted'])) {
+          $public_meta['retrieval']['used'] = !empty($response_data['results']);
           $public_meta['retrieval']['attempted'] = TRUE;
           $public_meta['grounding']['used'] = !empty($response_data['citations']) || !empty($response_data['sources']);
           $response_data['retrieval'] = $this->buildPublicRetrievalContract($this->collectRetrievalTraceMetadata($response_data));
@@ -3684,6 +3684,7 @@ class AssistantApiController extends ControllerBase {
       $retrieval_used = !empty($early_retrieval) || !empty($response['results']);
       $public_meta['retrieval']['used'] = $retrieval_used;
       $public_meta['retrieval']['attempted'] = $retrieval_used
+        || !empty($response['retrieval_attempted'])
         || !empty($response['retrieval']['lexical_result_count'])
         || !empty($response['retrieval']['vector_attempted']);
       $public_meta['safety']['blocked'] = FALSE;

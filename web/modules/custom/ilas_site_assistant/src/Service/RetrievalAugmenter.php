@@ -96,6 +96,9 @@ class RetrievalAugmenter {
       }
 
       $resources = $this->resourceFinder->findResources($query, $max_results);
+      // Retrieval genuinely ran — record the attempt even when it found
+      // nothing, so meta.retrieval.attempted reflects reality.
+      $response['retrieval_attempted'] = TRUE;
       $merged = $this->mergeResults($early_retrieval, $resources, $max_results, $user_message);
       if ($merged === []) {
         return $response;
@@ -152,6 +155,7 @@ class RetrievalAugmenter {
       $settings = $this->getSettings();
       $max_results = max(1, (int) ($settings['max_results'] ?? 3));
       $results = $this->resourceFinder->findResources($query, $max_results);
+      $response_data['retrieval_attempted'] = TRUE;
       if ($results === []) {
         return $response_data;
       }

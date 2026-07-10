@@ -169,13 +169,15 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertSame('faq_1', $augmented['results'][1]['id']);
   }
 
-  public function testAugmentReturnsUnchangedWhenNoMatches(): void {
+  public function testAugmentRecordsAttemptEvenWithoutMatches(): void {
     $augmenter = $this->buildAugmenter(self::DEFAULT_SETTINGS, []);
     $response = ['type' => 'navigation', 'message' => 'Nav.'];
     $augmented = $augmenter->augment($response, ['type' => 'navigation'], 'anything at all');
 
     $this->assertArrayNotHasKey('results', $augmented);
     $this->assertArrayNotHasKey('retrieval_supplemented', $augmented);
+    // Retrieval ran — the attempt must be provable even with zero matches.
+    $this->assertTrue($augmented['retrieval_attempted']);
   }
 
   public function testAugmentFailsOpenOnRetrievalException(): void {
