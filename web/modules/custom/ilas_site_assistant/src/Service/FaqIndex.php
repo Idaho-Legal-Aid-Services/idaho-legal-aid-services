@@ -648,9 +648,12 @@ class FaqIndex {
           $vector_top_match_ids[] = (string) $outcome_item['id'];
         }
         $outcome_class = $outcome_item['source_class'] ?? NULL;
-        if (is_string($outcome_class) && $outcome_class !== '') {
-          $source_classes[$outcome_class] = TRUE;
+        if (!is_string($outcome_class) || $outcome_class === '') {
+          // Outcome items are produced by this service's vector path; keep
+          // the contract self-consistent when annotation hasn't run yet.
+          $outcome_class = 'faq_vector';
         }
+        $source_classes[$outcome_class] = TRUE;
       }
     }
     rsort($vector_top_scores, SORT_NUMERIC);
