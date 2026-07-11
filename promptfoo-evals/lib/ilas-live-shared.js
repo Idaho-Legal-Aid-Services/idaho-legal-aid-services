@@ -686,13 +686,17 @@ function summarizeRetrievalProvenance(data) {
   // The public retrieval contract is the authoritative provenance record:
   // vector matches that corroborated lexical results are deduped out of the
   // visible result list (lexical priority) but the API still publishes
-  // their source classes on payload.retrieval.source_classes. Honor them so
+  // their source classes and counts on payload.retrieval. Honor them so
   // provenance assertions see contribution, not just display survival.
   asArray(data.retrieval?.source_classes).forEach((sourceClass) => {
     if (typeof sourceClass === 'string' && sourceClass.trim() !== '') {
       sourceClasses.add(sourceClass.trim());
     }
   });
+  const contractVectorCount = Number(data.retrieval?.vector_result_count ?? 0);
+  if (Number.isFinite(contractVectorCount) && contractVectorCount > vectorResultCount) {
+    vectorResultCount = contractVectorCount;
+  }
 
   return {
     result_source_classes: Array.from(sourceClasses).sort(),

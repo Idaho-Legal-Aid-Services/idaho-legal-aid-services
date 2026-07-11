@@ -6474,6 +6474,36 @@ class AssistantApiController extends ControllerBase {
    * Replaces a generic clarify with context-aware next steps when possible.
    */
   protected function recoverClarifyFromConversationContext(array $response, array $summary, array $canonical_urls, string $user_message = ''): array {
+    // Topic corrections win over stale context: when the current message
+    // itself names a pack topic ("Actually divorce."), answer the corrected
+    // topic instead of re-asserting the previous one.
+    if ($this->topIntentsPack && mb_strlen(trim($user_message)) >= 4) {
+      $corrected = $this->topIntentsPack->matchSynonymsWithTerm(mb_strtolower(trim($user_message)));
+      $corrected_entry = $corrected && str_starts_with((string) $corrected['intent_key'], 'topic_')
+        ? $this->topIntentsPack->lookup($corrected['intent_key'])
+        : NULL;
+      if ($corrected_entry !== NULL) {
+        $response['type'] = 'topic';
+        $response['response_mode'] = 'topic';
+        $response['message'] = trim(
+          (string) ($corrected_entry['answer_text'] ?? '') . ' '
+          . $this->t('It includes help with @topic. You can apply for free legal help online, call our Legal Advice Line, or browse our forms and guides.', [
+            '@topic' => $corrected['synonym'],
+          ])
+        );
+        if (!empty($corrected_entry['primary_action']) && is_array($corrected_entry['primary_action'])) {
+          $response['primary_action'] = $corrected_entry['primary_action'];
+          if (!empty($corrected_entry['primary_action']['url'])) {
+            $response['url'] = $corrected_entry['primary_action']['url'];
+          }
+        }
+        if (ResponseBuilder::looksLikeSpanish($user_message)) {
+          $response['message'] .= ResponseBuilder::spanishActionsText();
+        }
+        return $response;
+      }
+    }
+
     $summary = $this->conversationContextSummary
       ? $this->conversationContextSummary->normalizeStoredSummary($summary)
       : [];

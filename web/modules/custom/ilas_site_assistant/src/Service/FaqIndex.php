@@ -841,18 +841,49 @@ class FaqIndex {
     }
 
     if ($parent && $parent->getEntityTypeId() === 'node') {
+      // Resolve the parent in the current request language. Paragraph
+      // parent resolution can hand back a non-default translation (e.g.
+      // the ES node for an EN request), which would fail the language
+      // parity check downstream and silently drop every result item.
+      if (isset($this->languageManager) && is_object($this->languageManager)) {
+        $langcode = $this->getCurrentLanguage();
+        if ($langcode !== ''
+          && method_exists($parent, 'hasTranslation')
+          && method_exists($parent, 'getTranslation')
+          && $parent->hasTranslation($langcode)) {
+          try {
+            $parent = $parent->getTranslation($langcode);
+          }
+          catch (\Throwable $translation_exception) {
+            // Keep the originally resolved parent; parity check decides.
+          }
+        }
+      }
       try {
         // Collect the parent node's topic/service-area term names so FAQ
         // citations can prove what subject they cover (the parent title
-        // alone often lacks the user's topic word).
+        // alone often lacks the user's topic word). Isolated per-field and
+        // guarded: some parents carry these field names as plain values
+        // without referencedEntities(), and topic enrichment must never
+        // break parent resolution (a broken parent drops the result item).
         $topics = [];
         foreach (['field_topics', 'field_tags', 'field_service_areas', 'field_service_area'] as $field) {
-          if ($parent->hasField($field) && !$parent->get($field)->isEmpty()) {
-            foreach ($parent->get($field)->referencedEntities() as $term) {
+          try {
+            if (!$parent->hasField($field) || $parent->get($field)->isEmpty()) {
+              continue;
+            }
+            $field_list = $parent->get($field);
+            if (!method_exists($field_list, 'referencedEntities')) {
+              continue;
+            }
+            foreach ($field_list->referencedEntities() as $term) {
               if (method_exists($term, 'getName')) {
                 $topics[] = strtolower((string) $term->getName());
               }
             }
+          }
+          catch (\Throwable $topic_exception) {
+            // Skip this field; topic enrichment stays best-effort.
           }
         }
         return [
