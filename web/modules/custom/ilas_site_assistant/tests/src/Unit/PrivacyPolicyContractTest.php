@@ -8,7 +8,7 @@ use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
+use Drupal\Component\Serialization\Yaml;
 
 /**
  * Contract tests enforcing privacy-first runtime policy.
@@ -44,7 +44,7 @@ class PrivacyPolicyContractTest extends TestCase {
    */
   private static function parseYaml(string $relativePath): array {
     $contents = self::readFile($relativePath);
-    $parsed = Yaml::parse($contents);
+    $parsed = Yaml::decode($contents);
     self::assertIsArray($parsed, "YAML parse failed for: {$relativePath}");
     return $parsed;
   }

@@ -6,7 +6,7 @@ namespace Drupal\Tests\ilas_site_assistant_governance\Unit;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
+use Drupal\Component\Serialization\Yaml;
 
 /**
  * Source-level contract checks for the governance module surface.
@@ -36,7 +36,7 @@ class GovernanceModuleContractTest extends TestCase {
    * Parses a YAML file.
    */
   private static function parseYaml(string $relative_path): array {
-    $parsed = Yaml::parse(self::readFile($relative_path));
+    $parsed = Yaml::decode(self::readFile($relative_path));
     self::assertIsArray($parsed, "YAML parse failed for: {$relative_path}");
     return $parsed;
   }
