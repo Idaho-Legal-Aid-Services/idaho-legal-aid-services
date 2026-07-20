@@ -6,7 +6,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
+use Drupal\Component\Serialization\Yaml;
 
 /**
  * Contract tests for PHARD-05 review-loop ownership documentation.
@@ -34,7 +34,7 @@ class ReviewLoopOwnershipDocsTest extends TestCase {
     $contents = file_get_contents($path);
     self::assertIsString($contents, "Failed reading file: {$relativePath}");
 
-    $parsed = Yaml::parse($contents);
+    $parsed = Yaml::decode($contents);
     self::assertIsArray($parsed, "YAML parse failed for: {$relativePath}");
     return $parsed;
   }

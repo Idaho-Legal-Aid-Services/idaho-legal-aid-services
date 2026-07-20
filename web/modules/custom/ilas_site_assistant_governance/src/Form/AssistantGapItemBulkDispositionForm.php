@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ilas_site_assistant_governance\Form;
 
-use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\TempStore\PrivateTempStoreFactory;
@@ -24,7 +24,7 @@ final class AssistantGapItemBulkDispositionForm extends ConfirmFormBase {
    */
   public function __construct(
     protected PrivateTempStoreFactory $tempStoreFactory,
-    protected EntityStorageInterface $gapItemStorage,
+    protected EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   /**
@@ -33,7 +33,7 @@ final class AssistantGapItemBulkDispositionForm extends ConfirmFormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('tempstore.private'),
-      $container->get('entity_type.manager')->getStorage('assistant_gap_item'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -287,7 +287,9 @@ final class AssistantGapItemBulkDispositionForm extends ConfirmFormBase {
     }
 
     $ids = array_values(array_unique(array_map('intval', $ids)));
-    $loaded = $this->gapItemStorage->loadMultiple($ids);
+    $loaded = $this->entityTypeManager
+      ->getStorage('assistant_gap_item')
+      ->loadMultiple($ids);
     $items = [];
     foreach ($ids as $id) {
       if (isset($loaded[$id]) && $loaded[$id] instanceof AssistantGapItem) {

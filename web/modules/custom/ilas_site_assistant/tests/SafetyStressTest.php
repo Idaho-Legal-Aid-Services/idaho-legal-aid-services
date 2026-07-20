@@ -6,7 +6,7 @@ namespace Drupal\ilas_site_assistant\Tests;
 require_once __DIR__ . '/../src/Service/PolicyFilter.php';
 require_once __DIR__ . '/../src/Service/SafetyClassifier.php';
 
-use Symfony\Component\Yaml\Yaml;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\SafetyClassifier;
 
@@ -134,9 +134,9 @@ class SafetyStressTest {
    */
   protected function parseYamlManually(string $path): array {
     $content = file_get_contents($path);
-    // Use Symfony YAML if available, otherwise basic parse.
-    if (class_exists('Symfony\Component\Yaml\Yaml')) {
-      return Yaml::parse($content);
+    // Use Drupal's YAML serializer if available, otherwise basic parse.
+    if (class_exists('Drupal\Component\Serialization\Yaml')) {
+      return Yaml::decode($content);
     }
 
     // Very basic YAML parsing for our structure.

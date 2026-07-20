@@ -2,7 +2,7 @@
 
 namespace Drupal\ilas_site_assistant\Service;
 
-use Symfony\Component\Yaml\Yaml;
+use Drupal\Component\Serialization\Yaml;
 
 /**
  * Expands acronyms and abbreviations to their canonical terms.
@@ -151,16 +151,7 @@ class AcronymExpander {
 
     $yaml_content = file_get_contents($yaml_path);
 
-    if (class_exists('\Symfony\Component\Yaml\Yaml')) {
-      $raw = Yaml::parse($yaml_content) ?: [];
-    }
-    elseif (class_exists('\Drupal\Component\Serialization\Yaml')) {
-      // phpcs:ignore Drupal.Classes.FullyQualifiedNamespace.UseStatementMissing -- Intentional fallback when Symfony Yaml is unavailable.
-      $raw = \Drupal\Component\Serialization\Yaml::decode($yaml_content) ?: [];
-    }
-    else {
-      $raw = [];
-    }
+    $raw = Yaml::decode($yaml_content) ?: [];
 
     // Build normalized map: lowercase key => config.
     $this->acronyms = [];
