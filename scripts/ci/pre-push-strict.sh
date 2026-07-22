@@ -10,7 +10,7 @@
 #
 # Path-aware scoping: the assistant-scoped phpunit gates (VC-PURE, module
 # quality) are skipped when every file in the push range is gate-safe (theme,
-# docs, non-assistant config — see publish_gates_files_are_gate_safe). Any
+# docs, non-assistant config — see publish_gates_files_are_push_safe). Any
 # ambiguity, and any deploy-bound origin/master push, runs the full battery.
 #
 # The promptfoo gate (branch-aware and deploy-bound) is a LIVE provider call
@@ -239,13 +239,13 @@ compute_push_changed_files() {
 
 # Deploy-bound Pantheon pushes always get the full battery; otherwise skip the
 # assistant-scoped phpunit gates when every changed file is gate-safe (see
-# publish_gates_files_are_gate_safe in publish-gates.lib.sh).
+# publish_gates_files_are_push_safe in publish-gates.lib.sh).
 ASSISTANT_GATES_REQUIRED="true"
 PUSH_CHANGED_FILES=""
 if [[ "$DEPLOY_BOUND_PROMPTFOO" != "true" ]]; then
   if PUSH_CHANGED_FILES="$(compute_push_changed_files)"; then
     mapfile -t _push_changed <<< "$PUSH_CHANGED_FILES"
-    if publish_gates_files_are_gate_safe "${_push_changed[@]}"; then
+    if publish_gates_files_are_push_safe "${_push_changed[@]}"; then
       ASSISTANT_GATES_REQUIRED="false"
     fi
   fi

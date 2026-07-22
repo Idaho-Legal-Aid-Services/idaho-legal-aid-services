@@ -116,8 +116,8 @@ publish_gates_record_env() {
 # new path categories fail toward running the full battery. Empty input is NOT
 # safe (fail-safe). Callers decide what to do with the answer; this function is
 # the single source of truth for the allow-list.
-# Usage: publish_gates_files_are_gate_safe file1 [file2 ...]
-publish_gates_files_are_gate_safe() {
+# Usage: publish_gates_files_are_push_safe file1 [file2 ...]
+publish_gates_files_are_push_safe() {
   (( $# > 0 )) || return 1
   local f
   for f in "$@"; do
