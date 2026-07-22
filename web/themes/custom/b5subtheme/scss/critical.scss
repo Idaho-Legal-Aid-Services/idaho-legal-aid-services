@@ -81,6 +81,39 @@ body {
   color: $color-white;
 }
 
+// Consumer safety notice (homepage) — base state only, matches
+// _safety-notice.scss; collapse/transition rules stay in style.css.
+.safety-notice {
+  background-color: $color-primary-tint;
+  color: $color-primary;
+  border-bottom: 1px solid $color-gray-border-light;
+  text-align: center;
+  overflow: hidden;
+}
+
+.safety-notice-text {
+  margin: 0;
+  padding: 0.65rem 1rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+// The banner swaps wording via Bootstrap display utilities, which ship in
+// style.css — scoped equivalents here stop both variants painting early.
+.safety-notice .d-none {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .safety-notice .d-md-inline {
+    display: inline;
+  }
+
+  .safety-notice .d-md-none {
+    display: none;
+  }
+}
+
 // Centered logo navbar — matches _header.scss .centered-logo-navbar.
 .centered-logo-navbar {
   background-color: $color-white;

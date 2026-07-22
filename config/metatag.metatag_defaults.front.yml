@@ -9,10 +9,10 @@ label: 'Front page'
 tags:
   canonical_url: '[site:url]'
   title: 'Free Legal Help for Low-Income Idahoans | [site:name]'
-  description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans. Get assistance with family law, housing, consumer issues, and more.'
+  description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans — we never charge for our services. Get help with family law, housing, and more.'
   og_site_name: '[site:name]'
   og_title: 'Free Legal Help for Low-Income Idahoans | [site:name]'
-  og_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans. Get assistance with family law, housing, consumer issues, and more.'
+  og_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans — we never charge for our services. Get help with family law, housing, and more.'
   og_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
   og_image_alt: 'Idaho Legal Aid Services'
   og_type: website
@@ -22,7 +22,7 @@ tags:
   shortlink: '[site:url]'
   twitter_cards_type: summary_large_image
   twitter_cards_title: 'Free Legal Help for Low-Income Idahoans | [site:name]'
-  twitter_cards_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans. Get assistance with family law, housing, consumer issues, and more.'
+  twitter_cards_description: 'Idaho Legal Aid Services provides free civil legal help to low-income Idahoans — we never charge for our services. Get help with family law, housing, and more.'
   twitter_cards_image: 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png'
   twitter_cards_image_alt: 'Idaho Legal Aid Services'
   schema_organization_additional_type: LegalService

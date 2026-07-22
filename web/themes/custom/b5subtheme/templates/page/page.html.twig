@@ -53,6 +53,25 @@
     </div>
   </div>
 
+  {# Consumer safety notice - homepage only #}
+  {% if is_front %}
+    <div class="safety-notice" role="region" aria-label="{{ 'Consumer safety notice'|t }}">
+      <div class="container">
+        <p class="safety-notice-text">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          <span class="d-none d-md-inline">
+            <strong>{{ 'Idaho Legal Aid Services never charges for our services.'|t }}</strong>
+            {{ 'If another site asked you to pay for legal aid, it is not us — you’re in the right place now.'|t }}
+          </span>
+          <span class="d-md-none">
+            <strong>{{ 'We never charge for our services.'|t }}</strong>
+            {{ 'If a site asked you to pay for legal aid, it isn’t us.'|t }}
+          </span>
+        </p>
+      </div>
+    </div>
+  {% endif %}
+
   {# Main Navigation #}
   <nav class="navbar navbar-expand-lg centered-logo-navbar" role="navigation" aria-label="{{ 'Main navigation'|t }}">
     <div class="container">
