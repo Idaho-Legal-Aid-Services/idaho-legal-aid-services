@@ -110,6 +110,33 @@ publish_gates_record_env() {
   echo "phase_env=${phase} ${redacted_args[*]}" >> "$ILAS_PUBLISH_GATES_SUMMARY_FILE"
 }
 
+# Path-aware gate scoping: return 0 (safe) only when EVERY provided path is in
+# the gate-safe allow-list — files that cannot affect the assistant-scoped
+# suites (VC-PURE, module quality). Anything unrecognized is gate-relevant, so
+# new path categories fail toward running the full battery. Empty input is NOT
+# safe (fail-safe). Callers decide what to do with the answer; this function is
+# the single source of truth for the allow-list.
+# Usage: publish_gates_files_are_push_safe file1 [file2 ...]
+publish_gates_files_are_push_safe() {
+  (( $# > 0 )) || return 1
+  local f
+  for f in "$@"; do
+    case "$f" in
+      config/*assistant*|config/*search_api*)
+        # Assistant/search config exports feed the module under test.
+        return 1
+        ;;
+      web/themes/custom/*|docs/*|.planning/*|config/*|web/robots.txt|*.md)
+        continue
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
 # Wrap a gate call to capture per-gate duration. Records duration_ms after the
 # gate returns; preserves the gate's exit code exactly.
 # Usage: _publish_gates_run_with_record gate_fn arg1 arg2 ...

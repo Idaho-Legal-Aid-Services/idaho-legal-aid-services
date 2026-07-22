@@ -8,6 +8,11 @@
 # scripts/ci/publish-gate-local.sh — keep gate command edits in the library
 # so the local preflight cannot drift from this hook.
 #
+# Path-aware scoping: the assistant-scoped phpunit gates (VC-PURE, module
+# quality) are skipped when every file in the push range is gate-safe (theme,
+# docs, non-assistant config — see publish_gates_files_are_push_safe). Any
+# ambiguity, and any deploy-bound origin/master push, runs the full battery.
+#
 # The promptfoo gate (branch-aware and deploy-bound) is a LIVE provider call
 # and is SKIPPED by default to keep PR/publish correctness gates deterministic
 # (no random failures from slow/rate-limited/unavailable Cohere). Opt in with
@@ -199,6 +204,53 @@ if [[ -z "${ILAS_ASSISTANT_URL:-}" ]] &&
   exit 1
 fi
 
+# Path-aware scoping: union of changed files across all pushed ref ranges.
+# Returns non-zero (caller keeps full gates, fail-safe) when any range is
+# indeterminate: new branch without a master merge-base, remote OID missing
+# locally, or an empty change set.
+compute_push_changed_files() {
+  local entry local_oid remote_oid base diff_out f
+  local -A seen=()
+  local files=()
+
+  for entry in "${PUSH_LINES[@]}"; do
+    IFS='|' read -r _ local_oid _ remote_oid <<< "$entry"
+    [[ "$local_oid" =~ ^0+$ ]] && continue   # branch deletion
+    if [[ "$remote_oid" =~ ^0+$ ]]; then
+      base="$(git -C "$REPO_ROOT" merge-base "$local_oid" github/master 2>/dev/null)" ||
+        base="$(git -C "$REPO_ROOT" merge-base "$local_oid" origin/master 2>/dev/null)" ||
+        return 1
+    else
+      git -C "$REPO_ROOT" cat-file -e "${remote_oid}^{commit}" 2>/dev/null || return 1
+      base="$remote_oid"
+    fi
+    diff_out="$(git -C "$REPO_ROOT" diff --name-only "$base" "$local_oid" 2>/dev/null)" || return 1
+    while IFS= read -r f; do
+      if [[ -n "$f" && -z "${seen[$f]:-}" ]]; then
+        seen[$f]=1
+        files+=("$f")
+      fi
+    done <<< "$diff_out"
+  done
+
+  (( ${#files[@]} > 0 )) || return 1
+  printf '%s\n' "${files[@]}"
+}
+
+# Deploy-bound Pantheon pushes always get the full battery; otherwise skip the
+# assistant-scoped phpunit gates when every changed file is gate-safe (see
+# publish_gates_files_are_push_safe in publish-gates.lib.sh).
+ASSISTANT_GATES_REQUIRED="true"
+PUSH_CHANGED_FILES=""
+if [[ "$DEPLOY_BOUND_PROMPTFOO" != "true" ]]; then
+  if PUSH_CHANGED_FILES="$(compute_push_changed_files)"; then
+    mapfile -t _push_changed <<< "$PUSH_CHANGED_FILES"
+    if publish_gates_files_are_push_safe "${_push_changed[@]}"; then
+      ASSISTANT_GATES_REQUIRED="false"
+    fi
+  fi
+fi
+
 cd "$REPO_ROOT"
 
 # PIPE-04: wrap gates with _publish_gates_run_with_record for per-gate duration recording.
@@ -208,8 +260,18 @@ cd "$REPO_ROOT"
 # §"Wave 2 plan 03 task seed" — closes any leaked-from-parent stdin pipe so a
 # gate child cannot write back into git's pre-push fd.
 _publish_gates_run_with_record gate_composer_dryrun </dev/null
-_publish_gates_run_with_record gate_vc_pure </dev/null
-_publish_gates_run_with_record gate_module_quality </dev/null
+if [[ "$ASSISTANT_GATES_REQUIRED" == "true" ]]; then
+  _publish_gates_run_with_record gate_vc_pure </dev/null
+  _publish_gates_run_with_record gate_module_quality </dev/null
+else
+  echo ""
+  echo "=== Gates: VC-PURE + Module quality — SKIPPED (push touches only gate-safe paths: ${#_push_changed[@]} files) ==="
+  if (( ${#_push_changed[@]} <= 10 )); then
+    printf '  - %s\n' "${_push_changed[@]}"
+  fi
+  publish_gates_record_skip "vc_pure" "gate-safe-paths"
+  publish_gates_record_skip "module_quality" "gate-safe-paths"
+fi
 
 # PIPE-02: fail-closed if ILAS_LIVE_PROVIDER_GATE unset on deploy-bound master push
 if [[ "$DEPLOY_BOUND_PROMPTFOO" == "true" ]]; then

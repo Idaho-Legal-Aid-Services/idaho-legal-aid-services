@@ -52,6 +52,7 @@
       // Only add listeners once (use document for reliable targeting)
       once('scroll-behaviors', 'html', document).forEach(function () {
         var navbar = document.querySelector('.centered-logo-navbar');
+        var siteHeader = document.querySelector('.site-header');
         var backToTopBtn = document.querySelector('.back-to-top');
 
         // === Configuration ===
@@ -154,6 +155,9 @@
             navbar.classList.toggle('navbar-shrink', on);
             cooldownUntil = performance.now() + COOLDOWN_MS;
           }
+          if (siteHeader) {
+            siteHeader.classList.toggle('header-scrolled', on);
+          }
         }
 
         /**
@@ -250,12 +254,21 @@
           if (!shouldEnableShrinking()) {
             // Short page: force expanded
             navbar.classList.remove('navbar-shrink');
+            if (siteHeader) {
+              siteHeader.classList.remove('header-scrolled');
+            }
           } else if (y >= SHRINK_AT) {
             // Already scrolled past threshold: shrink immediately (no cooldown)
             navbar.classList.add('navbar-shrink');
+            if (siteHeader) {
+              siteHeader.classList.add('header-scrolled');
+            }
           } else {
             // Near top: ensure expanded
             navbar.classList.remove('navbar-shrink');
+            if (siteHeader) {
+              siteHeader.classList.remove('header-scrolled');
+            }
           }
 
           // Sync lastY to current position

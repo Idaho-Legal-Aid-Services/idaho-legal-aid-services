@@ -1,0 +1,50 @@
+// =============================================================================
+// CONSUMER SAFETY NOTICE BANNER (homepage only)
+// Sits between .utility-bar and .centered-logo-navbar inside sticky .site-header.
+// Collapses when .site-header gains .header-scrolled (set by scroll-behaviors.js
+// alongside the navbar-shrink toggle); reappears when the user returns to top.
+// =============================================================================
+
+.safety-notice {
+  background-color: $color-primary-tint;
+  color: $color-primary;
+  border-bottom: 1px solid $color-gray-border-light;
+  text-align: center;
+  overflow: hidden;
+  max-height: 8rem; // > tallest wrapped state; collapse transition target
+  transition: max-height 250ms ease, visibility 0s; // 250ms <= scroll-behaviors COOLDOWN_MS (275)
+
+  .safety-notice-text {
+    margin: 0;
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+
+    @include mobile {
+      font-size: 0.875rem;
+      padding: 0.5rem 0.75rem;
+    }
+  }
+
+  strong {
+    font-weight: $font-weight-bold;
+  }
+
+  i {
+    margin-right: 0.4rem;
+  }
+}
+
+.site-header.header-scrolled .safety-notice {
+  max-height: 0;
+  visibility: hidden; // removes collapsed content from AT + tab order
+  border-bottom-width: 0;
+  transition: max-height 250ms ease, visibility 0s 250ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .safety-notice,
+  .site-header.header-scrolled .safety-notice {
+    transition: none;
+  }
+}
