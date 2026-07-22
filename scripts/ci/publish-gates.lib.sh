@@ -226,8 +226,11 @@ gate_composer_dryrun() {
   fi
 
   local cmd='composer install --no-interaction --no-progress --prefer-dist --dry-run'
-  if ! eval "$cmd"; then
-    local rc=$?
+  # rc must be captured via `|| rc=$?` — inside `if ! cmd; then`, $? holds the
+  # NEGATED status (0), which made every gate fail open (exit 0 on failure).
+  local rc=0
+  eval "$cmd" || rc=$?
+  if (( rc != 0 )); then
     publish_gates_record_phase "composer_dry_run" "$rc"
     _publish_gates_print_fail \
       "Composer install dry-run (parity with GitHub CI 'Install Composer dependencies')" \
@@ -248,8 +251,11 @@ gate_vc_pure() {
   local junit="$ILAS_PUBLISH_GATES_JUNIT_DIR/vc_pure.xml"
   publish_gates_record_junit "vc_pure" "$junit"
   local cmd="vendor/bin/phpunit -c phpunit.pure.xml --colors=always --log-junit ${junit}"
-  if ! eval "$cmd"; then
-    local rc=$?
+  # rc must be captured via `|| rc=$?` — inside `if ! cmd; then`, $? holds the
+  # NEGATED status (0), which made every gate fail open (exit 0 on failure).
+  local rc=0
+  eval "$cmd" || rc=$?
+  if (( rc != 0 )); then
     publish_gates_record_phase "vc_pure" "$rc"
     _publish_gates_print_fail \
       "VC-PURE phpunit suite" \
@@ -269,8 +275,11 @@ gate_module_quality() {
   echo ""
   echo "=== Gate: Module quality gate (run-quality-gate.sh) ==="
   local cmd='bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh'
-  if ! eval "$cmd"; then
-    local rc=$?
+  # rc must be captured via `|| rc=$?` — inside `if ! cmd; then`, $? holds the
+  # NEGATED status (0), which made every gate fail open (exit 0 on failure).
+  local rc=0
+  eval "$cmd" || rc=$?
+  if (( rc != 0 )); then
     local last_test
     last_test="$(_publish_gates_last_failed_test || true)"
     # The quality gate already prints its own per-phase FAIL block with the
@@ -306,8 +315,11 @@ gate_promptfoo_branch_aware() {
   echo ""
   echo "=== Gate: Promptfoo branch-aware (branch=${branch}) ==="
   local cmd="CI_BRANCH=${branch} bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto"
-  if ! eval "$cmd"; then
-    local rc=$?
+  # rc must be captured via `|| rc=$?` — inside `if ! cmd; then`, $? holds the
+  # NEGATED status (0), which made every gate fail open (exit 0 on failure).
+  local rc=0
+  eval "$cmd" || rc=$?
+  if (( rc != 0 )); then
     publish_gates_record_phase "promptfoo_branch_aware" "$rc"
     _publish_gates_print_fail \
       "Promptfoo branch-aware gate" \
@@ -342,8 +354,11 @@ gate_promptfoo_deploy_bound() {
   echo ""
   echo "=== Gate: Promptfoo deploy-bound (origin/master against DDEV) ==="
   local cmd="CI_BRANCH=${branch} ILAS_ASSISTANT_URL=${url} bash scripts/ci/run-promptfoo-gate.sh --env dev --mode auto --config promptfooconfig.deploy.yaml --no-deep-eval"
-  if ! eval "$cmd"; then
-    local rc=$?
+  # rc must be captured via `|| rc=$?` — inside `if ! cmd; then`, $? holds the
+  # NEGATED status (0), which made every gate fail open (exit 0 on failure).
+  local rc=0
+  eval "$cmd" || rc=$?
+  if (( rc != 0 )); then
     publish_gates_record_phase "promptfoo_deploy_bound" "$rc"
     _publish_gates_print_fail \
       "Promptfoo deploy-bound gate (origin/master, promptfooconfig.deploy.yaml)" \
