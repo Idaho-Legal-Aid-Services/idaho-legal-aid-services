@@ -187,7 +187,10 @@ PROMPT;
         [
           'user_identifier' => $userIdentifier,
           'max_tokens' => max(32, min(128, (int) $this->getLlmSetting('max_tokens', 150))),
-          'temperature' => max(0.0, min(0.4, (float) $this->getLlmSetting('temperature', 0.3))),
+          // Intent routing is discrete label selection; sampling temperature
+          // makes borderline queries route differently between identical
+          // requests. Always classify at temperature 0.
+          'temperature' => 0.0,
           'timeout' => 5.0,
           'connect_timeout' => 2.0,
           'safety_mode' => $this->mapSafetyThresholdToCohereMode(),

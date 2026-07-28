@@ -3148,7 +3148,9 @@ class AssistantApiController extends ControllerBase {
         $llm_model = $this->llmEnhancer->getModelId();
         $llm_current_intent = (string) ($intent['type'] ?? 'unknown');
         $llm_params = [
-          'temperature' => max(0.0, min(0.4, (float) ($config->get('llm.temperature') ?? 0.3))),
+          // Mirrors LlmEnhancer::classifyIntent: classification always runs
+          // at temperature 0 so telemetry reflects the real request params.
+          'temperature' => 0.0,
           'max_tokens' => max(32, min(128, (int) ($config->get('llm.max_tokens') ?? 150))),
         ];
         $this->langfuseTracer?->startGeneration(
