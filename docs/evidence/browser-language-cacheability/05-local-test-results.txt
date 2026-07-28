@@ -1,0 +1,19 @@
+# Local test suite results - after change
+timestamp_utc=2026-07-28T21:00:55Z
+
+phpunit.pure.xml        : OK    2758 tests, 14479 assertions (1 skipped)
+phpunit.xml unit        : 2970 tests, 15732 assertions, 1 error + 1 failure
+                          -> ilas_site_assistant_governance
+                             GapItemManagerSelectionContextTest
+                          -> PRE-EXISTING: identical result with the config
+                             change reverted. Not caused by this work.
+phpunit.xml drupal-unit : OK     591 tests, 1579 assertions
+phpunit.xml kernel      : OK     130 tests, 2565 assertions
+phpunit.xml functional  : OK     108 tests, 2001 assertions
+phpcs (new test file)   : OK
+phpstan (new test file) : OK, no errors
+shellcheck (probe)      : OK, no findings
+
+Guard test verified negative: re-adding language-browser to
+language_interface.enabled makes LanguageNegotiationConfigTest fail
+with 2 failures; removing it again makes it pass (4 tests, 26 assertions).

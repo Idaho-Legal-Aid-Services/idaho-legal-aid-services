@@ -1,0 +1,52 @@
+# Local DDEV verification - after change
+timestamp_utc=2026-07-28T20:52:46Z
+base=https://ilas-pantheon.ddev.site
+note=local confirmation of the mechanism before any Pantheon deploy
+
+$ ddev drush config:get language.types negotiation.language_interface.enabled
+'language.types:negotiation.language_interface.enabled':
+  language-user-admin: -10
+  language-url: -8
+  language-selected: 12
+
+
+$ curl -sSI https://ilas-pantheon.ddev.site/
+HTTP/2 200 
+cache-control: max-age=86400, public
+content-language: en
+x-drupal-cache: HIT
+
+$ curl -sSI https://ilas-pantheon.ddev.site/forms
+HTTP/2 200 
+cache-control: max-age=86400, public
+content-language: en
+x-drupal-cache: HIT
+
+$ curl -sSI https://ilas-pantheon.ddev.site/es
+HTTP/2 200 
+cache-control: max-age=86400, public
+content-language: es
+x-drupal-cache: HIT
+
+$ curl -sSI https://ilas-pantheon.ddev.site/forms   # repeat, expect HIT
+HTTP/2 200 
+cache-control: max-age=86400, public
+x-drupal-cache: HIT
+
+$ curl -sSI -H "Accept-Language: es-ES,es;q=0.9" https://ilas-pantheon.ddev.site/forms   # expect content-language: en
+HTTP/2 200 
+content-language: en
+x-drupal-cache: HIT
+
+$ curl -s https://ilas-pantheon.ddev.site/es | grep hreflang
+hreflang="x-default" href="https://ilas-pantheon.ddev.site/"
+hreflang="en" href="https://ilas-pantheon.ddev.site/"
+hreflang="es" href="https://ilas-pantheon.ddev.site/es"
+hreflang="sw" href="https://ilas-pantheon.ddev.site/sw"
+hreflang="nl" href="https://ilas-pantheon.ddev.site/nl"
+
+$ curl -s https://ilas-pantheon.ddev.site/es | grep canonical
+<link rel="canonical" href="https://ilas-pantheon.ddev.site/es" />
+
+$ curl -s https://ilas-pantheon.ddev.site/ | grep -o "href=\"/es[^\"]*\"" # switcher target
+href="/es/hogar"
