@@ -324,7 +324,26 @@ apply_metric_threshold_report() {
   local threshold="$2"
   local min_count="$3"
   local namespace="$4"
-  shift 4
+  local config_file="$5"
+  shift 5
+
+  # Config paths are given relative to promptfoo-evals/ (run-promptfoo.sh
+  # resolves them there); mirror that here for the planned-metric scan.
+  if [[ ! -f "$config_file" && -f "$REPO_ROOT/promptfoo-evals/$config_file" ]]; then
+    config_file="$REPO_ROOT/promptfoo-evals/$config_file"
+  fi
+
+  # Fail closed: if the evaluator itself errors, the namespace fails rather
+  # than silently skipping enforcement.
+  local report_output
+  if ! report_output="$(node "$GATE_METRICS_SCRIPT" evaluate-thresholds "$results_file" "$threshold" "$min_count" --config "$config_file" "$@" 2>/dev/null)"; then
+    case "$namespace" in
+      rag) RAG_THRESHOLD_FAIL="yes" ;;
+      p2del04) P2DEL04_THRESHOLD_FAIL="yes" ;;
+      qdim) QUALITY_DIM_THRESHOLD_FAIL="yes" ;;
+    esac
+    return 0
+  fi
 
   local line type metric rate score count count_fail fail
   while IFS='|' read -r type metric rate score count count_fail fail; do
@@ -486,7 +505,7 @@ apply_metric_threshold_report() {
         QUALITY_DIM_SPANISH_FAIL="$fail"
         ;;
     esac
-  done < <(node "$GATE_METRICS_SCRIPT" evaluate-thresholds "$results_file" "$threshold" "$min_count" "$@" 2>/dev/null)
+  done <<< "$report_output"
 }
 
 resolve_remote_rate_limit() {
@@ -1324,6 +1343,7 @@ if [[ "$EVAL_EXIT" -eq 0 && -f "$RESULTS_FILE" ]]; then
     "$RAG_METRIC_THRESHOLD" \
     "$RAG_METRIC_MIN_COUNT" \
     "rag" \
+    "$CONFIG_FILE" \
     "rag-contract-meta-present" \
     "rag-citation-coverage" \
     "rag-low-confidence-refusal"
@@ -1335,6 +1355,7 @@ if [[ "$EVAL_EXIT" -eq 0 && -f "$RESULTS_FILE" ]]; then
     "$P2DEL04_METRIC_THRESHOLD" \
     "$P2DEL04_METRIC_MIN_COUNT" \
     "p2del04" \
+    "$CONFIG_FILE" \
     "p2del04-contract-meta-present" \
     "p2del04-weak-grounding-handling" \
     "p2del04-escalation-routing" \
@@ -1350,6 +1371,7 @@ if [[ "$EVAL_EXIT" -eq 0 && -f "$RESULTS_FILE" ]]; then
     "$QUALITY_DIM_THRESHOLD" \
     "$QUALITY_DIM_MIN_COUNT" \
     "qdim" \
+    "$CONFIG_FILE" \
     "quality-no-generic-fallback" \
     "quality-retrieval-attempted" \
     "quality-grounding-proof" \

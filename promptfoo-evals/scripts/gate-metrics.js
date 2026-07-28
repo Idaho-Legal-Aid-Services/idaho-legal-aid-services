@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const {
+  countPlannedMetricCases,
   evaluateMetricSet,
   formatDiagnosticSummaryText,
   findStructuredError,
@@ -86,17 +87,34 @@ switch (command) {
   }
 
   case 'evaluate-thresholds': {
-    const [resultsFile, thresholdRaw, minCountRaw, ...metricNames] = args;
+    const [resultsFile, thresholdRaw, minCountRaw, ...rest] = args;
     requireArg(resultsFile, 'results file is required');
     requireArg(thresholdRaw, 'threshold is required');
     requireArg(minCountRaw, 'min count is required');
+
+    let configFile = null;
+    const metricNames = [];
+    for (let index = 0; index < rest.length; index += 1) {
+      if (rest[index] === '--config') {
+        configFile = rest[index + 1];
+        requireArg(configFile, 'missing value for --config');
+        index += 1;
+      } else {
+        metricNames.push(rest[index]);
+      }
+    }
     if (metricNames.length === 0) {
       requireArg('', 'at least one metric name is required');
     }
 
+    const plannedCounts = configFile
+      ? countPlannedMetricCases(configFile, metricNames)
+      : null;
+
     const report = evaluateMetricSet(resultsFile, metricNames, {
       threshold: Number(thresholdRaw),
       minCount: Number(minCountRaw),
+      plannedCounts,
     });
 
     for (const metric of report.metrics) {
@@ -107,7 +125,7 @@ switch (command) {
           formatRate(metric.rate),
           metric.score,
           metric.count,
-          metric.countFail ? 'yes' : 'no',
+          metric.skipped ? 'skipped' : metric.countFail ? 'yes' : 'no',
           metric.fail ? 'yes' : 'no',
         ].join('|') + '\n'
       );
