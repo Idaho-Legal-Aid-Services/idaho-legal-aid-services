@@ -124,6 +124,78 @@ test('evaluateMetricSet fails when required retrieval metric counts are missing'
   assert.equal(citationMetric.fail, true);
 });
 
+test('evaluateMetricSet skips dimensions the running config does not plan', () => {
+  const report = evaluateMetricSet(
+    fixturePath('gate-results-rag-missing-count.json'),
+    ['rag-contract-meta-present', 'rag-citation-coverage'],
+    {
+      threshold: 90,
+      minCount: 10,
+      plannedCounts: { 'rag-contract-meta-present': 0, 'rag-citation-coverage': 0 },
+    }
+  );
+
+  assert.equal(report.fail, false);
+  for (const metric of report.metrics) {
+    assert.equal(metric.skipped, true);
+    assert.equal(metric.countFail, false);
+    assert.equal(metric.fail, false);
+  }
+});
+
+test('evaluateMetricSet caps the required count at the planned count', () => {
+  // gate-results-rag-pass.json carries 12 cases per rag metric; a config
+  // planning only 12 must pass even though minCount would allow more, and a
+  // config planning fewer than minCount must require exactly its plan.
+  const report = evaluateMetricSet(
+    fixturePath('gate-results-rag-pass.json'),
+    ['rag-contract-meta-present'],
+    {
+      threshold: 90,
+      minCount: 10,
+      plannedCounts: { 'rag-contract-meta-present': 5 },
+    }
+  );
+
+  const metric = report.metrics[0];
+  assert.equal(metric.skipped, false);
+  assert.equal(metric.requiredCount, 5);
+  assert.equal(metric.countFail, false);
+  assert.equal(report.fail, false);
+});
+
+test('evaluateMetricSet still fails when observed count falls below the plan', () => {
+  const report = evaluateMetricSet(
+    fixturePath('gate-results-rag-missing-count.json'),
+    ['rag-contract-meta-present'],
+    {
+      threshold: 90,
+      minCount: 10,
+      plannedCounts: { 'rag-contract-meta-present': 5 },
+    }
+  );
+
+  const metric = report.metrics[0];
+  assert.equal(metric.skipped, false);
+  assert.equal(metric.count, 0);
+  assert.equal(metric.countFail, true);
+  assert.equal(metric.fail, true);
+  assert.equal(report.fail, true);
+});
+
+test('countPlannedMetricCases counts metric labels across config test files', () => {
+  const { countPlannedMetricCases } = require('../../lib/gate-metrics');
+  const path = require('node:path');
+  const configPath = path.join(__dirname, '..', '..', 'promptfooconfig.quality.yaml');
+  const planned = countPlannedMetricCases(configPath, [
+    'rag-contract-meta-present',
+    'p2del04-contract-meta-present',
+  ]);
+
+  assert.equal(planned['rag-contract-meta-present'] > 0, true);
+  assert.equal(planned['p2del04-contract-meta-present'], 0);
+});
+
 test('gate metrics helper reports pass-rate summaries and structured eval errors', () => {
   const passRate = parseResultsPassRate(fixturePath('gate-results-rag-low-rate.json'));
   const structuredError = findStructuredError(fixturePath('gate-results-rag-missing-count.json'));

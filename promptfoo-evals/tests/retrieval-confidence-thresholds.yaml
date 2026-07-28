@@ -123,10 +123,10 @@
     question: "i need help understanding idaho legal aid services for housing"
   # Phrasing "i need help [...] services" pattern-matches the apply_for_help CTA
   # router (response_type=apply_cta, reason_code=direct_navigation_apply).
-  # apply_for_help IS in $skip_retrieval_intents, so retrieval is genuinely
-  # skipped (retrieval_attempted=false) and a citation cannot exist. Assert the
-  # apply-CTA contract. A separate test phrased as a topical housing question
-  # (e.g. "what housing legal help can I get") covers the retrieval path.
+  # Since the July 2026 retrieve-first augmenter, apply_cta IS in
+  # retrieve_first.intent_types (config), so grounding retrieval runs and the
+  # CTA response carries supported citations. Assert the apply-CTA contract
+  # with grounding attached.
   assert:
     - *rag_contract
     - type: javascript
@@ -141,7 +141,7 @@
           return type === 'apply_cta' &&
             reason === 'direct_navigation_apply' &&
             intent === 'apply_for_help' &&
-            meta.retrieval_attempted === false &&
+            Number(meta.supported_citations_count || 0) >= 1 &&
             meta.generic_fallback === false;
         } catch (e) {
           return false;

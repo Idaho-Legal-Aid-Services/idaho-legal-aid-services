@@ -92,7 +92,11 @@
   metadata:
     scenario_family: multilingual_routing
     scenario_id: mixed-desalojo
-  description: Mixed-language desalojo query clarifies instead of silently misrouting
+  # The May 2026 eviction detector routes "desalojo" straight to the housing
+  # eviction topic with a bilingual EN/ES response — deliberate topic routing,
+  # not a misroute. Accept topic mode alongside the older clarify/navigate
+  # contracts.
+  description: Mixed-language desalojo query routes to eviction help with Spanish support
   assert:
     - type: javascript
       value: >-
@@ -107,7 +111,7 @@
           const meta = JSON.parse(line.slice('[contract_meta]'.length));
           const mode = String(meta.response_mode || '');
           const reason = String(meta.reason_code || '');
-          return (mode === 'clarify' || mode === 'navigate') &&
+          return (mode === 'clarify' || mode === 'navigate' || mode === 'topic') &&
             (reason === 'clarification_needed' || reason === 'navigation_page_match' || reason.startsWith('intent_'));
         } catch (e) {
           return false;

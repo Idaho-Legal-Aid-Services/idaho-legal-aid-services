@@ -432,11 +432,84 @@ function summarizeNamedMetric(resultsInput, metricName) {
   return { metricName, rate, score, count };
 }
 
+function countPlannedMetricCases(configFile, metricNames) {
+  const path = require('node:path');
+  const yaml = require('js-yaml');
+
+  const configDir = path.dirname(configFile);
+  const config = yaml.load(fs.readFileSync(configFile, 'utf8')) || {};
+  const wanted = new Set(metricNames);
+  const planned = {};
+  for (const name of metricNames) {
+    planned[name] = 0;
+  }
+
+  const countAsserts = (testCase, into) => {
+    const asserts = Array.isArray(testCase?.assert) ? testCase.assert : [];
+    for (const assertion of asserts) {
+      const metric = assertion?.metric;
+      if (metric && wanted.has(metric)) {
+        into[metric] += 1;
+      }
+    }
+  };
+
+  const testEntries = Array.isArray(config.tests) ? config.tests : [];
+  let caseCount = 0;
+  for (const entry of testEntries) {
+    if (typeof entry === 'string' && entry.startsWith('file://')) {
+      const testFile = path.resolve(configDir, entry.slice('file://'.length));
+      const cases = yaml.load(fs.readFileSync(testFile, 'utf8'));
+      for (const testCase of Array.isArray(cases) ? cases : []) {
+        caseCount += 1;
+        countAsserts(testCase, planned);
+      }
+    } else if (entry && typeof entry === 'object') {
+      caseCount += 1;
+      countAsserts(entry, planned);
+    }
+  }
+
+  // defaultTest assertions apply to every case in the suite.
+  const defaultCounts = {};
+  for (const name of metricNames) {
+    defaultCounts[name] = 0;
+  }
+  countAsserts(config.defaultTest, defaultCounts);
+  for (const name of metricNames) {
+    planned[name] += defaultCounts[name] * caseCount;
+  }
+
+  return planned;
+}
+
 function evaluateMetricThreshold(resultsInput, metricName, options = {}) {
   const threshold = Number(options.threshold ?? 0);
   const minCount = Number(options.minCount ?? 0);
+  const plannedCount = options.plannedCount;
   const summary = summarizeNamedMetric(resultsInput, metricName);
-  const countFail = !Number.isFinite(summary.count) || summary.count < minCount;
+
+  // When the running config plans zero cases for this metric, the dimension
+  // is out of scope for this suite (it belongs to a fuller config such as
+  // the deploy gate). Report it as skipped instead of failing on count.
+  if (Number.isFinite(plannedCount) && plannedCount === 0) {
+    return {
+      ...summary,
+      threshold,
+      minCount,
+      requiredCount: 0,
+      skipped: true,
+      countFail: false,
+      fail: false,
+    };
+  }
+
+  // With a known plan, require every planned case to be present (capped at
+  // minCount for large suites) so label drift/shrinkage is still caught.
+  const requiredCount = Number.isFinite(plannedCount)
+    ? Math.min(minCount, plannedCount)
+    : minCount;
+  const countFail = !Number.isFinite(summary.count) || summary.count < requiredCount;
   const fail =
     countFail ||
     !Number.isFinite(summary.rate) ||
@@ -446,14 +519,20 @@ function evaluateMetricThreshold(resultsInput, metricName, options = {}) {
     ...summary,
     threshold,
     minCount,
+    requiredCount,
+    skipped: false,
     countFail,
     fail,
   };
 }
 
 function evaluateMetricSet(resultsInput, metricNames, options = {}) {
+  const plannedCounts = options.plannedCounts || null;
   const metrics = metricNames.map((metricName) =>
-    evaluateMetricThreshold(resultsInput, metricName, options)
+    evaluateMetricThreshold(resultsInput, metricName, {
+      ...options,
+      plannedCount: plannedCounts ? Number(plannedCounts[metricName] ?? 0) : undefined,
+    })
   );
 
   return {
@@ -512,6 +591,7 @@ function renderAssistantFixture(fixturePath, siteBaseUrl) {
 }
 
 module.exports = {
+  countPlannedMetricCases,
   evaluateMetricSet,
   evaluateMetricThreshold,
   formatDiagnosticSummaryText,
