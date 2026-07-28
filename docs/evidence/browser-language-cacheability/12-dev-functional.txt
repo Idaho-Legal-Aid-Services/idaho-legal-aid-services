@@ -1,0 +1,62 @@
+# Dev functional checks - after change
+timestamp_utc=2026-07-28T22:48:18Z
+base=https://dev-idaho-legal-aid-services.pantheonsite.io
+
+## Language coverage
+$ curl -s /es | grep '<html lang'
+<html lang="es"
+$ curl -s /sw | grep '<html lang'
+<html lang="sw"
+$ curl -s /nl | grep '<html lang'
+<html lang="nl"
+$ curl -s /es/resources/quiebra | grep '<html lang'
+<html lang="es"
+
+## Language switcher (EN page -> ES target)
+$ curl -s / | grep -o href="/es[^"]*"
+href="/es/hogar"
+
+## Language switcher (ES page -> EN target)
+$ curl -s /es | grep language-switcher context
+
+## hreflang set on /es
+hreflang="x-default" href="https://dev-idaho-legal-aid-services.pantheonsite.io/"
+hreflang="en" href="https://dev-idaho-legal-aid-services.pantheonsite.io/"
+hreflang="es" href="https://dev-idaho-legal-aid-services.pantheonsite.io/es"
+hreflang="sw" href="https://dev-idaho-legal-aid-services.pantheonsite.io/sw"
+hreflang="nl" href="https://dev-idaho-legal-aid-services.pantheonsite.io/nl"
+
+## canonical on /es and /legal-help/housing
+<link rel="canonical" href="https://dev-idaho-legal-aid-services.pantheonsite.io/es" />
+<link rel="canonical" href="https://dev-idaho-legal-aid-services.pantheonsite.io/legal-help/housing" />
+
+## Endpoint status + anonymous session-cookie check
+path                               HTTP  set-cookie-count
+/search?keys=eviction              200     0
+/forms                             200     0
+/donate                            200     0
+/employment                        301     0
+/user/login                        200     0
+/admin                             403     0
+/assistant                         200     0
+/es/hogar                          301     0
+/contact/offices/boise-office      200     0
+NOTE: /admin 403 is correct for an anonymous client. No anonymous page sets a session cookie.
+
+## Redirects are now cacheable too
+/employment -> /careers/employment-opportunities  301  cache-control: max-age=86400, public
+/es/hogar   -> /es                                301  cache-control: max-age=86400, public
+
+## Language switcher, both directions (from /es markup)
+<a href="/home" class="language-link" hreflang="en">Ingles</a>
+<a href="/es/hogar" class="language-link is-active" hreflang="es">...</a>
+
+## Search / Webform / Assistant
+search?keys=eviction : returns result markup
+/forms               : renders <form> / webform markup
+/assistant           : assistant widget markup present
+
+## F-1 confirmed: assistant retrieval is now uniformly English
+$ curl -H "Accept-Language: en-US" /assistant/api/faq?q=eviction  -> English results
+$ curl -H "Accept-Language: es-ES" /assistant/api/faq?q=eviction  -> identical English results
+Before the change these differed (es returned /es/... URLs). Expected; see tracker F-1.

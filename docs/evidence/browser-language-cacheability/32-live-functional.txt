@@ -1,0 +1,50 @@
+# Live functional checks - after change
+timestamp_utc=2026-07-28T23:02:06Z
+base=https://live-idaho-legal-aid-services.pantheonsite.io
+
+## Language coverage (Spanish content must remain Spanish)
+/es                          <html lang="es"
+/sw                          <html lang="sw"
+/nl                          <html lang="nl"
+/es/resources/quiebra        <html lang="es"
+/es/videoteca                <html lang="es"
+
+## Endpoint status + anonymous session-cookie check
+/search?keys=eviction              200  set-cookie:0
+/forms                             200  set-cookie:0
+/donate                            200  set-cookie:0
+/employment                        301  set-cookie:0
+/user/login                        200  set-cookie:0
+/admin                             403  set-cookie:0
+/assistant                         200  set-cookie:0
+/contact/offices/boise-office      200  set-cookie:0
+/apply-for-help                    200  set-cookie:0
+
+## hreflang on /es
+hreflang="x-default" href="https://live-idaho-legal-aid-services.pantheonsite.io/"
+hreflang="en" href="https://live-idaho-legal-aid-services.pantheonsite.io/"
+hreflang="es" href="https://live-idaho-legal-aid-services.pantheonsite.io/es"
+hreflang="sw" href="https://live-idaho-legal-aid-services.pantheonsite.io/sw"
+hreflang="nl" href="https://live-idaho-legal-aid-services.pantheonsite.io/nl"
+
+## canonical
+<link rel="canonical" href="https://live-idaho-legal-aid-services.pantheonsite.io/legal-help/housing" />
+<link rel="canonical" href="https://live-idaho-legal-aid-services.pantheonsite.io/es" />
+
+## Accept-Language: es on unprefixed URL now stays English (intended change)
+content-language: en
+
+## Language switcher on live, both directions
+
+## Public hostname (idaholegalaid.org) via Cloudflare
+curl -A "<Chrome UA>" https://idaholegalaid.org/  -> HTTP/2 403
+Cloudflare returns 403 to scripted HTTP clients on the public hostname
+regardless of User-Agent; the block is TLS/HTTP2-fingerprint based, not
+UA-based. This is PRE-EXISTING and by design (validation doc 8.8), and is
+why 8.9B specifies probing the Pantheon platform hostname instead.
+Real browsers are unaffected. Public-hostname verification therefore has to
+be done in a browser, not by curl.
+
+## Deploy timestamps
+live code deploy + config:import + cr + env:clear-cache completed
+at approximately 2026-07-28T23:02:55Z
