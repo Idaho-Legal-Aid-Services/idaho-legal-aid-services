@@ -1,0 +1,161 @@
+# Language cacheability probe
+timestamp_utc=2026-07-28T20:32:10Z
+base=https://live-idaho-legal-aid-services.pantheonsite.io
+accept_language=en-US,en;q=0.9
+label=before-change baseline (live) pass 2
+note=anonymous GET, no cookies sent; cookie values, tokens, cf-ray and client IP redacted
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/
+cache-control: max-age=86400, public
+content-language: en
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4529-YYZ, cache-bfi-kbfi7400108-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 26
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/legal-help/housing
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4561-YYZ, cache-bfi-kbfi7400058-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/forms
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (response policy)
+x-served-by: cache-yyz4523-YYZ, cache-bfi-kbfi7400020-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/donate
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4555-YYZ, cache-bfi-kbfi7400081-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/resources/probate
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4527-YYZ, cache-bfi-kbfi7400072-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/contact/offices/boise-office
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4558-YYZ, cache-bfi-kbfi7400061-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/es
+cache-control: max-age=86400, public
+content-language: es
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4576-YYZ, cache-bfi-kbfi7400026-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 16
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/es/resources/quiebra
+cache-control: max-age=86400, public
+content-language: es
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4543-YYZ, cache-bfi-kbfi7400070-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 15
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/this-page-does-not-exist-ilas-probe
+cache-control: must-revalidate, no-cache, private
+content-language: en
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (404, sub-request: UNCACHEABLE (poor cacheability))
+x-served-by: cache-yyz4537-YYZ, cache-bfi-kbfi7400085-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI -H "Accept-Language: en-US,en;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/es/esta-pagina-no-existe-ilas-probe
+cache-control: max-age=86400, public
+content-language: es
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (404, sub-request: UNCACHEABLE (poor cacheability))
+x-served-by: cache-yyz4537-YYZ, cache-bfi-kbfi7400086-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 14
+
+$ curl -sSI -H "Accept-Language: es-ES,es;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/
+cache-control: max-age=86400, public
+content-language: en
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4529-YYZ, cache-bfi-kbfi7400029-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 29
+
+$ curl -sSI -H "Accept-Language: es-ES,es;q=0.9" https://live-idaho-legal-aid-services.pantheonsite.io/forms
+cache-control: must-revalidate, no-cache, private
+content-language: es
+server: nginx
+x-drupal-cache: UNCACHEABLE (response policy)
+x-drupal-dynamic-cache: UNCACHEABLE (response policy)
+x-served-by: cache-yyz4553-YYZ, cache-bfi-kbfi7400082-BFI
+x-cache: MISS, MISS
+vary: Accept-Encoding, Cookie, Cookie
+age: 0
+
+$ curl -sSI https://live-idaho-legal-aid-services.pantheonsite.io/sw
+cache-control: max-age=86400, public
+content-language: sw
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4558-YYZ, cache-bfi-kbfi7400078-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 11
+
+$ curl -sSI https://live-idaho-legal-aid-services.pantheonsite.io/nl
+cache-control: max-age=86400, public
+content-language: nl
+server: nginx
+x-drupal-cache: MISS
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-served-by: cache-yyz4542-YYZ, cache-bfi-kbfi7400039-BFI
+x-cache: MISS, HIT
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 10
+

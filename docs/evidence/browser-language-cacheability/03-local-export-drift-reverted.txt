@@ -1,0 +1,27 @@
+# Local config export drift - unrelated files reverted
+timestamp_utc=2026-07-28T20:34:34Z
+note=drush config:export rewrote 5 files unrelated to this change, from
+note=pre-existing stale local-DB drift. All 5 were reverted; only
+note=config/language.types.yml is carried forward. Diffs recorded below
+note=for the record, then discarded.
+
+$ git diff --stat -- config/ilas_site_assistant.settings.yml
+ config/ilas_site_assistant.settings.yml | 47 +++++++++++----------------------
+ 1 file changed, 15 insertions(+), 32 deletions(-)
+
+$ git diff --stat -- config/metatag.metatag_defaults.global.yml
+ config/metatag.metatag_defaults.global.yml | 4 ----
+ 1 file changed, 4 deletions(-)
+
+$ git diff --stat -- config/search_api.index.faq_accordion_vector.yml
+ config/search_api.index.faq_accordion_vector.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+$ git diff --stat -- config/search_api_solr.solr_field_type.text_es_6_0_0.yml
+ config/search_api_solr.solr_field_type.text_es_6_0_0.yml | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+$ git diff --stat -- config/search_api_solr.solr_field_type.text_es_7_0_0.yml
+ config/search_api_solr.solr_field_type.text_es_7_0_0.yml | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
