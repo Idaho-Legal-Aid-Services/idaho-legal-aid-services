@@ -25,7 +25,7 @@ implementation** and carried as an explicit follow-up.
 | # | Item | Ref | Status | Evidence / notes |
 |---|---|---|---|---|
 | 0 | Archive recovered DB backups to durable storage | §8.9A | ⬜ Not started | The 2026-06-30 backup **expires 2026-08-01**. Time-critical and independent of everything below. |
-| **1** | **Fix `language-browser` negotiation** | **§8.9B** | 🟢 **In progress** | Branch `fix/browser-language-cacheability`. See the dedicated section below. |
+| **1** | **Fix `language-browser` negotiation** | **§8.9B** | ✅ **Done 2026-07-28** | Deployed Dev → Test → Live. Commit `ec129b4834`, PR #147. See the dedicated section below. |
 | 2 | Add icon files + template tags | §8.1 | ⬜ Not started | Apply the three §8.1 corrections: rasterise from `ILAS Favicon_1.svg` (the theme's `favicon.ico` is Bootstrap's logo), no second `rel="icon"`, correct MIME. |
 | 3 | `www`→apex Single Redirect | §8.2 | ⬜ Not started | Must explicitly enable `preserve_query_string` — it defaults to disabled. |
 | 4 | Add `json\|xml\|webmanifest` to `fast_404` | §11.4 | ⬜ Not started | Pairs with item 2. |
@@ -70,7 +70,30 @@ in the `quality-gate` CI job. It fails if `language-browser` reappears under
 negotiation methods or URL prefixes change. Verified to fail on a simulated
 regression before being committed.
 
-**Evidence.** `docs/evidence/browser-language-cacheability/`.
+**Evidence.** `docs/evidence/browser-language-cacheability/` — see `50-header-comparison.md` for
+the before/after table.
+
+**Deployment record.**
+
+| Step | When (UTC) | Result |
+|---|---|---|
+| PR #147 opened, all CI green | 2026-07-28 ~22:0x | 11 checks pass, 3 correctly skipped |
+| Merged to `github/master` as `037e853655` | 2026-07-28 | — |
+| Pushed to Pantheon `origin/master` | 2026-07-28 ~22:40 | Full deploy-bound gate incl. live promptfoo: **112/112 pass** |
+| Dev: `config:import` → `cr` → `env:clear-cache` | 2026-07-28 ~22:45 | Verified |
+| Test: `env:deploy --updatedb --cc` → import → `cr` → clear-cache | 2026-07-28 ~22:52 | Verified |
+| Live: backup (`--keep-for=7`) → `env:deploy` → import → `cr` → clear-cache | 2026-07-28 ~23:00 | Verified |
+
+**Result on Live.** All five target interior pages moved from
+`UNCACHEABLE (response policy)` / `must-revalidate, no-cache, private` to
+`max-age=86400, public`, and repeat requests are served from the Pantheon edge
+(`x-cache: MISS, HIT` with a climbing `age`) instead of reaching PHP. English 404s and
+301 redirects became cacheable too. `/es`, `/sw`, `/nl` unchanged and still correctly
+localized; hreflang set intact; no anonymous page sets a session cookie.
+
+**Baseline for monitoring.** Live cache hit ratio 2026-07-14 → 07-27: **15.41 %–28.91 %,
+mean ≈ 20 %**. Track daily for 14 days in `60-metrics-daily.txt`. Per §13, if the ratio has
+not exceeded 60 % within 72 h, re-open §8.9 — the mechanism is wrong or incomplete.
 
 **Rollback.** Restore the one line under `enabled`, update the guard test in the
 same commit, publish, then per environment `config:import -y` → `cr` →
@@ -126,6 +149,34 @@ state.** `config/ilas_site_assistant.settings.yml`,
 reverting the config file and re-running. Not caused by, and not addressed by,
 this work.
 
+**F-4 — `LlmControlConcurrencyTest::testCacheStatsDoNotLoseConcurrentIncrements` is
+flaky and blocked a deploy.** Observed **1 failure in 5 runs** of the same
+checkout ("Failed asserting that 1 is identical to 2"). It blocked the first
+`git push origin master` attempt and passed on retry. The test spawns four
+concurrent processes via `runConcurrent(4, …)` that increment shared file-backed
+state and asserts no increment is lost, so an intermittent failure indicates a
+genuine lost-update race in either the test harness or `CostControlPolicy`'s
+state writes. Unrelated to this change (these commits touch no assistant files),
+but it is a real defect that will keep blocking deploys at random.
+→ **Follow-up FU-3.**
+
+**F-5 — Test environment has no Spanish content.**
+`SELECT COUNT(*) FROM node_field_data WHERE langcode='es'` returns **99 on dev**
+and **0 on test**; likewise 0 Spanish path aliases. Test's `/es` resolves to
+`/es/node/25` with no alias and advertises only `x-default` + `en` hreflang.
+Dev and Test run identical code and config, and both Dev (post-change) and Live
+(pre-change) show the full 5-entry hreflang set, so this is a stale-database
+condition in Test, not a regression. It does mean **Test cannot validate any
+Spanish-language behaviour** — that validation has to happen on Dev and Live.
+→ **Follow-up FU-4.**
+
+**F-6 — The public hostname cannot be verified by script.**
+Cloudflare returns 403 to scripted HTTP clients on `idaholegalaid.org` regardless
+of User-Agent — the block is TLS/HTTP2-fingerprint based (validation doc §8.8,
+pre-existing and by design). All header verification therefore ran against the
+Pantheon platform hostname, which is the methodology §8.9B specifies. Browser-based
+spot-checking of the public hostname is still worth doing by hand.
+
 ---
 
 ## Follow-ups opened by this work
@@ -134,6 +185,8 @@ this work.
 |---|---|---|---|
 | FU-1 | Make the assistant's `apiBase` language-aware, or pass the page langcode in the request, so `/es/` visitors get Spanish resource links regardless of browser `Accept-Language` | F-1 | ⬜ Not started |
 | FU-2 | Tell program staff that browser-based auto-switching to Spanish is gone; the `/es` prefix and the language switcher are unchanged | §8.9B accepted trade-off | ⬜ Not started |
+| FU-3 | Fix the lost-update race behind `LlmControlConcurrencyTest::testCacheStatsDoNotLoseConcurrentIncrements` — it fails ~1 run in 5 and randomly blocks deploys | F-4 | ⬜ Not started |
+| FU-4 | Refresh the Test database from Live (it has 0 Spanish nodes), so Test can validate multilingual behaviour | F-5 | ⬜ Not started |
 
 ---
 
