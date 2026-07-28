@@ -70,7 +70,8 @@ Return exactly one canonical intent label from this list:
 
 Rules:
 - Choose the narrowest supported assistant intent when the request clearly fits.
-- Use `clarify` when the user is asking a legal-help question but the message is too vague to route confidently.
+- A message describing a concrete legal problem or life situation is NOT vague, even when phrased informally or without legal terms (a repossessed car, money taken from an account, an eviction notice, proving something in a custody dispute). Classify it to the closest topical label such as `faq`, `resources`, `forms`, or `eligibility`.
+- Use `clarify` only when no legal topic or concrete situation can be identified in the message.
 - Use `unknown` only when the message is not understandable enough to classify.
 - Do not invent labels.
 - Do not provide prose outside the required JSON object.
@@ -503,20 +504,19 @@ PROMPT;
    * Builds the JSON schema for intent responses.
    *
    * @return array<string, mixed>
-   *   Cohere-compatible JSON schema.
+   *   Bare Cohere v2-compatible JSON schema (no provider wrapper). Cohere's
+   *   /v2/chat response_format.schema rejects OpenAI-style {name, schema}
+   *   wrappers with HTTP 400.
    */
   protected function buildIntentResponseSchema(): array {
     return [
-      'name' => 'assistant_intent_response',
-      'schema' => [
-        'type' => 'object',
-        'additionalProperties' => FALSE,
-        'required' => ['intent'],
-        'properties' => [
-          'intent' => [
-            'type' => 'string',
-            'enum' => self::VALID_INTENTS,
-          ],
+      'type' => 'object',
+      'additionalProperties' => FALSE,
+      'required' => ['intent'],
+      'properties' => [
+        'intent' => [
+          'type' => 'string',
+          'enum' => self::VALID_INTENTS,
         ],
       ],
     ];
