@@ -37,7 +37,7 @@ implementation** and carried as an explicit follow-up.
 | 10 | Review logs → Managed Challenge | §8.6 | ⬜ Not started | Only after ≥7 days of Log. Never Block first. |
 | 11 | Verify `old.` IP not third-party; delete record | §8.3 | ✅ **Done 2026-07-29** | `72.3.167.82` **is** third-party (Phoenix Group Holdings LLC, Rackspace space) — dangling DNS. Record deleted. See the dedicated section below. |
 | 12 | Re-measure for one full billing cycle | §13 | ⬜ Not started | Depends on item 1 landing. |
-| 13 | Re-evaluate `pantheon_advanced_page_cache` | §8.10 | 🔵 Deferred | Only meaningful once pages are cacheable. |
+| 13 | Re-evaluate `pantheon_advanced_page_cache` | §8.10 | 🟢 **Assessed 2026-07-29, not yet implemented** | **Un-deferred.** §8.10's precondition ("revisit after §8.9 is fixed") is met, and F-5 confirmed the cost: no `Surrogate-Key` on any Live page, front page served at `age: 43046` (~12 h stale). Both §8.10 blockers re-measured and found much smaller than recorded — see the assessment below. No code enabled anywhere. |
 | — | Platform-hostname redirect | §8.5 | 🔵 Deferred | Breaks CI (promptfoo POSTs to it); benefit already mitigated by Pantheon's `Disallow: /`. |
 | — | 404 caching / Cloudflare HTML caching | §8.11–12 | 🔵 Deferred | Root-cause fixes first. |
 | — | Remove `Search Engine Optimization` from skip rule `64fae5be` *as specified* | §8.6 | ❌ Rejected | `sbfm_verified_bots: "allow"` means the stated mechanism does not work. Replaced by item 9. |
@@ -348,8 +348,9 @@ Live cutover was **2026-07-29T04:51:14Z**. Re-run
 `scripts/observability/cloudflare-404-volume-check.sh` to compare; the baseline above is
 embedded in that script. The full 48-hour comparison is **still pending**.
 
-**First post-deploy reading — 2026-07-29T05:00Z → 16:24Z (11.5 h). The icon 404s have *not*
-fallen to zero, and the reason is F-5 below, not a defect in this change:**
+**First post-deploy reading — 2026-07-29T05:00Z → 16:24Z (11.5 h), i.e. *before* the cache purge.
+The icon 404s had not yet fallen to zero, because Cloudflare was still serving 404s it had cached
+before the cutover — see F-5:**
 
 | Path | 404 | 200 | cacheStatus on the 404s |
 |---|---:|---:|---|
@@ -357,44 +358,71 @@ fallen to zero, and the reason is F-5 below, not a defect in this change:**
 | `/favicon.ico` | 84 | 2 | **hit** |
 | `/apple-touch-icon-precomposed.png` | 31 | 0 | **hit** |
 
-Every one of those 404s is served **from Cloudflare's cache**, not from the origin. The origin
-returns 200 for all three (verified by checksum). The handful of `200 miss` rows are PoPs that
-have already re-fetched.
+Every one of those 404s was served **from Cloudflare's cache**, not from the origin. The origin
+returned 200 for all three (verified by checksum). The handful of `200 miss` rows are PoPs that
+had already re-fetched.
 
-**F-5 — 404 responses became edge-cacheable, and stale icon 404s are pinned for up to 24 h.**
-§8.11 assessed Cloudflare negative caching as inapplicable because "this site's 404s send
-`must-revalidate, no-cache, private`". **That is no longer true.** Item 1 (the `language-browser`
-fix, deployed 2026-07-28 ~23:00Z, about six hours before this change) made responses cacheable
-sitewide — and its own record notes "English 404s and 301 redirects became cacheable too".
-Measured on the Live origin today, **both** a `fast_404` response and a regular Drupal 404 now
-send:
+**After the purge at 16:32:15Z**, the same paths returned **200 with zero 404s** — first `miss`,
+then `hit` on the newly cached 200. The 48-hour comparison against the baseline table above is
+still pending; re-run `scripts/observability/cloudflare-404-volume-check.sh`, and note that only
+data from **after 16:32Z** reflects the fixed state.
 
-```
-cache-control: max-age=86400, public
-```
+**F-5 — stale icon 404s were pinned in Cloudflare's cache; cleared by purge at 16:32Z.**
 
-Cloudflare caches static-extension paths by default, so from 2026-07-28 ~23:00Z onward every
-`/favicon.ico` and `/apple-touch-icon*.png` 404 was cached at the edge with a 24-hour TTL. Those
-cached 404s keep being served until they expire — the last of them around **2026-07-30 ~04:51Z**.
-Across the whole zone since the cutover, **37.2 % of all 404s are `cacheStatus=hit`** (51.4 % are
-`dynamic` — HTML paths, which Cloudflare does not cache by default — so the negative caching is
-scoped to static extensions).
+> **Correction, 2026-07-29.** This finding was first written up as "item 1 accidentally made 404s
+> edge-cacheable, which is the broad 404 caching §8.11 rejected," with a proposed fix that
+> rewrote `Cache-Control` on 4xx responses in `ilas_seo`. **That conclusion was wrong and the
+> proposed fix has been withdrawn** — it would have partially reverted item 1, the audit's
+> highest-value change. The measurements below were sound; the interpretation was not. What
+> follows is the corrected analysis.
 
-Two consequences:
+The observation stands: for the first 11.5 h after cutover the icon paths kept returning 404 with
+`cacheStatus=hit`, while the origin returned 200 for all three (verified by checksum). Measured on
+the Live origin, a `fast_404`, a regular Drupal 404, a 403 and a 301 all now send
+`cache-control: max-age=86400, public`.
 
-1. **This deploy's benefit is delayed, not absent.** It self-heals within 24 h of cutover. A
-   targeted Cloudflare purge of the nine icon/manifest URLs fixes it immediately. **The repo's
-   API token cannot do it** — `POST /zones/{id}/purge_cache` returns
-   `10000 Authentication error`, so the token lacks Cache Purge. It has to be done from the
-   dashboard (Caching → Configuration → Purge Cache → Custom Purge) or with a token that has the
-   permission. See FU-10.
-2. **The site now has de-facto negative caching that §8.11 explicitly rejected**, acquired as an
-   unintended side effect rather than a decision. §8.11's stated reason for rejecting it was that
-   "without a purge path, a cached 404 on a newly published page or newly uploaded document
-   persists for the full TTL with no way to clear it" — and the token check above confirms there
-   is no purge path currently available. For a site publishing time-sensitive legal information,
-   a newly uploaded PDF whose URL was hit before upload will 404 for 24 h. This needs a decision,
-   not just a note. See FU-11.
+**Why that is correct behaviour, not a defect:**
+
+1. **It is intended, and the audit predicted it.** §8.9's own evidence table lists `/nl/videoteca`
+   — a **404** — as `MISS (cacheable) / max-age=86400, public` *before* item 1; that cacheable-404
+   was the decisive evidence for the whole §8.9 diagnosis. §8.9's test script says so outright:
+   `curl -sI $BASE/news | grep -i cache-control  # 404s become cacheable too`.
+2. **Drupal supports cacheable 4xx by design.** `ClientErrorResponseSubscriber` tags every 4xx
+   response with `4xx-response`, and `EntityBase::invalidateTagsOnSave()`
+   (`web/core/lib/Drupal/Core/Entity/EntityBase.php:558-572`) invalidates that tag whenever an
+   entity with a canonical link is created or updated. Core's comment: *"Creating or updating an
+   entity may change a cached 403 or 404 response."* Correctness is handled by cache tags.
+3. **It is not the mechanism §8.11 rejected.** §8.11's option 5 was a *Cloudflare Cache Rule with
+   Edge TTL "ignore cache-control"* — overriding origin intent and applying to HTML as well. What
+   exists here is the origin declaring tag-backed cacheability, which Cloudflare then honours.
+   Different mechanism, different risk profile. §8.11's recommendation was never violated; only
+   its factual premise ("this site's 404s send `must-revalidate, no-cache, private`") went stale,
+   and that premise was already only true of non-prefixed paths when it was written.
+4. **The exposure is narrower than first reported.** Splitting zone 404s since 05:00Z by path
+   type: static-extension paths **230 cached (`hit`)**; HTML/page paths **0 cached** (81
+   `dynamic`, 52 `none`). §8.11's headline worry — "pages about to be published" — is **not**
+   exposed at Cloudflare at all. Only file-like paths are.
+
+**Resolution.** The Cache Purge permission was added to the API token and the nine icon/manifest
+URLs were purged at **2026-07-29 16:32:15Z**. Verified immediately after: requests to those paths
+returned **200, zero 404s**, first as `miss` (re-fetched from origin) then `hit`. FU-15 closed.
+
+**Residual, correctly attributed.** The real gap is not 404 policy — it is that **edges which
+cannot read Drupal's cache tags never learn about an invalidation**:
+
+- **Pantheon's Global CDN** — this is §8.10 verbatim: no `Surrogate-Key` header, so "invalidation
+  relies on the 24-hour `max-age` expiring or a full CDN clear — editors see up to 24 h of
+  staleness." Confirmed today: **no `Surrogate-Key` on any Live page**, and the front page was
+  being served at `age: 43046` (**~12 h old**). Before item 1 most pages were uncacheable so edits
+  appeared at once; now they may not. §8.10 deferred its own fix *only* because "roughly 80 % of
+  pages are not cached at all… installing it before fixing §8.9 would add two known risks in
+  exchange for a benefit the site cannot yet realise." §8.9 is now fixed, so that precondition is
+  met — which is exactly **tracker item 13**; it has been assessed (see the item 13 section below), not implemented.
+- **Cloudflare** — has no cache-tag visibility and no purge integration, and §8.10 already records
+  that. At this volume a targeted purge is the right lever, not automation; see FU-16 for the
+  item 7 case.
+
+**No code change was made to `ilas_seo` or to any response header.**
 
 ### Rollback
 
@@ -527,6 +555,43 @@ afterwards, but §8.3's subdomain enumeration ("only `www.`, `mail.`, `old.`") i
 
 ---
 
+## Item 13 — `pantheon_advanced_page_cache` (§8.10): assessment
+
+**Status: assessed, not implemented. Nothing installed or enabled in any environment.**
+§8.10 deferred this "until §8.9 is resolved". §8.9 is resolved, so the blockers were
+re-measured against this site rather than taken from the issue queue. **Both are materially
+smaller than §8.10 recorded, and one new cost surfaced that §8.10 did not name.**
+
+**The problem it would solve.** Item 1 made pages cacheable — its intended win — but nothing
+purges Pantheon's CDN by cache tag. Measured on Live 2026-07-29: **no `Surrogate-Key` header on
+any page**, and the front page serving at `age: 43046` (**~12 h old**). An editor's change can
+stay invisible to anonymous visitors for up to 24 h unless someone runs a full cache clear.
+Before item 1 most pages were uncacheable, so edits appeared immediately; that protection is
+gone. This is the more consequential half of item 1's trade-off.
+
+| §8.10 blocker | Re-measured on this site |
+|---|---|
+| "Installing PAPC will **silently disable** Big Pipe… a real behavioural change for staff" | **Stronger mechanism, far smaller impact.** `pantheon_advanced_page_cache.install:53-58` — `hook_install` *actively uninstalls* `big_pipe`, and `hook_requirements` raises `REQUIREMENT_ERROR` calling it incompatible and able to cause "504 Gateway Timeout and site breakage". But BigPipe only affects **authenticated** rendering and Live has **3 active users**. Pantheon's own text: *"Big Pipe provides no benefit on Pantheon."* Not the staff-facing regression §8.10 implied. |
+| Webform file-upload regression [#3446954](https://www.drupal.org/project/pantheon_advanced_page_cache/issues/3446954) — one purge per file per image style, 34 s worst case | **Does not reach the employment-application path.** The image-style loop is **MIME-gated** (`pantheon_advanced_page_cache.module:26`, `strpos($file->getMimeType(), 'image') === 0`). Resume and cover-letter fields accept `pdf doc docx` only → never enter the loop. Only the optional *additional documents* field allows `jpg jpeg png`, capped at 3 → bounded worst case ~188 purge paths. |
+| `Surrogate-Key` capped at 25,000 bytes, keys past the cap **silently trimmed** | Real, and **not fully silent** — `CacheableResponseSubscriber.php:113` logs a watchdog WARNING naming the consequence ("this page will not be cleared from the cache"). Still unmeasured on real pages; must be measured, not assumed. |
+
+**New cost §8.10 did not name.** The same MIME-gated loop runs on **routine editor image
+uploads**: **62 image styles** × every image saved = 62 edge-purge calls per image. That is the
+everyday path, not the employment form. Worth auditing whether all 62 styles are in use before
+enabling.
+
+**Assessment: worth doing, as its own scoped piece of work** — not attached to an unrelated
+deploy. When taken up, measure exactly three things on an isolated multidev: that tag purge
+actually works, real `Surrogate-Key` header sizes, and image-upload save timing against the 62
+styles. A Live decision stays separate and evidence-backed, per §8.10's own instruction.
+
+**Interim lever, if the staleness needs capping first.** `config/system.performance.yml`
+`cache.page.max_age: 86400` → `3600` caps CDN staleness at one hour instead of 24, with no
+module, no BigPipe removal, and instant revert. It costs some cache efficiency and does **not**
+fix file/image freshness, so it is a stopgap rather than a substitute.
+
+---
+
 ## Follow-ups opened by this work
 
 | ID | Item | Origin | Status |
@@ -538,10 +603,14 @@ afterwards, but §8.3's subdomain enumeration ("only `www.`, `mail.`, `old.`") i
 | FU-5 | Confirm the GitHub secret `ILAS_ASSISTANT_URL` resolves to the apex or a `*.pantheonsite.io` host, not `www` — a `POST` to `www` is now 301'd at the edge and would be downgraded to `GET`. The repo default is the apex (`promptfoo-evals/lib/ilas-live-shared.js:3`) and the origin already 301'd `www` before this change, so this is a confirmation, not a suspected break | Item 3 | ⬜ Not started |
 | FU-6 | Check whether Google Search Console / GA4 have a `www` property registered — its hostname dimension now goes quiet, since `www` no longer reaches the origin at all | Item 3 | ⬜ Not started |
 | FU-7 | Update the memory note on the Cloudflare token: it is active with no expiry and holds DNS + Dynamic Redirect **edit**, not read-only as recorded | F-9 | ⬜ Not started |
-| FU-8 | Give the icon paths a real Edge TTL via a Cloudflare Cache Rule — the origin sends `no-cache, must-revalidate` on `/favicon.ico` and `/apple-touch-icon*.png`, so every visit still revalidates. Cheap, and it converts a revalidation into a true edge hit | Items 2 & 4, F-2 | ⬜ Not started |
+| FU-8 | Give the icon paths a real Edge TTL via a Cloudflare Cache Rule — Pantheon sends `no-cache, must-revalidate` on `/favicon.ico` and `/apple-touch-icon*.png`, so every visit still revalidates. Cheap, and it converts a revalidation into a true edge hit. Low priority: the paths are now 200s and Cloudflare is caching them anyway (`hit` observed post-purge) | Items 2 & 4, F-2 | ⬜ Not started |
 | FU-9 | Resolve the pre-existing `ilas_site_assistant.settings` ordering drift on Dev/Test/Live. Values are provably identical; only top-level key order differs, so `config:status` reports `Different` on every environment and masks real drift. Fix once, deliberately, outside a feature deploy | Items 2 & 4, F-3 | ⬜ Not started |
-| FU-10 | Purge the nine icon/manifest URLs from the Cloudflare cache so the item 2 fix takes effect immediately instead of waiting out the 24 h TTL. Needs dashboard access or a token with Cache Purge — the current token returns `10000 Authentication error` on `purge_cache` | Items 2 & 4, F-5 | ⬜ **Action needed** |
-| FU-11 | Decide, deliberately, what to do about 404s now being edge-cacheable for 24 h (`max-age=86400, public`) on static-extension paths — an unintended side effect of item 1, and the exact behaviour §8.11 rejected. Either accept it and obtain a purge path, or send `no-store` on 404s specifically. A newly uploaded document whose URL was hit beforehand currently 404s for 24 h with no way to clear it | Items 2 & 4, F-5 | ⬜ Not started |
+| FU-15 | Purge the nine icon/manifest URLs from the Cloudflare cache so the item 2 fix takes effect immediately instead of waiting out the 24 h TTL | Items 2 & 4, F-5 | ✅ **Done 2026-07-29 16:32Z** — token was granted Cache Purge; purge succeeded and the paths verified serving 200 at the edge |
+| FU-16 | Purge the affected URLs when item 7 adds redirects for legacy `/sites/idaholegalaid.org/files/*.pdf` paths. Those URLs 404 today, are edge-cached for 24 h because they carry a static extension, and Cloudflare has no cache-tag visibility — so adding the redirect alone will not dislodge the cached 404. Use `scripts/observability/cloudflare-purge-urls.sh` | Items 2 & 4, F-5 | ⬜ Not started |
+
+> **Numbering note.** FU-10 – FU-14 are reserved: they were assigned in parallel on the
+> `fix/canonical-host-normalization` branch (items 5 and 6) and will arrive on `master` when that
+> work merges. Mine were renumbered to FU-15/FU-16 to avoid the collision.
 
 ---
 
