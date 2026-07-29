@@ -45,14 +45,20 @@
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.59.1",
     "jest-environment-jsdom": "^30.3.0",
-    "promptfoo": "^0.121.11"
+    "promptfoo": "^0.121.19"
   },
   "overrides": {
-    "protobufjs": "8.0.1",
+    "protobufjs": "8.7.1",
     "mathjs": "15.2.0",
     "drizzle-orm": "0.45.2",
     "node-forge": "1.4.0",
     "follow-redirects": "1.16.0",
-    "picomatch": "4.0.4"
+    "picomatch": "4.0.4",
+    "sharp": "0.35.3",
+    "adm-zip": "0.6.0",
+    "esbuild": "0.28.1",
+    "promptfoo": {
+      "js-yaml": "5.2.2"
+    }
   }
 }
