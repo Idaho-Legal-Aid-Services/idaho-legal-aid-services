@@ -301,33 +301,21 @@ if (!mix.inProduction()) {
 }
 
 // =============================================================================
-// BROWSERSYNC CONFIGURATION
+// LIVE RELOAD
 // =============================================================================
-// Only enable in development environment
-// To use: Set BROWSERSYNC_PROXY environment variable to your local URL
-// Example: BROWSERSYNC_PROXY=https://mysite.ddev.site npm run watch
-if (!mix.inProduction() && process.env.BROWSERSYNC_PROXY) {
-  mix.browserSync({
-    proxy: process.env.BROWSERSYNC_PROXY,
-    port: 3000,
-    files: [
-      'css/**/*.css',
-      'js/**/*.js',
-      'templates/**/*.twig',
-      'scss/**/*.scss',
-      '*.theme',
-      '**/*.yml'
-    ],
-    open: false,
-    notify: false,
-    reloadDelay: 50,
-    injectChanges: true,
-    browser: 'default',
-    https: {
-      rejectUnauthorized: false
-    }
-  });
-}
+// BrowserSync was removed in 2026-07: it was opt-in behind BROWSERSYNC_PROXY,
+// DDEV is the local environment, and it pulled immutable@3 plus the whole
+// socket.io/engine.io tree (4 Dependabot alerts, incl. a forced two-major
+// downgrade of the `immutable` that sass@1.89 depends on).
+// For a watch loop use `npm run watch`; reload the DDEV page manually.
 
-// For image optimization, run: node optimize-images.js
-// This is separate from the build process to avoid webpack conflicts
+// =============================================================================
+// IMAGE OPTIMIZATION
+// =============================================================================
+// Removed in 2026-07 along with optimize-images.js. The imagemin family was
+// never referenced here, `npm run optimize-images` was invoked by no workflow
+// or script, and images/optimized/ was never committed — but the tree carried
+// ~12 advisories including decompress (CVSS 9.1, no patch will ever exist).
+// To optimize an image now, do it once, by hand:
+//   npx @squoosh/cli --mozjpeg auto --oxipng auto -d images/optimized images/*
+// or use https://squoosh.app. Do not re-add imagemin as a dependency.

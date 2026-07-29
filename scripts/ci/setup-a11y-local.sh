@@ -37,8 +37,9 @@ fi
 
 if [[ "${SKIP_THEME_BUILD:-0}" != "1" ]]; then
   log "build b5subtheme"
-  # --omit=optional: the imagemin family (native binary downloads that flake
-  # on GitHub rate limits) is optional and unused by the prod webpack build.
+  # --omit=optional: the theme declares no optionalDependencies since the
+  # imagemin family was removed (2026-07). Kept as a standing guard so a future
+  # optional dep with native binary downloads cannot silently re-enter CI.
   # NOTE: no comments/backticks inside the quoted block — ddev exec re-evaluates
   # the string and executes backticks even in comment position.
   ddev exec --dir /var/www/html/web/themes/custom/b5subtheme bash -c '

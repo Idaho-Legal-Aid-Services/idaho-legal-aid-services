@@ -31,7 +31,10 @@ jobs:
 
       - name: Install theme dependencies
         working-directory: web/themes/custom/b5subtheme
-        run: npm ci
+        # --omit=optional matches scripts/ci/setup-a11y-local.sh. The theme has
+        # no optionalDependencies today; this is a standing guard so one with
+        # native binary downloads cannot silently re-enter CI.
+        run: npm ci --omit=optional
 
       - name: Build theme assets with source maps
         working-directory: web/themes/custom/b5subtheme
