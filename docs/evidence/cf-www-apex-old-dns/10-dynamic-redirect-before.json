@@ -1,0 +1,9 @@
+{
+  "description": "",
+  "id": "47dd5943196a4187857c43474a753864",
+  "kind": "zone",
+  "last_updated": "2025-02-11T20:29:02.782656Z",
+  "name": "default",
+  "phase": "http_request_dynamic_redirect",
+  "version": "2"
+}

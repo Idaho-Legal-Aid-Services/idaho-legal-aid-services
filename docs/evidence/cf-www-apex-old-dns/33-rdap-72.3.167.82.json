@@ -1,0 +1,69 @@
+{
+  "handle": "NET-72-3-167-80-1",
+  "startAddress": "72.3.167.80",
+  "endAddress": "72.3.167.95",
+  "name": "RSPC-957548B6-703E-4673-9EDD-BE6461C3AE47",
+  "type": "ASSIGNMENT",
+  "parentHandle": "NET-72-3-128-0-1",
+  "cidr0_cidrs": [
+    {
+      "v4prefix": "72.3.167.80",
+      "length": 28
+    }
+  ],
+  "events": [
+    {
+      "eventAction": "last changed",
+      "eventDate": "2016-11-30T17:29:45-05:00"
+    },
+    {
+      "eventAction": "registration",
+      "eventDate": "2016-11-30T17:29:45-05:00"
+    }
+  ],
+  "entities": [
+    {
+      "handle": "C06267363",
+      "roles": [
+        "registrant"
+      ],
+      "vcard": [
+        [
+          "version",
+          {},
+          "text",
+          "4.0"
+        ],
+        [
+          "fn",
+          {},
+          "text",
+          "Phoenix Group Holdings LLC"
+        ],
+        [
+          "adr",
+          {
+            "label": "34 Mountain Blvd\nWarren\nNE\n07059\nUnited States"
+          },
+          "text",
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        [
+          "kind",
+          {},
+          "text",
+          "org"
+        ]
+      ]
+    }
+  ],
+  "remarks": null
+}

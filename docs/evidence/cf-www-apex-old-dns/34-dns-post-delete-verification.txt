@@ -1,0 +1,27 @@
+# DNS verification — POST-DELETE
+# Captured: 2026-07-29T03:41:32Z
+
+## old.idaholegalaid.org must no longer resolve
+old A (system resolver): []
+old AAAA (system resolver): []
+old A  (@1.1.1.1)          : []
+old A  (@8.8.8.8)          : []
+old A  (@mark.ns.cloudflare.com, authoritative): []
+NXDOMAIN check            : status: NXDOMAIN
+
+## Everything else must be unchanged
+idaholegalaid.org            A    : 172.66.154.4 104.20.17.150 
+www.idaholegalaid.org        A    : 104.20.17.150 172.66.154.4 
+mail.idaholegalaid.org       A    : 216.251.32.97 
+laci.idaholegalaid.org       A    : 23.185.0.2 
+idaholegalaid.org            AAAA : 2606:4700:10::6814:1196 2606:4700:10::ac42:9a04 
+www.idaholegalaid.org        AAAA : 2606:4700:10::ac42:9a04 2606:4700:10::6814:1196 
+
+MX  : 10 mx1-us1.ppe-hosted.com. 20 mx2-us1.ppe-hosted.com. 
+NS  : mark.ns.cloudflare.com. monroe.ns.cloudflare.com. 
+SPF : "v=spf1 include:spf.cloud.mip.com include:_spf.google.com include:_spf-us.ppe-hosted.com ~all"
+DMARC: "v=DMARC1; p=none; rua=mailto:b7fb79ab2e9b4a17b0bf76a501cc109d@dmarc-reports.cloudflare.net;"
+DKIM google._domainkey: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC96...
+
+## Record-count check
+before=31  after=30  delta=-1 (only old.idaholegalaid.org removed; see 32-dns-diff.txt)
