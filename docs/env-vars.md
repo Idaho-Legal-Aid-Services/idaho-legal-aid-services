@@ -111,6 +111,26 @@ These are either provided by Pantheon automatically or used as safe metadata.
 - `GITHUB_SHA`
 - `SOURCE_VERSION`
 
+### `ILAS_CANONICAL_BASE_URL` (optional override)
+
+Overrides the canonical base URL that emitted SEO metadata advertises —
+canonical, shortlink, hreflang alternates, `og:url`, social images and the
+JSON-LD graph. It does **not** redirect anything.
+
+Normally leave it unset. `_ilas_canonical_base_url()` in
+`web/sites/default/settings.php` derives the right value per environment: the
+production apex on Live, the environment's own platform hostname on Dev, Test
+and multidevs, and an empty string (feature disabled) off Pantheon.
+
+Two legitimate uses:
+
+- **Pre-Live verification, timeboxed.** Set it to `https://idaholegalaid.org`
+  on Dev to prove the rewrite fires, then **unset it**. Leaving it set makes
+  Dev advertise production canonicals.
+- **Kill switch.** Set it to an unparseable value such as `-` to disable the
+  rewrite instantly with no deploy; `CanonicalHost::normalizeBase()` returns an
+  empty string and every consumer no-ops.
+
 ## Local DDEV
 
 Use local-only files for local values. Do not commit real credentials.
