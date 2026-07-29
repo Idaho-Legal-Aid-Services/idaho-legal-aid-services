@@ -1,0 +1,32 @@
+# Cloudflare public-hostname baseline — PRE-CHANGE
+# Captured: 2026-07-29T03:39:57Z  egress IP: 160.2.119.36
+
+## 1. https www + query (default curl UA)
+HTTP/2 403 
+server: cloudflare
+cf-ray: a2291977cadedc73-SEA
+
+## 2. https www + browser-like UA
+HTTP/2 403 
+server: cloudflare
+cf-ray: a22919787ceb709c-SEA
+
+## 3. https apex (control)
+HTTP/2 403 
+server: cloudflare
+cf-ray: a22919793c468e8e-SEA
+
+## 4. http www
+HTTP/1.1 403 Forbidden
+Server: cloudflare
+CF-RAY: a2291979aace7522-SEA
+
+## 5. redirect chain
+hops=0 final=https://www.idaholegalaid.org/es/videoteca?q=vivienda code=403
+
+## FINDING
+Every scripted request receives HTTP 403 from server: cloudflare, on BOTH www and apex,
+regardless of User-Agent and regardless of scheme. Pre-existing and by design.
+Consequence: the pre-change origin 301 is NOT observable through Cloudflare from a script;
+it was measured directly at the origin instead (see 05-origin-redirect-semantics.txt).
+Blocking layer identified in 07-firewall-events-blocking-rule.json.

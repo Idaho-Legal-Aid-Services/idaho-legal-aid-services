@@ -7,6 +7,8 @@
 
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Site\Settings;
+use Drupal\ilas_seo\CanonicalHost;
 use Drupal\node\NodeInterface;
 
 /**
@@ -35,6 +37,25 @@ function ilas_seo_page_attachments(array &$attachments): void {
  * to prevent index bloat and improve crawl efficiency.
  */
 function ilas_seo_page_attachments_alter(array &$attachments) {
+  // Pin every emitted SEO URL to the configured canonical base before anything
+  // else, including the admin bail-out below, so the rule is unconditional and
+  // easy to reason about. Every hook_page_attachments() implementation has run
+  // by now, so Metatag, hreflang and content_translation have all deposited
+  // their values; every *_page_attachments_alter() that sorts after ilas_seo
+  // (metatag, schema_metatag, simple_sitemap) only removes or folds entries,
+  // never re-adds a Host-derived one.
+  //
+  // This adds no cache contexts on purpose. The values become constants drawn
+  // from settings rather than from the request, so the head output is now
+  // host-invariant; declaring url.site would fragment the render cache along a
+  // dimension the output no longer varies on.
+  $canonical_base = CanonicalHost::normalizeBase(
+    (string) Settings::get('ilas_canonical_base_url', '')
+  );
+  CanonicalHost::normalizeHeadTags($attachments, $canonical_base);
+  CanonicalHost::normalizeHeadLinks($attachments, $canonical_base);
+  CanonicalHost::normalizeSchemaTags($attachments, $canonical_base);
+
   // Don't run on admin pages.
   if (\Drupal::service('router.admin_context')->isAdminRoute()) {
     return;
@@ -397,7 +418,12 @@ function ilas_seo_metatags_alter(array &$metatags, array &$context) {
 
   // === Add mainEntityOfPage to Event schema ===
   if ($bundle === 'event') {
-    $metatags['schema_event_main_entity_of_page'] = $entity->toUrl()->setAbsolute()->toString();
+    // setAbsolute() derives its host from the incoming request, so pin it to
+    // the canonical base the same way every other emitted URL is pinned.
+    $metatags['schema_event_main_entity_of_page'] = CanonicalHost::rewrite(
+      $entity->toUrl()->setAbsolute()->toString(),
+      CanonicalHost::normalizeBase((string) Settings::get('ilas_canonical_base_url', ''))
+    );
   }
 }
 

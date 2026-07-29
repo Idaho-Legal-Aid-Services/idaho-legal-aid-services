@@ -331,6 +331,51 @@ function _ilas_observability_site_id(): ?string {
 }
 
 /**
+ * Returns the canonical (public) base URL that SEO output must advertise.
+ *
+ * Consumed by Drupal\ilas_seo\CanonicalHost to pin canonical, shortlink,
+ * hreflang, og:url and JSON-LD values to a known host, so that requests
+ * arriving through the Pantheon platform domain do not emit self-referencing
+ * SEO metadata. This does not redirect anything.
+ *
+ * Live advertises the production apex. Other Pantheon environments advertise
+ * their own platform hostname, so their canonicals stay self-consistent and
+ * can never be mistaken for production. Off Pantheon (DDEV, local, CI) this
+ * returns an empty string and every consumer no-ops, preserving today's
+ * Host-derived behaviour exactly.
+ *
+ * ILAS_CANONICAL_BASE_URL overrides the derivation. It exists so the rewrite
+ * can be proven to fire on Dev before Live is touched: set it to the apex on
+ * Dev, confirm Dev pages emit apex canonicals, then unset it. Setting it to an
+ * unparseable value (for example "-") is also the instant, deploy-free kill
+ * switch for the whole feature.
+ */
+function _ilas_canonical_base_url(): string {
+  $override = getenv('ILAS_CANONICAL_BASE_URL');
+  if ($override !== FALSE && trim($override) !== '') {
+    return trim($override);
+  }
+
+  $pantheon_env = _ilas_raw_pantheon_environment();
+  if ($pantheon_env === FALSE || trim($pantheon_env) === '') {
+    return '';
+  }
+
+  $env = mb_strtolower(trim($pantheon_env));
+  if ($env === 'live') {
+    return 'https://idaholegalaid.org';
+  }
+
+  $site = getenv('PANTHEON_SITE_NAME');
+  $site = ($site !== FALSE && trim($site) !== '')
+    ? trim($site)
+    : 'idaho-legal-aid-services';
+
+  // Dev, Test and every multidev.
+  return 'https://' . $env . '-' . $site . '.pantheonsite.io';
+}
+
+/**
  * Returns shared observability settings for runtime consumers.
  */
 function _ilas_observability_settings(): array {
@@ -408,6 +453,19 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && $_ENV['PANTHEON_ENVIRONMENT'] === 'd
   // Live remains opt-in via the ILAS_LLM_ENABLED runtime secret above.
   $config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE;
 }
+
+/**
+ * Canonical base URL for emitted SEO metadata.
+ *
+ * Read by Drupal\ilas_seo\CanonicalHost via Settings::get(). An empty value
+ * disables the rewrite entirely, which is the default off Pantheon.
+ *
+ * This lives in $settings rather than in a config object on purpose: changing
+ * it is a code deploy, and a Pantheon deploy flushes caches, so no consumer
+ * needs to declare a cache dependency on it. If it is ever relocated to
+ * configuration, every consumer must then add addCacheableDependency().
+ */
+$settings['ilas_canonical_base_url'] = _ilas_canonical_base_url();
 
 /**
  * Skipping permissions hardening will make scaffolding

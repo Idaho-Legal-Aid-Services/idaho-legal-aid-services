@@ -1,0 +1,4 @@
+{"id":"always_use_https","value":"on","modified_on":"2026-04-24T20:05:20.939808Z"}
+{"id":"ssl","value":"strict","modified_on":"2026-04-24T18:48:57.432551Z"}
+{"id":"automatic_https_rewrites","value":"off","modified_on":null}
+{"id":"security_level","value":"medium","modified_on":null}

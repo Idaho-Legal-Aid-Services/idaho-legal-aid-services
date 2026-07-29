@@ -1,0 +1,9 @@
+43,50d42
+<     "content": "72.3.167.82",
+<     "name": "old.idaholegalaid.org",
+<     "priority": null,
+<     "proxied": false,
+<     "ttl": 1,
+<     "type": "A"
+<   },
+<   {

@@ -1,0 +1,145 @@
+{
+  "note": "Blocking layer for scripted clients on the public hostname, pre-change. ruleId 874a3e31... = SBFM definitely-automated block (source firewallManaged). link_maze = AI Labyrinth injection. Both PRE-EXISTING and out of scope for this task.",
+  "events": [
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:44Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:44Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:44Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:44Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:43Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "http",
+      "datetime": "2026-07-29T03:26:43Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "idaholegalaid.org",
+      "clientRequestPath": "/",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:07Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "idaholegalaid.org",
+      "clientRequestPath": "/",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:07Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/es/videoteca",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:07Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/es/videoteca",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:07Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:06Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:06Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "curl/8.5.0"
+    },
+    {
+      "action": "block",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:06Z",
+      "ruleId": "874a3e315c344b1281ad4f00046aab6f",
+      "source": "firewallManaged",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    },
+    {
+      "action": "link_maze_injected",
+      "clientRequestHTTPHost": "www.idaholegalaid.org",
+      "clientRequestPath": "/legal-help/housing",
+      "clientRequestScheme": "https",
+      "datetime": "2026-07-29T03:26:06Z",
+      "ruleId": "link_maze",
+      "source": "linkMaze",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    }
+  ]
+}

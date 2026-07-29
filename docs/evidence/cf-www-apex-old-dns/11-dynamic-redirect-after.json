@@ -1,0 +1,30 @@
+{
+  "description": "",
+  "id": "47dd5943196a4187857c43474a753864",
+  "kind": "zone",
+  "last_updated": "2026-07-29T03:42:04.974405Z",
+  "name": "default",
+  "phase": "http_request_dynamic_redirect",
+  "rules": [
+    {
+      "action": "redirect",
+      "action_parameters": {
+        "from_value": {
+          "preserve_query_string": true,
+          "status_code": 301,
+          "target_url": {
+            "expression": "concat(\"https://idaholegalaid.org\", http.request.uri.path)"
+          }
+        }
+      },
+      "description": "ILAS - www to apex",
+      "enabled": true,
+      "expression": "(http.host eq \"www.idaholegalaid.org\")",
+      "id": "ce2a37cdad2c44199770caee0516029d",
+      "last_updated": "2026-07-29T03:42:04.974405Z",
+      "ref": "ce2a37cdad2c44199770caee0516029d",
+      "version": "1"
+    }
+  ],
+  "version": "3"
+}

@@ -1,0 +1,124 @@
+{
+  "description": "",
+  "id": "f887ac01edd44986aae31e7e6c05c8bb",
+  "kind": "zone",
+  "last_updated": "2026-07-09T18:22:51.73196Z",
+  "name": "default",
+  "phase": "http_request_firewall_custom",
+  "rules": [
+    {
+      "action": "skip",
+      "action_parameters": {
+        "phases": [
+          "http_request_firewall_managed",
+          "http_ratelimit",
+          "http_request_sbfm"
+        ],
+        "ruleset": "current"
+      },
+      "description": "Verified Bots Bypass Security Layers (search/SEO/monitoring/a11y/security categories only)",
+      "enabled": true,
+      "expression": "(cf.verified_bot_category in {\"Search Engine Crawler\" \"Search Engine Optimization\" \"Page Preview\" \"Monitoring & Analytics\" \"Accessibility\" \"Security\" \"Webhooks\"})",
+      "id": "64fae5becbce484caf8c43fd58734a45",
+      "last_updated": "2026-07-09T18:21:29.811562Z",
+      "logging": {
+        "enabled": true
+      },
+      "ref": "64fae5becbce484caf8c43fd58734a45",
+      "version": "2"
+    },
+    {
+      "action": "block",
+      "description": "Drupal Hardening",
+      "enabled": true,
+      "expression": "(http.request.uri.path in {\"/core/install.php\" \"/core/authorize.php\" \"/README.txt\" \"/web.config\"})",
+      "id": "ccc29d061b644b4b884668add8f3bce3",
+      "last_updated": "2025-11-19T20:20:19.595488Z",
+      "ref": "ccc29d061b644b4b884668add8f3bce3",
+      "version": "1"
+    },
+    {
+      "action": "managed_challenge",
+      "description": "Block Facet Spam",
+      "enabled": true,
+      "expression": "(http.request.uri.path eq \"/search\" and http.request.uri.query contains \"f[5]\")",
+      "id": "46810eeeca264d2c9811f8209bc57a6e",
+      "last_updated": "2025-12-10T21:38:49.977684Z",
+      "ref": "46810eeeca264d2c9811f8209bc57a6e",
+      "version": "2"
+    },
+    {
+      "action": "managed_challenge",
+      "description": "Geo-Challenge - High Risk Regions",
+      "enabled": true,
+      "expression": "(ip.src.country eq \"CN\") or (ip.src.country eq \"RU\")",
+      "id": "de59a08540994a6382e9c5a17d9dffa0",
+      "last_updated": "2025-11-30T22:05:50.314265Z",
+      "ref": "de59a08540994a6382e9c5a17d9dffa0",
+      "version": "1"
+    },
+    {
+      "action": "managed_challenge",
+      "description": "ILAS Auth - Managed Challenge observed abusive IPs",
+      "enabled": true,
+      "expression": "ip.src in $ilas_auth_abusive_ips and (http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?user(?:/(?:login|password|register))?$\" or http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?user/reset/\" or http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?admin(?:/|$)\")",
+      "id": "31f47d312f4b4221aaa1cdcfb13206d0",
+      "last_updated": "2026-07-09T18:22:51.73196Z",
+      "ref": "ilas_auth_observed_abusive_ips",
+      "version": "2"
+    },
+    {
+      "action": "managed_challenge",
+      "description": "ILAS Auth - Managed Challenge VPN/hosting ASNs",
+      "enabled": true,
+      "expression": "ip.src.asnum in {9009 212238} and (http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?user(?:/(?:login|password|register))?$\" or http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?user/reset/\" or http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?admin(?:/|$)\")",
+      "id": "f1ea9ce30312497fa8f1eb18f90e4345",
+      "last_updated": "2026-04-24T18:48:59.513374Z",
+      "ref": "ilas_auth_vpn_hosting_asns",
+      "version": "1"
+    },
+    {
+      "action": "skip",
+      "action_parameters": {
+        "phases": [
+          "http_request_sbfm"
+        ],
+        "products": [
+          "bic",
+          "securityLevel"
+        ],
+        "ruleset": "current"
+      },
+      "description": "ILAS - keep robots.txt and security.txt reachable by any client",
+      "enabled": true,
+      "expression": "(http.request.uri.path in {\"/.well-known/security.txt\" \"/robots.txt\"} and http.request.method eq \"GET\")",
+      "id": "92082bed09cb429bbc3f0579a3d65d37",
+      "last_updated": "2026-07-09T18:21:30.374437Z",
+      "logging": {
+        "enabled": true
+      },
+      "ref": "ilas_skip_well_known_text",
+      "version": "1"
+    },
+    {
+      "action": "skip",
+      "action_parameters": {
+        "phases": [
+          "http_request_sbfm"
+        ]
+      },
+      "description": "ILAS - do not bot-challenge chatbot session bootstrap fetch",
+      "enabled": true,
+      "expression": "(http.request.uri.path eq \"/assistant/api/session/bootstrap\" and http.request.method eq \"GET\")",
+      "id": "db42c4d6176a4c73ad704b459da1d32d",
+      "last_updated": "2026-07-09T18:21:31.137669Z",
+      "logging": {
+        "enabled": true
+      },
+      "ref": "ilas_skip_assistant_bootstrap",
+      "version": "1"
+    }
+  ],
+  "source": "firewall_custom",
+  "version": "14"
+}

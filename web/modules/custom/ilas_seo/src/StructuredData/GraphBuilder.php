@@ -12,6 +12,8 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Path\PathMatcherInterface;
 use Drupal\Core\Routing\AdminContext;
 use Drupal\Core\Routing\CurrentRouteMatch;
+use Drupal\Core\Site\Settings;
+use Drupal\ilas_seo\CanonicalHost;
 use Drupal\node\NodeInterface;
 use Drupal\paragraphs\ParagraphInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -44,6 +46,11 @@ final class GraphBuilder {
   private const WEBSITE_ID = 'https://idaholegalaid.org/#website';
   private const ORG_LOGO = 'https://idaholegalaid.org/themes/custom/b5subtheme/images/ILAS_logo_notagline_bg-white_raster.png';
 
+  /**
+   * Memoised canonical base, or '' when the rewrite is disabled.
+   */
+  private ?string $canonicalBase = NULL;
+
   public function __construct(
     private readonly PathMatcherInterface $pathMatcher,
     private readonly AdminContext $adminContext,
@@ -52,7 +59,31 @@ final class GraphBuilder {
     private readonly EntityFieldManagerInterface $entityFieldManager,
     private readonly BreadcrumbManager $breadcrumbManager,
     private readonly TitleResolverInterface $titleResolver,
+    private readonly Settings $settings,
   ) {
+  }
+
+  /**
+   * Returns the configured canonical base, or '' when unset.
+   *
+   * The ORG_ID, WEBSITE_ID and ORG_LOGO constants above are already pinned to
+   * the production apex. Without this, the request-derived URLs below would
+   * disagree with them whenever the site is reached through a non-public
+   * hostname, producing a graph whose @id cross-references do not resolve.
+   */
+  private function canonicalBase(): string {
+    return $this->canonicalBase ??= CanonicalHost::normalizeBase(
+      (string) $this->settings->get('ilas_canonical_base_url', '')
+    );
+  }
+
+  /**
+   * Pins an absolute URL to the canonical host.
+   *
+   * A no-op when no canonical base is configured.
+   */
+  private function pin(string $url): string {
+    return CanonicalHost::rewrite($url, $this->canonicalBase());
   }
 
   /**
@@ -146,7 +177,7 @@ final class GraphBuilder {
     $breadcrumb = $this->breadcrumbManager->build($this->routeMatch);
     $links = $breadcrumb->getLinks();
 
-    $base_url = $request->getSchemeAndHttpHost();
+    $base_url = $this->canonicalBase() ?: $request->getSchemeAndHttpHost();
     $current_url = strtok($base_url . $request->getRequestUri(), '?');
 
     $items = [];
@@ -167,12 +198,12 @@ final class GraphBuilder {
         if (in_array($route_name, ['<nolink>', '<none>', '<button>'], TRUE)) {
           continue;
         }
-        $absolute = $url->setAbsolute()->toString();
+        $absolute = $this->pin($url->setAbsolute()->toString());
       }
       else {
         $uri = $url->toString();
         if ($uri !== '') {
-          $absolute = (str_starts_with($uri, 'http')) ? $uri : $base_url . $uri;
+          $absolute = str_starts_with($uri, 'http') ? $this->pin($uri) : $base_url . $uri;
         }
       }
 
@@ -584,7 +615,7 @@ final class GraphBuilder {
    * Returns the absolute, query-stripped canonical URL for the given node.
    */
   private function absoluteNodeUrl(NodeInterface $node): string {
-    return $node->toUrl('canonical', ['absolute' => TRUE])->toString();
+    return $this->pin($node->toUrl('canonical', ['absolute' => TRUE])->toString());
   }
 
   /**

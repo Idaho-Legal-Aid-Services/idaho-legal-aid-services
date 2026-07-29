@@ -1,0 +1,50 @@
+# Origin (Pantheon) www->apex redirect semantics — PRE-CHANGE baseline
+# Captured: 2026-07-29T03:39:33Z
+# Method: explicit Host header against the Live platform hostname, bypassing Cloudflare.
+# Rationale: Cloudflare returns 403 to scripted clients on the public hostname
+#            (validation doc 8.8 / tracker F-6), so origin behaviour must be measured directly.
+
+## A. Host: www + interior path + three query params
+$ curl -sSI -H 'Host: www.idaholegalaid.org' 'https://live-idaho-legal-aid-services.pantheonsite.io/legal-help/housing?utm_source=x&a=1&b=2'
+HTTP/2 301 
+server: Pantheon
+location: https://idaholegalaid.org/legal-help/housing?utm_source=x&a=1&b=2
+x-pantheon-redirect: primary-domain-policy-doc
+
+## B. Host: www, root, no query
+HTTP/2 301 
+server: Pantheon
+location: https://idaholegalaid.org/
+x-pantheon-redirect: primary-domain-policy-doc
+
+## C. Host: www, Spanish path + two query params
+HTTP/2 301 
+server: Pantheon
+location: https://idaholegalaid.org/es/videoteca?q=vivienda&page=2
+x-pantheon-redirect: primary-domain-policy-doc
+
+## D. Host: apex — CONTROL, must NOT redirect
+HTTP/2 200 
+server: nginx
+
+## E. Plain HTTP, Host: www
+HTTP/1.1 301 Moved Permanently
+Server: Pantheon
+Location: https://idaholegalaid.org/legal-help/housing?utm_source=x
+X-Pantheon-Redirect: primary-domain-policy-doc
+
+## F. Pantheon domain attachment (terminus domain:list)
+### live
+idaholegalaid.org
+www.idaholegalaid.org
+live-idaho-legal-aid-services.pantheonsite.io
+### test
+test-idaho-legal-aid-services.pantheonsite.io
+### dev
+dev-idaho-legal-aid-services.pantheonsite.io
+
+## CONCLUSION
+301, path preserved, FULL multi-parameter query preserved, apex unaffected.
+Responder is Pantheon: 'server: Pantheon' + 'x-pantheon-redirect: primary-domain-policy-doc'.
+The Cloudflare rule must reproduce exactly these semantics.
+'old.idaholegalaid.org' is attached to NO Pantheon environment.
