@@ -18,3 +18,4 @@ services:
       - '@entity_field.manager'
       - '@breadcrumb'
       - '@title_resolver'
+      - '@settings'

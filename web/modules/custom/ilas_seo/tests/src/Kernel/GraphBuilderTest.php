@@ -109,6 +109,73 @@ final class GraphBuilderTest extends KernelTestBase {
   }
 
   /**
+   * A configured canonical base pins every breadcrumb URL in the graph.
+   *
+   * Regression coverage for validation §8.5. ORG_ID/WEBSITE_ID are hardcoded
+   * to the production apex, so request-derived breadcrumb URLs would otherwise
+   * produce a graph whose @id cross-references do not resolve when the site is
+   * reached through the Pantheon platform hostname.
+   */
+  public function testBreadcrumbUrlsArePinnedToCanonicalBase(): void {
+    $this->setSetting('ilas_canonical_base_url', 'https://idaholegalaid.org');
+
+    $this->mockPathMatcher(FALSE);
+    $this->mockBreadcrumb([
+      Link::fromTextAndUrl('Home', Url::fromRoute('<front>')),
+      Link::fromTextAndUrl('User', Url::fromRoute('user.page')),
+    ]);
+
+    $result = $this->container->get('ilas_seo.graph_builder')->build();
+    $blocks = $this->blocksByKey($result['blocks']);
+    $this->assertArrayHasKey('breadcrumb_schema', $blocks);
+
+    $payload = Json::decode((string) $blocks['breadcrumb_schema'][0][0]['#value']);
+
+    $this->assertStringStartsWith(
+      'https://idaholegalaid.org',
+      (string) ($payload['@id'] ?? ''),
+      'The BreadcrumbList @id is pinned to the canonical base.'
+    );
+    $this->assertNotEmpty($payload['itemListElement'] ?? []);
+    foreach ($payload['itemListElement'] as $element) {
+      $this->assertStringStartsWith(
+        'https://idaholegalaid.org',
+        (string) ($element['item'] ?? ''),
+        'Every breadcrumb item URL is pinned to the canonical base.'
+      );
+    }
+  }
+
+  /**
+   * With no configured base the graph keeps today's request-derived URLs.
+   *
+   * Guards the DDEV/local/CI no-op path: the feature must be entirely inert
+   * when $settings['ilas_canonical_base_url'] is unset.
+   */
+  public function testBreadcrumbUrlsUseRequestHostWhenBaseIsUnset(): void {
+    $this->mockPathMatcher(FALSE);
+    $this->mockBreadcrumb([
+      Link::fromTextAndUrl('Home', Url::fromRoute('<front>')),
+      Link::fromTextAndUrl('User', Url::fromRoute('user.page')),
+    ]);
+
+    $host = $this->container->get('request_stack')
+      ->getCurrentRequest()
+      ->getSchemeAndHttpHost();
+
+    $result = $this->container->get('ilas_seo.graph_builder')->build();
+    $blocks = $this->blocksByKey($result['blocks']);
+    $this->assertArrayHasKey('breadcrumb_schema', $blocks);
+
+    $payload = Json::decode((string) $blocks['breadcrumb_schema'][0][0]['#value']);
+
+    $this->assertStringStartsWith($host, (string) ($payload['@id'] ?? ''));
+    foreach ($payload['itemListElement'] as $element) {
+      $this->assertStringStartsWith($host, (string) ($element['item'] ?? ''));
+    }
+  }
+
+  /**
    * Admin routes emit no schema at all.
    */
   public function testAdminRouteEmitsNothing(): void {
