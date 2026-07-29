@@ -41,6 +41,12 @@
     <head-placeholder token="{{ placeholder_token }}">
     <title>{{ head_title|safe_join(' | ') }}</title>
 
+    {# Icons. /favicon.ico resolves by browser convention and needs no tag, and Drupal
+       already injects the one <link rel="icon"> from theme settings — do not add a
+       second one here. See the validation report §8.1. #}
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+
     {# Google tag (gtag.js) - async loader only in head; config script moved to body end #}
     {% if google_tag_id %}
       <script async src="https://www.googletagmanager.com/gtag/js?id={{ google_tag_id }}"></script>
