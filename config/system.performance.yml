@@ -8,7 +8,7 @@ css:
   compress: true
 fast_404:
   enabled: true
-  paths: '/\.(?:txt|png|gif|jpe?g|css|js|ico|swf|flv|cgi|bat|pl|dll|exe|asp)$/i'
+  paths: '/\.(?:txt|png|gif|jpe?g|css|js|ico|swf|flv|cgi|bat|pl|dll|exe|asp|json|xml|webmanifest)$/i'
   exclude_paths: '/\/(?:styles|imagecache)\//'
   html: '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL "@path" was not found on this server.</p></body></html>'
 js:
