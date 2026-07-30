@@ -1,0 +1,17 @@
+# Live reproduction of the canonical encoding loop (BEFORE the fix)
+# Captured: 2026-07-30, against the Pantheon platform hostname.
+# The public hostname cannot be probed by script (Cloudflare 403s scripted
+# clients by TLS fingerprint - validation section 8.8 / tracker F-6).
+
+$ for p in <three increasing depths>; do curl -s "$BASE$p" | grep canonical; done
+
+req: /node/1628/solicitaciones-telef%C3%B3nicas
+     canonical -> /node/1628/solicitaciones-telef%25C3%25B3nicas
+req: /node/1628/solicitaciones-telef%25C3%25B3nicas
+     canonical -> /node/1628/solicitaciones-telef%2525C3%2525B3nicas
+req: /node/1628/solicitaciones-telef%2525C3%2525B3nicas
+     canonical -> /node/1628/solicitaciones-telef%252525C3%252525B3nicas
+
+Each response advertises a URL exactly one percent-encoding level deeper
+than the one requested. og:url carries the same value. Identical on dev,
+test and live.

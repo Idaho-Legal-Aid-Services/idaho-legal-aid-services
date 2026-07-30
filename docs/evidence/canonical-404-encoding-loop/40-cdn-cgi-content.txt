@@ -1,0 +1,26 @@
+# /cdn-cgi/content - disposition evidence
+# Cloudflare httpRequestsAdaptiveGroups, 2026-07-27 -> 2026-07-31
+
+By user agent (404 rows):
+  448  AliyunSecBot/Aliyun (AliyunSecBot@service.alibaba.com)   originResponseStatus=0
+   30  assorted one-off UAs                                     originResponseStatus=0
+
+By ASN:
+  448  Alibaba (US) Technology Co., Ltd.   HK
+   24  Tencent Building, Kejizhongyi Avenue US
+
+By host:  488 www.idaholegalaid.org   50 idaholegalaid.org
+  (the www->apex Single Redirect does not fire: Cloudflare handles
+   /cdn-cgi/* before the dynamic-redirect phase)
+
+Daily:  07-27: 39   07-28: 34   07-29: 282   07-30: 183
+  A recent scanner burst, not a chronic condition.
+
+Direct probe, 2026-07-30:
+  $ curl -sI https://idaholegalaid.org/cdn-cgi/content
+    HTTP/2 404 ; server: cloudflare ; body is Cloudflare nginx error page
+  Same on www. originResponseStatus is 0 on every row: Pantheon never sees these.
+
+Conclusion: not a site defect. /cdn-cgi/* is reserved by Cloudflare and
+costs the origin nothing. The defect was in the measurement, which counted
+it against a zone-404 baseline meant to track paths we control.

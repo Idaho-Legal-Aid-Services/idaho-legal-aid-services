@@ -1,0 +1,14 @@
+diff --git a/js/klaro.drupal.js b/js/klaro.drupal.js
+index 3508c11..bcbb24b 100644
+--- a/js/klaro.drupal.js
++++ b/js/klaro.drupal.js
+@@ -43,6 +43,9 @@
+                 }
+               };
+             }
++            else {
++              delete settings.klaro.config.services[a_index][hook];
++            }
+           });
+           // Create regular expressions from config.
+           service.cookies.forEach(function (cookie, c_index) {

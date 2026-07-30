@@ -615,15 +615,27 @@ class SourceGovernanceService {
       return;
     }
 
-    $this->logger->warning(
-      'Source governance stale ratio @ratio% exceeds threshold @threshold% (stale @stale / total @total).',
-      [
-        '@ratio' => $ratio,
-        '@threshold' => $threshold,
-        '@stale' => (int) ($snapshot['stale'] ?? 0),
-        '@total' => (int) ($snapshot['total'] ?? 0),
-      ]
-    );
+    // Below the minimum sample size a high ratio is statistically meaningless
+    // (e.g. 2/2 stale on a thin dev index = 100%), so log at notice — which
+    // raven does not forward to Sentry — while keeping the on-box record and
+    // identical cooldown semantics (PHP-4S). Snapshot status still degrades
+    // independently of this gate.
+    $min_observations = max(1, (int) ($policy['min_observations'] ?? 20));
+    $total = (int) ($snapshot['total'] ?? 0);
+    $context = [
+      '@ratio' => $ratio,
+      '@threshold' => $threshold,
+      '@stale' => (int) ($snapshot['stale'] ?? 0),
+      '@total' => $total,
+      '@min' => $min_observations,
+    ];
+    $message = 'Source governance stale ratio @ratio% exceeds threshold @threshold% (stale @stale / total @total, min_observations @min).';
+    if ($total >= $min_observations) {
+      $this->logger->warning($message, $context);
+    }
+    else {
+      $this->logger->notice($message, $context);
+    }
     $this->state->set(self::ALERT_STATE_KEY, $now);
   }
 

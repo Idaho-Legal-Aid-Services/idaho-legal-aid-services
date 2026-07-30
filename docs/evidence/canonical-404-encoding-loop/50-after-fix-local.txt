@@ -1,0 +1,26 @@
+# Post-fix verification (DDEV, 2026-07-30)
+
+404 with an encoded non-ASCII character - /no-such-page-caf%C3%A9
+  code=404
+  canonical + og:url tags .... 0
+  '%25C3%25A9' occurrences ... 0
+  ld+json describing the URL . 0  (schema_metatag's static Organization block remains,
+                                   built from apex constants, naming no page URL)
+
+Escalation, three passes each feeding back the deeper form:
+  /no-such-page-caf%C3%A9          -> canonical <none>, no deeper encoding in body
+  /no-such-page-caf%25C3%25A9      -> canonical <none>, no deeper encoding in body
+  /no-such-page-caf%2525C3%2525A9  -> canonical <none>, no deeper encoding in body
+
+200 pages keep their canonicals (no regression):
+  /                     200  https://ilas-pantheon.ddev.site/
+  /forms                200  https://idaholegalaid.org/forms   (views metatag, pre-existing)
+  /legal-help/housing   200  https://ilas-pantheon.ddev.site/legal-help/housing
+  /es                   200  https://ilas-pantheon.ddev.site/es
+  /es/videoteca         200  https://ilas-pantheon.ddev.site/es/videoteca
+
+/es 404 also emits no canonical now, so all four languages behave alike.
+
+Tests: 94 pass in web/modules/custom/ilas_seo. Removing the fix makes the new
+kernel test fail 3/4 and the new functional test fail 4/5; the 200-page control
+passes either way, which is what makes it a control.

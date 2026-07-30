@@ -299,6 +299,9 @@ final class SourceGovernanceServiceTest extends TestCase {
     $service = $this->buildService($logger, [
       'stale_ratio_alert_pct' => 10.0,
       'alert_cooldown_minutes' => 60,
+      // Keep the warning-level alert path exercised with this 2-item batch:
+      // below min_observations the alert downgrades to notice (PHP-4S).
+      'min_observations' => 2,
     ]);
 
     $batch = [
@@ -329,6 +332,56 @@ final class SourceGovernanceServiceTest extends TestCase {
     $this->assertGreaterThanOrEqual(0, $secondSnapshot['cooldown_seconds_remaining']);
     $this->assertArrayHasKey('last_alert_at', $secondSnapshot);
     $this->assertArrayHasKey('next_alert_eligible_at', $secondSnapshot);
+  }
+
+  /**
+   * Tests the stale-ratio alert downgrades to notice on thin samples.
+   *
+   * Below min_observations a high stale ratio is statistically meaningless
+   * (e.g. 2/2 stale = 100% on a thin dev index), so the alert must log at
+   * notice (not forwarded to Sentry) while the snapshot status still
+   * degrades (PHP-4S).
+   */
+  public function testStaleRatioAlertDowngradesToNoticeBelowMinimumObservations(): void {
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->never())->method('warning');
+    $logger->expects($this->once())
+      ->method('notice')
+      ->with(
+        $this->stringContains('stale ratio'),
+        $this->isArray()
+      );
+
+    $service = $this->buildService($logger, [
+      'stale_ratio_alert_pct' => 10.0,
+      'alert_cooldown_minutes' => 60,
+    ]);
+
+    $batch = [
+      [
+        'id' => 'faq_1',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#topic1',
+        'updated_at' => time() - (220 * 86400),
+      ],
+      [
+        'id' => 'faq_2',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#topic2',
+        'updated_at' => time() - (2 * 86400),
+      ],
+    ];
+
+    $service->recordObservationBatch($batch);
+    $snapshot = $service->getSnapshot();
+
+    // Status still degrades independently of the alert-severity gate.
+    $this->assertSame('degraded', $snapshot['status']);
+    $this->assertSame(50.0, $snapshot['stale_ratio_pct']);
+    $this->assertFalse($snapshot['min_observations_met']);
+
+    // Cooldown applies to the notice-level alert too.
+    $service->recordObservationBatch($batch);
   }
 
   /**

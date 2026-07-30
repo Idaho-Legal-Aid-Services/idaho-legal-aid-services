@@ -1,0 +1,277 @@
+edge-cache-sample.sh
+date_utc=2026-07-28T18:33:41Z
+egress_ip=<redacted>
+
+################ 1. Homepage
+################ https://idaholegalaid.org/
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f944dc581421-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f951cbefdfe0-SEA
+
+################ 2. www (canonical check)
+################ https://www.idaholegalaid.org/
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f95f0f10c4dd-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f96c1cfb3512-SEA
+
+################ 3. Anonymous content page
+################ https://idaholegalaid.org/legal-topics
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9792b77ec74-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f98639c72760-SEA
+
+################ 4. Landing page
+################ https://idaholegalaid.org/get-help
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9936a33283d-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9a08d5e3167-SEA
+
+################ 5. Search page
+################ https://idaholegalaid.org/search?search_api_fulltext=divorce
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9ad38ad76b2-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9b9f862f16e-SEA
+
+################ 6. Search + facet
+################ https://idaholegalaid.org/search?search_api_fulltext=divorce&f%5B0%5D=topic%3A1
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9c6c9e0a59a-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9d3b976b12c-SEA
+
+################ 7. Form page (donate)
+################ https://idaholegalaid.org/donate
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9e0aac2861e-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9edb8076a65-SEA
+
+################ 8. Login page
+################ https://idaholegalaid.org/user/login
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225f9fabcb2985d-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa07be5a4f5c-SEA
+
+################ 9. Nonexistent URL
+################ https://idaholegalaid.org/this-page-does-not-exist-xyz123
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa14bb0cdf10-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa21ccc1dfe8-SEA
+
+################ 10. Scanner path
+################ https://idaholegalaid.org/wp-login.php
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa2ecec13295-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa3bda5c3094-SEA
+
+################ 11. Static asset
+################ https://idaholegalaid.org/robots.txt
+---- pass 1 ----
+HTTP/2 200 
+cache-control: max-age=31622400
+expires: Wed, 28 Jul 2027 22:11:44 GMT
+server: cloudflare
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-vkzhg
+x-served-by: cache-yyz4525-YYZ, cache-den-kden1300095-DEN
+x-cache: HIT, MISS
+x-cache-hits: 5, 0
+vary: Accept-Encoding
+age: 52915
+cf-cache-status: HIT
+cf-ray: a225fa48e903db33-SEA
+---- pass 2 ----
+HTTP/2 200 
+cache-control: max-age=31622400
+expires: Wed, 28 Jul 2027 22:11:44 GMT
+server: cloudflare
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-vkzhg
+x-served-by: cache-yyz4525-YYZ, cache-den-kden1300095-DEN
+x-cache: HIT, MISS
+x-cache-hits: 5, 0
+vary: Accept-Encoding
+age: 52917
+cf-cache-status: HIT
+cf-ray: a225fa55fd2219d7-SEA
+
+################ 12. Sitemap
+################ https://idaholegalaid.org/sitemap.xml
+---- pass 1 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa630b2255d1-SEA
+---- pass 2 ----
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fa6fbca1322f-SEA
+
+################ 13. Assistant bootstrap
+################ https://idaholegalaid.org/assistant/api/session/bootstrap
+---- pass 1 ----
+HTTP/2 200 
+expires: Sun, 19 Nov 1978 05:00:00 GMT
+server: cloudflare
+set-cookie: SSESS<redacted>=<redacted>; expires=Tue, 04 Aug 2026 18:34:32 GMT; Max-Age=604800; path=/; domain=.idaholegalaid.org; secure; HttpOnly; SameSite=Lax
+x-drupal-cache: UNCACHEABLE (no cacheability)
+x-drupal-dynamic-cache: UNCACHEABLE (no cacheability)
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-tj868
+cache-control: no-store, private, must-revalidate
+x-served-by: cache-yyz4576-YYZ, cache-bfi-krnt7300050-BFI
+x-cache: MISS, MISS
+x-cache-hits: 0, 0
+vary: Accept-Encoding
+age: 0
+cf-cache-status: DYNAMIC
+cf-ray: a225fa7ca82ebd66-SEA
+---- pass 2 ----
+HTTP/2 200 
+expires: Sun, 19 Nov 1978 05:00:00 GMT
+server: cloudflare
+set-cookie: SSESS<redacted>=<redacted>; expires=Tue, 04 Aug 2026 18:34:34 GMT; Max-Age=604800; path=/; domain=.idaholegalaid.org; secure; HttpOnly; SameSite=Lax
+x-drupal-cache: UNCACHEABLE (no cacheability)
+x-drupal-dynamic-cache: UNCACHEABLE (no cacheability)
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-tzlb2
+cache-control: no-store, private, must-revalidate
+x-served-by: cache-yyz4529-YYZ, cache-bfi-krnt7300057-BFI
+x-cache: MISS, MISS
+x-cache-hits: 0, 0
+vary: Accept-Encoding
+age: 0
+cf-cache-status: DYNAMIC
+cf-ray: a225fa8b7e576e84-SEA
+
+################ 14. Pantheon origin direct
+################ https://live-idaho-legal-aid-services.pantheonsite.io/
+---- pass 1 ----
+HTTP/2 200 
+cache-control: max-age=86400, public
+expires: Sun, 19 Nov 1978 05:00:00 GMT
+server: nginx
+x-drupal-cache: HIT
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-pwg96
+x-served-by: cache-yyz4529-YYZ, cache-bfi-kbfi7400055-BFI
+x-cache: MISS, HIT
+x-cache-hits: 0, 0
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 2647
+---- pass 2 ----
+HTTP/2 200 
+cache-control: max-age=86400, public
+expires: Sun, 19 Nov 1978 05:00:00 GMT
+server: nginx
+x-drupal-cache: HIT
+x-drupal-dynamic-cache: UNCACHEABLE (poor cacheability)
+x-pantheon-styx-hostname: styx-ca-a-7fb5fb6fd4-pwg96
+x-served-by: cache-yyz4529-YYZ, cache-bfi-kbfi7400042-BFI
+x-cache: MISS, HIT
+x-cache-hits: 0, 1
+vary: Accept-Encoding, Cookie, Cookie, Cookie
+age: 2649
+
+################ 15. Homepage WITH a fake session cookie (cache-bypass test)
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fab428d476ee-SEA
+
+################ 16. Homepage with tracking query string
+HTTP/2 403 
+cache-control: private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+expires: Thu, 01 Jan 1970 00:00:01 GMT
+server: cloudflare
+cf-ray: a225fab4a86193ab-SEA
+
+DONE

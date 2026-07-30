@@ -209,8 +209,9 @@ PROMPT;
       return $intent;
     }
     catch (\Throwable $e) {
-      $this->logger->error('Request-time LLM intent classification failed: @class @error_signature', [
+      $this->logger->error('Request-time LLM intent classification failed: @class (HTTP @status) @error_signature', [
         '@class' => get_class($e),
+        '@status' => (string) ($this->lastRequestMeta['http_status'] ?? 'none'),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
       $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? $this->buildBaseRequestMeta('intent_classification'), [

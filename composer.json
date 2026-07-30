@@ -121,6 +121,12 @@
             },
             "drupal/ai": {
                 "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names": "patches/ai-search-embedding-base-honor-convert-to-label.patch"
+            },
+            "drupal/klaro": {
+                "Drop empty consent hooks so klaro.js never eval-compiles them under CSP without unsafe-eval (https://www.drupal.org/project/klaro/issues/3526533#comment-6)": "patches/klaro-csp-drop-empty-consent-hooks-3526533.patch"
+            },
+            "drupal/token": {
+                "Decode the path before Url::fromUserInput() in the [current-page:url] 404 fallback, so an already-encoded path is not escaped again on every request": "patches/token-current-page-url-404-double-encode.patch"
             }
         },
         "compile-mode": "all",

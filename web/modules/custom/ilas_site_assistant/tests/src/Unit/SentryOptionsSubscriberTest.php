@@ -9,6 +9,8 @@ use Sentry\ExceptionMechanism;
 use Sentry\Frame;
 use Sentry\Stacktrace;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\ai\Exception\AiRequestErrorException;
 use Sentry\Logs\LogLevel;
@@ -1397,6 +1399,129 @@ class SentryOptionsSubscriberTest extends TestCase {
     $this->assertNotNull($result);
     $tags = $result->getTags();
     $this->assertArrayNotHasKey('scrub_opacity', $tags, 'Events with exception values should not have scrub_opacity');
+  }
+
+  /**
+   * Tests handled 405s from bot probes of POST-only routes are dropped.
+   */
+  public function testMethodNotAllowedFilterDropsDonationInquiryBotProbe(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = $this->createMethodNotAllowedEvent('https://idaholegalaid.org/donation-inquiry/submit');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, 'Handled 405 Method Not Allowed events should be dropped as client noise (PHP-Z).');
+  }
+
+  /**
+   * Tests the 405 filter is not path-scoped.
+   */
+  public function testMethodNotAllowedFilterDropsAnyPath(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = $this->createMethodNotAllowedEvent('https://idaholegalaid.org/some/other/post-only/route');
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, '405 events should be dropped regardless of path — a 405 is client misuse by definition.');
+  }
+
+  /**
+   * Tests watchdog-forwarded 405 message events without exception bags drop.
+   */
+  public function testMethodNotAllowedFilterDropsClientErrorChannelMessageEvent(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = Event::createEvent();
+    $event->setLogger('client error');
+    $event->setMessage(
+      'Symfony\\Component\\HttpKernel\\Exception\\MethodNotAllowedHttpException: '
+      . 'No route found for "GET https://idaholegalaid.org/donation-inquiry/submit": '
+      . 'Method Not Allowed (Allow: POST) in Drupal\\Core\\Http\\EventListener\\RouterListener->onKernelRequest()',
+    );
+
+    $result = $callback($event, NULL);
+
+    $this->assertNull($result, 'client error channel 405 message events should be dropped as client noise.');
+  }
+
+  /**
+   * Tests other client errors are not swallowed by the 405 filter.
+   */
+  public function testMethodNotAllowedFilterKeepsOtherClientErrors(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = Event::createEvent();
+    $event->setLogger('client error');
+    $event->setMessage('Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException: No route found for "GET /missing".');
+    $event->setExceptions([
+      new ExceptionDataBag(
+        new NotFoundHttpException('No route found for "GET /missing".'),
+        NULL,
+        new ExceptionMechanism(ExceptionMechanism::TYPE_GENERIC, TRUE),
+      ),
+    ]);
+
+    $result = $callback($event, NULL);
+
+    $this->assertNotNull($result, 'Non-405 client errors must remain visible.');
+  }
+
+  /**
+   * Tests unhandled 405 exceptions still reach Sentry.
+   */
+  public function testMethodNotAllowedFilterKeepsUnhandled(): void {
+    $this->requireSentry();
+
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $event = $this->createMethodNotAllowedEvent('https://idaholegalaid.org/donation-inquiry/submit', FALSE);
+
+    $result = $callback($event, NULL);
+
+    $this->assertNotNull($result, 'Unhandled 405 exceptions must not be filtered.');
+  }
+
+  /**
+   * Builds a MethodNotAllowed client-error event for filter tests.
+   */
+  private function createMethodNotAllowedEvent(string $url, bool $handled = TRUE): Event {
+    $event = Event::createEvent();
+    $event->setLogger('client error');
+    $event->setMessage(
+      'Symfony\\Component\\HttpKernel\\Exception\\MethodNotAllowedHttpException: '
+      . 'No route found for "GET ' . $url . '": Method Not Allowed (Allow: POST) '
+      . 'in Drupal\\Core\\Http\\EventListener\\RouterListener->onKernelRequest() '
+      . '(line 156 of /code/web/core/lib/Drupal/Core/Http/EventListener/RouterListener.php).',
+    );
+    $event->setContext('trace', [
+      'op' => 'http.server',
+      'data' => [
+        'http.request.method' => 'GET',
+        'http.url' => $url,
+      ],
+    ]);
+
+    $exception = new MethodNotAllowedHttpException(['POST'], 'No route found for "GET ' . $url . '"');
+    $event->setExceptions([
+      new ExceptionDataBag(
+        $exception,
+        new Stacktrace([
+          new Frame(
+            'Drupal\\Core\\Http\\EventListener\\RouterListener::onKernelRequest',
+            '/core/lib/Drupal/Core/Http/EventListener/RouterListener.php',
+            156,
+          ),
+        ]),
+        new ExceptionMechanism(ExceptionMechanism::TYPE_GENERIC, $handled),
+      ),
+    ]);
+
+    return $event;
   }
 
   /**

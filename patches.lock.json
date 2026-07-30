@@ -1,5 +1,5 @@
 {
-    "_hash": "88e742e1fbe1aa6e0e22c50a822ecea49848bfed13f257490c3cab85c0ef5c01",
+    "_hash": "0932cff9057fa3953665129672586ad57f7b8fb9070c4dd194f382317f1f8265",
     "patches": {
         "drupal/core": [
             {
@@ -55,6 +55,30 @@
                 "description": "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names",
                 "url": "patches/ai-search-embedding-base-honor-convert-to-label.patch",
                 "sha256": "43c0c1f3c248922787e312fdc378b0f9ac6903159534752ae91d37f993722568",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ],
+        "drupal/klaro": [
+            {
+                "package": "drupal/klaro",
+                "description": "Drop empty consent hooks so klaro.js never eval-compiles them under CSP without unsafe-eval (https://www.drupal.org/project/klaro/issues/3526533#comment-6)",
+                "url": "patches/klaro-csp-drop-empty-consent-hooks-3526533.patch",
+                "sha256": "59ba6f632554773ea341a0793c47866e06297ba5482339a87c1d634377d373f1",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ],
+        "drupal/token": [
+            {
+                "package": "drupal/token",
+                "description": "Decode the path before Url::fromUserInput() in the [current-page:url] 404 fallback, so an already-encoded path is not escaped again on every request",
+                "url": "patches/token-current-page-url-404-double-encode.patch",
+                "sha256": "a48c77269b35c7ad37ac0a666a2a848add4bc41f8a5a3ef1923d120a250cdf2d",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"

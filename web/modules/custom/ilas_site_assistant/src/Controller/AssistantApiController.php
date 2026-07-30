@@ -2008,7 +2008,11 @@ class AssistantApiController extends ControllerBase {
         $cached_data = $cached->data;
         $stored_fp = $cached_data['_session_fp'] ?? '';
         if ($stored_fp !== '' && $session_fingerprint !== '' && $stored_fp !== $session_fingerprint) {
-          $this->logger->warning(
+          // Notice on purpose: this guard fully mitigates the mismatch by
+          // treating it as a new conversation, so per-event Sentry alerts
+          // carry no actionable signal (PHP-2M). The watchdog record remains
+          // available on-box.
+          $this->logger->notice(
             '[@request_id] Conversation cache session mismatch for @conv_id — treating as new conversation.',
             ['@request_id' => $request_id, '@conv_id' => $conversation_id]
           );

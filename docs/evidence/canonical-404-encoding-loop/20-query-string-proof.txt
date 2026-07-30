@@ -1,0 +1,17 @@
+# Query-string proof: the loop runs through the canonical tag
+# Source: logs/nginx/nginx-access.log (captured 2025-12-12)
+
+The depth-0 seed URLs are Drupal 7 Rate-module vote links and carry ?rate=<token>:
+"GET /node/1638/construcci%C3%B3n-residencial?rate=dVyz9sPlywqazl9Cr1pXfb8c7FmPwtlNdD7mmRV_j-A
+"GET /node/1230/reconociendo-y-obteniendo-ayuda-con-la-violencia-dom%C3%A9stica
+"GET /node/1641/m%C3%A9todos-de-compra-de-una-vivienda-comunitaria?rate=39ajLSHb7jHpCV_rQrMZk427v9hrDj5WykBWh7PLNuo
+
+Escalating requests carrying a query string vs total:
+  with_query=0  total=852
+
+Not one escalating request has a query string, while the seeds do.
+The canonical tag is the only step in the chain that drops the query
+(tracker item 6, finding F-10). Nothing else does.
+
+User agents on the escalating requests:
+    852 SemrushBot/7~bl;

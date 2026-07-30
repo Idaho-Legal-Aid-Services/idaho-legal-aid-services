@@ -1,0 +1,66 @@
+{
+  "result": {
+    "description": "",
+    "id": "6df3a4fee63d4ce689fe35ffc559938b",
+    "kind": "zone",
+    "last_updated": "2025-12-10T21:42:20.780999Z",
+    "name": "default",
+    "phase": "http_request_firewall_managed",
+    "rules": [
+      {
+        "action": "execute",
+        "action_parameters": {
+          "id": "efb7b8c949ac4650a09736fc376e9aee",
+          "version": "latest"
+        },
+        "enabled": true,
+        "expression": "true",
+        "id": "05283f5b0f7c433aa42f2ad5decd8abd",
+        "last_updated": "2025-11-19T20:17:03.804188Z",
+        "ref": "05283f5b0f7c433aa42f2ad5decd8abd",
+        "version": "1"
+      },
+      {
+        "action": "execute",
+        "action_parameters": {
+          "id": "4814384a9e5d4991b9815dcfc25d2f1f",
+          "overrides": {
+            "categories": [
+              {
+                "category": "paranoia-level-2",
+                "enabled": false
+              },
+              {
+                "category": "paranoia-level-3",
+                "enabled": false
+              },
+              {
+                "category": "paranoia-level-4",
+                "enabled": false
+              }
+            ],
+            "rules": [
+              {
+                "action": "managed_challenge",
+                "id": "6179ae15870a4bb7b2d480d4843b323c",
+                "score_threshold": 60
+              }
+            ]
+          },
+          "version": "latest"
+        },
+        "enabled": true,
+        "expression": "true",
+        "id": "d0b06fccb7a845149909f78590cbd3cc",
+        "last_updated": "2025-12-10T21:42:20.780999Z",
+        "ref": "d0b06fccb7a845149909f78590cbd3cc",
+        "version": "3"
+      }
+    ],
+    "source": "firewall_managed",
+    "version": "4"
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}

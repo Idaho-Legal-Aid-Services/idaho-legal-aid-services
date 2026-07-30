@@ -317,6 +317,60 @@ final class CanonicalHost {
   }
 
   /**
+   * Removes the head tags that advertise the current URL as a real page.
+   *
+   * Called on error pages only. A 404 must not tell a crawler "the canonical
+   * address of this content is <the URL that just failed>" — the URL does not
+   * resolve, so the statement is false whatever it says, and here it is also
+   * corrupt: the token module re-encodes an already-encoded path on unrouted
+   * requests, so the advertised URL is one percent-encoding level deeper than
+   * the one requested. Following it produces a deeper one again, without
+   * bound. See \Drupal\ilas_seo\ErrorPage for the mechanism.
+   *
+   * Only the two self-referencing tags are removed. hreflang alternates are
+   * left alone because they point at the translated error pages, which do
+   * exist, and og:image and the Twitter card tags are not derived from the
+   * request path at all.
+   *
+   * Deliberately independent of normalizeBase(): unlike the host rewrite,
+   * this must not be switchable off, or setting the documented
+   * ILAS_CANONICAL_BASE_URL kill switch would silently reopen the loop.
+   *
+   * @param array $attachments
+   *   The page attachments array, altered in place.
+   */
+  public static function removeSelfReferencingTags(array &$attachments): void {
+    if (empty($attachments['#attached']['html_head'])) {
+      return;
+    }
+
+    foreach ($attachments['#attached']['html_head'] as $index => $item) {
+      $element = $item[0] ?? NULL;
+      if (!is_array($element) || empty($element['#attributes']) || !is_array($element['#attributes'])) {
+        continue;
+      }
+
+      $attributes = $element['#attributes'];
+      $tag = $element['#tag'] ?? '';
+
+      // Structured data is folded into a single ld+json block later and is
+      // handled at source, in GraphBuilder.
+      if (!empty($attributes['schema_metatag'])) {
+        continue;
+      }
+
+      $is_canonical = $tag === 'link'
+        && ($attributes['rel'] ?? NULL) === 'canonical';
+      $is_og_url = $tag === 'meta'
+        && ($attributes['property'] ?? NULL) === 'og:url';
+
+      if ($is_canonical || $is_og_url) {
+        unset($attachments['#attached']['html_head'][$index]);
+      }
+    }
+  }
+
+  /**
    * Reassembles path, query and fragment from parse_url() output.
    *
    * @param array $parts

@@ -14,6 +14,7 @@ use Drupal\Core\Routing\AdminContext;
 use Drupal\Core\Routing\CurrentRouteMatch;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_seo\CanonicalHost;
+use Drupal\ilas_seo\ErrorPage;
 use Drupal\node\NodeInterface;
 use Drupal\paragraphs\ParagraphInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -99,6 +100,17 @@ final class GraphBuilder {
     $cache->addCacheContexts(['route', 'url.path', 'languages:language_interface']);
 
     if ($this->adminContext->isAdminRoute()) {
+      return ['blocks' => $blocks, 'cache' => $cache];
+    }
+
+    // Emit nothing on an error page. Drupal renders 4xx responses by re-routing
+    // a clone of the failed request, so $request->getRequestUri() below is the
+    // URL that did not resolve — buildBreadcrumbList() would publish an
+    // arbitrary caller-supplied string as the BreadcrumbList item and @id, and
+    // buildForCurrentNode() would describe the 404 node (/node/119) as though
+    // it were the content the visitor asked for. Neither is true, and the first
+    // hands a crawler a URL to come back for. See \Drupal\ilas_seo\ErrorPage.
+    if (ErrorPage::isError($this->requestStack->getCurrentRequest())) {
       return ['blocks' => $blocks, 'cache' => $cache];
     }
 

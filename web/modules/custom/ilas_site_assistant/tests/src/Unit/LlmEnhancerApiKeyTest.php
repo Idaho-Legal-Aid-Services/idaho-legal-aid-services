@@ -70,21 +70,24 @@ final class LlmEnhancerApiKeyTest extends TestCase {
         ['role' => 'user', 'content' => 'faq'],
       ],
       [
-        'name' => 'assistant_intent_response',
-        'schema' => [
-          'type' => 'object',
-          'properties' => [
-            'intent' => ['type' => 'string'],
-          ],
-          'required' => ['intent'],
+        'type' => 'object',
+        'properties' => [
+          'intent' => ['type' => 'string'],
         ],
+        'required' => ['intent'],
       ],
       ['max_tokens' => 32, 'temperature' => 0.1],
     );
 
     $this->assertSame('Bearer cohere-test-key', $captured['headers']['Authorization'] ?? NULL);
     $this->assertSame('ilas-site-assistant', $captured['headers']['X-Client-Name'] ?? NULL);
+    // Cohere v2 wire format: response_format.schema carries the bare JSON
+    // schema. OpenAI-style json_schema/name wrappers cause HTTP 400 (PHP-6B).
     $this->assertSame('json_object', $captured['json']['response_format']['type'] ?? NULL);
+    $this->assertSame('object', $captured['json']['response_format']['schema']['type'] ?? NULL);
+    $this->assertSame(['intent'], $captured['json']['response_format']['schema']['required'] ?? NULL);
+    $this->assertArrayNotHasKey('json_schema', $captured['json']['response_format']);
+    $this->assertArrayNotHasKey('name', $captured['json']['response_format']['schema']);
     $this->assertSame('faq', $result['payload']['intent'] ?? NULL);
     $this->assertSame(['input' => 11, 'output' => 4, 'total' => 15], $result['usage'] ?? NULL);
   }
@@ -114,10 +117,7 @@ final class LlmEnhancerApiKeyTest extends TestCase {
     $transport = new CohereLlmTransport($client);
     $result = $transport->completeStructuredJson(
       [['role' => 'user', 'content' => 'guides']],
-      [
-        'name' => 'assistant_intent_response',
-        'schema' => ['type' => 'object'],
-      ],
+      ['type' => 'object'],
     );
 
     $this->assertSame('guides', $result['payload']['intent'] ?? NULL);

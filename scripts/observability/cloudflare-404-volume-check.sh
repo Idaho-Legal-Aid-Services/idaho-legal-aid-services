@@ -17,6 +17,15 @@
 # roughly a third. The remaining tail is legacy /sites/idaholegalaid.org/files/*.pdf
 # links (tracker item 7) and encoded-path junk.
 #
+# /cdn-cgi/* IS EXCLUDED from the zone-wide count. That prefix is reserved by
+# Cloudflare, is answered at the edge, and never reaches Pantheon — every such
+# row carries originResponseStatus 0. Counting it measures other people's
+# scanners rather than anything a site change can affect: on 2026-07-30, 448 of
+# 478 /cdn-cgi/content 404s were a single AliyunSecBot client. Note that the
+# 4,564 baseline above was captured WITHOUT this exclusion, so it is an upper
+# bound; the honest comparison is baseline-minus-cdn-cgi, which the script
+# reports separately.
+#
 # Usage:
 #   scripts/observability/cloudflare-404-volume-check.sh [START_ISO] [END_ISO]
 #   scripts/observability/cloudflare-404-volume-check.sh --token-file PATH ...
@@ -59,11 +68,13 @@ read -r -d '' QUERY <<EOF || true
 query {
   viewer {
     zones(filter: {zoneTag: "$ZONE_ID"}) {
-      tot: httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404}) { count }
+      tot: httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404, clientRequestPath_notlike: "/cdn-cgi%"}) { count }
+      cdncgi: httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404, clientRequestPath_like: "/cdn-cgi%"}) { count }
       all: httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: "$START", datetime_lt: "$END"}) { count }
-      paths: httpRequestsAdaptiveGroups(limit: 25, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404}, orderBy: [count_DESC]) {
+      paths: httpRequestsAdaptiveGroups(limit: 25, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404, clientRequestPath_notlike: "/cdn-cgi%"}, orderBy: [count_DESC]) {
         count dimensions { clientRequestPath }
       }
+      encoded: httpRequestsAdaptiveGroups(limit: 1, filter: {datetime_geq: "$START", datetime_lt: "$END", edgeResponseStatus: 404, clientRequestPath_like: "%2525%"}) { count }
     }
   }
 }
@@ -92,8 +103,12 @@ if d.get('errors'):
 z = d['data']['viewer']['zones'][0]
 tot = z['tot'][0]['count'] if z['tot'] else 0
 allr = z['all'][0]['count'] if z['all'] else 0
+cdncgi = z['cdncgi'][0]['count'] if z['cdncgi'] else 0
+encoded = z['encoded'][0]['count'] if z['encoded'] else 0
 print(f'zone-wide requests: {allr:,}')
-print(f'zone-wide 404s:     {tot:,}   (2-day baseline: {BASELINE_TOTAL:,})')
+print(f'zone-wide 404s:     {tot:,}   (2-day baseline: {BASELINE_TOTAL:,}, which included /cdn-cgi/*)')
+print(f'  excluded /cdn-cgi/*: {cdncgi:,}   (Cloudflare-reserved; never reaches the origin)')
+print(f'  of which multiply-encoded paths: {encoded:,}   (the canonical loop; 0 is the target)')
 
 seen = {r['dimensions']['clientRequestPath']: r['count'] for r in z['paths']}
 print()

@@ -1,0 +1,55 @@
+{
+  "result": {
+    "description": "",
+    "id": "f45f70b75f304519bbdf3eb6b48546bd",
+    "kind": "zone",
+    "last_updated": "2026-04-24T18:49:00.474696Z",
+    "name": "default",
+    "phase": "http_ratelimit",
+    "rules": [
+      {
+        "action": "block",
+        "description": "Global Rate Limit - High Volume",
+        "enabled": true,
+        "expression": "(http.request.uri.path eq \"/search\") or (http.request.uri.path contains \"/jsonapi\")",
+        "id": "fcfe6de27d20489580f986fb64de4a86",
+        "last_updated": "2025-11-30T22:48:08.860908Z",
+        "ratelimit": {
+          "characteristics": [
+            "ip.src",
+            "cf.colo.id"
+          ],
+          "mitigation_timeout": 3600,
+          "period": 60,
+          "requests_per_period": 25
+        },
+        "ref": "fcfe6de27d20489580f986fb64de4a86",
+        "version": "1"
+      },
+      {
+        "action": "managed_challenge",
+        "description": "ILAS Auth - POST rate limit localized auth routes",
+        "enabled": true,
+        "expression": "http.request.method eq \"POST\" and http.request.uri.path matches \"^/(?:(?:es|sw|nl)/)?user/(?:login|password|register)$\"",
+        "id": "be277529d2e74831b40fc1358d83ee84",
+        "last_updated": "2026-04-24T18:49:00.474696Z",
+        "ratelimit": {
+          "characteristics": [
+            "cf.colo.id",
+            "ip.src"
+          ],
+          "mitigation_timeout": 0,
+          "period": 60,
+          "requests_per_period": 5
+        },
+        "ref": "ilas_auth_post_rate_limit",
+        "version": "1"
+      }
+    ],
+    "source": "rate_limit",
+    "version": "2"
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}
