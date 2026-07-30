@@ -9,6 +9,7 @@ use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_seo\CanonicalHost;
+use Drupal\ilas_seo\ErrorPage;
 use Drupal\node\NodeInterface;
 
 /**
@@ -55,6 +56,17 @@ function ilas_seo_page_attachments_alter(array &$attachments) {
   CanonicalHost::normalizeHeadTags($attachments, $canonical_base);
   CanonicalHost::normalizeHeadLinks($attachments, $canonical_base);
   CanonicalHost::normalizeSchemaTags($attachments, $canonical_base);
+
+  // On an error page, drop the tags that advertise the failed URL as this
+  // page's real address. Metatag resolves both from [current-page:url:absolute],
+  // and on an unrouted path the token module re-encodes the already-encoded
+  // path, so the value it emits is one percent-encoding level deeper than the
+  // URL requested. A crawler that follows it gets a deeper one every pass; this
+  // is the loop that cost ~22,000 origin 404s in July 2026. Runs regardless of
+  // $canonical_base, which is a kill switch for the host rewrite only.
+  if (ErrorPage::isError(\Drupal::requestStack()->getCurrentRequest())) {
+    CanonicalHost::removeSelfReferencingTags($attachments);
+  }
 
   // Don't run on admin pages.
   if (\Drupal::service('router.admin_context')->isAdminRoute()) {

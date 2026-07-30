@@ -31,16 +31,17 @@ implementation** and carried as an explicit follow-up.
 | 4 | Add `json\|xml\|webmanifest` to `fast_404` | §11.4 | ✅ **Done 2026-07-29** | Commit `c213ebb9a4`, PR #149. Shipped with item 2 but as a separate commit, independently revertable. See the dedicated section below. |
 | 5 | Audit GitHub repo vars for the live platform hostname | §8.5 | ✅ **Done 2026-07-29** | Read via `gh`. Only `ILAS_ASSISTANT_URL` exists, as a secret; the other three flagged names are **unset**. See the dedicated section below. |
 | 6 | Fix the dynamic canonical | §8.5 | 🟢 **In progress 2026-07-29** | Branch `fix/canonical-host-normalization`. §11.5's prescribed token **does not exist** — fixed in PHP instead, with zero config changes. See the dedicated section below. |
-| 7 | Legacy files — 10 high-confidence rows | §8.4 | ⬜ Not started | Fix source links *and* add redirects. |
-| 8 | Legacy files — 10 editorial rows | §8.4 | ⏸️ Blocked | Gated on content-owner / legal review. |
-| 9 | SEO-crawler rule in **Log** mode | §8.6 | ⬜ Not started | Replaces the rejected §13.2 change. |
-| 10 | Review logs → Managed Challenge | §8.6 | ⬜ Not started | Only after ≥7 days of Log. Never Block first. |
+| 7 | Legacy files — high-confidence rows (8 applied, 3 stay 404, 1 deferred) | §8.4 | ✅ **Done 2026-07-29** | Redirects only — there were **no source links to fix**. rid 5157–5158, 5160–5165. §8.4's premises needed three corrections; see the dedicated section below. |
+| 8 | Legacy files — editorial rows | §8.4 | ⏸️ Blocked | Gated on content-owner / legal review. Now **12 rows**: §8.4's 10, plus `MANUFACTURED HOMES.brochure.pdf` (moved out of item 7 on verification) and the sibling Landlord-Tenant brochure §8.4 missed. Queue: `docs/legacy-file-content-owner-review.md`. |
+| 9 | SEO-crawler rule in **Log** mode | §8.6 | 🟡 **In progress (observation) 2026-07-29** | Shipped as a **mirror-skip**, not Log — the Log action is Enterprise-only and this zone is Business. Rule `b79f504cabd347dc8eda9fd7c8748347`, index 0, ruleset v14→v17. **Zero enforcement change.** See the dedicated section below. |
+| 10 | Review logs → Managed Challenge | §8.6 | ⬜ Not started | Gated on the day-7 review, earliest **2026-08-05T20:03Z**. Never Block first. **Blocker already known:** Googlebot, `GoogleAssociationService` and `Google-Adwords-Instant-Mobile` are inside the SEO category today — §8.6's own promotion test fails as written. See F-14. |
 | 11 | Verify `old.` IP not third-party; delete record | §8.3 | ✅ **Done 2026-07-29** | `72.3.167.82` **is** third-party (Phoenix Group Holdings LLC, Rackspace space) — dangling DNS. Record deleted. See the dedicated section below. |
 | 12 | Re-measure for one full billing cycle | §13 | ⬜ Not started | Depends on item 1 landing. |
+| 14 | Close the canonical 404 encoding loop | follow-up plan | 🟢 **Fixed and verified 2026-07-30, not yet deployed** | Cost **21,904 origin 404s in July** — ~12 % of all origin traffic. Root cause in `drupal/token`; fixed with a patch plus 4xx tag suppression in `ilas_seo`. See the dedicated section below. |
 | 13 | Re-evaluate `pantheon_advanced_page_cache` | §8.10 | 🟢 **Assessed 2026-07-29, not yet implemented** | **Un-deferred.** §8.10's precondition ("revisit after §8.9 is fixed") is met, and F-5 confirmed the cost: no `Surrogate-Key` on any Live page, front page served at `age: 43046` (~12 h stale). Both §8.10 blockers re-measured and found much smaller than recorded — see the assessment below. No code enabled anywhere. |
 | — | Platform-hostname redirect | §8.5 | 🔵 Deferred | **Not implemented.** Breaks CI (promptfoo POSTs to it); benefit already mitigated by Pantheon's `Disallow: /`. Re-confirmed by test after item 6 — see that section. |
 | — | 404 caching / Cloudflare HTML caching | §8.11–12 | 🔵 Deferred | Root-cause fixes first. |
-| — | Remove `Search Engine Optimization` from skip rule `64fae5be` *as specified* | §8.6 | ❌ Rejected | `sbfm_verified_bots: "allow"` means the stated mechanism does not work. Replaced by item 9. |
+| — | Remove `Search Engine Optimization` from skip rule `64fae5be` *as specified* | §8.6 | ❌ Rejected | `sbfm_verified_bots: "allow"` means the stated mechanism does not work. Replaced by item 9. Re-confirmed live 2026-07-29 — the setting is still `allow`. The category *was* removed from `64fae5be` as part of item 9, but paired with a mirror-skip so nothing falls through. |
 
 ---
 
@@ -840,6 +841,106 @@ the confirmation that the platform hostname still returns 200 and not a redirect
 
 ---
 
+## Item 7 — legacy file links (§8.4)
+
+**Status: done 2026-07-29.** Eight redirects live: **rid 5157, 5158, 5160, 5161, 5162, 5163, 5164,
+5165**. Legacy-prefix redirect count 70 → 78. **No content entity was modified and no content
+revision was created** — see correction 1.
+
+Artifacts: `scripts/seo/legacy-file-redirects-8-4.php` ·
+`docs/legacy-file-redirects-8-4-state.json` · `docs/legacy-file-redirects-8-4-rollback.md` ·
+`docs/legacy-file-content-owner-review.md`.
+
+### Three corrections to §8.4
+
+**1. "Fix the source link" had no target.** §8.4's "Linking page: our site" column was inferred
+from Cloudflare's referrer *host*, not from a verified link. A scan of every text, varchar and blob
+column in the live database — 1,660 columns, whole-DB, not just `node__field_body` — found **zero**
+current content containing `sites/idaholegalaid.org/files`, both before and after this work. The
+referrer host comes from stale browser history, external caches, links inside PDFs we have
+distributed, and search-engine snapshots. Redirects were the only available lever.
+
+The only `idaholegalaid.org/files` matches anywhere are 12 rows pointing at `/files/html/…` — a
+different D7 family (retired interactive training modules), already 301→`/forms` via 70 existing
+redirect entities, not 404, and half of them Spanish. Queued for editorial review, not touched.
+
+**2. The row counts in §8.4's summary are wrong.** It reads "10 high-confidence mechanical fixes …
+2 should stay 404." The table actually carries **12 High rows: 9 actionable + 3 leave-404**
+(`styles/logo_for_og/public/ilas-logo-100.png`, `images/LSClogo_0.jpeg`, `ILAS_60x60.jpg`).
+Of the 9, one was withdrawn on verification (below), so **8** were applied.
+
+**3. `MANUFACTURED HOMES.brochure.pdf` is not a mechanical row.** §8.4 rates it High confidence,
+but its proposed destination `advice-for-renters-manufactured-homes.pdf` carries XMP `ModifyDate`
+**2013-09-05** — seven years *older* than the 2020-02-24 file the legacy URL used to serve — while
+a newer manufactured-homes document (`manufactured-homes-advice-renters.pdf`, **2025-12-23**) sits
+in the same directory. Redirecting to a superseded edition of tenant-rights material is what the
+brief forbids. The redirect was created (rid 5159), then **removed**; the path returns 404 pending
+a legal-currency read. Also removed from the script's entry list so a re-run cannot recreate it.
+
+### Document identity — how each destination was proven
+
+Not merely *a* document at the far end, but the *right* one. Every legacy file was pulled from the
+Wayback Machine and compared against what the redirect now serves.
+
+| Destination | Proof |
+|---|---|
+| `debit-card-electronic-transactions-protections-fact-sheet.pdf` | **Byte-identical** to the archived legacy file (md5 match, 177,858 B) |
+| `community-property-guide.pdf` | **Byte-identical** (363,258 B) |
+| `caregiving-brochure.pdf` | **Byte-identical** (187,628 B) |
+| `decision-making-as-we-age-brochure.pdf` | **Byte-identical** (5,325,070 B) |
+| `bankruptcy-brochure.pdf` | **Byte-identical** (594,723 B) |
+| `normal-wear-tear-guide.pdf` | **Byte-identical** (259,628 B) |
+| `domestic-violence-survivors-relocation-guide.pdf` | Not in the Wayback index under that name. Content-verified: `/Title` "Should I Stay or Should I Go", `/Author` Deborah Goelman, 13 pages, text covers DV relocation, custody and parental-kidnapping risk. Unique candidate in the modern file set. |
+| `/forms` | A page, not a document — supersession, not substitution. Route `view.forms_categories.page_1`, title "Free Legal Forms & Documents". |
+
+Six byte-identical matches also settle the legal-currency question for those rows: the redirect
+serves the *same file* users were already getting, at a new address. No new obsolescence introduced.
+
+### The two-cache trap
+
+The redirects were created and Cloudflare was purged, and the paths **still returned 404**. Cause:
+Pantheon's own Global CDN (Fastly) had the 404 cached with `max-age=86400, public`, and it sits
+*upstream* of Cloudflare — visible as `x-served-by: cache-bfi…`, `x-cache: MISS, HIT`, `age: 271`
+on the platform hostname. `terminus env:clear-cache idaho-legal-aid-services.live` was required,
+after which all eight resolved immediately. FU-16 covered only the Cloudflare half; FU-17 raised.
+
+### Verification
+
+Probed on the Pantheon origin, because Cloudflare's WAF 403s the operator IP for every request
+including the homepage — an edge `curl` proves nothing about the redirect.
+
+| Path | Before | After |
+|---|---|---|
+| `Protections for Debit Card and Electronic Transactions Fact Sheet.pdf` | 404 | 301→200 `application/pdf` 177,858 |
+| `mortgage_interestonly.pdf` | 404 | 301→200 `text/html` `/forms` |
+| `What is Community Property Guide - FINAL.pdf` | 404 | 301→200 `application/pdf` 363,258 |
+| `MANUFACTURED HOMES.brochure.pdf` | 404 | **404 (withdrawn — deferred)** |
+| `Caregiving Brochure - Final.pdf` | 404 | 301→200 `application/pdf` 187,628 |
+| `Decision Making As We Age Brochure.pdf` | 404 | 301→200 `application/pdf` 5,325,070 |
+| `bankruptcy brochure english.pdf` | 404 | 301→200 `application/pdf` 594,723 |
+| `What is Normal Wear and Tear Guide.pdf` | 404 | 301→200 `application/pdf` 259,628 |
+| `LRC Relocation Guide for Domestic Violence Survivors.pdf` | 404 | 301→200 `application/pdf` 385,693 |
+| `styles/logo_for_og/public/ilas-logo-100.png` | 404 | 404 *(intended)* |
+| `images/LSClogo_0.jpeg` | 404 | 404 *(intended)* |
+| `ILAS_60x60.jpg` | 404 | 404 *(intended)* |
+
+Every redirected path is exactly **one hop** — no chains, no loops. Rehearsed on Test first
+(applied, re-run to prove idempotency, then rolled back) before live.
+
+### Monitoring
+
+Cloudflare edge, legacy prefix, 3-day baseline captured 2026-07-29 before the change: **1,631
+requests across 184 distinct paths**. Note that most of that volume already returns 403 (WAF) or
+301 (`www`→apex, item 3) rather than 404 — e.g. `mortgage_interestonly.pdf` was 122×403, 37×301,
+33×404. **§8.4's 7-day 404 figures are not a valid baseline for this comparison.**
+
+Track for 14 days with the GraphQL query in §13, filtering
+`clientRequestPath_like: "/sites/idaholegalaid.org/files%"` and grouping by `edgeResponseStatus`.
+Do **not** use `redirect_404` as the volume source — `config/redirect_404.settings.yml` globs
+`/*_*` and `/*__*` swallow most real 404s.
+
+---
+
 ## Item 13 — `pantheon_advanced_page_cache` (§8.10): assessment
 
 **Status: assessed, not implemented. Nothing installed or enabled in any environment.**
@@ -877,6 +978,324 @@ fix file/image freshness, so it is a stopgap rather than a substitute.
 
 ---
 
+## Item 9 — SEO-crawler observation rule (§8.6 / §10.2)
+
+**Status: 🟡 observation running. No enforcement was enabled — Managed Challenge was not created,
+staged, or scheduled.**
+
+### What changed
+
+Custom ruleset `f887ac01edd44986aae31e7e6c05c8bb` (`http_request_firewall_custom`), **v14 → v17**,
+applied 2026-07-29T20:03:44Z.
+
+**Step 1 — new rule, index 0:**
+
+| Field | Value |
+|---|---|
+| Rule ID | `b79f504cabd347dc8eda9fd7c8748347` |
+| `ref` | `ilas_seo_category_observe` |
+| Position | **0**, immediately before `64fae5be` |
+| Expression | `(cf.verified_bot_category eq "Search Engine Optimization")` |
+| Action | `skip` (mirror — see F-13) |
+| `action_parameters` | `phases: [http_request_firewall_managed, http_ratelimit, http_request_sbfm]`, `ruleset: current` |
+| `logging.enabled` | `true` |
+| `enabled` | `true` |
+
+**Step 2 — amend `64fae5becbce484caf8c43fd58734a45`:**
+
+```diff
+- (cf.verified_bot_category in {"Search Engine Crawler" "Search Engine Optimization" "Page Preview" "Monitoring & Analytics" "Accessibility" "Security" "Webhooks"})
++ (cf.verified_bot_category in {"Search Engine Crawler" "Page Preview" "Monitoring & Analytics" "Accessibility" "Security" "Webhooks"})
+```
+
+Six categories preserved: Search Engine Crawler, Page Preview, Monitoring & Analytics,
+Accessibility, Security, Webhooks. `action`, `action_parameters`, `logging` and `enabled` untouched;
+the description was corrected because it still named the SEO category.
+
+Order matters and was deliberate: **add first, amend second**. The reverse opens a window in which
+SEO-category bots fall through to the managed WAF, rate limiter, Drupal Hardening and the CN/RU
+Geo-Challenge.
+
+### Verification
+
+Rules 2–8 verified byte-identical to the pre-change export. All post-change assertions passed:
+new rule at index 0 with `skip`/`enabled`/`logging`; its `action_parameters` **deep-equal** to
+`64fae5be`'s (both live and as exported); SEO removed; all six kept categories present; category
+count exactly 6.
+
+**35-minute post-change watch (20:05Z → 20:38Z) — behaviour confirmed unchanged:**
+
+| Check | Result |
+|---|---|
+| SEO category edge status | 15 × 404, 1 × 200 — **no 403s, no challenge pages** |
+| Better Stack | 10 × 200 |
+| UptimeRobot | 7 × 200 |
+| Search Engine Crawler | 11 × 200, 8 × 301, 1 × 404 — normal |
+| Rule attribution | `firewallEventsAdaptiveGroups`: **16 × `skip` on `b79f504cab…`**, exactly matching the 16 SEO-category requests in the window |
+
+The new rule is confirmed to be the one matching SEO-category traffic — `64fae5be` no longer sees
+it, and nothing else in the ruleset intercepts it.
+
+Evidence: `docs/evidence/cf-seo-bot-observation/` (`01-waf-custom-before.json` = v14 rollback source
+of truth, `10-waf-custom-after.json` = v17, `06-baseline-bot-census.json` = 7-day pre-change census).
+
+### Findings
+
+**F-13 — §10.2 Step 2 is not executable as written; the Log action is Enterprise-only.** This zone
+is Business Website (`plan.legacy_id: business`). Cloudflare: *"Only available on Enterprise plans.
+Recommended for validating rules before committing to a more severe action."* The rule was therefore
+created as a **mirror-skip** — a `skip` carrying the exact `action_parameters` that `64fae5be`
+applied to this category before the change — so runtime behaviour is unchanged and the rule exists
+purely to give SEO-category matches their own rule ID. Promotion to Managed Challenge later is a
+single-field edit. The trade-off is explicit: because the managed-WAF skip is preserved, this does
+**not** gather §8.6's "missing evidence" about what the managed WAF would block. That question stays
+open and is answerable only by a change that is genuinely enforcing.
+
+`"ruleset": "current"` in `64fae5be` is load-bearing and easy to miss: it makes a match skip *every
+remaining rule in the custom ruleset*, not just the three named phases. Any replacement rule must
+sit at index 0 **and** carry identical `action_parameters`, or the change is not neutral.
+
+**F-14 — §8.6's SEO-category composition table is incomplete, and its promotion test fails today.**
+Over the 7 days to 2026-07-29 the category also carried `GoogleAssociationService` (22 requests),
+`Googlebot/2.1` (3), `Google-Adwords-Instant-Mobile` (2) and `SearchAtlas Bot` (1). §8.6's stated
+test for promotion — *"confirm … Googlebot, bingbot, Better Stack and UptimeRobot never appear"* —
+would **fail as written**. This must be explained or carved out before item 10 is even considered.
+Volume is low (~28 in 7 days against 9,057 total) but the affected traffic is Google's.
+
+**F-15 — Cloudflare's rule `PATCH` is not a partial update.** Sending `{"expression": "…"}` alone
+fails with `20015`, *"the action is required to create or update a rule"*. The full rule body must
+be sent with only the changed fields swapped. Both the amend step and the rollback script do this by
+reading the live rule and replacing fields, so `action_parameters`/`logging` are preserved verbatim
+rather than re-declared.
+
+**F-17 — Cloudflare GraphQL windows floored to the hour hide the current partial hour.** The
+observation script originally built its window with `date -u +%Y-%m-%dT%H:00:00Z`, following
+`cloudflare-404-volume-check.sh`. That discards up to 59 minutes of the most recent data. Right
+after the rule was created at 20:03:44Z the window ended at 20:00:00Z — *before the rule existed* —
+so a working rule reported zero matches and looked broken. Fixed to minute precision. Worth knowing
+for any short-window verification against this zone; it does not affect multi-day reviews
+materially, but it does make immediate post-change checks lie.
+
+**F-16 — the token does hold Zone WAF edit.** Probed non-destructively before any write, by POSTing
+a deliberately invalid rule body: the response was `20115`/`20125` (validation), not an authorisation
+error, and the ruleset stayed at version 14. This extends F-9 — the token holds DNS edit, Dynamic
+Redirect edit, Cache Purge **and** WAF edit.
+
+### Observation period
+
+Start **2026-07-29T20:03:44Z**. Earliest review **2026-08-05T20:03:44Z** — at least 7 full days, to
+cover a complete weekly crawl cycle, since Semrush/Ahrefs/MJ12 schedules are weekly-periodic.
+
+```bash
+bash scripts/observability/cloudflare-seo-bot-observation.sh \
+  --days 7 --rule-id b79f504cabd347dc8eda9fd7c8748347 \
+  --out docs/evidence/cf-seo-bot-observation/review-day7
+```
+
+Reports matched UA × path × status × ASN × country × count, a protected-traffic tripwire, and a
+cross-category integrity check. Exit `2` = review required. It **will** exit 2 on the Google UAs in
+F-14 — that is the signal, not a defect.
+
+Baseline to compare against (7 days pre-change): **9,057** requests — 4,574 × 404, 2,569 × 200,
+1,904 × 301. Category census: not-a-verified-bot 215,268; Search Engine Crawler 10,214;
+**Search Engine Optimization 9,057**; Monitoring & Analytics 5,586; AI Assistant 5,004.
+
+### Rollback
+
+```bash
+bash scripts/observability/cloudflare-seo-bot-rollback.sh            # dry run (default)
+bash scripts/observability/cloudflare-seo-bot-rollback.sh --apply    # execute
+bash scripts/observability/cloudflare-seo-bot-rollback.sh --verify   # live vs export
+```
+
+Restores `64fae5be`'s expression and description verbatim from `01-waf-custom-before.json`, **then**
+deletes the observation rule — that order means SEO bots are never momentarily unprotected. Exercised
+against the live zone both before the change (clean) and after (3 diffs detected). Version 14 is also
+independently readable at `GET /zones/{zone}/rulesets/f887ac01…/versions/14`.
+
+Roll back immediately if Better Stack or UptimeRobot ever appears in the match list.
+
+---
+
+## Items 8.7 / 8.8 — browser-spoofing analysis and scripted-access inventory
+
+**Status: ✅ analysis complete, no enforcement proposed. Closed — not deferred, and not pending
+further data. No production security control was modified.**
+
+Full deliverable: [`browser-spoofing-and-scripted-access-analysis.md`](browser-spoofing-and-scripted-access-analysis.md).
+Collector: `scripts/observability/cloudflare-browser-spoofing-analysis.sh`.
+Evidence: `docs/evidence/cf-browser-spoofing/`.
+
+§8.7 refused to propose a rule until a named list of signals had been measured over ≥7 days;
+§8.8 asked for an inventory of legitimate scripted consumers. Both are now done, over
+**14 days** (`2026-07-15T23:33Z` → `2026-07-29T23:33Z`, 491,004 requests). Every Cloudflare
+call was a GraphQL analytics read.
+
+### §8.7 — a real population, and no rule
+
+The `Chrome/142.0.0.0` macOS lead was confirmed as automation: **41,000 requests (8.4 % of the
+zone), 99.2 % in Cloudflare's `automated`/`likely_automated` buckets, 4 `likely_human`
+requests**, eleven of its top twelve ASNs hosting or proxy-vendor networks, an HTML-to-asset
+ratio of **≈2,560:1**, **zero** `/robots.txt` fetches, **zero** `/cdn-cgi/rum` beacons,
+`Referer` on **0 %** of requests, facet-parameter stacking on `/search` (45 % of its volume),
+and presence on **15 of 15 days** while growing. It is spread across **5,000+ distinct IPs at
+a median of 2 requests each** — a rotating proxy pool, which also independently confirms
+§8.7's warning that rate limiting on `ip.src` would be ineffective as well as risky.
+
+**No rule was created, in any mode.** Three independent reasons:
+
+1. **`ja4` and `ja3Hash` are denied to this zone** (Enterprise Bot Management), so §8.7's
+   mandatory "inconsistent with a genuine browser JA4" gate cannot be evaluated at all. Also
+   denied: `botScore`, `botScoreBucketBy10`, `jsDetectionPassed`, `botDetectionTags`.
+2. **Log mode is Enterprise-only**, so the mandatory 14-day Log observation cannot be run —
+   and item 9's **mirror-skip** workaround does not transfer, because it requires an existing
+   skip to mirror and this population is challenged/blocked rather than skipped. Any rule
+   would be enforcement from creation.
+3. **It is already mitigated.** AI Labyrinth 20,510 + SBFM managed challenge 18,848 + block
+   1,325 = **40,683 of 41,000 already actioned (99.2 %)**. Only **42 requests in 14 days**
+   reach content unchallenged.
+
+**The stale-version hypothesis was tested and does not hold.** `Chrome/120.0.0.0` — staler
+than Chrome/142 — is only 76.3 % automated, 20 % `likely_human`, fetches `robots.txt`, fires
+RUM beacons, and is dominated by **Microsoft/Azure ASN** traffic that mixes WordPress
+vulnerability scanning with what is plausibly Microsoft 365 link scanning. It is recorded as
+ambiguous and explicitly protected from enforcement.
+
+### §8.8 — inventory complete, and the one open decision answered
+
+- **`/sitemap.xml`: do not add the skip rule.** §8.8's condition was "only if a real consumer
+  is identified". Breaking the 100 unverified 403s down by UA, they are the spoofing
+  population itself (29), GPTBot and ReflectionBot blocked by deliberate AI policy (15),
+  `Go-http-client/1.1` (11), and scanner traffic. **No partner, directory, or government
+  aggregator is being blocked.** Verified bots get 200, so indexing is unaffected.
+- **RSS feeds exist** (`config/views.view.taxonomy_term.yml`, across `en`/`es`/`nl`/`sw`) and
+  serve 200 to verified crawlers — closing §8.8's "unknown whether any exist". But **no feed
+  reader consumer was found**, and ~150 scripted requests to feed paths are already 403'd.
+  No skip justified.
+- **Better Stack (6,718) and UptimeRobot (3,960) confirmed working**; both still classified
+  `Monitoring & Analytics`. Search engines still `Search Engine Crawler` (55 UA rows).
+- Public PDFs: 8,310 × 200. ⚠️ SBFM `023ec3b3` does hit PDFs — recorded as the control most
+  likely to affect legitimate document access.
+- Posture table added to `docs/observability.md` per §8.8, so this is not re-litigated.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `bash -n` + `shellcheck` on the collector | Clean |
+| Collector `--days 14` | exit 0, `status=clean`, no GraphQL errors |
+| Protected-traffic tripwire | Clean — no monitor, search engine, preview, accessibility, security-scanner, RSS or translation UA inside any candidate |
+| Cross-category integrity | Intact |
+| Custom ruleset `f887ac01…` | **v17, 9 rules, `last_updated` unchanged** — byte-identical `ref`/`action`/`enabled` diff against `10-waf-custom-after.json` |
+| `/robots.txt`, `/.well-known/security.txt` from a plain client | **200** — skip `92082bed` working |
+| `/sitemap.xml`, `/taxonomy/term/3/feed` from a plain client | **403** — the documented finding |
+| `/user/login`, `/wp-login.php` from a plain client | **403** — hardening intact |
+
+### Rollback
+
+Nothing to roll back — no rule exists in any mode. Reverting the document, the collector, and
+the evidence directory is an ordinary revert.
+
+### Re-open only if
+
+The zone gains Enterprise Bot Management (JA4 + Log become available); **or** the unchallenged
+`200` share of the population rises above **2 %** from its measured **0.1 %**; **or** origin
+load or cache ratio regresses and is traced to this population.
+
+---
+
+## Item 14 — the canonical 404 encoding loop (opened 2026-07-30)
+
+**Status: ✅ fixed locally, verified, not yet deployed.** Opened while investigating two rows the
+follow-up plan filed as "P2 — needs investigation". Evidence:
+`docs/evidence/canonical-404-encoding-loop/`.
+
+**What was wrong.** A 404 whose path contained any `%` advertised, in `<link rel="canonical">` and
+`<meta property="og:url">`, a URL **one percent-encoding level deeper than the one requested**.
+Reproduced live on dev, test and Live:
+
+```
+req /node/1628/solicitaciones-telef%C3%B3nicas      → canonical …telef%25C3%25B3nicas
+req /node/1628/solicitaciones-telef%25C3%25B3nicas  → canonical …telef%2525C3%2525B3nicas
+req /node/1628/solicitaciones-telef%2525C3%2525B3nicas → canonical …telef%252525C3%252525B3nicas
+```
+
+**Root cause.** `drupal/token` 8.x-1.17, `src/Hook/TokenTokensHooks.php:481`. On an unrouted path
+`Url::createFromRequest()` throws and `[current-page:url]` falls back to
+`Url::fromUserInput($request->getPathInfo())`. `getPathInfo()` is still percent-encoded;
+`fromUserInput()` expects a decoded path and encodes what it is given, so every `%` becomes `%25`.
+`config/metatag.metatag_defaults.global.yml:10,13` resolves both tags from that token. Upstream
+[#3075857](https://www.drupal.org/project/token/issues/3075857) touched this code and was closed as
+outdated in January 2026 without addressing the encoding, so there is no upstream fix to wait for.
+
+**Cost, July 2026, zone-wide.** 28,455 requests on multiply-encoded paths, of which **21,904 reached
+the origin as a 404** — roughly **12 % of all origin traffic** against the audit's ~5,800/day.
+6,506 more were blocked at the edge; 382 MB egress; **six origin 500s and one 504** from the
+resulting URL lengths. **21,831 of the 21,904 were SemrushBot.** For scale, the icon fix — the
+programme's headline 404 win — removed ~1,368 404s per two days, almost all at the edge.
+
+**Why we are confident it is our output, not the crawler.** Three independent lines:
+
+1. Reproduced live, deterministically, three passes.
+2. **Query strings.** The depth-0 seeds are Drupal 7 Rate-module links carrying `?rate=<token>`. Of
+   the 852 escalating requests in the retained nginx log, **0 carry any query string** — and the
+   canonical tag is the only step in the chain that drops the query (item 6, F-10). An internal
+   re-escape inside the crawler would have preserved it.
+3. **Depth grows per crawl cycle.** Minimum observed depth climbs 4 → 7 → 6 → 19 → 26 → 33 → 34
+   across SemrushBot's ~4-day cycles; maximum reached **1,879**.
+
+**Scope.** 4xx responses whose path contains `%`. Unprefixed, `/sw/` and `/nl/` were all affected;
+`/es/` was not. **200 responses were never affected** — the four live Spanish aliases containing
+`%20` always emitted correct canonicals, and that is now a regression test.
+
+**Not new, and previously papered over.** The nginx evidence is from **2025-12-12**.
+`config/redirect_404.settings.yml` already carried the glob `/*%252*`, which suppressed these from
+the 404 log. The symptom had been noticed and hidden at the logging layer; the cause was never found.
+
+**Item 1 did not cause it but raised the price.** Since 2026-07-28 these 404s carry
+`max-age=86400, public`, so every URL in an unbounded set also took a CDN cache entry for 24 h.
+
+### The fix — two independent layers
+
+| Change | Why |
+|---|---|
+| `patches/token-current-page-url-404-double-encode.patch` | Decodes the path before `Url::fromUserInput()`, making the round trip idempotent at any depth. Refuses rather than emit a URL the decode would restructure (an encoded `?` or `#` would become a real delimiter). |
+| `ilas_seo` drops `canonical` + `og:url` on any error page | `\Drupal\ilas_seo\ErrorPage` + `CanonicalHost::removeSelfReferencingTags()`. A 404 must not name a canonical address that does not resolve, and this holds even if the patch is lost to Pantheon's build cache — the failure mode `scripts/composer/ensure-patches.php` exists for. Deliberately **not** gated on `ilas_canonical_base_url`, or the documented kill switch would reopen the loop. |
+| `GraphBuilder` emits no JSON-LD on an error page | It was publishing `$request->getRequestUri()` as the `BreadcrumbList` `item` and `@id` — republishing an arbitrary caller-supplied string as structured data. This is in the item 6 code, so it never reached Live. |
+| `cloudflare-404-volume-check.sh` excludes `/cdn-cgi/*` | See below. Also now reports the multiply-encoded count directly, so the fix is measurable. |
+
+**Detection is not spoofable.** `ErrorPage` reads the `exception` request attribute set by
+`HttpExceptionSubscriberBase::onException()`, not the `_exception_statuscode` query parameter core
+also adds — that one is reachable from any URL, and trusting it would let anyone strip the canonical
+off a real page. There is a unit test for exactly that.
+
+### Verification
+
+94 tests pass in `ilas_seo`; phpcs and phpstan clean. Removing the fix makes the new kernel test fail
+3 of 4 and the new functional test 4 of 5, while the 200-page control passes either way. On DDEV the
+loop is closed at every depth and all sampled 200 pages keep their canonicals.
+
+**Still to do:** deploy Dev → Test → Live, re-run the three-step reproduction on each, then re-run
+`cloudflare-404-volume-check.sh` and the per-cycle depth query. Volume decays as SemrushBot's stored
+URLs age out rather than dropping instantly.
+
+### `/cdn-cgi/content` — closed, no action
+
+The other flagged row. 448 of 478 404s were a single `AliyunSecBot` client from Alibaba HK, and
+every row carries `originResponseStatus: 0`: `/cdn-cgi/*` is reserved by Cloudflare, answered at the
+edge, and never reaches Pantheon. It also explains why these still arrive on `www` — Cloudflare
+handles the prefix before the dynamic-redirect phase. No site change can affect it; the only defect
+was in the measurement, now corrected.
+
+### Sequencing note for items 9 and 10
+
+SemrushBot sits in the `Search Engine Optimization` verified-bot category, which item 9's mirror-skip
+currently skips past the managed WAF, rate limiter and SBFM — that is what let it spend 21,904 origin
+PHP executions here in a month. **Re-measure after this deploys, before deciding item 10.** Most of
+the volume that would have justified enforcement was traffic we were generating ourselves.
+
+---
+
 ## Follow-ups opened by this work
 
 | ID | Item | Origin | Status |
@@ -896,7 +1315,14 @@ fix file/image freshness, so it is a stopgap rather than a substitute.
 | FU-13 | Fix the three hostname spellings in docs and comments — `idaholegalaid` (`quality-gate.yml:24`, `run-quality-gate.sh:19,406`) and `idaho-legal-aid` (`fingerprint-smoke.sh:14`) should both be `idaho-legal-aid-services`. Doc-only, but they 404 if copy-pasted | Item 5 | ⬜ Not started |
 | FU-14 | Extend `MetatagCanonicalConfigTest`'s globs to cover `config/views.view.*.yml`. `views.view.forms_categories.yml:486` and `views.view.guides_categories.yml:486` carry embedded `metatag_views` canonical values that no test currently guards | Item 6 | ⬜ Not started |
 | FU-15 | Purge the nine icon/manifest URLs from the Cloudflare cache so the item 2 fix takes effect immediately instead of waiting out the 24 h TTL | Items 2 & 4, F-5 | ✅ **Done 2026-07-29 16:32Z** — token was granted Cache Purge; purge succeeded and the paths verified serving 200 at the edge |
-| FU-16 | Purge the affected URLs when item 7 adds redirects for legacy `/sites/idaholegalaid.org/files/*.pdf` paths. Those URLs 404 today, are edge-cached for 24 h because they carry a static extension, and Cloudflare has no cache-tag visibility — so adding the redirect alone will not dislodge the cached 404. Use `scripts/observability/cloudflare-purge-urls.sh` | Items 2 & 4, F-5 | ⬜ Not started |
+| FU-16 | Purge the affected URLs when item 7 adds redirects for legacy `/sites/idaholegalaid.org/files/*.pdf` paths. Those URLs 404 today, are edge-cached for 24 h because they carry a static extension, and Cloudflare has no cache-tag visibility — so adding the redirect alone will not dislodge the cached 404. Use `scripts/observability/cloudflare-purge-urls.sh` | Items 2 & 4, F-5 | ✅ **Done 2026-07-29** — purged 18 URLs (9 paths × apex + www), then 2 more after the manufactured-homes row was withdrawn. **The Cloudflare purge alone was not sufficient**: Pantheon's own Fastly layer was still serving the cached 404 (`x-served-by: cache-bfi…`, `x-cache: HIT`, `age: 271`) on the platform hostname, which sits *upstream* of Cloudflare. `terminus env:clear-cache` was required as well. FU-17 raised to record this. |
+| FU-17 | Document the two-layer purge in `scripts/observability/cloudflare-purge-urls.sh`. Its header explains the Cloudflare 24 h edge-cache problem but not that Pantheon's Global CDN caches the same response upstream, so a Cloudflare-only purge leaves a stale 404 in place. Every future "made a 404 path resolve" change needs `terminus env:clear-cache` **first**, then the Cloudflare purge | Item 7, FU-16 | ⬜ Not started |
+| FU-18 | Confirm with the site owner that ILAS does not rely on **MJ12bot / Majestic**. §8.6 records confirmation for Semrush, Ahrefs and Siteimprove only, but MJ12bot is the second-largest UA in the SEO category (~490 requests / 2 days). Needed before item 10 | Item 9 | ⬜ Not started |
+| FU-19 | Resolve F-14 before promoting item 10: decide whether `Googlebot/2.1`, `GoogleAssociationService` and `Google-Adwords-Instant-Mobile` inside the SEO category are a Cloudflare classification artefact or genuine, and if genuine add an explicit carve-out to the rule expression. Promotion is blocked until this is answered | Item 9, F-14 | ⬜ Not started |
+| FU-20 | Decide how to answer §8.6's still-open "would the managed WAF block a share of this traffic?" question. The mirror-skip deliberately preserves the managed-WAF skip, so the observation period cannot answer it; only a genuinely enforcing change can | Item 9, F-13 | ⬜ Not started |
+| FU-21 | Ask **program staff** whether any partner, legal-services directory, or government referral aggregator consumes ILAS sitemaps, RSS feeds, or PDFs programmatically. §8.8 flagged this as undiscoverable from inside the codebase, and the 14-day edge data shows nothing legitimate currently blocked — but a quarterly or annual consumer would fall outside the window. Not a blocker; no skip rule is justified until a real consumer is named | Items 8.7/8.8, §8.8 | ⬜ Not started |
+| FU-22 | Decide whether the `Archiver` (`archive.org_bot`) and `Aggregator` (`Pinterestbot`) verified-bot categories should be added to skip rule `64fae5be`. Both currently reach content (116 and 126 × 200 respectively, none blocked), but neither is in the retained category list, so nothing guarantees that continues. Low priority — recorded so a future bot-management change does not break them silently | Items 8.7/8.8 | ⬜ Not started |
+| FU-23 | Review the **~13,780 empty-user-agent requests** in the 14-day window. Deliberately out of scope for §8.7, which is about *spoofed browser* UAs — an absent UA is a different question and was not analysed | Items 8.7/8.8 | ⬜ Not started |
 
 ---
 

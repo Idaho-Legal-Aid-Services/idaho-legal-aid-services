@@ -1,0 +1,24 @@
+# Encoding depth per SemrushBot crawl cycle (Cloudflare, July 2026)
+# Top 200 multiply-encoded paths per day, depth = count of repeated '25' runs.
+
+date        n    min  median   max
+2026-07-03  200    4     448   1825
+2026-07-07  200    7     514   1628
+2026-07-11  200    6     518   1844
+2026-07-15  200   19     463   1857
+2026-07-19  200   26     488   1653
+2026-07-23  200   33     301   1879
+2026-07-27  200   34     549   1655
+
+The MINIMUM climbs monotonically: the shallowest URL the crawler still
+requests gets deeper every cycle, which is what a link-following loop
+produces and what an internal re-escaping bug would not. Max depth 1,879
+means URLs of several kilobytes, which is where the origin 500s come from.
+
+# July 2026 totals, zone-wide (docs/evidence/canonical-404-encoding-loop/10-july-volume.json)
+  requests on multiply-encoded paths      28,455
+  reaching the origin as a 404            21,904   (cacheStatus dynamic)
+  blocked at the edge (403, SBFM)          6,506
+  origin 500 / 504                             6 / 1
+  edge response bytes                    382 MB
+  SemrushBot share of the 404s            21,831 of 21,904

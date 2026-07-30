@@ -1,0 +1,26 @@
+diff --git a/src/Hook/TokenTokensHooks.php b/src/Hook/TokenTokensHooks.php
+--- a/src/Hook/TokenTokensHooks.php
++++ b/src/Hook/TokenTokensHooks.php
+@@ -478,7 +478,21 @@
+               // Url::createFromRequest() can fail, e.g. on 404 pages.
+               // Fall back and try again with Url::fromUserInput().
+               try {
+-                $url = Url::fromUserInput($request->getPathInfo(), $url_options);
++                // getPathInfo() returns the path still percent-encoded, but
++                // fromUserInput() expects a decoded path and percent-encodes
++                // whatever it is given. Passing it straight through therefore
++                // escapes the escapes: a request for "/caf%C3%A9" is rendered
++                // as "/caf%25C3%25A9", and because the token is commonly used
++                // for canonical/og:url, a client that follows that value makes
++                // a new request one encoding level deeper, without bound.
++                // Decoding first makes the round trip idempotent at any depth.
++                $path = rawurldecode($request->getPathInfo());
++                // Refuse rather than emit a URL the decode has restructured:
++                // an encoded "?" or "#" would become a real delimiter, and
++                // control bytes have no place in a generated URL.
++                if (!preg_match('/[?#\x00-\x1F\x7F]/', $path)) {
++                  $url = Url::fromUserInput($path, $url_options);
++                }
+               }
+               catch (\Exception) {
+                 // Instantiation would fail again on malformed urls.
