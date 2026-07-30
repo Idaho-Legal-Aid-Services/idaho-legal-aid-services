@@ -44,7 +44,11 @@ publish_gates_init_run "publish-gate-local"
 publish_gates_install_summary_trap
 
 # PIPE-05: fail closed if local-mirror drifts from lockfile.
-info "Verifying gate parity against scripts/ci/gates.lock.json..."
+# Plain echo, not info(): that helper lives in scripts/git/common.sh, which this
+# script does not source. Where GNU texinfo is installed, bare "info" resolved to
+# /usr/bin/info, which exited 1 under set -e and killed this preflight before it
+# ran a single gate.
+echo "[info] Verifying gate parity against scripts/ci/gates.lock.json..."
 bash "$REPO_ROOT/scripts/ci/verify-gates-parity.sh"
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
