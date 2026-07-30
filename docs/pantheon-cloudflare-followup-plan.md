@@ -41,11 +41,11 @@ Two verifications the tracker records as "still pending" are answered by the fir
 
 | Priority | Item | Current status | Finding | Next action | Owner | Evidence needed | Completion criteria |
 |---|---|---|---|---|---|---|---|
-| **P1** | Item 0 — archive the two recovered DB backups | Open, never started | Both files sit only in volatile `/tmp`; the Pantheon 06-30 backup expires **2026-08-01**. Once gone, the July 6 pre/post pair cannot be reconstructed. | Copy both to durable storage with checksums; record the location in the tracker | You (choose location) → Claude (copy + verify) | `sha256sum` of both files at source and destination | Both archives readable outside `/tmp` with matching checksums, path recorded |
+| **Closed** | Item 0 — archive the two recovered DB backups | **Closed 2026-07-30 — will not do** | Owner decision: the recovered `/tmp` copies are not worth retaining. The 2026-06-30 Pantheon backup expires 2026-08-01 and the pre/post-July-6 pair will not be reconstructable after that. Accepted: §8.9A's causation verdict is already recorded as Unsupported and no open item depends on re-reading those dumps. | None | — | — | — |
 | **Closed** | Commit the uncommitted Cloudflare / legacy work | **Done 2026-07-30** | 3 modified + 12 untracked paths hold the traffic audit, the spoofing analysis, all three legacy-file artifacts, two new scripts and two evidence directories. A `/tmp` clear or a bad `git clean` loses it. | Stage and commit as one docs/evidence commit; publish via `npm run git:publish` | Claude (prepare) → you (publish) | `git status --porcelain` clean for `docs/` and `scripts/` | Work is on GitHub master |
 | **Closed** | Item 6 — canonical host normalisation | **Deployed to Live 2026-07-30** | Code is on GitHub master; Pantheon `origin/master` is 12 commits behind. Live still emits the platform hostname in canonical, `og:url` and hreflang. | Deploy Dev → Test → Live, then re-probe and fill the tracker's empty "Before and after" section | You (deploy gate) → Claude (probe + write-up) | `curl` on Live for `canonical` / `og:url` / 5× `hreflang` per language; platform host still returns 200, not a redirect | All emit `https://idaholegalaid.org`; platform host un-redirected; tracker status → ✅ |
-| **P1** | Item 12 — re-measure over a billing cycle | Started today | Day 1 reads **80.18 %**. One datapoint is not a cycle, and the billing-cycle dates are still unknown (see §15 Q5). | Capture `env:metrics` daily into `60-metrics-daily.txt` through day 14 | Claude | 14 consecutive daily readings | 14-day series recorded and compared against the 15.41–28.91 % baseline |
-| **P1** | Traffic audit §11.1 — 22,800 (dashboard) vs 36,676 (API) visits | Open since 2026-07-28, untouched | The audit's own stated blocker: the gap decides whether the site is at 91 % or 147 % of plan. No engineering fix since has moved it. This — not any technical item — gates a plan decision. | Send the workspace administrator the §15 ask (screenshots 1–3 + questions 4–8) | **Pantheon workspace administrator** | Site→Overview usage panel with billing-cycle dates and today's date visible; Traffic/Metrics for the same range; Top Traffic Patterns with the Pages Served filter | One reconciled visit figure with known cycle boundaries |
+| **P2** | Item 12 — re-measure the recovered cache ratio | Started 2026-07-30 | Day 1 reads **80.18 %** against a ~20 % baseline. Now a plain 14-day series: the billing-cycle framing went with the closed plan-headroom inquiry. | Capture `env:metrics` daily into `60-metrics-daily.txt` through day 14 | Claude | 14 consecutive daily readings | 14-day series recorded and compared against the 15.41–28.91 % baseline |
+| **Closed** | Traffic audit §11.1 and validation §15 Q1–Q8 — the billing / plan-headroom line of inquiry | **Closed 2026-07-30 — will not pursue** | Owner decision. The 22,800-vs-36,676 discrepancy and the workspace-administrator questions behind it are dropped. Accepted: no statement about plan headroom or overage exposure can be made, and §15 already records that **no conclusion in §§1–14 depends on any of it** — the technical findings stand on their own. | None | — | — | — |
 | **P2** | FU-19 — Google UAs inside the SEO verified-bot category | Open; **blocks item 10** | `Googlebot/2.1`, `GoogleAssociationService`, `Google-Adwords-Instant-Mobile` sit in the SEO category, so §8.6's promotion test fails as written (F-14). ~28 requests / 7 days, but it is Google's traffic. | Decide artefact vs genuine; if genuine, add an explicit carve-out to the rule expression | Claude (investigate) → you (accept the carve-out) | Day-7 observation output showing the Google UAs' paths, ASNs and statuses | A written determination plus, if needed, a tested expression |
 | **P2** | FU-18 — MJ12bot / Majestic reliance | Open; **blocks item 10** | §8.6's owner confirmation covered Semrush, Ahrefs and Siteimprove only. MJ12bot is the second-largest UA in the category (~490 req / 2 days). | Ask whether ILAS uses Majestic for backlink data | **You / program staff** | A yes/no on record | Answer recorded in the tracker |
 | **P2** | Item 10 — promote the SEO rule to Managed Challenge | ⬜ Not started, date-gated | Earliest review **2026-08-05T20:03:44Z**. Triple-blocked by FU-18, FU-19 and FU-20. | Run the day-7 observation on/after that timestamp; **do not promote** until FU-18 and FU-19 are answered | Claude (run) → you (promote) | `cloudflare-seo-bot-observation.sh --days 7 --rule-id b79f504c… --out …/review-day7`; exit 2 on the Google UAs is the signal, not a defect | 7 days of matched UA × path × status data, tripwire clean, and both blockers resolved |
@@ -95,21 +95,22 @@ Two verifications the tracker records as "still pending" are answered by the fir
 
 ---
 
-## Next five actions, in order
+## Next actions, in order
 
-1. **Archive the two recovered DB backups out of `/tmp`.** Hard deadline 2026-08-01 — after that the
-   06-30 Pantheon backup is gone and the July 6 pre/post pair cannot be reconstructed.
-2. **Commit the 15 uncommitted Cloudflare / legacy paths.** Everything from items 7, 9, §8.7 and §8.8
-   currently exists only in the working tree.
-3. **Deploy the pending commits and close items 6 and 14.** Re-probe canonical, `og:url` and hreflang
-   on Live, fill the tracker's empty "Before and after" section, and re-run the item 14 reproduction
-   on each environment. Item 14 is the single largest origin-load win still unshipped.
-4. **Send the workspace administrator the §15 + §11.1 ask.** Longest lead time of anything here, and
-   the only thing that settles whether the site is at 91 % or 147 % of plan.
-5. **Capture `env:metrics` daily to day 14**, then run the day-7 SEO observation on/after
-   2026-08-05T20:03Z — resolving FU-18 and FU-19 **before** any promotion decision on item 10, and
-   re-measuring SemrushBot volume *after* item 14 lands, since most of what would have justified
-   enforcement was traffic we were generating ourselves.
+*(Updated after the 2026-07-30 deploy. Items 6, 7, 9, 14 and the §8.7/§8.8 analysis are done and on
+Live; item 0 and the billing/plan-headroom line of inquiry are closed by owner decision.)*
+
+1. **Re-measure the encoded-404 volume on or after 2026-08-03**, once SemrushBot has completed a
+   full ~4-day cycle. `cloudflare-404-volume-check.sh` reports the count directly; the pre-fix
+   reading was **391 of 872** real zone 404s. Expect decay, not an instant drop.
+2. **Run the day-7 SEO observation on or after 2026-08-05T20:03Z**, and resolve FU-18 and FU-19
+   **before** any promotion decision on item 10 — re-measuring SemrushBot against the post-fix
+   number, since most of the volume that would have justified enforcement was traffic we were
+   generating ourselves.
+3. **Continue the `env:metrics` daily capture to day 14** (day 1 = 80.18 %).
+4. **Scope item 13 (`pantheon_advanced_page_cache`)** as its own piece of work on an isolated
+   multidev, or take the interim `cache.page.max_age` lever if 24 h staleness needs capping first.
+5. **Route item 8's twelve rows** to the content owners and legal.
 
 ## Claude can implement now
 
@@ -122,17 +123,12 @@ pass · the monthly spoofing re-check schedule. (Item 14 and the `/cdn-cgi/conte
 ## Requires your decision
 
 Where the backups live · when to deploy · item 13's scope and timing · whether to cap
-`cache.page.max_age` at 3600 as the interim staleness lever · whether to refresh the Test DB now
-(FU-4) · FU-2 and FU-6 communications · FU-8 · FU-10 (set or retire) · FU-20 (whether the
-managed-WAF question is worth an enforcing experiment) · FU-22 · whether §15 Q9 is still worth
-raising with Pantheon Support now the symptom is gone.
+`cache.page.max_age` at 3600 as the interim staleness lever · FU-2 and FU-6 communications · FU-8 · FU-10 (set or retire) · FU-20 (whether the
+managed-WAF question is worth an enforcing experiment) · FU-22 · whether §15 Q9 is still worth raising with Pantheon
+Support now the symptom is gone (the rest of the §15 questions are closed).
 
 ## Requires an outside person
 
-- **Pantheon workspace administrator** — §15 questions 1–8 and the audit's §11.1 visit-count
-  discrepancy. Confirmed today that the operating account is neither the site owner (`15212c00…`)
-  nor a member of any organization, and `site:team:list` returns nothing. This cannot be worked
-  around from the CLI.
 - **Pantheon Support** — §15 Q9, the July 6 Global CDN / `cache_hit_ratio` question.
 - **Content owners and legal** — item 8's 12 queue rows, the 12 `/files/html/` content rows, and
   the legal-currency read on `MANUFACTURED HOMES.brochure.pdf`.

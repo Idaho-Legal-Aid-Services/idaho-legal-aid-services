@@ -24,7 +24,7 @@ implementation** and carried as an explicit follow-up.
 
 | # | Item | Ref | Status | Evidence / notes |
 |---|---|---|---|---|
-| 0 | Archive recovered DB backups to durable storage | §8.9A | ⬜ Not started | The 2026-06-30 backup **expires 2026-08-01**. Time-critical and independent of everything below. |
+| 0 | Archive recovered DB backups to durable storage | §8.9A | ❌ **Closed 2026-07-30 — will not do** | Owner decision. The 2026-06-30 backup expires 2026-08-01; after that the pre/post-July-6 pair is gone. Accepted — §8.9A already records causation as **Unsupported** and no open item depends on re-reading those dumps. |
 | **1** | **Fix `language-browser` negotiation** | **§8.9B** | ✅ **Done 2026-07-28** | Deployed Dev → Test → Live. Commit `ec129b4834`, PR #147. See the dedicated section below. |
 | 2 | Add icon files + template tags | §8.1 | ✅ **Done 2026-07-29** | All three §8.1 corrections applied. Commit `259ada7f8f`, PR #149. Deployed Dev → Test → Live. See the dedicated section below. |
 | 3 | `www`→apex Single Redirect | §8.2 | ✅ **Done 2026-07-29** | Rule `ce2a37cdad2c44199770caee0516029d`. `preserve_query_string` enabled. See the dedicated section below. |
