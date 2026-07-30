@@ -1,0 +1,48 @@
+# Post-deploy verification (2026-07-30)
+
+Deployed: master 20b18a47e1 -> dev -> test -> live.
+Live DB backup taken immediately before the live deploy.
+
+## Patch state per environment
+  dev  core/bigpipe=PATCHED klaro=PATCHED token=PATCHED
+  test token=PATCHED
+  live token=PATCHED
+
+The FIRST dev build shipped token=unpatched while ensure-patches printed
+all-clear and exited 0 -- see the ensure-patches section below. Fixed in
+commit 4bf266274d; the next build applied it on all three environments.
+
+## The loop, three passes, on each environment
+  request depth 0/1/2 -> canonical tags emitted: 0, deeper encoding in body: 0
+  dev  PASS   test PASS   live PASS
+
+## No regression on reachable pages (live)
+  /                          200  canonical present
+  /forms                     200  canonical present
+  /legal-help/housing        200  canonical present
+  /es                        200  canonical present
+  /es/videoteca              200  canonical present
+  /es/taller%20de%20imprenta 200  canonical present, single-encoded:
+      https://idaholegalaid.org/es/taller%20de%20imprenta
+
+## Item 6 (canonical host normalisation) delivered by the same deploy
+  live settings ilas_canonical_base_url = https://idaholegalaid.org
+  Canonical served on the Pantheon platform hostname now pins to the apex.
+
+## Protected paths still reachable (validation section 8.8)
+  https://idaholegalaid.org/robots.txt                200
+  https://idaholegalaid.org/.well-known/security.txt  200
+  www -> apex 301 intact
+  (one transient 403 on robots.txt during probing; 200 on immediate retry
+   with and without a browser UA -- rate limiting from this session's own
+   probe volume, not a rule change.)
+
+## Side effect: FU-4 closed
+  The test deploy used --sync-content, so test now has 99 Spanish nodes
+  (was 0). Test can validate multilingual behaviour again.
+
+## What to measure next
+  scripts/observability/cloudflare-404-volume-check.sh now reports the
+  multiply-encoded count directly. Pre-fix reading in the 07-29->07-31
+  window: 391 of 872 real zone 404s (45%). Expect decay rather than an
+  instant drop, as SemrushBot's stored URLs age out over its ~4-day cycle.
