@@ -14,6 +14,24 @@
  * Idempotent: a patch that no longer applies forward but applies in reverse
  * is treated as already applied. A patch that applies neither way fails the
  * build loudly rather than deploying unpatched code.
+ *
+ * Direction detection uses patch(1) with an explicit --forward, NOT git apply.
+ * git apply resolves patched paths against the repository toplevel and, per
+ * git-apply(1), "when running from a subdirectory in a repository, patched
+ * paths outside the directory are ignored" — so `git -C web/modules/contrib/x
+ * apply -p1` prints "Skipped patch" and exits 0 for a patch whose paths are
+ * package-relative. Both the forward and the reverse check therefore succeeded
+ * vacuously, the first branch won, and this guard reported "OK (already
+ * applied)" for every patch in the lockfile whatever the real state was
+ * (observed 2026-07-30: drupal/token shipped unpatched to dev while this
+ * script printed all-clear and exited 0).
+ *
+ * patch(1) is direction-deterministic as used here: --forward makes it refuse
+ * an already-applied patch instead of silently reversing it, which is the
+ * behaviour the earlier git-apply comment was written to avoid.
+ *
+ * Every apply is also re-verified afterwards, so a patcher that reports
+ * success without changing the file can no longer pass.
  */
 
 declare(strict_types=1);
@@ -78,30 +96,38 @@ foreach ($lock['patches'] as $package => $patches) {
       continue;
     }
 
-    // git apply is direction-deterministic (unlike patch, whose --batch mode
-    // auto-detects reversed patches and reports success either way).
-    $base = sprintf(
-      'git -C %s apply --ignore-whitespace -p%d',
-      escapeshellarg($install_path),
-      $depth
-    );
-    $patch_arg = ' ' . escapeshellarg($patch_file);
+    // See the file docblock for why this is patch(1) and not git apply.
+    $run = static function (bool $reverse, bool $dry_run) use ($install_path, $depth, $patch_file): int {
+      $cmd = sprintf(
+        'patch -p%d -d %s --forward%s%s < %s 2>&1',
+        $depth,
+        escapeshellarg($install_path),
+        $reverse ? ' --reverse' : '',
+        $dry_run ? ' --dry-run' : '',
+        escapeshellarg($patch_file)
+      );
+      exec($cmd, $out, $rc);
+      return $rc;
+    };
 
-    // Already applied? (reverse-apply check succeeds)
-    exec($base . ' --reverse --check' . $patch_arg . ' 2>/dev/null', $o1, $rc_applied);
-    if ($rc_applied === 0) {
+    // Already applied? (the patch applies cleanly in reverse)
+    if ($run(TRUE, TRUE) === 0) {
       fwrite(STDOUT, "ensure-patches: OK (already applied) {$package}: {$description}\n");
       continue;
     }
 
     // Applies forward? Then the plugin skipped it — apply now.
-    exec($base . ' --check' . $patch_arg . ' 2>/dev/null', $o2, $rc_forward);
-    if ($rc_forward === 0) {
-      exec($base . $patch_arg . ' 2>&1', $o3, $rc_apply);
-      if ($rc_apply === 0) {
+    if ($run(FALSE, TRUE) === 0 && $run(FALSE, FALSE) === 0) {
+      // Re-verify rather than trust the exit code: an apply that reports
+      // success without changing the file is the failure mode this whole
+      // guard exists to catch.
+      if ($run(TRUE, TRUE) === 0) {
         fwrite(STDOUT, "ensure-patches: APPLIED {$package}: {$description}\n");
         continue;
       }
+      fwrite(STDERR, "ensure-patches: FAILED {$package}: {$description} (apply reported success but the patch is not present)\n");
+      $failures++;
+      continue;
     }
 
     fwrite(STDERR, "ensure-patches: FAILED {$package}: {$description} (neither applied nor applicable)\n");
