@@ -30,14 +30,14 @@ implementation** and carried as an explicit follow-up.
 | 3 | `www`→apex Single Redirect | §8.2 | ✅ **Done 2026-07-29** | Rule `ce2a37cdad2c44199770caee0516029d`. `preserve_query_string` enabled. See the dedicated section below. |
 | 4 | Add `json\|xml\|webmanifest` to `fast_404` | §11.4 | ✅ **Done 2026-07-29** | Commit `c213ebb9a4`, PR #149. Shipped with item 2 but as a separate commit, independently revertable. See the dedicated section below. |
 | 5 | Audit GitHub repo vars for the live platform hostname | §8.5 | ✅ **Done 2026-07-29** | Read via `gh`. Only `ILAS_ASSISTANT_URL` exists, as a secret; the other three flagged names are **unset**. See the dedicated section below. |
-| 6 | Fix the dynamic canonical | §8.5 | 🟢 **In progress 2026-07-29** | Branch `fix/canonical-host-normalization`. §11.5's prescribed token **does not exist** — fixed in PHP instead, with zero config changes. See the dedicated section below. |
+| 6 | Fix the dynamic canonical | §8.5 | ✅ **Done 2026-07-30** (deployed with item 14) | Branch `fix/canonical-host-normalization`. §11.5's prescribed token **does not exist** — fixed in PHP instead, with zero config changes. See the dedicated section below. |
 | 7 | Legacy files — high-confidence rows (8 applied, 3 stay 404, 1 deferred) | §8.4 | ✅ **Done 2026-07-29** | Redirects only — there were **no source links to fix**. rid 5157–5158, 5160–5165. §8.4's premises needed three corrections; see the dedicated section below. |
 | 8 | Legacy files — editorial rows | §8.4 | ⏸️ Blocked | Gated on content-owner / legal review. Now **12 rows**: §8.4's 10, plus `MANUFACTURED HOMES.brochure.pdf` (moved out of item 7 on verification) and the sibling Landlord-Tenant brochure §8.4 missed. Queue: `docs/legacy-file-content-owner-review.md`. |
 | 9 | SEO-crawler rule in **Log** mode | §8.6 | 🟡 **In progress (observation) 2026-07-29** | Shipped as a **mirror-skip**, not Log — the Log action is Enterprise-only and this zone is Business. Rule `b79f504cabd347dc8eda9fd7c8748347`, index 0, ruleset v14→v17. **Zero enforcement change.** See the dedicated section below. |
 | 10 | Review logs → Managed Challenge | §8.6 | ⬜ Not started | Gated on the day-7 review, earliest **2026-08-05T20:03Z**. Never Block first. **Blocker already known:** Googlebot, `GoogleAssociationService` and `Google-Adwords-Instant-Mobile` are inside the SEO category today — §8.6's own promotion test fails as written. See F-14. |
 | 11 | Verify `old.` IP not third-party; delete record | §8.3 | ✅ **Done 2026-07-29** | `72.3.167.82` **is** third-party (Phoenix Group Holdings LLC, Rackspace space) — dangling DNS. Record deleted. See the dedicated section below. |
 | 12 | Re-measure for one full billing cycle | §13 | ⬜ Not started | Depends on item 1 landing. |
-| 14 | Close the canonical 404 encoding loop | follow-up plan | 🟢 **Fixed and verified 2026-07-30, not yet deployed** | Cost **21,904 origin 404s in July** — ~12 % of all origin traffic. Root cause in `drupal/token`; fixed with a patch plus 4xx tag suppression in `ilas_seo`. See the dedicated section below. |
+| 14 | Close the canonical 404 encoding loop | follow-up plan | ✅ **Done 2026-07-30** | Cost **21,904 origin 404s in July** — ~12 % of all origin traffic. Root cause in `drupal/token`; fixed with a patch plus 4xx tag suppression in `ilas_seo`. See the dedicated section below. |
 | 13 | Re-evaluate `pantheon_advanced_page_cache` | §8.10 | 🟢 **Assessed 2026-07-29, not yet implemented** | **Un-deferred.** §8.10's precondition ("revisit after §8.9 is fixed") is met, and F-5 confirmed the cost: no `Surrogate-Key` on any Live page, front page served at `age: 43046` (~12 h stale). Both §8.10 blockers re-measured and found much smaller than recorded — see the assessment below. No code enabled anywhere. |
 | — | Platform-hostname redirect | §8.5 | 🔵 Deferred | **Not implemented.** Breaks CI (promptfoo POSTs to it); benefit already mitigated by Pantheon's `Disallow: /`. Re-confirmed by test after item 6 — see that section. |
 | — | 404 caching / Cloudflare HTML caching | §8.11–12 | 🔵 Deferred | Root-cause fixes first. |
@@ -1275,9 +1275,45 @@ off a real page. There is a unit test for exactly that.
 3 of 4 and the new functional test 4 of 5, while the 200-page control passes either way. On DDEV the
 loop is closed at every depth and all sampled 200 pages keep their canonicals.
 
-**Still to do:** deploy Dev → Test → Live, re-run the three-step reproduction on each, then re-run
-`cloudflare-404-volume-check.sh` and the per-cycle depth query. Volume decays as SemrushBot's stored
-URLs age out rather than dropping instantly.
+### Deployed 2026-07-30 — and it caught a second, larger defect
+
+Shipped Dev → Test → Live as master `20b18a47e1`, with a Live database backup taken immediately
+before. The three-pass reproduction returns zero canonical tags and zero deeper encoding on all
+three environments; every sampled 200 page keeps its canonical, including
+`/es/taller%20de%20imprenta`, which stays single-encoded. Evidence:
+`docs/evidence/canonical-404-encoding-loop/60-post-deploy.txt`.
+
+**F-18 — `ensure-patches.php` has never verified anything.** The first Dev build shipped
+`drupal/token` **unpatched** while the guard printed all-clear and exited 0. `core/bigpipe` and
+`klaro` were correctly patched, isolating it to the newly added patch — precisely the build-cache
+skip the guard exists to prevent.
+
+Cause: it used `git -C <install_path> apply -pN`. `git apply` resolves patched paths against the
+**repository toplevel**, and per `git-apply(1)` *"when running from a subdirectory in a repository,
+patched paths outside the directory are ignored"*. For a package-relative patch git printed
+`Skipped patch 'src/…'` and exited **0 in both directions**; the reverse-apply check is tested
+first, so it always won and every patch in the lockfile was reported "OK (already applied)"
+whatever the real state was. Reproduced locally: revert the file, run the guard, it reports OK and
+exits 0 with the file demonstrably unpatched.
+
+Fixed in `4bf266274d` (PR #163) using `patch(1)` with an explicit `--forward` — which refuses an
+already-applied patch instead of silently reversing it, the ambiguity the original git-apply
+comment was written to avoid — plus a post-apply re-verification. Verified in all three states:
+already-applied → OK; unpatched → **APPLIED**; stale hunks → **exit 1**. The next build applied the
+token patch on all three environments.
+
+**This is why the fix ships in two layers.** Layer 2 is plain module code, deployed correctly, and
+closed the loop on Dev even while the patch was missing.
+
+**Item 6 landed in the same deploy.** `ilas_canonical_base_url` is `https://idaholegalaid.org` on
+Live, and canonicals served on the platform hostname now pin to the apex.
+
+**FU-4 closed as a side effect** — the Test deploy used `--sync-content`, so Test has 99 Spanish
+nodes again (was 0) and can validate multilingual behaviour.
+
+**Still to do:** re-run `cloudflare-404-volume-check.sh` and the per-cycle depth query after a full
+SemrushBot cycle (~4 days). Pre-fix reading in the 07-29→07-31 window: **391 of 872** real zone
+404s, i.e. 45 %. Expect decay rather than an instant drop, as the crawler's stored URLs age out.
 
 ### `/cdn-cgi/content` — closed, no action
 
