@@ -214,6 +214,13 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
+      // Drop 405 Method Not Allowed client errors (bots GETting POST-only
+      // routes, e.g. /donation-inquiry/submit). The router already rejected
+      // the request correctly; a 405 is never an application defect (PHP-Z).
+      if (static::isMethodNotAllowedClientNoise($sentryEvent, $hint)) {
+        return NULL;
+      }
+
       return static::scrubEvent($sentryEvent);
     };
   }
@@ -691,6 +698,48 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
       if (static::isMalformedAggregateAssetUrl($url)) {
         return TRUE;
       }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Checks if the event is a 405 Method Not Allowed client error.
+   *
+   * A 405 means the router matched an existing route but correctly rejected
+   * an unsupported HTTP method (with an Allow header) — client misuse by
+   * definition, typically bots GETting POST-only endpoints such as
+   * /donation-inquiry/submit (PHP-Z). This applies to all paths on purpose:
+   * path-scoping just moves the noise to the next probed POST-only route.
+   * Unhandled 405s (mechanism handled=false) still reach Sentry.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   * @param \Sentry\EventHint|null $hint
+   *   Additional exception context supplied by the Sentry SDK.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as 405 client noise.
+   */
+  public static function isMethodNotAllowedClientNoise(Event $sentryEvent, ?EventHint $hint = NULL): bool {
+    $methodNotAllowedClass = 'Symfony\\Component\\HttpKernel\\Exception\\MethodNotAllowedHttpException';
+
+    if ($hint?->exception instanceof $methodNotAllowedClass) {
+      return self::isHandledExceptionEvent($sentryEvent);
+    }
+
+    foreach ($sentryEvent->getExceptions() as $exceptionBag) {
+      if ($exceptionBag->getType() === $methodNotAllowedClass) {
+        return self::isHandledExceptionEvent($sentryEvent);
+      }
+    }
+
+    // Watchdog-forwarded message events from core's 'client error' channel
+    // carry the exception class in the formatted message instead of an
+    // exception bag.
+    if ($sentryEvent->getLogger() === 'client error') {
+      $haystack = ($sentryEvent->getMessage() ?? '') . ' ' . ($sentryEvent->getMessageFormatted() ?? '');
+      return str_contains($haystack, 'MethodNotAllowedHttpException');
     }
 
     return FALSE;

@@ -245,6 +245,26 @@ final class LlmEnhancerHardeningTest extends TestCase {
   }
 
   /**
+   * Pins the intent schema to the bare Cohere v2 shape (PHP-6B regression).
+   *
+   * Cohere's /v2/chat response_format.schema rejects OpenAI-style
+   * {name, schema} wrappers with HTTP 400, so the builder must return the
+   * JSON schema itself.
+   */
+  public function testIntentResponseSchemaIsBareCohereJsonSchema(): void {
+    $enhancer = $this->buildEnhancer(['llm.enabled' => TRUE], new StaticRequestTimeTransport(TRUE, ['payload' => ['intent' => 'faq']]));
+    $method = new \ReflectionMethod($enhancer, 'buildIntentResponseSchema');
+    $schema = $method->invoke($enhancer);
+
+    $this->assertIsArray($schema);
+    $this->assertSame('object', $schema['type'] ?? NULL);
+    $this->assertSame(['intent'], $schema['required'] ?? NULL);
+    $this->assertArrayHasKey('intent', $schema['properties'] ?? []);
+    $this->assertArrayNotHasKey('name', $schema);
+    $this->assertArrayNotHasKey('schema', $schema);
+  }
+
+  /**
    *
    */
   private function buildEnhancer(

@@ -72,7 +72,7 @@ class CohereLlmTransport implements RequestTimeLlmTransportInterface {
         'safety_mode' => $options['safety_mode'] ?? 'CONTEXTUAL',
         'response_format' => [
           'type' => 'json_object',
-          'json_schema' => $schema,
+          'schema' => $schema,
         ],
       ],
       'timeout' => (float) ($options['timeout'] ?? 5.0),

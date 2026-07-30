@@ -30,7 +30,8 @@ interface RequestTimeLlmTransportInterface {
    * @param array<int, array<string, mixed>> $messages
    *   Provider-normalized chat messages.
    * @param array<string, mixed> $schema
-   *   JSON schema for the response object.
+   *   Bare JSON schema for the response object (top-level type "object";
+   *   no provider-specific wrapper such as OpenAI's {name, schema}).
    * @param array<string, mixed> $options
    *   Provider-neutral request options.
    *
