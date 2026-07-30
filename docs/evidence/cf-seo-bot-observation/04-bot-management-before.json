@@ -1,0 +1,24 @@
+{
+  "result": {
+    "enable_js": true,
+    "optimize_wordpress": false,
+    "suppress_session_score": false,
+    "sbfm_likely_automated": "managed_challenge",
+    "sbfm_definitely_automated": "block",
+    "sbfm_verified_bots": "allow",
+    "sbfm_static_resource_protection": true,
+    "ai_bots_protection": "block",
+    "content_bots_protection": "disabled",
+    "crawler_protection": "enabled",
+    "ai_training": "block",
+    "ai_search": "disabled",
+    "ai_user": "disabled",
+    "is_robots_txt_managed": false,
+    "cf_robots_variant": "off",
+    "ai_bots_migration_opt_out": false,
+    "using_latest_model": true
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}

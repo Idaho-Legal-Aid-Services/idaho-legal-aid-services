@@ -63,6 +63,50 @@ Contract tests in `SentryPayloadContractTest.php` enforce that these constants m
 
 Contract tests in `observability-assistant-error.test.js` and `observability-noise-filter.test.js` enforce the browser payload and replay boundary.
 
+## Scripted / Non-Browser Access Posture
+
+Canonical allow/block posture at the Cloudflare edge for `idaholegalaid.org`
+(zone `7aef3c4adc977c9f645472338b031450`, Business Website). Recorded here per validation
+report §8.8 so future reviewers do not re-litigate it. Measured evidence — 14-day counts,
+per-consumer breakdowns, and the reasoning behind each row — lives in
+[`browser-spoofing-and-scripted-access-analysis.md`](browser-spoofing-and-scripted-access-analysis.md);
+do not duplicate numbers here.
+
+| Path / consumer | Posture | Mechanism |
+|---|---|---|
+| `/robots.txt`, `/.well-known/security.txt` (GET) | **Allowed to any client** — verified 200 | Skip rule `92082bed` (skips SBFM, BIC, security level) |
+| `/assistant/api/session/bootstrap` (GET) | **Allowed** | Skip rule `db42c4d6` (SBFM skip) |
+| Search engines — Googlebot, bingbot, Baiduspider, DuckDuckBot | **Allowed** | Verified-bot skip `64fae5be`, category `Search Engine Crawler` |
+| **Better Stack, UptimeRobot** | **Allowed — load-bearing** | Verified-bot skip `64fae5be`, category `Monitoring & Analytics` |
+| Social previews — facebookexternalhit, Twitterbot, Slack, Iframely | **Allowed** | Verified-bot skip `64fae5be`, category `Page Preview` |
+| Accessibility tooling | **Allowed** | Verified-bot skip `64fae5be`, category `Accessibility` |
+| Email / security scanners (incl. `MSOffice 16`) | **Allowed** | Verified-bot skip `64fae5be`, category `Security` |
+| Webhooks | **Allowed** | Verified-bot skip `64fae5be`, category `Webhooks` |
+| `/sitemap.xml` | **200 to verified bots; 403 to unverified scripted clients** | No skip rule. Indexing unaffected. **No skip added** — §8.8's "only if a real consumer is identified" was not met; the blocked clients are spoofing traffic, AI crawlers blocked by policy, and anonymous clients. |
+| Taxonomy-term RSS feeds (`/taxonomy/term/{tid}/feed`, incl. `/es/`, `/nl/`, `/sw/`) | **200 to verified crawlers; 403 to plain scripted clients** | No skip rule. No feed *reader* consumer identified. If a partner reports a broken subscription, start from the analysis doc §5.3. |
+| Public PDFs | **Allowed** | ⚠️ SBFM `023ec3b3` ("likely automated, static resources", challenge) **does hit PDFs** — the control most likely to affect legitimate document access |
+| AI crawlers (GPTBot, ClaudeBot, etc. for training) | **403 by policy** | `ai_training=block`; `web/robots.txt` Content-Signal + Disallow groups. Intentional. |
+| AI assistants / AI search | **Allowed** | AI policy `ai_user` / `ai_search`, not by bot bypass |
+| Generic scripted clients — `curl`, `axios`, `python-requests`, `Go-http-client` | **403 by design** | TLS/HTTP2 fingerprint, not IP. Working as intended; no breakage reported. |
+| Donation / employment integrations | **Unaffected** | Inbound only |
+| `Archiver` (`archive.org_bot`), `Aggregator` (`Pinterestbot`) | **Reaching content today, but not skipped** | Not in `64fae5be`'s retained category list. No adverse action observed. Recorded, not changed. |
+
+**Do not remove `Monitoring & Analytics` from skip rule `64fae5be`.** It is what keeps the
+site's own uptime monitoring working. Note also that a verified monitoring bot on this zone
+uses a plain `python-requests` client — permitted by *category*, which is why scripted access
+must not be reasoned about by user-agent family.
+
+Cloudflare recategorises verified bots without notice, and a silent recategorisation is the
+most likely way this posture breaks. Both
+`scripts/observability/cloudflare-seo-bot-observation.sh` and
+`scripts/observability/cloudflare-browser-spoofing-analysis.sh` carry a cross-category
+integrity check for exactly this; run either after any Cloudflare bot-management change.
+
+**Browser-spoofing enforcement: none.** No rule targets browser-spoofing automation, in any
+mode. The population is identified and ~99 % already absorbed by SBFM and AI Labyrinth; two
+of §8.7's mandatory gates (JA4 comparison, Log-mode observation) are unavailable on this
+plan. See the analysis doc §7 before proposing one.
+
 ## Verification Checklist
 - Local:
   - `ddev restart`

@@ -1,0 +1,79 @@
+{
+  "result": {
+    "id": "7aef3c4adc977c9f645472338b031450",
+    "name": "idaholegalaid.org",
+    "status": "active",
+    "paused": false,
+    "type": "full",
+    "development_mode": 0,
+    "name_servers": [
+      "mark.ns.cloudflare.com",
+      "monroe.ns.cloudflare.com"
+    ],
+    "original_name_servers": [
+      "ara.ns.cloudflare.com",
+      "carl.ns.cloudflare.com"
+    ],
+    "original_registrar": "network solutions, llc (id: 2)",
+    "original_dnshost": null,
+    "modified_on": "2025-02-16T19:03:43.166554Z",
+    "created_on": "2025-02-10T20:30:39.985373Z",
+    "activated_on": "2025-02-11T19:41:53.114403Z",
+    "vanity_name_servers": [],
+    "vanity_name_servers_ips": [],
+    "meta": {
+      "step": 2,
+      "custom_certificate_quota": 1,
+      "page_rule_quota": 50,
+      "phishing_detected": false
+    },
+    "owner": {
+      "id": null,
+      "type": "user",
+      "email": null
+    },
+    "account": {
+      "id": "912136cf448e249040e2e78ae2308872",
+      "name": "Evancurry@idaholegalaid.org's Account"
+    },
+    "tenant": {
+      "id": null,
+      "name": null
+    },
+    "tenant_unit": {
+      "id": null
+    },
+    "permissions": [
+      "#dns_records:edit",
+      "#dns_records:read",
+      "#waf:read",
+      "#waf:edit",
+      "#zone_settings:edit",
+      "#zone_settings:read",
+      "#page_shield:read",
+      "#ssl:read",
+      "#page_shield:edit",
+      "#zone:edit",
+      "#zone:read",
+      "#logs:edit",
+      "#logs:read",
+      "#cache_purge:edit",
+      "#analytics:read"
+    ],
+    "plan": {
+      "id": "1ac039f6c29b691475c3d74fe588d1ae",
+      "name": "Business Website",
+      "price": 0,
+      "currency": "USD",
+      "frequency": "",
+      "is_subscribed": true,
+      "can_subscribe": false,
+      "legacy_id": "business",
+      "legacy_discount": false,
+      "externally_managed": false
+    }
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}

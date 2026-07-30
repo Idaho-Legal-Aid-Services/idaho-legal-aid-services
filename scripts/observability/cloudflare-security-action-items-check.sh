@@ -163,7 +163,7 @@ done
 for phase in http_request_firewall_custom http_ratelimit; do
   echo "phase=${phase}"
   api_get "${base}/rulesets/phases/${phase}/entrypoint" \
-    | jq -r '.result.rules[]? | select((.ref // "") | test("^ilas_auth_|^fcfe|^ccc|^468|^de59")) | "rule ref=\(.ref // "") enabled=\(.enabled) action=\(.action) desc=\(.description // "")"'
+    | jq -r '.result.rules[]? | select((.ref // "") | test("^ilas_auth_|^ilas_seo_|^ilas_skip_|^64fae5be|^fcfe|^ccc|^468|^de59")) | "rule ref=\(.ref // "") enabled=\(.enabled) action=\(.action) desc=\(.description // "")"'
 done
 
 echo "account_ip_lists="

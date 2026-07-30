@@ -1,0 +1,242 @@
+{
+  "entries": [
+    {
+      "old_path": "sites/idaholegalaid.org/files/Protections for Debit Card and Electronic Transactions Fact Sheet.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/debit-card-electronic-transactions-protections-fact-sheet.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/mortgage_interestonly.pdf",
+      "proposed_destination": "/forms",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/What is Community Property Guide - FINAL.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/community-property-guide.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/MANUFACTURED HOMES.brochure.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/advice-for-renters-manufactured-homes.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/Caregiving Brochure - Final.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/caregiving-brochure.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/Decision Making As We Age Brochure.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/decision-making-as-we-age-brochure.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/bankruptcy brochure english.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/bankruptcy-brochure.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/What is Normal Wear and Tear Guide.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/normal-wear-tear-guide.pdf",
+      "existing_redirects": []
+    },
+    {
+      "old_path": "sites/idaholegalaid.org/files/LRC Relocation Guide for Domestic Violence Survivors.pdf",
+      "proposed_destination": "/sites/default/files/2025-12/domestic-violence-survivors-relocation-guide.pdf",
+      "existing_redirects": []
+    }
+  ],
+  "leave_404_redirect_counts": {
+    "sites/idaholegalaid.org/files/styles/logo_for_og/public/ilas-logo-100.png": 0,
+    "sites/idaholegalaid.org/files/images/LSClogo_0.jpeg": 0,
+    "sites/idaholegalaid.org/files/ILAS_60x60.jpg": 0
+  },
+  "redirect_404_legacy_rows": [
+    {
+      "path": "/sites/idaholegalaid.org/files/styles/logo_for_og/public/ilas-logo-100.png?itok=npTm7cvD",
+      "count": "11",
+      "resolved": "1"
+    }
+  ],
+  "redirect_total": 5134,
+  "redirect_legacy_prefix_total": 70,
+  "content_entities_changed": 0,
+  "content_entities_changed_evidence": "Whole-database scan of all text/varchar/blob columns found zero current-content rows containing \"sites/idaholegalaid.org/files\". Nothing to revise, so no content revisions are created. See docs/legacy-file-content-owner-review.md.",
+  "deferred_content_baseline": [
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "88",
+      "revision_id": "4191",
+      "bundle": "external_resource",
+      "langcode": "en",
+      "delta": "0",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/housing-guide-for-tenants",
+      "field_external_link_title": "Tenant Guide in English"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "88",
+      "revision_id": "4191",
+      "bundle": "external_resource",
+      "langcode": "en",
+      "delta": "1",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/gui%CC%81a-de-vivienda-para-inquilinos",
+      "field_external_link_title": "Tenant Guide in Spanish/Espanol"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "801",
+      "revision_id": "3386",
+      "bundle": "external_resource",
+      "langcode": "es",
+      "delta": "0",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/housing-guide-for-tenants",
+      "field_external_link_title": "Tenant Guide in English"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "801",
+      "revision_id": "3386",
+      "bundle": "external_resource",
+      "langcode": "es",
+      "delta": "1",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/gui%CC%81a-de-vivienda-para-inquilinos",
+      "field_external_link_title": "Tenant Guide in Spanish/Espanol"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "1064",
+      "revision_id": "3649",
+      "bundle": "external_resource",
+      "langcode": "sw",
+      "delta": "0",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/housing-guide-for-tenants",
+      "field_external_link_title": "Tenant Guide in English"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "1064",
+      "revision_id": "3649",
+      "bundle": "external_resource",
+      "langcode": "sw",
+      "delta": "1",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/gui%CC%81a-de-vivienda-para-inquilinos",
+      "field_external_link_title": "Tenant Guide in Spanish/Espanol"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "1327",
+      "revision_id": "3912",
+      "bundle": "external_resource",
+      "langcode": "nl",
+      "delta": "0",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/housing-guide-for-tenants",
+      "field_external_link_title": "Tenant Guide in English"
+    },
+    {
+      "table": "paragraph__field_external_link",
+      "entity_id": "1327",
+      "revision_id": "3912",
+      "bundle": "external_resource",
+      "langcode": "nl",
+      "delta": "1",
+      "field_external_link_uri": "https://www.idaholegalaid.org/files/html/gui%CC%81a-de-vivienda-para-inquilinos",
+      "field_external_link_title": "Tenant Guide in Spanish/Espanol"
+    },
+    {
+      "table": "paragraph__field_accordion_body",
+      "entity_id": "132",
+      "revision_id": "2797",
+      "bundle": "accordion_item",
+      "langcode": "en",
+      "delta": "0",
+      "field_accordion_body_value": "<p>This brochure was created by Idaho Legal Aid Services and provides general legal advice to seniors regarding Power of Attorneys, Living Wills, Wills, etc.&nbsp;</p><p>We have also created a guided informational program relating to End of Life Planning in Idaho. These guides are available in English and Spanish and can be accessed via the links below.</p><p><a href=\"https://www.idaholegalaid.org/files/html/end-of-life-planning\">End of Life Planning Module - English</a></p><p><a href=\"https://www.idaholegalaid.org/files/html/planificacio%CC%81n-para-el-final-de-la-vida\">End of Life Planning Module - Spanish</a></p>"
+    },
+    {
+      "table": "paragraph__field_accordion_body",
+      "entity_id": "760",
+      "revision_id": "3345",
+      "bundle": "accordion_item",
+      "langcode": "en",
+      "delta": "0",
+      "field_accordion_body_value": "<p>This brochure was created by Idaho Legal Aid Services and provides general legal advice to seniors regarding Power of Attorneys, Living Wills, Wills, etc.&nbsp;</p><p>We have also created a guided informational program relating to End of Life Planning in Idaho. These guides are available in English and Spanish and can be accessed via the links below.</p><p><a href=\"https://www.idaholegalaid.org/files/html/end-of-life-planning\">End of Life Planning Module - English</a></p><p><a href=\"https://www.idaholegalaid.org/files/html/planificacio%CC%81n-para-el-final-de-la-vida\">End of Life Planning Module - Spanish</a></p>"
+    },
+    {
+      "table": "paragraph__field_accordion_body",
+      "entity_id": "1023",
+      "revision_id": "3608",
+      "bundle": "accordion_item",
+      "langcode": "en",
+      "delta": "0",
+      "field_accordion_body_value": "<p>This brochure was created by Idaho Legal Aid Services and provides general legal advice to seniors regarding Power of Attorneys, Living Wills, Wills, etc.&nbsp;</p><p>We have also created a guided informational program relating to End of Life Planning in Idaho. These guides are available in English and Spanish and can be accessed via the links below.</p><p><a href=\"https://www.idaholegalaid.org/files/html/end-of-life-planning\">End of Life Planning Module - English</a></p><p><a href=\"https://www.idaholegalaid.org/files/html/planificacio%CC%81n-para-el-final-de-la-vida\">End of Life Planning Module - Spanish</a></p>"
+    },
+    {
+      "table": "paragraph__field_accordion_body",
+      "entity_id": "1286",
+      "revision_id": "3871",
+      "bundle": "accordion_item",
+      "langcode": "en",
+      "delta": "0",
+      "field_accordion_body_value": "<p>This brochure was created by Idaho Legal Aid Services and provides general legal advice to seniors regarding Power of Attorneys, Living Wills, Wills, etc.&nbsp;</p><p>We have also created a guided informational program relating to End of Life Planning in Idaho. These guides are available in English and Spanish and can be accessed via the links below.</p><p><a href=\"https://www.idaholegalaid.org/files/html/end-of-life-planning\">End of Life Planning Module - English</a></p><p><a href=\"https://www.idaholegalaid.org/files/html/planificacio%CC%81n-para-el-final-de-la-vida\">End of Life Planning Module - Spanish</a></p>"
+    }
+  ],
+  "captured_at": "2026-07-29T13:16:43-06:00",
+  "created_rids": [
+    5157,
+    5158,
+    5160,
+    5161,
+    5162,
+    5163,
+    5164,
+    5165
+  ],
+  "backup": {
+    "element": "db",
+    "filename": "idaho-legal-aid-services_live_2026-07-29T19-14-10_UTC_database.sql.gz",
+    "created": "2026-07-29T19:15:19Z",
+    "expiry": "2027-07-29",
+    "command": "terminus backup:create idaho-legal-aid-services.live --element=db"
+  },
+  "before_url_matrix": {
+    "probed_via": "https://live-idaho-legal-aid-services.pantheonsite.io (Cloudflare WAF 403s the operator IP)",
+    "result": "all 9 actionable rows and all 3 intentional-404 rows returned 404, 0 redirect hops"
+  },
+  "applied_at": "2026-07-29T19:30:00Z",
+  "redirect_legacy_prefix_total_after": 78,
+  "rid_map": {
+    "5157": "Protections for Debit Card and Electronic Transactions Fact Sheet.pdf",
+    "5158": "What is Community Property Guide - FINAL.pdf",
+    "5160": "Caregiving Brochure - Final.pdf",
+    "5161": "Decision Making As We Age Brochure.pdf",
+    "5162": "bankruptcy brochure english.pdf",
+    "5163": "What is Normal Wear and Tear Guide.pdf",
+    "5164": "LRC Relocation Guide for Domestic Violence Survivors.pdf",
+    "5165": "mortgage_interestonly.pdf"
+  },
+  "deferred_after_verification": {
+    "row": "MANUFACTURED HOMES.brochure.pdf",
+    "rid_created_then_removed": 5159,
+    "reason": "Verification showed the report destination advice-for-renters-manufactured-homes.pdf carries XMP ModifyDate 2013-09-05, seven years OLDER than the legacy file it replaces (2020-02-24), while a newer manufactured-homes document (manufactured-homes-advice-renters.pdf, 2025-12-23) exists on the site. Redirecting to a superseded edition would breach the brief. Row moved to the content-owner queue; path returns to 404 pending a legal-currency read."
+  },
+  "document_identity": {
+    "byte_identical_to_wayback_original": [
+      "debit-card-electronic-transactions-protections-fact-sheet.pdf",
+      "community-property-guide.pdf",
+      "caregiving-brochure.pdf",
+      "decision-making-as-we-age-brochure.pdf",
+      "bankruptcy-brochure.pdf",
+      "normal-wear-tear-guide.pdf"
+    ],
+    "content_verified_not_archived": [
+      "domestic-violence-survivors-relocation-guide.pdf \u2014 /Title \"Should I Stay or Should I Go\", /Author Deborah Goelman, 13 pages, DV relocation content; unique candidate in the modern file set"
+    ],
+    "page_destination": [
+      "mortgage_interestonly.pdf -> /forms (view.forms_categories.page_1), supersession not substitution"
+    ]
+  },
+  "cache_layers_purged": [
+    "Cloudflare (scripts/observability/cloudflare-purge-urls.sh, 18 URLs apex+www)",
+    "Pantheon Global CDN (terminus env:clear-cache) \u2014 required; the Cloudflare purge alone left a Fastly-cached 404 in place"
+  ]
+}

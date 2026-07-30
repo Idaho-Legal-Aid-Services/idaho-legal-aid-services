@@ -3,6 +3,8 @@
   "name": "idaho-legal-aid-services",
   "description": "Tooling scripts for the Idaho Legal Aid Services Drupal site",
   "scripts": {
+    "cf:seo-observe": "bash scripts/observability/cloudflare-seo-bot-observation.sh",
+    "cf:seo-rollback": "bash scripts/observability/cloudflare-seo-bot-rollback.sh",
     "git:finish": "bash scripts/git/finish.sh",
     "git:publish": "bash scripts/git/publish.sh",
     "git:reconcile-origin": "bash scripts/git/reconcile-origin.sh",
