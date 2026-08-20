@@ -6,6 +6,6 @@
     "generate:deep": "node scripts/generate-deep-convos.js"
   },
   "devDependencies": {
-    "js-yaml": "^4.3.0"
+    "js-yaml": "^5.3.0"
   }
 }
