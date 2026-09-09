@@ -61,8 +61,8 @@ class LlmAdmissionCoordinator {
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function beginRequest(?string $budgetIdentity = NULL): array {
-    return $this->evaluateRequest($budgetIdentity, TRUE);
+  public function beginRequest(?string $budgetIdentity = NULL, array $options = []): array {
+    return $this->evaluateRequest($budgetIdentity, TRUE, $options);
   }
 
   /**
@@ -74,8 +74,20 @@ class LlmAdmissionCoordinator {
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function previewRequest(?string $budgetIdentity = NULL): array {
-    return $this->evaluateRequest($budgetIdentity, FALSE);
+  public function previewRequest(?string $budgetIdentity = NULL, array $options = []): array {
+    return $this->evaluateRequest($budgetIdentity, FALSE, $options);
+  }
+
+  /**
+   * Returns TRUE when trusted eval traffic may skip the per-identity budget.
+   *
+   * Runtime kill switch: cost_control.eval_per_ip_budget_exempt (default
+   * TRUE). The environment gate itself lives in LlmEvalTrafficPolicy.
+   */
+  public function isEvalPerIpExemptionEnabled(): bool {
+    $config = $this->configFactory->get('ilas_site_assistant.settings');
+    $value = $config->get('cost_control.eval_per_ip_budget_exempt');
+    return $value === NULL ? TRUE : (bool) $value;
   }
 
   /**
@@ -85,11 +97,13 @@ class LlmAdmissionCoordinator {
    *   The trusted identity string used for per-IP budgeting.
    * @param bool $reserve
    *   TRUE to reserve capacity, FALSE for a read-only preview.
+   * @param array<string, mixed> $options
+   *   Admission options, such as LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT.
    *
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  protected function evaluateRequest(?string $budgetIdentity, bool $reserve): array {
+  protected function evaluateRequest(?string $budgetIdentity, bool $reserve, array $options = []): array {
     if (!$this->lock->acquire(self::CONTROL_LOCK, self::LOCK_TTL)) {
       return ['allowed' => FALSE, 'reason' => 'concurrency_lock_timeout'];
     }
@@ -109,6 +123,14 @@ class LlmAdmissionCoordinator {
       $identityHash = $normalizedIdentity !== NULL
         ? CostControlPolicy::hashBudgetIdentity($normalizedIdentity)
         : NULL;
+      $perIpExempt = !empty($options[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT])
+        && $this->isEvalPerIpExemptionEnabled();
+      if ($perIpExempt) {
+        // Trusted non-live eval traffic: no per-identity bucket is read,
+        // reserved, or threshold-logged. Daily/monthly/global limits below
+        // still apply and still count these calls.
+        $identityHash = NULL;
+      }
       $perIpBudgets = $this->getPerIpBudgetState($now);
       $perIpBudget = $identityHash !== NULL
         ? ($perIpBudgets[$identityHash] ?? ['count' => 0, 'window_start' => $now])
@@ -183,6 +205,9 @@ class LlmAdmissionCoordinator {
         $perIpBudgets[$identityHash] = $perIpBudget;
         $this->state->set(CostControlPolicy::STATE_KEY_PER_IP, $perIpBudgets);
         $this->logPerIpBudgetThresholds($perIpBudget, $identityHash);
+      }
+      if ($perIpExempt) {
+        $this->logger->info('Per-IP LLM budget bypassed for trusted eval traffic.');
       }
 
       return ['allowed' => TRUE, 'reason' => 'allowed'];

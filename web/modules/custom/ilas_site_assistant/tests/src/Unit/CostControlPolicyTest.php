@@ -9,6 +9,7 @@ use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\CostControlPolicy;
 use Drupal\ilas_site_assistant\Service\LlmAdmissionCoordinator;
 use Drupal\ilas_site_assistant\Service\LlmCircuitBreaker;
+use Drupal\ilas_site_assistant\Service\LlmEvalTrafficPolicy;
 use Drupal\ilas_site_assistant\Service\LlmRateLimiter;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -483,6 +484,55 @@ class CostControlPolicyTest extends TestCase {
     $this->assertFalse($summary['kill_switch_active']);
     $this->assertArrayHasKey(CostControlPolicy::STATE_KEY_PER_IP, $this->storedState);
     $this->assertNull($this->storedState[CostControlPolicy::STATE_KEY_PER_IP]);
+  }
+
+  /**
+   * Trusted eval traffic skips the per-identity bucket but still counts globally.
+   */
+  public function testPerIpBudgetExemptOptionSkipsIdentityBucket(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.per_ip_window_seconds' => 3600,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $identity = '198.51.100.10';
+    $options = [LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => TRUE];
+    $this->assertTrue($policy->beginRequest($identity, $options)['allowed']);
+    $this->assertTrue($policy->beginRequest($identity, $options)['allowed']);
+
+    $this->assertArrayNotHasKey(CostControlPolicy::STATE_KEY_PER_IP, $this->storedState, 'Exempt traffic must not touch per-IP state.');
+    $this->assertSame(2, $this->storedState[CostControlPolicy::STATE_KEY_DAILY]['count'] ?? NULL, 'Daily budget must still count exempt calls.');
+    $this->assertSame(2, $this->storedState[CostControlPolicy::STATE_KEY_MONTHLY]['count'] ?? NULL, 'Monthly budget must still count exempt calls.');
+    foreach ($this->logMessages as $log) {
+      $this->assertStringNotContainsString('Per-IP LLM budget at', $log['message'], 'No per-IP threshold logging for exempt traffic.');
+      $this->assertStringNotContainsString('Per-IP LLM budget exhausted', $log['message'], 'No per-IP exhaustion logging for exempt traffic.');
+    }
+    $this->assertLogContains('info', 'bypassed for trusted eval traffic');
+
+    // A non-exempt call from the same identity is still budgeted normally.
+    $this->assertTrue($policy->beginRequest($identity)['allowed']);
+    $denied = $policy->beginRequest($identity);
+    $this->assertFalse($denied['allowed']);
+    $this->assertSame('per_ip_budget_exceeded', $denied['reason']);
+  }
+
+  /**
+   * The runtime kill switch disables the exemption without a deploy.
+   */
+  public function testPerIpBudgetExemptOptionHonoursKillSwitch(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'cost_control.per_ip_hourly_call_limit' => 1,
+      'cost_control.eval_per_ip_budget_exempt' => FALSE,
+      'llm.global_rate_limit.max_per_hour' => 0,
+    ]);
+
+    $identity = '198.51.100.10';
+    $options = [LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => TRUE];
+    $this->assertTrue($policy->beginRequest($identity, $options)['allowed']);
+    $denied = $policy->beginRequest($identity, $options);
+    $this->assertFalse($denied['allowed']);
+    $this->assertSame('per_ip_budget_exceeded', $denied['reason']);
   }
 
   // ---------------------------------------------------------------

@@ -789,6 +789,9 @@ ilas_site_assistant.settings:
         manual_kill_switch:
           type: boolean
           label: 'Manual kill switch for LLM calls'
+        eval_per_ip_budget_exempt:
+          type: boolean
+          label: 'Exempt promptfoo/eval traffic (X-ILAS-Eval-Run-ID) from the per-identity LLM budget on non-live environments'
         pricing:
           type: mapping
           label: 'LLM pricing for cost estimation'

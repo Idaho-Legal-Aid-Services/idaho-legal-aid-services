@@ -394,6 +394,7 @@ cost_control:
   cache_hit_rate_target: 0.30
   cache_stats_window_seconds: 86400
   manual_kill_switch: false
+  eval_per_ip_budget_exempt: true
   pricing:
     model: 'command-a-03-2025'
     input_per_1m_tokens: 2.50

@@ -15,6 +15,7 @@ use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
+use Drupal\ilas_site_assistant\Service\LlmEvalTrafficPolicy;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
 use Drupal\ilas_site_assistant\Service\SelectionRegistry;
@@ -3177,7 +3178,14 @@ class AssistantApiController extends ControllerBase {
           ],
         ],
         );
-        $llm_classification = $this->llmEnhancer->classifyIntent($user_message, $llm_current_intent, $ip ?: NULL);
+        $llm_admission = [
+          LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => LlmEvalTrafficPolicy::isPerIpBudgetExempt(
+            $request,
+            is_array($data) ? $data : [],
+            $this->environmentDetector,
+          ),
+        ];
+        $llm_classification = $this->llmEnhancer->classifyIntent($user_message, $llm_current_intent, $ip ?: NULL, $llm_admission);
         $llm_route_resolution = ($llm_classification !== 'unknown' && $llm_classification !== 'clarify')
           ? 'rerouted'
           : 'clarify';
@@ -3196,6 +3204,7 @@ class AssistantApiController extends ControllerBase {
           'llm_provider' => $llm_provider,
           'llm_model' => $llm_model,
           'llm_route_resolution' => $llm_route_resolution,
+          'llm_per_ip_budget_exempt' => (bool) $llm_admission[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT],
         ]);
         // Always update the public meta so generation provenance is provable
         // even without diagnostics authorization. The privileged diagnostics

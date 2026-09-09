@@ -228,7 +228,9 @@ final class PhaseThreeObjectiveTwoGateTest extends TestCase {
     $costPolicy = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/CostControlPolicy.php');
     $this->assertStringContainsString('class CostControlPolicy', $costPolicy);
     $this->assertStringContainsString('public function isRequestAllowed(?string $budgetIdentity = NULL): array', $costPolicy);
-    $this->assertStringContainsString('public function beginRequest(?string $budgetIdentity = NULL): array', $costPolicy);
+    // beginRequest() carries admission options (LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT)
+    // so trusted non-live eval traffic can skip the per-identity bucket.
+    $this->assertStringContainsString('public function beginRequest(?string $budgetIdentity = NULL, array $options = []): array', $costPolicy);
     $this->assertStringContainsString('public function evaluateKillSwitch(): array', $costPolicy);
     $this->assertStringContainsString('public function estimateCost(array $tokenUsage): float', $costPolicy);
 

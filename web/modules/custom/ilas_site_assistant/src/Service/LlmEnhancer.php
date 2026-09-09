@@ -8,6 +8,7 @@ use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+use Drupal\ilas_site_assistant\Exception\LlmAdmissionDeniedException;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
@@ -142,10 +143,12 @@ PROMPT;
   /**
    * Classifies an ambiguous request into a canonical deterministic intent.
    */
-  public function classifyIntent(string $query, string $currentIntent = 'unknown', ?string $userIdentifier = NULL): string {
+  public function classifyIntent(string $query, string $currentIntent = 'unknown', ?string $userIdentifier = NULL, array $admissionOptions = []): string {
+    $per_ip_exempt = !empty($admissionOptions[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT]);
     $this->lastRequestMeta = $this->buildBaseRequestMeta('intent_classification') + [
       'enabled' => $this->isEnabled(),
       'current_intent' => $currentIntent,
+      'per_ip_budget_exempt' => $per_ip_exempt,
     ];
 
     if (!$this->isEnabled()) {
@@ -173,7 +176,7 @@ PROMPT;
     }
 
     if ($this->circuitBreaker && !$this->circuitBreaker->isAvailable()) {
-      $this->logger->warning('Skipping request-time LLM classification because the circuit breaker is open.');
+      $this->logCircuitOpenSkip();
       $this->lastRequestMeta['fallback_reason'] = 'circuit_open';
       return $currentIntent;
     }
@@ -186,6 +189,7 @@ PROMPT;
         $this->buildIntentResponseSchema(),
         [
           'user_identifier' => $userIdentifier,
+          LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => $per_ip_exempt,
           'max_tokens' => max(32, min(128, (int) $this->getLlmSetting('max_tokens', 150))),
           // Intent routing is discrete label selection; sampling temperature
           // makes borderline queries route differently between identical
@@ -207,6 +211,22 @@ PROMPT;
       $this->lastRequestMeta['classification'] = $intent;
       $this->lastRequestMeta['route_resolution'] = ($intent !== 'unknown' && $intent !== 'clarify') ? 'rerouted' : 'clarify';
       return $intent;
+    }
+    catch (LlmAdmissionDeniedException $e) {
+      // Local policy decision. Not a provider failure: never feeds the
+      // breaker and never logs at Sentry-visible levels. The admission
+      // coordinator already emitted its single WARNING at the moment the
+      // budget crossed its limit.
+      $this->logger->notice('Request-time LLM budget exceeded or admission denied (@reason); classification skipped without a transport attempt.', [
+        '@reason' => $e->getReason(),
+      ]);
+      $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? $this->buildBaseRequestMeta('intent_classification'), [
+        'success' => FALSE,
+        'transport_attempted' => FALSE,
+        'fallback_reason' => $e->getFallbackReason(),
+        'admission_reason' => $e->getReason(),
+      ]);
+      return $currentIntent;
     }
     catch (\Throwable $e) {
       $this->logger->error('Request-time LLM intent classification failed: @class (HTTP @status) @error_signature', [
@@ -276,6 +296,14 @@ PROMPT;
         'fallback_reason' => $success ? NULL : 'non_canonical_intent',
         'latency_ms' => round((microtime(TRUE) - $started) * 1000, 1),
         'usage' => $this->lastUsage ?? [],
+      ]);
+    }
+    catch (LlmAdmissionDeniedException $e) {
+      return array_merge($base, $this->lastRequestMeta ?? [], [
+        'success' => FALSE,
+        'fallback_reason' => $e->getFallbackReason(),
+        'admission_reason' => $e->getReason(),
+        'latency_ms' => round((microtime(TRUE) - $started) * 1000, 1),
       ]);
     }
     catch (\Throwable $e) {
@@ -364,11 +392,21 @@ PROMPT;
     );
 
     if ($this->costControlPolicy) {
-      $policy_result = $this->costControlPolicy->beginRequest($budget_key);
+      $policy_result = $this->costControlPolicy->beginRequest($budget_key, [
+        LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => !empty($options[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT]),
+      ]);
       if (!is_array($policy_result) || empty($policy_result['allowed'])) {
         $reason = is_array($policy_result) ? (string) ($policy_result['reason'] ?? 'unknown') : 'unknown';
-        $this->lastRequestMeta['fallback_reason'] = 'budget_' . $reason;
-        throw new \RuntimeException('Request-time LLM budget exceeded: ' . $reason);
+        // Local admission decision, not a provider failure. Callers catch
+        // this type ahead of \Throwable so it never reaches the breaker.
+        $exception = new LlmAdmissionDeniedException($reason);
+        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
+          'success' => FALSE,
+          'transport_attempted' => FALSE,
+          'fallback_reason' => $exception->getFallbackReason(),
+          'admission_reason' => $reason,
+        ]);
+        throw $exception;
       }
     }
 
@@ -620,6 +658,48 @@ PROMPT;
   protected function getLlmSetting(string $key, mixed $default = NULL): mixed {
     $value = $this->getAssistantConfig()->get('llm.' . $key);
     return $value ?? $default;
+  }
+
+  /**
+   * Emits the circuit-open skip signal once per open window.
+   *
+   * The first skip inside a given open window logs WARNING (Sentry-visible)
+   * with breaker context; later skips in the same window log NOTICE. Without
+   * a cache backend every skip warns (the pre-throttle behaviour).
+   */
+  protected function logCircuitOpenSkip(): void {
+    $state = $this->circuitBreaker?->getState() ?? [];
+    $opened_at = (int) ($state['opened_at'] ?? 0);
+    $context = [
+      '@breaker_state' => (string) ($state['state'] ?? 'unknown'),
+      '@opened_at' => $opened_at,
+      '@consecutive_failures' => (int) ($state['consecutive_failures'] ?? 0),
+    ];
+    if ($this->shouldEmitCircuitOpenWarning($opened_at)) {
+      $this->logger->warning('Skipping request-time LLM classification because the circuit breaker is open.', $context);
+      return;
+    }
+    $this->logger->notice('Skipping request-time LLM classification because the circuit breaker is open (repeat within open window; state=@breaker_state, opened_at=@opened_at).', $context);
+  }
+
+  /**
+   * Returns TRUE the first time a skip is observed for a given open window.
+   *
+   * Keyed by the breaker's opened_at timestamp: a failed half-open probe
+   * stamps a new opened_at, so a persistent outage still produces one
+   * WARNING per cooldown cycle while duplicates inside a window collapse.
+   */
+  protected function shouldEmitCircuitOpenWarning(int $openedAt): bool {
+    if (!$this->cache || $openedAt <= 0) {
+      return TRUE;
+    }
+    $cid = 'ilas_site_assistant:llm:circuit_open_warned:' . $openedAt;
+    if ($this->cache->get($cid)) {
+      return FALSE;
+    }
+    $cooldown = max(60, (int) $this->getLlmSetting('circuit_breaker.cooldown_seconds', 300));
+    $this->cache->set($cid, TRUE, max(time() + 60, $openedAt + $cooldown));
+    return TRUE;
   }
 
   /**

@@ -112,7 +112,15 @@ class LlmCircuitBreaker {
   }
 
   /**
-   * Records a failed API call (after all retries exhausted).
+   * Records a failed upstream API call (after all retries are exhausted).
+   *
+   * Contract: feed this ONLY genuine transport/provider failures (Guzzle
+   * exceptions, malformed or non-array payloads, retries exhausted). Local
+   * admission denials from CostControlPolicy::beginRequest() (budget, rate
+   * limit, kill switch, breaker cooldown, sampling) are signalled with
+   * \Drupal\ilas_site_assistant\Exception\LlmAdmissionDeniedException and
+   * must never be recorded here; doing so lets one client's budget
+   * exhaustion open the site-wide breaker for everyone.
    */
   public function recordFailure(): void {
     $this->admissionCoordinator->recordCircuitFailure();
