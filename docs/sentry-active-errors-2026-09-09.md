@@ -11,7 +11,7 @@ Org `idaho-legal-aid-services`, project `php` (PHP + browser events share it). S
 | Stale (silent >30 days) | 131 | 64 are CSP "Blocked …" reports (all silent since 07-17); 67 other. Safe to bulk-resolve. |
 | Every July 2026 fix held | — | PHP-5H, 2N, 6B, 8Q, Z, 2M, 4S, 9C/9J, 8G, 8H all silent after their fix/deploy date |
 
-**Six things need a decision or a code change** (A1–A6). Everything else active is third-party noise that should be filtered at the SDK so it stops reaching Sentry, or is known telemetry.
+**Six things need a decision or a code change** (A1–A6). Everything else active is third-party noise that should be filtered at the SDK so it stops reaching Sentry, or is known telemetry. A5 was re-diagnosed later the same day: it is a Cloudflare bot-protection setting breaking pages for public visitors, not admin noise.
 
 ## A. Actionable — new since the July triage
 
@@ -50,15 +50,44 @@ Org `idaho-legal-aid-services`, project `php` (PHP + browser events share it). S
 
 Paragraph 402 was deleted but its tracker row remains in `faq_accordion_vector` on all three environments. It is not the retiring DB content index, so the 08-06 retirement did not cover it. Fix: `drush search-api:reset-tracker faq_accordion_vector` (or `sapi-c` for that index) on each env, then reindex. One-line ops task.
 
-### A5. Admin pages: AJAX asset load failure then "Drupal is not defined" (PHP-AQ, PHP-AP, PHP-A5)
+### A5. Cloudflare challenges CSS/JS/image subrequests for real visitors (PHP-AQ, PHP-AP, PHP-A5) — REVISED 2026-09-09
 
 | ID | Env | Events | Last | Where |
 |---|---|---|---|---|
-| [PHP-AQ](https://idaho-legal-aid-services.sentry.io/issues/7722279454/) | live | 1 | 09-09 17:47 | `/admin/content`: "The following files could not be loaded: /sites/default/files/css/css_…?delta=0&amp;language=en&amp;theme=gin&amp;include=…" |
-| [PHP-AP](https://idaho-legal-aid-services.sentry.io/issues/7722279017/) | live | 1 | 09-09 17:47 | `/admin/dashboard`: ReferenceError: Drupal is not defined (aggregate line 3) |
-| [PHP-A5](https://idaho-legal-aid-services.sentry.io/issues/7671943043/) | dev | 2 | 08-14 | `/node/add/*`: ReferenceError: Drupal is not defined (aggregate line 3) |
+| [PHP-AQ](https://idaho-legal-aid-services.sentry.io/issues/7722279454/) | live | 1 | 09-09 17:47:47 | `/admin/content`: "The following files could not be loaded: /sites/default/files/css/css_cqJQ…?delta=0&amp;language=en&amp;theme=gin&amp;include=…" |
+| [PHP-AP](https://idaho-legal-aid-services.sentry.io/issues/7722279017/) | live | 1 | 09-09 17:47:25 | `/admin/dashboard`: ReferenceError: Drupal is not defined (aggregate line 3) |
+| [PHP-A5](https://idaho-legal-aid-services.sentry.io/issues/7671943043/) | dev | 2 | 08-14 14:27 | `/node/add/*`: ReferenceError: Drupal is not defined (aggregate line 3) |
 
-**Diagnosis.** Admin-only, almost certainly your own sessions (17:47 UTC today, just before the morning Sentry session). The failed CSS URL carries literal `&amp;` between query parameters, so the on-demand aggregate URL was HTML-entity-encoded once too often before the AJAX asset loader fetched it (core `ajax.js` add_css). The dev aggregate at fault for "Drupal is not defined" is the raven-init + Gin toolbar bundle, which is invoked with `Drupal` as an argument, so it fails only when the header bundle that defines `Drupal` did not load. Same failure family. Not user-facing; worth 15 minutes with the browser console open on `/admin/content` and `/admin/dashboard` to catch the 404 and check whether a core patch exists for the `&amp;` case.
+**The first draft of this item was wrong on both mechanism and scope.** It read the `&amp;` in the failed URL as a double-encoded aggregate URL and filed the whole thing as admin-only noise. Neither holds:
+
+- The `&amp;` is produced by core itself. `ajax.js` `add_css` builds the message with `Drupal.t('… @dependencies', …)` and the `@` placeholder runs through `Drupal.checkPlain`, which turns `&` into `&amp;` (`web/core/misc/drupal.js` L244–252 and L282–283; `web/core/misc/ajax.js` L1754–1759). The AJAX `add_css` command carries attribute arrays as JSON, so the `href` the browser fetched had a plain `&`. There is no double-encoding and no core patch to look for.
+- The two live events are the visible tip of a site-wide problem that mostly hits anonymous visitors, who have no Sentry init running early enough to report it.
+
+**Diagnosis (verified against Cloudflare's firewall log, not inferred).** Super Bot Fight Mode has *Static resource protection* enabled (`bot_management.sbfm_static_resource_protection: true`, likely-automated → `managed_challenge`, definitely-automated → `block`). Rule `023ec3b3a7f5…` "Manage likely bots for static resources" challenged three asset requests from the reviewer's own browser (Cable One, Windows/Chrome 152, uid 1):
+
+| UTC | Asset challenged (403 + challenge HTML) | Sentry event |
+|---|---|---|
+| 17:47:23 | `js_m2yIRZ…?scope=footer&delta=1&theme=gin` — first footer aggregate: once, backbone, **drupal.js**, drupal.init.js, … | PHP-AP at 17:47:25. Line 3 col 3564 of the delta-7 aggregate is `})(jQuery, Drupal, drupalSettings)` at the end of `toolbar.menu.js`; `jQuery` survived because core ships `jquery.min.js` with `preprocess: false` (own `<script>`, browser-cached) |
+| 17:47:46 | `css_cqJQ…?delta=0&theme=gin&include=core/drupal.reset-appearance` — BigPipe-streamed `add_css` for Claro's local-task tabs on `/admin/content` | PHP-AQ at 17:47:47 |
+| 17:47:54 | header aggregate delta 1 on the `/admin/content` reload | none (Sentry is not initialised until the footer) |
+
+A `<script>`, `<link>` or `<img>` fetch cannot render or solve a managed challenge, so the browser receives the challenge page body with a 403 and the script never executes; every later script that names `Drupal` bare then throws. Cloudflare only injects its JavaScript detections into HTML responses, so subrequests carry no detection signal, which is why real browsers score "likely automated" on CSS/JS. In the same minute the sibling rule `5ac94856…` "definite bots for static resources" blocked a `symbolicator/26.8.0` request from a Google ASN: Sentry's source fetcher. That is why live JS events have no source context while dev events do.
+
+**Scale.** Firewall events from the two static rules, browser user agents only, on render-critical paths (Drupal aggregates, module/theme JS+CSS, image styles, images, fonts):
+
+| Day | Distinct visitor IPs challenged | Aggregate | Module/theme JS-CSS | Image/font |
+|---|---|---|---|---|
+| 09-07 | 210 | 90 | 31 | 319 |
+| 09-08 | 330 | 208 | 71 | 507 |
+| 09-09 | 288 | 168 | 46 | 417 |
+
+Top networks: Verizon, Comcast, AT&T, Charter, Cox, T-Mobile, Cable One. These visitors got unstyled or non-functional pages. A further ~110 browser-UA IPs/day are blocked on PDFs/DOCs by the definite-bots static rule, which is mostly doing its job (xAI-PDF-Recovery and similar) but also catches browsers.
+
+**PHP-A5 (dev) is a different event.** Two hits on 08-14 14:27 UTC from uid 1 in Chisinau (the maintenance agency's session, four days after their dev code push). Dev is on `pantheonsite.io` with no Cloudflare in front, so the static-resource rule cannot be the cause there; Pantheon's August logs are gone, so it stays unexplained. Leave it open; it reopens as a regression if it recurs.
+
+**Fix (decided 2026-09-09, applied by hand in the Cloudflare dashboard).** Security → Bots → Configure Super Bot Fight Mode → *Static resource protection: Off*. HTML pages, `/search`, `/assistant/*` and the auth routes keep every existing protection; documents lose only the SBFM definite-bots block, while the AI-crawler block, `ai_training=block`, the verified-bot policy and the rate limit stay. `scripts/observability/cloudflare-security-action-items-check.sh` now prints `sbfm_static_resource_protection` (must be `false`) and a 24h count of browser clients challenged on render assets (must be 0). The narrower alternative, a custom Skip rule in phase `http_request_sbfm` for asset paths, was rejected because any path missed from the list still breaks pages.
+
+**Verification.** 24h after the change: checker script shows `sbfm_static_status=ok` and `static_render_asset_status=ok`; `/admin/dashboard` and `/admin/content` load with no 403 on `/sites/default/files/{css,js}/` in DevTools. After 7 quiet days: resolve PHP-AQ and PHP-AP. Then revisit `web/modules/custom/ilas_seo/js/sentry-filters.js`: its `ignoreErrors` entry for `jQuery is not defined` (Sentry #7364900490, attributed to Baiduspider-render) may have been hiding the same challenge landing on `jquery.min.js` for real visitors, and can probably be removed to regain that signal.
 
 ### A6. Widget error reports are titled `[REDACTED]` (PHP-1M)
 
@@ -114,14 +143,15 @@ Bulk-resolve is a write: `PUT /api/0/projects/idaho-legal-aid-services/php/issue
 
 ## Suggested order of work
 
-1. A1 — budget denial must not trip the breaker (code + test). Blocks enabling LLM on live.
-2. A3 — cycle guard in `scrubValue` (tiny).
-3. C — add `deny_urls` / `ignore_errors` to raven browser config, enable Sentry's browser-extension inbound filter.
-4. A4 — reset the `faq_accordion_vector` tracker on live/test/dev.
-5. A2 — decide the freshness policy with content ops.
-6. E — bulk-resolve the 131 stale issues.
-7. A5 / A6 — when convenient.
+1. A1 — budget denial must not trip the breaker (code + test). Blocks enabling LLM on live. DONE 2026-09-09.
+2. A5 — turn off Cloudflare SBFM static-resource protection (dashboard). Visitor-facing: 200–330 IPs/day get challenge pages instead of CSS/JS/images.
+3. A3 — cycle guard in `scrubValue` (tiny).
+4. C — add `deny_urls` / `ignore_errors` to raven browser config, enable Sentry's browser-extension inbound filter.
+5. A4 — reset the `faq_accordion_vector` tracker on live/test/dev.
+6. A2 — decide the freshness policy with content ops.
+7. E — bulk-resolve the 131 stale issues.
+8. A6 — when convenient.
 
 ## Method
 
-Issues API paginated with `statsPeriod=14d` (the only values the endpoint accepts are `''`, `24h`, `14d`), `is:unresolved` / `is:ignored` / `is:resolved`. The 46 issues seen in the last 30 days were enriched with `/issues/{id}/tags/` and `/issues/{id}/events/latest/`. Diagnoses for A1, A2, A3, A6 were verified against the code in this repo; the injected-script conclusion in C rests on identical stack line numbers across different pages. A direct fetch of the live page and of a live JS aggregate from this machine was blocked by Cloudflare ("Attention Required"), so those were not inspected byte-for-byte.
+Issues API paginated with `statsPeriod=14d` (the only values the endpoint accepts are `''`, `24h`, `14d`), `is:unresolved` / `is:ignored` / `is:resolved`. The 46 issues seen in the last 30 days were enriched with `/issues/{id}/tags/` and `/issues/{id}/events/latest/`. Diagnoses for A1, A2, A3, A6 were verified against the code in this repo; A5 was verified against Cloudflare `firewallEventsAdaptive` / `httpRequestsAdaptiveGroups` for the exact second of each browser event (read-only token) and against core's `ajax.js` / `drupal.js`; the injected-script conclusion in C rests on identical stack line numbers across different pages. A direct fetch of the live page and of a live JS aggregate from this machine was blocked by Cloudflare ("Attention Required"), so those were not inspected byte-for-byte.

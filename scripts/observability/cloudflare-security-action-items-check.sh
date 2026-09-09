@@ -10,7 +10,9 @@ Usage: scripts/observability/cloudflare-security-action-items-check.sh [options]
 
 Checks the current state for the Cloudflare Security Action Items triage:
 DMARC, security.txt, robots.txt crawler posture, and optional Cloudflare
-rules/list/bot settings when a read-scoped token is available.
+rules/list/bot settings when a read-scoped token is available, including the
+Super Bot Fight Mode static-resource posture (must stay off) and a 24h count
+of browser clients that were challenged on CSS/JS/image subrequests.
 
 Options:
   --zone NAME        Cloudflare zone name. Default: idaholegalaid.org
@@ -169,3 +171,55 @@ done
 echo "account_ip_lists="
 api_get "https://api.cloudflare.com/client/v4/accounts/${account_id}/rules/lists" \
   | jq -r 'if .success then (.result[]? | select(.kind == "ip") | "list name=\(.name) id=\(.id) items=\(.num_items)") else "unavailable" end'
+
+echo
+echo "== Super Bot Fight Mode static resources =="
+# Static resource protection extends "likely automated" challenges to CSS, JS,
+# image and font subrequests. A <script>/<link>/<img> fetch can never solve a
+# managed challenge, and JS detections only run on HTML responses, so real
+# browsers routinely score "likely automated" on subrequests and receive a 403
+# challenge page in place of the asset: unstyled or non-functional pages for
+# 200-330 visitor IPs per day (2026-09-07..09), surfaced in Sentry as
+# PHP-AP "Drupal is not defined" and PHP-AQ "The following files could not be
+# loaded". Root cause of A5 in docs/sentry-active-errors-2026-09-09.md.
+bot_json="$(api_get "${base}/bot_management" || echo '{"success": false}')"
+static_protection="$(jq -r 'if .success then (.result.sbfm_static_resource_protection | tostring) else "unavailable" end' <<<"$bot_json")"
+echo "sbfm_static_resource_protection=${static_protection}"
+for key in sbfm_likely_automated sbfm_definitely_automated sbfm_verified_bots ai_bots_protection; do
+  echo "${key}=$(jq -r ".result.${key} // \"unavailable\"" <<<"$bot_json")"
+done
+case "$static_protection" in
+  false) echo "sbfm_static_status=ok" ;;
+  true) echo "sbfm_static_status=regression_static_protection_enabled" ;;
+  *) echo "sbfm_static_status=review_required" ;;
+esac
+
+# Security events from the two SBFM static-resource rules in the last 24h,
+# restricted to browser user agents and render-critical paths (Drupal
+# aggregates, module/theme JS+CSS, image styles, images, fonts). Any non-zero
+# count means visitors are receiving challenge pages instead of assets.
+# firewallEventsAdaptive caps at a 3-day span per query; 24h is well inside.
+since="$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+gql_query='query($zone: String!, $since: Time!, $until: Time!) { viewer { zones(filter: {zoneTag: $zone}) { firewallEventsAdaptive(limit: 5000, filter: {datetime_geq: $since, datetime_lt: $until, ruleId_in: ["023ec3b3a7f548f292eaaa89a9a471bd", "5ac94856e22545c0ac580ded156bc052"]}) { action ruleId clientRequestPath userAgent clientIP } } } }'
+gql_body="$(jq -n --arg q "$gql_query" --arg zone "$zone_id" --arg since "$since" --arg until "$until" \
+  '{query: $q, variables: {zone: $zone, since: $since, until: $until}}')"
+events_json="$(curl -fsS -X POST https://api.cloudflare.com/client/v4/graphql \
+  -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+  --data "$gql_body" || true)"
+if [[ -z "$events_json" ]] || [[ "$(jq -r '.errors | length' <<<"$events_json" 2>/dev/null || echo 1)" != "0" ]]; then
+  echo "static_render_asset_challenges_24h=unavailable"
+  echo "static_render_asset_status=review_required"
+else
+  render_events="$(jq '[.data.viewer.zones[0].firewallEventsAdaptive[]?
+      | select(.clientRequestPath | test("/sites/default/files/(css|js)/(css|js)_|^/(core|modules|themes|libraries|profiles)/.*\\.(js|css)$|/files/styles/|\\.(svg|webp|png|jpe?g|gif|ico|woff2?|ttf|otf|eot)$"; "i"))
+      | select(.userAgent | test("bot|spider|crawl|python|curl|Go-http|symbolicator|Recovery|HeadlessChrome"; "i") | not)]' <<<"$events_json")"
+  echo "static_rule_events_24h=$(jq '.data.viewer.zones[0].firewallEventsAdaptive | length' <<<"$events_json")"
+  echo "static_render_asset_challenges_24h=$(jq 'length' <<<"$render_events")"
+  echo "static_render_asset_challenged_ips_24h=$(jq '[.[].clientIP] | unique | length' <<<"$render_events")"
+  if [[ "$(jq 'length' <<<"$render_events")" == "0" ]]; then
+    echo "static_render_asset_status=ok"
+  else
+    echo "static_render_asset_status=visitors_receiving_challenge_pages_for_assets"
+  fi
+fi
