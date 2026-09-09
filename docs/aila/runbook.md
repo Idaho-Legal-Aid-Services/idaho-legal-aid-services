@@ -2722,7 +2722,6 @@ terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-backfill reso
   `entity:paragraph/402:`, `439:`, `453:` on live, and dev's backfill leaves
   live's namespace vector count unchanged.
 
-
 ### TOVR-11 Pinecone retrieval integration hardening verification
 
 - Baseline before the investigation:
@@ -3993,6 +3992,35 @@ Expected Objective #3 result:
 - Governance remains soft alerts only; no stale-result filtering or ranking penalties are introduced.
 - Scope boundaries remain unchanged: no live LLM enablement through Phase 2 and
   no broad platform migration outside the current Pantheon baseline.[^CLAIM-133]
+
+#### Freshness semantics and the content review workflow (PHP-9Z, 2026-09)
+
+Freshness is keyed off a review attestation, not only the last edit:
+
+- Effective timestamp = `max(node changed, field_last_reviewed)`. An edit is an
+  implicit review; a review attests unchanged content. An item is `stale` when
+  the effective timestamp is older than the class `max_age_days` (180).
+- `field_last_reviewed` is a date-only field on `resource`, `standard_page`,
+  `legal_content`, `get_involved`, and `donate` (the bundles the assistant can
+  cite directly or that host FAQ/accordion paragraphs). It is translatable:
+  set it on each language you verified. It is anchored at 12:00 UTC; a
+  future-dated value is ignored (typo guard) and shown as such in the queue.
+- Each retrieval item's `freshness` carries `updated_at`, `reviewed_at`,
+  `effective_at`, `basis` (`reviewed` | `changed` | `unknown`), `age_days`.
+- The stale-ratio alert now reads
+  `... never_reviewed N; by class: faq_lexical=2/2 nr=2; resource_lexical=17/23 nr=23`.
+  `nr` = observations whose source has never been attested. A class with
+  `nr == stale` has simply never been reviewed.
+- Content-ops work list: `/admin/reports/ilas-assistant` → "Source freshness
+  (content review queue)". Stale rows first. To attest: open the node, set
+  **Last reviewed** in the "Content review" sidebar, and **publish** (a draft
+  revision is invisible to retrieval). Do not make cosmetic edits to reset the
+  clock; the attestation is the record.
+- Media documents (PDFs) carry no review field today; they are a small share of
+  observations (`by_retrieval_method.entity_query`). Attach the field to
+  `media.document` if that changes — the helper handles it without code changes.
+- Changing the alert template moves Sentry to a new issue; resolve the old one
+  (PHP-9Z) by hand after deploy and watch the successor.
 
 ### Phase 2 response contract expansion verification (`P2-DEL-01`)
 
