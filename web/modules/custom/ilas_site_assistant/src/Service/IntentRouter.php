@@ -244,11 +244,17 @@ class IntentRouter {
           // Direct office questions for known cities (e.g., "Where is your Boise office?").
           '/\bwhere\s+is\s+(your\s+|the\s+)?(boise|pocatello|twin\s*falls|idaho\s*falls|lewiston|nampa|coeur\s*d\'?alene)\s+office\b/i',
           '/\bdo\s+you\s+have\s+an?\s+office\s+(in|near|at)\s+(boise|pocatello|twin\s*falls|idaho\s*falls|lewiston|nampa|coeur\s*d\'?alene)\b/i',
-          '/\b(donde\s*(esta|queda))\s+(la\s+)?(oficina|ubicacion|direccion)/i',
-          '/\boficina\s+(de|en)\s+(boise|pocatello|twin\s*falls|idaho\s*falls|lewiston|nampa|coeur\s*d\'?alene)\b/i',
-          '/\bhorario\s*de\s*oficina/i',
+          // Spanish: "dónde está(n)/queda(n)/se encuentra(n) (la|las|su|sus…)
+          // oficina(s)/ubicación/dirección". Accents are not stripped before
+          // routing, so the alternations carry accented forms explicitly.
+          '/\b(d[oó]nde\s*(est[aá]n?|queda[n]?|se\s*encuentra[n]?))\s+((la|las|el|los|su|sus|una|tu|tus)\s+)?(oficina[s]?|ubicaci[oó]n(?:es)?|direcci[oó]n(?:es)?)\b/iu',
+          // Spanish: "cuál es la dirección/ubicación/horario …".
+          '/\bcu[aá]l(?:es)?\s+(es|son)\s+(la|las|su|sus)\s+(direcci[oó]n(?:es)?|ubicaci[oó]n(?:es)?|horario[s]?)\b/iu',
+          '/\boficina[s]?\s+(de|en)\s+(boise|pocatello|twin\s*falls|idaho\s*falls|lewiston|nampa|coeur\s*d\'?alene)\b/iu',
+          '/\bhorario[s]?\s*de\s*(la\s*)?oficina[s]?\b/iu',
         ],
-        'keywords' => ['office', 'offices', 'location', 'address', 'visit', 'office_hours', 'oficina', 'horario'],
+        // Keywords stay ASCII: keyword matching runs without the /u modifier.
+        'keywords' => ['office', 'offices', 'location', 'address', 'visit', 'office_hours', 'oficina', 'oficinas', 'ubicacion', 'direccion', 'horario'],
         'weight' => 0.85,
         // Negative anchors: bare-city or anaphoric location statements
         // ("This is in Boise.", "I'm in Ada County.", "It happened in Idaho

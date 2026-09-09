@@ -317,6 +317,42 @@ final class HousingEvictionContinuityGuardTest extends TestCase {
   }
 
   /**
+   * An explicit Spanish office question without a city is a new request.
+   */
+  public function testGuardSkipsExplicitSpanishOfficeQuestionWithoutCity(): void {
+    $applied = AssistantApiController::shouldApplyHousingEvictionContinuityGuard(
+      ['type' => 'offices_contact', 'confidence' => 0.85],
+      self::GENERIC_FOLLOWUP_INTENTS,
+      self::evictionHistory(),
+      self::evictionContextSummary(),
+      'donde estan sus oficinas',
+      FALSE,
+      FALSE,
+    );
+
+    $this->assertFalse($applied, 'Guard must not override an explicit office question during eviction.');
+  }
+
+  /**
+   * Explicit office questions stay office searches even when they name a city.
+   */
+  public function testGuardSkipsExplicitOfficeQuestionEvenWithCity(): void {
+    foreach (['Donde esta la oficina de Boise', 'where is the Boise office'] as $message) {
+      $applied = AssistantApiController::shouldApplyHousingEvictionContinuityGuard(
+        ['type' => 'offices_contact', 'confidence' => 0.85],
+        self::GENERIC_FOLLOWUP_INTENTS,
+        self::evictionHistory(),
+        self::evictionContextSummary(),
+        $message,
+        TRUE,
+        FALSE,
+      );
+
+      $this->assertFalse($applied, sprintf('Guard must not override an explicit office question (%s).', $message));
+    }
+  }
+
+  /**
    * intent_pack_meta_* meta-intents are treated as generic for guard purposes.
    */
   public function testGuardFiresForMetaIntentPackPrefix(): void {

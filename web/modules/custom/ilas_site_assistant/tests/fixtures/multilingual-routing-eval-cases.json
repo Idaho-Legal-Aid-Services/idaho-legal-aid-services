@@ -133,5 +133,49 @@
       "response_mode": "topic",
       "primary_action_url": "/legal-help/family"
     }
+  },
+  {
+    "id": "es-offices-plural",
+    "message": "Donde estan sus oficinas",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "navigation",
+      "response_mode": "navigate",
+      "primary_action_url": "/contact/offices"
+    }
+  },
+  {
+    "id": "es-offices-address",
+    "message": "Cual es la direccion de la oficina",
+    "expected": {
+      "turn_type": "NEW",
+      "decision_type": "continue",
+      "intent_type": "offices_contact",
+      "response_mode": "navigate",
+      "primary_action_url": "/contact/offices"
+    }
+  },
+  {
+    "id": "es-offices-after-housing",
+    "message": "donde estan sus oficinas",
+    "now": 1700000000,
+    "history": [
+      {
+        "role": "user",
+        "text": "mi casero me quiere sacar de mi casa",
+        "intent": "topic_housing_eviction",
+        "area": "housing",
+        "topic": "eviction",
+        "timestamp": 1699999940
+      }
+    ],
+    "expected": {
+      "turn_type": "FOLLOW_UP",
+      "decision_type": "continue",
+      "intent_type": "navigation",
+      "response_mode": "navigate",
+      "primary_action_url": "/contact/offices"
+    }
   }
 ]

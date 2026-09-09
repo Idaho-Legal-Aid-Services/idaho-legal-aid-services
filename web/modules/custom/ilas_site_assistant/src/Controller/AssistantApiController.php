@@ -7003,7 +7003,7 @@ class AssistantApiController extends ControllerBase {
    */
   protected function isOfficeDetailRequest(string $message): bool {
     $normalized = mb_strtolower(trim($message));
-    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt|where|office|closest|nearest|near\s*me|which\s*office|what\s*office|directions?|visit)\b/u', $normalized);
+    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt|where|office|closest|nearest|near\s*me|which\s*office|what\s*office|directions?|visit|oficina[s]?|d[oó]nde|direcci[oó]n(?:es)?|ubicaci[oó]n(?:es)?|horario[s]?|visitar|cerca\s*de\s*m[ií])\b/iu', $normalized);
   }
 
   /**
