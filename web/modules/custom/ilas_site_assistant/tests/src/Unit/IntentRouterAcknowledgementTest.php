@@ -73,6 +73,24 @@ final class IntentRouterAcknowledgementTest extends TestCase {
   }
 
   /**
+   * A Spanglish thank-you still short-circuits to thanks.
+   */
+  public function testSpanglishGraciasRoutesToThanks(): void {
+    $intent = $this->buildRouter()->route('gracias you guys are really helpful');
+
+    $this->assertSame('thanks', $intent['type'] ?? NULL);
+  }
+
+  /**
+   * A full Spanish thank-you routes to thanks.
+   */
+  public function testMuchasGraciasRoutesToThanks(): void {
+    $intent = $this->buildRouter()->route('muchas gracias por la informacion');
+
+    $this->assertSame('thanks', $intent['type'] ?? NULL);
+  }
+
+  /**
    * Builds a router with minimal deterministic stubs.
    */
   private function buildRouter(): IntentRouter {
