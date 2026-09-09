@@ -402,9 +402,7 @@ final class LlmEnhancerAdmissionDenialTest extends TestCase {
     $config->method('get')
       ->willReturnCallback(static fn(string $key): mixed => $values[$key] ?? NULL);
     $factory = $this->createStub(ConfigFactoryInterface::class);
-    $factory->method('get')
-      ->with('ilas_site_assistant.settings')
-      ->willReturn($config);
+    $factory->method('get')->willReturn($config);
     return $factory;
   }
 

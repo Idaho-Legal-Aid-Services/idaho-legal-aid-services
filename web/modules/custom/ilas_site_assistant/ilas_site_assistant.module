@@ -5,6 +5,8 @@
  * Primary module hooks for ILAS Site Assistant module.
  */
 
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -272,8 +274,8 @@ function ilas_site_assistant_mail($key, &$message, $params) {
  * details element (Gin renders the 'advanced' group as the meta sidebar) so
  * editors find it next to Authoring information rather than inside the body.
  */
-function ilas_site_assistant_form_node_form_alter(array &$form, \Drupal\Core\Form\FormStateInterface $form_state): void {
-  $field = \Drupal\ilas_site_assistant\Service\SourceGovernanceService::REVIEW_FIELD;
+function ilas_site_assistant_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
+  $field = SourceGovernanceService::REVIEW_FIELD;
   if (!isset($form[$field]) || !isset($form['advanced'])) {
     return;
   }

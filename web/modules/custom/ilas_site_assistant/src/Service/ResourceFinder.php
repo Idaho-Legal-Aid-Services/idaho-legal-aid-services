@@ -9,9 +9,6 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileUrlGeneratorInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
-use Drupal\ilas_site_assistant\Service\PiiRedactor;
-use Drupal\ilas_site_assistant\Service\RetrievalContract;
-use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\search_api\Entity\Index;
 
 /**
@@ -2257,7 +2254,7 @@ class ResourceFinder {
             'description' => $resource['description'],
             'source' => 'lexical',
             'updated_at' => $resource['updated_at'] ?? NULL,
-          'reviewed_at' => $resource['reviewed_at'] ?? NULL,
+            'reviewed_at' => $resource['reviewed_at'] ?? NULL,
           ];
           break;
         }

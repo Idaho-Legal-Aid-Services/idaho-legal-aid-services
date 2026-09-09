@@ -78,7 +78,7 @@ class AssistantReportController extends ControllerBase {
   /**
    * Node bundles the assistant can cite, keyed to their governance class.
    *
-   * resource nodes are cited directly; the others host FAQ/accordion
+   * Resource nodes are cited directly; the others host FAQ/accordion
    * paragraphs whose citations inherit the host node's freshness.
    */
   protected const REVIEWABLE_BUNDLES = [

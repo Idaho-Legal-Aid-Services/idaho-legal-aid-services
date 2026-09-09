@@ -20,6 +20,9 @@ use Probots\Pinecone\Client as PineconeClient;
 #[Group('ilas_site_assistant')]
 class PineconeDeleteChunkContractTest extends TestCase {
 
+  /**
+   *
+   */
   public function testListVectorsRequestTargetsTheListEndpointWithPrefixAndPagination(): void {
     self::assertTrue(
       class_exists(ListVectors::class),
@@ -45,6 +48,9 @@ class PineconeDeleteChunkContractTest extends TestCase {
     ], $pending_request->query()->all());
   }
 
+  /**
+   *
+   */
   public function testListVectorsOmitsEmptyOptionalParameters(): void {
     $client = new PineconeClient('test-api-key', 'https://example-pinecone.test');
     $client->data();
@@ -53,6 +59,9 @@ class PineconeDeleteChunkContractTest extends TestCase {
     $this->assertSame(['limit' => 100, 'namespace' => 'faq_accordion_vector'], $pending_request->query()->all());
   }
 
+  /**
+   *
+   */
   public function testProviderResolvesChunkIdsByPrefixBeforeDeleting(): void {
     // Source-level checks: the pure bootstrap cannot autoload the AI module
     // base classes these two classes extend.
@@ -76,10 +85,16 @@ class PineconeDeleteChunkContractTest extends TestCase {
     $this->assertStringContainsString('array_chunk($vdbIds, 1000)', $delete_items, 'deleteItems() must respect the 1000-ID Pinecone delete limit.');
   }
 
+  /**
+   *
+   */
   private function repoRoot(): string {
     return dirname(__DIR__, 7);
   }
 
+  /**
+   *
+   */
   private function methodSource(string $source, string $method): string {
     $start = strpos($source, 'public function ' . $method . '(');
     self::assertNotFalse($start, "Method $method not found.");
