@@ -1,0 +1,224 @@
+diff -ruN a/src/Pinecone.php b/src/Pinecone.php
+--- a/src/Pinecone.php	2026-09-09 13:45:01.479568019 -0600
++++ b/src/Pinecone.php	2026-09-09 13:46:40.934197522 -0600
+@@ -8,7 +8,9 @@
+ use Drupal\Core\Logger\LoggerChannelFactoryInterface;
+ use Drupal\Core\Messenger\MessengerInterface;
+ use Drupal\Core\StringTranslation\StringTranslationTrait;
++use Drupal\ai_vdb_provider_pinecone\Request\ListVectors;
+ use Probots\Pinecone\Client as PineconeClient;
++use Saloon\Exceptions\Request\RequestException;
+ 
+ /**
+  * Extends Pinecone with extra calls.
+@@ -333,4 +335,69 @@
+     return [];
+   }
+ 
++  /**
++   * Lists the vector IDs in a namespace whose ID starts with a prefix.
++   *
++   * The AI Search backend stores one vector per chunk under
++   * "<search_api item id>:<chunk>", so deleting an item first has to discover
++   * its chunk IDs. Uses the serverless-only list endpoint and follows
++   * pagination.
++   *
++   * @param string $namespace
++   *   The namespace.
++   * @param string $prefix
++   *   The vector ID prefix.
++   * @param string $index_name
++   *   The index name.
++   * @param int $limit
++   *   Page size (Pinecone allows at most 100).
++   *
++   * @return string[]
++   *   The matching vector IDs. Empty when nothing matches, when the namespace
++   *   does not exist yet, or when the request fails (which is logged).
++   */
++  public function listIdsByPrefix(string $namespace, string $prefix, string $index_name, int $limit = 100): array {
++    $ids = [];
++    $pagination_token = NULL;
++    try {
++      $client = $this->getClientForIndex($index_name);
++      // Switch the connector to the data-plane host of this index.
++      $client->data();
++      do {
++        $response = $client->send(new ListVectors(
++          namespace: $namespace,
++          prefix: $prefix,
++          limit: $limit,
++          paginationToken: $pagination_token,
++        ));
++        $body = $response->array();
++        foreach ($body['vectors'] ?? [] as $vector) {
++          if (!empty($vector['id'])) {
++            $ids[] = (string) $vector['id'];
++          }
++        }
++        $pagination_token = $body['pagination']['next'] ?? NULL;
++      } while (is_string($pagination_token) && $pagination_token !== '');
++    }
++    catch (RequestException $exception) {
++      // A namespace that does not exist yet has nothing to list.
++      if ($exception->getResponse()->status() === 404) {
++        return $ids;
++      }
++      $this->loggerChannelFactory->get('ai_vdb_provider_pinecone')->warning('Listing Pinecone vectors by prefix @prefix in namespace @namespace failed: @exception', [
++        '@prefix' => $prefix,
++        '@namespace' => $namespace,
++        '@exception' => $exception->getMessage(),
++      ]);
++    }
++    catch (\Exception $exception) {
++      $this->loggerChannelFactory->get('ai_vdb_provider_pinecone')->warning('Listing Pinecone vectors by prefix @prefix in namespace @namespace failed: @exception', [
++        '@prefix' => $prefix,
++        '@namespace' => $namespace,
++        '@exception' => $exception->getMessage(),
++      ]);
++    }
++    return array_values(array_unique($ids));
++  }
++
+ }
+diff -ruN a/src/Plugin/VdbProvider/PineconeProvider.php b/src/Plugin/VdbProvider/PineconeProvider.php
+--- a/src/Plugin/VdbProvider/PineconeProvider.php	2026-09-09 13:45:01.479568019 -0600
++++ b/src/Plugin/VdbProvider/PineconeProvider.php	2026-09-09 13:46:40.944704228 -0600
+@@ -410,10 +410,11 @@
+       drupalIds: $item_ids,
+       database: $configuration['database_settings']['database_name'],
+     );
+-    if ($vdbIds) {
++    // Pinecone accepts at most 1000 IDs per delete request.
++    foreach (array_chunk($vdbIds, 1000) as $vdbIdsChunk) {
+       $this->getClient()->deleteFromNamespace(
+         namespace: $configuration['database_settings']['collection'],
+-        ids: $vdbIds,
++        ids: $vdbIdsChunk,
+         index_name: $configuration['database_settings']['database_name'],
+       );
+     }
+@@ -440,18 +441,38 @@
+     string $database = 'default',
+   ): array {
+     // This gets the Pinecone IDs from the Drupal IDs.
++    //
++    // The AI Search embedding strategies store every chunk of an item under
++    // "<drupal id>:<chunk>" (see EmbeddingBase), so an exact-ID fetch of the
++    // Drupal ID never finds them and deletes silently become no-ops. List by
++    // prefix to discover the chunk IDs. The trailing colon keeps
++    // "entity:node/1:" from matching "entity:node/12:0".
++    $ids = [];
++    foreach ($drupalIds as $drupal_id) {
++      $drupal_id = (string) $drupal_id;
++      if ($drupal_id === '') {
++        continue;
++      }
++      $ids = array_merge($ids, $this->getClient()->listIdsByPrefix(
++        namespace: $collection_name,
++        prefix: $drupal_id . ':',
++        index_name: $database,
++      ));
++    }
++
++    // Keep the exact-ID lookup so vectors stored under the bare Drupal ID
++    // (other strategies, legacy data) are still found.
+     $data = $this->fetch(
+       collection_name: $collection_name,
+       ids: $drupalIds,
+       database: $database,
+     );
+-    $ids = [];
+     if (!empty($data)) {
+       foreach ($data as $item) {
+         $ids[] = $item['id'];
+       }
+     }
+-    return $ids;
++    return array_values(array_unique($ids));
+   }
+ 
+   /**
+diff -ruN a/src/Request/ListVectors.php b/src/Request/ListVectors.php
+--- a/src/Request/ListVectors.php	1969-12-31 17:00:00.000000000 -0700
++++ b/src/Request/ListVectors.php	2026-09-09 13:46:40.913184108 -0600
+@@ -0,0 +1,79 @@
++<?php
++
++namespace Drupal\ai_vdb_provider_pinecone\Request;
++
++use Saloon\Enums\Method;
++use Saloon\Http\Request;
++use Saloon\Http\Response;
++use Saloon\Traits\RequestProperties\HasQuery;
++
++/**
++ * Lists the vector IDs in a namespace, optionally filtered by an ID prefix.
++ *
++ * Only Pinecone serverless indexes support this endpoint, which is the only
++ * index type this integration supports.
++ *
++ * @link https://docs.pinecone.io/reference/api/2024-10/data-plane/list
++ */
++class ListVectors extends Request {
++
++  use HasQuery;
++
++  /**
++   * {@inheritdoc}
++   */
++  protected Method $method = Method::GET;
++
++  /**
++   * Constructs the request.
++   *
++   * @param string|null $namespace
++   *   The namespace to list.
++   * @param string|null $prefix
++   *   Only return IDs starting with this prefix.
++   * @param int $limit
++   *   Page size; Pinecone allows at most 100.
++   * @param string|null $paginationToken
++   *   The "pagination.next" token from the previous page.
++   */
++  public function __construct(
++    protected ?string $namespace = NULL,
++    protected ?string $prefix = NULL,
++    protected int $limit = 100,
++    protected ?string $paginationToken = NULL,
++  ) {}
++
++  /**
++   * {@inheritdoc}
++   */
++  protected function defaultQuery(): array {
++    $payload = [
++      'limit' => max(1, min(100, $this->limit)),
++    ];
++    if ($this->namespace !== NULL && $this->namespace !== '') {
++      $payload['namespace'] = $this->namespace;
++    }
++    if ($this->prefix !== NULL && $this->prefix !== '') {
++      $payload['prefix'] = $this->prefix;
++    }
++    if ($this->paginationToken !== NULL && $this->paginationToken !== '') {
++      $payload['paginationToken'] = $this->paginationToken;
++    }
++    return $payload;
++  }
++
++  /**
++   * {@inheritdoc}
++   */
++  public function resolveEndpoint(): string {
++    return '/vectors/list';
++  }
++
++  /**
++   * {@inheritdoc}
++   */
++  public function hasRequestFailed(Response $response): ?bool {
++    return $response->status() !== 200;
++  }
++
++}

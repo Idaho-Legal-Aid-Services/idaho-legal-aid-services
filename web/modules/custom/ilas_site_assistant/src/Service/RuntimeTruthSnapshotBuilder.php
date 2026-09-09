@@ -1169,6 +1169,7 @@ class RuntimeTruthSnapshotBuilder {
       'cache_hit_rate_target' => (float) ($costControl['cache_hit_rate_target'] ?? 0.0),
       'cache_stats_window_seconds' => (int) ($costControl['cache_stats_window_seconds'] ?? 0),
       'manual_kill_switch' => (bool) ($costControl['manual_kill_switch'] ?? FALSE),
+      'eval_per_ip_budget_exempt' => (bool) ($costControl['eval_per_ip_budget_exempt'] ?? TRUE),
       'alert_cooldown_minutes' => (int) ($costControl['alert_cooldown_minutes'] ?? 0),
       'pricing_model' => $this->stringValue($pricing['model'] ?? ''),
     ];

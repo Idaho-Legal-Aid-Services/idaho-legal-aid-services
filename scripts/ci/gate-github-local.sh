@@ -8,7 +8,7 @@
 #
 # This is intentionally separate from gate:publish-local because:
 #   - publish-gate-local mirrors the deploy-bound test gates (PHPUnit, etc.)
-#   - this script mirrors the GitHub-only static-analysis jobs
+#   - this script mirrors the GitHub-only static-analysis + JS unit jobs
 #   - the slow a11y suite gets its own command (gate:a11y-local) — running
 #     a fresh DDEV install in every pre-push would make iteration painful
 #
@@ -49,5 +49,7 @@ run_step "composer phpcs" composer phpcs
 run_step "composer phpstan" composer phpstan
 run_step "widget hardening (P3-EXT-01)" \
   node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs
+run_step "browser observability node tests" \
+  npm run --silent test:assistant:js
 
 echo "=== gate:github-local: PASS ==="

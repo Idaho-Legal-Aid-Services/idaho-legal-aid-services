@@ -15,6 +15,7 @@ use Drupal\ilas_site_assistant\Service\PolicyFilter;
 use Drupal\ilas_site_assistant\Service\AnalyticsLogger;
 use Drupal\ilas_site_assistant\Service\AssistantFlowRunner;
 use Drupal\ilas_site_assistant\Service\LlmEnhancer;
+use Drupal\ilas_site_assistant\Service\LlmEvalTrafficPolicy;
 use Drupal\ilas_site_assistant\Service\FallbackGate;
 use Drupal\ilas_site_assistant\Service\FallbackTreeEvaluator;
 use Drupal\ilas_site_assistant\Service\SelectionRegistry;
@@ -3177,7 +3178,14 @@ class AssistantApiController extends ControllerBase {
           ],
         ],
         );
-        $llm_classification = $this->llmEnhancer->classifyIntent($user_message, $llm_current_intent, $ip ?: NULL);
+        $llm_admission = [
+          LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => LlmEvalTrafficPolicy::isPerIpBudgetExempt(
+            $request,
+            is_array($data) ? $data : [],
+            $this->environmentDetector,
+          ),
+        ];
+        $llm_classification = $this->llmEnhancer->classifyIntent($user_message, $llm_current_intent, $ip ?: NULL, $llm_admission);
         $llm_route_resolution = ($llm_classification !== 'unknown' && $llm_classification !== 'clarify')
           ? 'rerouted'
           : 'clarify';
@@ -3196,6 +3204,7 @@ class AssistantApiController extends ControllerBase {
           'llm_provider' => $llm_provider,
           'llm_model' => $llm_model,
           'llm_route_resolution' => $llm_route_resolution,
+          'llm_per_ip_budget_exempt' => (bool) $llm_admission[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT],
         ]);
         // Always update the public meta so generation provenance is provable
         // even without diagnostics authorization. The privileged diagnostics
@@ -6994,7 +7003,7 @@ class AssistantApiController extends ControllerBase {
    */
   protected function isOfficeDetailRequest(string $message): bool {
     $normalized = mb_strtolower(trim($message));
-    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt|where|office|closest|nearest|near\s*me|which\s*office|what\s*office|directions?|visit)\b/u', $normalized);
+    return (bool) preg_match('/\b(address|location|hours?|open|close|after\s*work|when\s*can\s*i\s*go|walk\s*in|appointment|appt|where|office|closest|nearest|near\s*me|which\s*office|what\s*office|directions?|visit|oficina[s]?|d[oó]nde|direcci[oó]n(?:es)?|ubicaci[oó]n(?:es)?|horario[s]?|visitar|cerca\s*de\s*m[ií])\b/iu', $normalized);
   }
 
   /**
@@ -7983,6 +7992,7 @@ class AssistantApiController extends ControllerBase {
         'stale' => $source_governance['stale'] ?? 0,
         'unknown' => $source_governance['unknown'] ?? 0,
         'missing_source_url' => $source_governance['missing_source_url'] ?? 0,
+        'never_reviewed' => $source_governance['never_reviewed'] ?? 0,
         'stale_ratio_pct' => $source_governance['stale_ratio_pct'] ?? 0.0,
         'unknown_ratio_pct' => $source_governance['unknown_ratio_pct'] ?? 0.0,
         'missing_source_url_ratio_pct' => $source_governance['missing_source_url_ratio_pct'] ?? 0.0,

@@ -4,12 +4,14 @@ status: true
 dependencies:
   config:
     - field.field.node.get_involved.field_impact_quote
+    - field.field.node.get_involved.field_last_reviewed
     - field.field.node.get_involved.field_main_content
     - field.field.node.get_involved.field_sections
     - field.field.node.get_involved.field_subheader
     - node.type.get_involved
   module:
     - content_moderation
+    - datetime
     - paragraphs
     - path
     - text
@@ -31,6 +33,12 @@ content:
     settings:
       rows: 5
       placeholder: ''
+    third_party_settings: {  }
+  field_last_reviewed:
+    type: datetime_default
+    weight: 1
+    region: content
+    settings: {  }
     third_party_settings: {  }
   field_main_content:
     type: text_textarea

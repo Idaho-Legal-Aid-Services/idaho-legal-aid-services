@@ -3,6 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.field.node.legal_content.field_last_reviewed
     - field.field.node.legal_content.field_legal_content_description
     - field.field.node.legal_content.field_legal_content_files
     - field.field.node.legal_content.field_legal_content_image
@@ -16,6 +17,7 @@ dependencies:
     - node.type.legal_content
   module:
     - content_moderation
+    - datetime
     - file
     - link
     - media_library
@@ -31,6 +33,12 @@ content:
   created:
     type: datetime_timestamp
     weight: 2
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_last_reviewed:
+    type: datetime_default
+    weight: 1
     region: content
     settings: {  }
     third_party_settings: {  }

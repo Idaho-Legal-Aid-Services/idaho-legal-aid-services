@@ -126,4 +126,33 @@ final class ConversationContextSummaryTest extends TestCase {
     $this->assertNull($intent);
   }
 
+  /**
+   * An explicit office question is not a housing continuation.
+   */
+  public function testBuildContinuationIntentSkipsSpanishOfficeQuestion(): void {
+    $summaryBuilder = new ConversationContextSummary();
+
+    $intent = $summaryBuilder->buildContinuationIntent(
+      'donde estan sus oficinas',
+      ['type' => 'offices_contact', 'confidence' => 0.85],
+      [
+        'current_topic' => 'housing_eviction',
+        'service_area' => 'housing',
+        'county' => '',
+        'deadline_or_notice' => '',
+        'household_context' => [
+          'children_present' => TRUE,
+          'survivor_safety_mentioned' => FALSE,
+          'disability_mentioned' => FALSE,
+        ],
+        'preferred_language' => 'es',
+        'last_offered_actions' => ['hotline', 'apply'],
+        'unresolved_clarifying_question' => '',
+        'safety_flags' => [],
+      ]
+    );
+
+    $this->assertNull($intent);
+  }
+
 }

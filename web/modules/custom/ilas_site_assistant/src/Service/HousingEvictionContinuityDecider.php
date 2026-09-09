@@ -60,6 +60,14 @@ class HousingEvictionContinuityDecider {
       }
     }
 
+    // An explicit office question ("where is the Boise office", "donde
+    // estan sus oficinas") is a new request, not a location refinement of
+    // the eviction thread, even when it names a city. Only bare-city or
+    // anaphoric replies remain override-eligible for offices_contact.
+    if ($intent_type === 'offices_contact' && self::hasExplicitOfficePhrasing($current_message)) {
+      return FALSE;
+    }
+
     $is_override_eligible = in_array($intent_type, $generic_followup_intents, TRUE)
       || str_starts_with($intent_type, 'intent_pack_meta_')
       || $intent_type === 'offices_contact';
@@ -119,6 +127,13 @@ class HousingEvictionContinuityDecider {
       }
     }
     return FALSE;
+  }
+
+  /**
+   * Returns TRUE when the message explicitly asks about an office.
+   */
+  public static function hasExplicitOfficePhrasing(string $message): bool {
+    return (bool) preg_match('/\b(office|offices|oficina[s]?|ubicaci[oó]n(?:es)?|direcci[oó]n(?:es)?|horario[s]?)\b/iu', $message);
   }
 
 }

@@ -10,6 +10,7 @@ use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\search_api\Entity\Index;
 
 /**
@@ -458,6 +459,7 @@ class FaqIndex {
       if ($cache_key && $this->isVectorOutcomeCacheable($supplement['vector_outcome'])) {
         $this->cache->set($cache_key, $items, time() + self::QUERY_CACHE_TTL, [
           'paragraph_list',
+          'node_list',
           'config:ilas_site_assistant.settings',
         ]);
       }
@@ -481,6 +483,7 @@ class FaqIndex {
       if ($cache_key) {
         $this->cache->set($cache_key, $results, time() + self::QUERY_CACHE_TTL, [
           'paragraph_list',
+          'node_list',
           'config:ilas_site_assistant.settings',
         ]);
       }
@@ -753,6 +756,7 @@ class FaqIndex {
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
     $item['updated_at'] = $parent_info['changed'] ?? NULL;
+    $item['reviewed_at'] = $parent_info['reviewed_at'] ?? NULL;
     $item['source'] = 'lexical';
 
     if ($this->sourceGovernance) {
@@ -892,6 +896,7 @@ class FaqIndex {
           'changed' => method_exists($parent, 'getChangedTime')
             ? (int) $parent->getChangedTime()
             : NULL,
+          'reviewed_at' => SourceGovernanceService::resolveEntityReviewedAt($parent),
           'langcode' => method_exists($parent, 'language') && $parent->language()
             ? $parent->language()->getId()
             : NULL,
@@ -907,6 +912,7 @@ class FaqIndex {
       'title' => NULL,
       'url' => '',
       'changed' => NULL,
+      'reviewed_at' => NULL,
       'langcode' => NULL,
       'topics' => [],
     ];
@@ -1012,6 +1018,7 @@ class FaqIndex {
     $item['url'] = $item['parent_url'] . '#' . $item['anchor'];
     $item['source_url'] = $item['url'];
     $item['updated_at'] = $parent_info['changed'] ?? NULL;
+    $item['reviewed_at'] = $parent_info['reviewed_at'] ?? NULL;
     $item['source'] = 'lexical';
 
     if ($this->sourceGovernance) {
@@ -1937,8 +1944,11 @@ class FaqIndex {
     }
 
     // Cache for 1 hour.
+    // node_list: a review-date attestation on the host node must clear
+    // cached FAQ items, which carry the host's freshness timestamps.
     $this->cache->set('ilas_site_assistant.faq_legacy', $items, time() + 3600, [
       'paragraph_list',
+      'node_list',
     ]);
 
     return $items;

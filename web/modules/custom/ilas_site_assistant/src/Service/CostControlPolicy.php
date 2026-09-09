@@ -108,11 +108,16 @@ class CostControlPolicy {
   /**
    * Atomically evaluates and reserves request admission state.
    *
+   * @param string|null $budgetIdentity
+   *   The trusted identity string used for per-IP budgeting.
+   * @param array<string, mixed> $options
+   *   Admission options, such as LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT.
+   *
    * @return array
    *   Array with 'allowed' (bool) and 'reason' (string).
    */
-  public function beginRequest(?string $budgetIdentity = NULL): array {
-    return $this->admissionCoordinator->beginRequest($budgetIdentity);
+  public function beginRequest(?string $budgetIdentity = NULL, array $options = []): array {
+    return $this->admissionCoordinator->beginRequest($budgetIdentity, $options);
   }
 
   /**

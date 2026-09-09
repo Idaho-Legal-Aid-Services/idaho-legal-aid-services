@@ -47,7 +47,7 @@ class NavigationIntent {
     // "X page" pattern (e.g., "forms page", "donation page", "FAQ page")
     '/\b\w+\s+page\b/i',
     // Spanish.
-    '/\b(donde\s*(encuentro|esta|puedo\s*(encontrar|ver|ir)))\b/i',
+    '/\b(d[oó]nde\s*(encuentro|est[aá]n?|queda[n]?|puedo\s*(encontrar|ver|ir)))\b/iu',
     '/\b(llevame\s*a|muestrame|pagina\s*(de|para|sobre))\b/i',
     '/\b(enlace\s*(a|de|para))\b/i',
   ];
@@ -134,7 +134,7 @@ class NavigationIntent {
       '/\b(how\s*do\s*i\s*(get\s*to|access|navigate|reach)\s*(the|your)?)\b/i',
       '/\b(i\s*need\s*the\s*(page|link|url|site|section))\b/i',
       '/\b(can\s*you\s*(show|direct|point|send)\s*me\s*to)\b/i',
-      '/\b(donde\s*(encuentro|esta|puedo\s*(encontrar|ver|ir)))\b/i',
+      '/\b(d[oó]nde\s*(encuentro|est[aá]n?|queda[n]?|puedo\s*(encontrar|ver|ir)))\b/iu',
       '/\b(llevame\s*a|muestrame|pagina\s*(de|para|sobre))\b/i',
       '/\b(enlace\s*(a|de|para))\b/i',
     ];

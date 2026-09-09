@@ -729,10 +729,14 @@ function inferTopic(data) {
     ? data.active_selection
     : {};
 
+  const publicIntent = data.meta && typeof data.meta === 'object' && data.meta.intent && typeof data.meta.intent === 'object'
+    ? data.meta.intent
+    : {};
+
   return compactObject({
     id: topic.id || activeSelection.button_id || debug.topic_id || null,
     name: topic.name || activeSelection.label || debug.topic_name || null,
-    source: data.route_source || debug.intent_source || debug.route_source || null,
+    source: data.route_source || debug.intent_source || debug.route_source || publicIntent.source || null,
   });
 }
 
@@ -967,6 +971,12 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
   const retrievalAttempted = inferRetrievalAttempted(payload, debug, provenance);
   const generationProvider = inferGenerationProvider(payload, debug);
   const llmUsed = inferGenerationUsed(payload, debug);
+  const generationReason = typeof publicDiagnostics.generation?.reason === 'string'
+    ? publicDiagnostics.generation.reason
+    : null;
+  const llmFallbackAvailability = Object.prototype.hasOwnProperty.call(debug, 'llm_used')
+    ? 'debug'
+    : (typeof publicDiagnostics.generation?.used === 'boolean' ? 'public_generation' : 'unavailable');
   const genericFallback = inferGenericFallback(payload, debug);
   const safetyBlocked = inferSafetyBlocked(payload, safetyClassification);
   const safetyStage = inferSafetyStage(payload, safetyBlocked, llmUsed);
@@ -981,7 +991,7 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
       safety_classification: safetyClassification ? 'debug_or_public' : 'unavailable',
       out_of_scope_classification: outOfScopeClassification ? 'debug_or_public' : 'unavailable',
       fallback_decision: debug.gate_decision ? 'debug' : 'public_inference',
-      llm_fallback: Object.prototype.hasOwnProperty.call(debug, 'llm_used') ? 'debug' : 'unavailable',
+      llm_fallback: llmFallbackAvailability,
       vector_usage: vectorUsed ? 'public_source_class' : 'unavailable',
       voyage_or_rerank: rerankMeta ? 'debug' : 'unavailable',
     },
@@ -993,9 +1003,14 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
     decision_reason: payload.decision_reason || null,
     confidence: normalizeConfidence(payload.confidence),
     route: compactObject({
-      intent: payload.intent_selected || debug.intent_selected || null,
-      intent_confidence: compactNumber(payload.intent_confidence || debug.intent_confidence),
-      source: payload.route_source || debug.intent_source || null,
+      // Top-level and debug fields only exist on local debug runs; hosted
+      // targets publish the label in the always-public meta.intent envelope
+      // (AssistantApiController::recordIntentDiagnostics), so read that last.
+      intent: payload.intent_selected || debug.intent_selected || publicDiagnostics.intent?.selected || null,
+      intent_confidence: compactNumber(
+        payload.intent_confidence ?? debug.intent_confidence ?? publicDiagnostics.intent?.confidence
+      ),
+      source: payload.route_source || debug.intent_source || publicDiagnostics.intent?.source || null,
       topic: inferTopic(payload),
     }),
     citations: {
@@ -1043,12 +1058,17 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
     llm_fallback: {
       used: llmUsed,
       provider: generationProvider,
-      availability: Object.prototype.hasOwnProperty.call(debug, 'llm_used') ? 'debug' : 'unavailable',
+      reason: generationReason,
+      availability: llmFallbackAvailability,
     },
     llm_used: llmUsed,
     generation: {
       provider: generationProvider,
       used: llmUsed,
+      // Server-side classifier outcome (classified, clarify, circuit_open,
+      // budget_<admission reason>, exception, disabled, ...). Advisory only:
+      // lets weekly results show whether cases were graded on the LLM path.
+      reason: generationReason,
       expected: null,
       availability: generationProvider || llmUsed !== null ? 'debug_or_public' : 'unavailable',
     },

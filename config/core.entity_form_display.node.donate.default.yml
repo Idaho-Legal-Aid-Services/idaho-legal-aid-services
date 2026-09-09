@@ -8,11 +8,13 @@ dependencies:
     - field.field.node.donate.field_donor_title
     - field.field.node.donate.field_donorbox
     - field.field.node.donate.field_hide_donation_form
+    - field.field.node.donate.field_last_reviewed
     - field.field.node.donate.field_main_content
     - field.field.node.donate.field_sections
     - node.type.donate
   module:
     - content_moderation
+    - datetime
     - paragraphs
     - path
     - text
@@ -75,6 +77,12 @@ content:
     region: content
     settings:
       display_label: true
+    third_party_settings: {  }
+  field_last_reviewed:
+    type: datetime_default
+    weight: 1
+    region: content
+    settings: {  }
     third_party_settings: {  }
   field_main_content:
     type: text_textarea

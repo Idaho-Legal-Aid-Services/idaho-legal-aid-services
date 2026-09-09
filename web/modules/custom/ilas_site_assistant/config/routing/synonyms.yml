@@ -63,6 +63,7 @@ offices:
   office:
     - offic          # Typo
     - oficina        # Spanish
+    - oficinas       # Spanish (plural)
   location:
     - locaton        # Typo
     - ubicacion      # Spanish

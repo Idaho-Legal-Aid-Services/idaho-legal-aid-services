@@ -199,7 +199,12 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
   }
 
   /**
-   * Hosted GitHub profile must keep the rate-limit-safe case budget and metric families.
+   * Hosted GitHub profile must keep its budgeted metric families intact.
+   *
+   * The counts below pin the four families the hosted profile was born with
+   * (2026-03-16). The profile has grown since, so the sum is a coverage-shape
+   * check on those families, not the request budget: the gate script derives
+   * the real budget at runtime from every listed test file.
    */
   public function testHostedPromptfooProfilePreservesBudgetedMetricCoverage(): void {
     $config = self::readFile('promptfoo-evals/promptfooconfig.hosted.yaml');
@@ -217,8 +222,8 @@ final class PromptfooGateReliabilityContractTest extends TestCase {
     $this->assertSame(8, $abuseCaseCount);
     $this->assertSame(20, $retrievalCaseCount);
     $this->assertCount(40, $groundingScenarioIds);
-    $this->assertSame(7, $multilingualCaseCount);
-    $this->assertSame(75, $abuseCaseCount + $retrievalCaseCount + count($groundingScenarioIds) + $multilingualCaseCount);
+    $this->assertSame(8, $multilingualCaseCount);
+    $this->assertSame(76, $abuseCaseCount + $retrievalCaseCount + count($groundingScenarioIds) + $multilingualCaseCount);
 
     $weakGrounding = array_values(array_filter($groundingScenarioIds, static fn(string $id): bool => str_starts_with($id, 'wg-')));
     $escalation = array_values(array_filter($groundingScenarioIds, static fn(string $id): bool => str_starts_with($id, 'es-')));

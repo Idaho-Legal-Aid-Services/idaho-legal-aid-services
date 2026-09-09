@@ -202,6 +202,10 @@ class IntentRouterServiceTest extends UnitTestCase {
       'office locations',
       'what are your hours',
       'boise office address',
+      'donde estan sus oficinas',
+      'dónde están las oficinas',
+      'cual es la direccion de la oficina',
+      'donde queda su oficina',
     ];
 
     foreach ($messages as $message) {

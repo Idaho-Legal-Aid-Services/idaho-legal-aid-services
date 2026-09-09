@@ -273,7 +273,7 @@ Primary request flow diagram: `docs/aila/system-map.mmd`.[^CLAIM-038][^CLAIM-043
 | Failure modes | Vector-only failures preserve lexical retrieval. Missing required lexical retrieval dependencies now surface typed unavailable/degraded behavior: FAQ stops before legacy entity-query fallback, resources may use `content` only as an explicit degraded fallback-index mode, and generic Search API query exceptions still degrade to empty/legacy paths. TOVR-11 further hardens the vector branch so degraded/backoff outcomes never poison the normal query cache and vector calls over `MAX_VECTOR_MS` are treated as degraded rather than merged.[^CLAIM-063][^CLAIM-065][^CLAIM-225][^CLAIM-226] |
 | Deterministic degrade outcomes (formalized) | Missing required lexical dependencies now map deterministically to explicit degraded or unavailable outcomes (`/assistant/api/message` degraded navigation, `/assistant/api/suggest` partial FAQ suppression, `/assistant/api/faq` 503 unavailable), while generic Search API query exceptions still route to legacy retrieval and vector-only loss remains `lexical_preserved`. TOVR-11 adds cache-backed cross-request vector backoff for both services and query-only Pinecone transport timeouts, but embeddings-side timeout separation remains open.[^CLAIM-063][^CLAIM-065][^CLAIM-225][^CLAIM-227][^CLAIM-228] |
 | Observability | Retrieval warnings/info are logged; quality/empty-search conditions flow into analytics/no-answer capture paths.[^CLAIM-085][^CLAIM-047] |
-| Source freshness + provenance governance | Retrieval results include additive governance metadata (`provenance`, `freshness`, `governance_flags`) across lexical/vector FAQ/resource classes. Governance operates in three tiers (see `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`): **HARD** enforcement for source-class validation and citation URL sanitization; **SOFT** enforcement where `_requires_review` replaces messages, `_all_citations_stale` adds `freshness_caveat`, and empty citations on citation-required types cap confidence; **ADVISORY** for per-item flags that inform operator dashboards without suppressing results. Retrieval results are never suppressed.[^CLAIM-067][^CLAIM-122][^CLAIM-133] |
+| Source freshness + provenance governance | Retrieval results include additive governance metadata (`provenance`, `freshness`, `governance_flags`) across lexical/vector FAQ/resource classes. Governance operates in three tiers (see `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`): **HARD** enforcement for source-class validation and citation URL sanitization; **SOFT** enforcement where `_requires_review` replaces messages, `_all_citations_stale` adds `freshness_caveat`, and empty citations on citation-required types cap confidence; **ADVISORY** for per-item flags that inform operator dashboards without suppressing results. Retrieval results are never suppressed. Since 2026-09 freshness is `max(changed, field_last_reviewed)`: a content owner attests currency with a review date instead of a cosmetic edit, and the stale-ratio alert reports `never_reviewed` plus a per-class breakdown (PHP-9Z).[^CLAIM-067][^CLAIM-122][^CLAIM-133] |
 | Retrieval confidence formalization | FallbackGate `confidence` (float 0-1) and `reason_code` are now surfaced as formal response contract fields on all 200-response paths. Non-retrieval deterministic exits (safety/OOS/policy) receive `confidence: 1.0`. ResponseGrounder `sources[]` are formalized as `citations[]` in the response contract, and Promptfoo contract-metadata assertions now gate citation coverage plus low-confidence refusal behavior thresholds in branch-aware CI policy.[^CLAIM-062][^CLAIM-134][^CLAIM-135] |
 
 AFRP-01 addendum (2026-03-18): direct service-level probes showed that
@@ -665,7 +665,9 @@ This dated addendum records `P2-SBD-02` completion for Phase 2 Sprint 5 closure:
    `stale_ratio_alert_pct=18.0`, `unknown_ratio_degrade_pct=22.0`,
    `missing_source_url_ratio_degrade_pct=9.0`. Governance enforcement is
    tiered per `RetrievalContract::GOVERNANCE_ENFORCEMENT_MATRIX`; retrieval
-   results are never suppressed.[^CLAIM-067][^CLAIM-133][^CLAIM-144]
+   results are never suppressed. Freshness is keyed off
+   `max(changed, field_last_reviewed)` so unchanged-but-verified content does
+   not age out (PHP-9Z, 2026-09); the admin report carries the review queue.[^CLAIM-067][^CLAIM-133][^CLAIM-144]
 4. Vector-index hygiene threshold calibration is applied in both install and
    active config and mirrored in service defaults:
    `refresh_interval_hours=24`, `overdue_grace_minutes=45`,
@@ -1299,8 +1301,11 @@ mandatory for merge/release path.
    `Promptfoo Gate` status checks to pass before merge. `strict: true` requires
    the branch to be up-to-date with the base. `enforce_admins: true` prevents
    admin bypass.
-3. **Promptfoo branch policy** blocks threshold failures on `master`/`main`/
-   `release/*` and reports advisory-only on other branches. When
+3. **Promptfoo branch policy** blocks on `master`/`main`/`release/*` and
+   reports advisory-only on other branches. The blocking criterion is zero
+   failed assertions in the smoke, primary and deep suites (the gate
+   propagates promptfoo's exit code) plus the 90% per-metric floors; the
+   threshold alone never rescues a failed assertion. When
    `ILAS_ASSISTANT_URL` is absent on blocking branches, the workflow fails
    explicitly rather than silently skipping.
 4. **Contract tests** (`QualityGateEnforcementContractTest.php`) lock trigger

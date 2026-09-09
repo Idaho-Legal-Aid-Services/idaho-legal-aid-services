@@ -177,6 +177,9 @@ jobs:
       - name: Run UX/a11y widget hardening suite (P3-EXT-01)
         run: node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs
 
+      - name: Run browser observability node tests (Sentry scrub/title contract)
+        run: npm run test:assistant:js
+
       # gate_module_quality — PIPE-05: parity annotation for gates.lock.json
       - name: Run provider/runtime harness and golden checks
         run: bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh --profile basic --skip-phpunit

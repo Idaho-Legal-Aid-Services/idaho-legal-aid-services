@@ -1,0 +1,21 @@
+uuid: 23232793-c7bd-4146-bbb8-d18f89ba9c23
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_last_reviewed
+    - node.type.get_involved
+  module:
+    - datetime
+id: node.get_involved.field_last_reviewed
+field_name: field_last_reviewed
+entity_type: node
+bundle: get_involved
+label: 'Last reviewed'
+description: 'Date a content owner last confirmed this content is accurate and current. Setting this is an attestation; leave blank if you have not reviewed it.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

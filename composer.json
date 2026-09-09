@@ -117,7 +117,8 @@
                 "Use v1beta Generative Language API base URL (embeddings / model listing)": "patches/gemini-provider-v1beta.patch"
             },
             "drupal/ai_vdb_provider_pinecone": {
-                "Add query-only Pinecone timeout client and config controls": "patches/ai-vdb-provider-pinecone-query-timeouts.patch"
+                "Add query-only Pinecone timeout client and config controls": "patches/ai-vdb-provider-pinecone-query-timeouts.patch",
+                "Resolve chunk vector IDs by prefix in getVdbIds()/deleteItems() so per-item deletes and re-index cleanups actually remove vectors (vectors are stored as <item id>:<chunk>)": "patches/ai-vdb-provider-pinecone-delete-chunk-ids.patch"
             },
             "drupal/ai": {
                 "ai_search: honor convert_to_label in EmbeddingBase::getValue so filterable metadata keeps entity-reference machine names": "patches/ai-search-embedding-base-honor-convert-to-label.patch"

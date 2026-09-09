@@ -5,6 +5,7 @@ dependencies:
   config:
     - field.field.node.resource.field_external_resources
     - field.field.node.resource.field_file
+    - field.field.node.resource.field_last_reviewed
     - field.field.node.resource.field_link
     - field.field.node.resource.field_main_content
     - field.field.node.resource.field_section_heading
@@ -48,6 +49,7 @@ content:
 hidden:
   field_external_resources: true
   field_file: true
+  field_last_reviewed: true
   field_link: true
   field_service_areas: true
   field_topics: true

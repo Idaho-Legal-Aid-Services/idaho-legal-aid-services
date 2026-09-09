@@ -6,6 +6,10 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\ImmutableConfig;
+use Drupal\Core\Entity\EntityChangedInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
+use Drupal\Core\Field\FieldItemInterface;
+use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
@@ -205,6 +209,384 @@ final class SourceGovernanceServiceTest extends TestCase {
 
     $this->assertSame('unknown', $unknown['freshness']['status']);
     $this->assertContains('unknown_freshness', $unknown['governance_flags']);
+  }
+
+  /**
+   * A review attestation newer than the last edit keeps old content fresh.
+   *
+   * PHP-9Z: content untouched since migration crossed max_age_days en masse;
+   * the review date lets content ops attest currency without a fake edit.
+   */
+  public function testAnnotateResultUsesReviewedAtWhenNewerThanChanged(): void {
+    $service = $this->buildService();
+    $now = time();
+    $reviewed_at = $now - (10 * 86400);
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (300 * 86400),
+      'reviewed_at' => $reviewed_at,
+    ], 'resource_lexical');
+
+    $this->assertSame('fresh', $item['freshness']['status']);
+    $this->assertSame(10, $item['freshness']['age_days']);
+    $this->assertSame('reviewed', $item['freshness']['basis']);
+    $this->assertSame($reviewed_at, $item['freshness']['effective_at']);
+    $this->assertSame($reviewed_at, $item['freshness']['reviewed_at']);
+    $this->assertSame($now - (300 * 86400), $item['freshness']['updated_at']);
+    $this->assertSame([], $item['governance_flags']);
+  }
+
+  /**
+   * An edit newer than the review is the effective timestamp.
+   */
+  public function testAnnotateResultUsesChangedWhenReviewedAtIsOlder(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (10 * 86400),
+      'reviewed_at' => $now - (300 * 86400),
+    ], 'resource_lexical');
+
+    $this->assertSame('fresh', $item['freshness']['status']);
+    $this->assertSame('changed', $item['freshness']['basis']);
+    $this->assertSame(10, $item['freshness']['age_days']);
+  }
+
+  /**
+   * A review date alone (no changed timestamp) is sufficient.
+   */
+  public function testAnnotateResultReviewedAtOnlyIsSufficient(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'reviewed_at' => $now - (20 * 86400),
+    ], 'resource_lexical');
+
+    $this->assertSame('fresh', $item['freshness']['status']);
+    $this->assertSame('reviewed', $item['freshness']['basis']);
+    $this->assertNull($item['freshness']['updated_at']);
+    $this->assertNotContains('unknown_freshness', $item['governance_flags']);
+  }
+
+  /**
+   * Both timestamps older than the window still yields stale.
+   */
+  public function testAnnotateResultStaleWhenReviewAndChangeBothOld(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (400 * 86400),
+      'reviewed_at' => $now - (200 * 86400),
+    ], 'resource_lexical');
+
+    $this->assertSame('stale', $item['freshness']['status']);
+    $this->assertSame('reviewed', $item['freshness']['basis']);
+    $this->assertContains('stale_source', $item['governance_flags']);
+  }
+
+  /**
+   * reviewed_at accepts a Y-m-d string (the raw datetime field value).
+   */
+  public function testAnnotateResultReviewedAtAcceptsIsoDateString(): void {
+    $service = $this->buildService();
+    $now = time();
+    $date = gmdate('Y-m-d', $now - (5 * 86400));
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (300 * 86400),
+      'reviewed_at' => $date,
+    ], 'resource_lexical');
+
+    $this->assertSame('fresh', $item['freshness']['status']);
+    $this->assertSame('reviewed', $item['freshness']['basis']);
+    $this->assertSame($date, gmdate('Y-m-d', $item['freshness']['reviewed_at']));
+  }
+
+  /**
+   * A future review date (typo) must not make an item permanently fresh.
+   */
+  public function testAnnotateResultIgnoresFutureReviewedAt(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $item = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (300 * 86400),
+      'reviewed_at' => gmdate('Y-m-d', $now + (30 * 86400)),
+    ], 'resource_lexical');
+
+    $this->assertSame('stale', $item['freshness']['status']);
+    $this->assertSame('changed', $item['freshness']['basis']);
+    $this->assertNull($item['freshness']['reviewed_at']);
+
+    // Free-form strings are not parsed for reviewed_at either.
+    $item = $service->annotateResult([
+      'id' => 'resource_2',
+      'source_url' => '/resources/form-2',
+      'updated_at' => $now - (300 * 86400),
+      'reviewed_at' => 'yesterday',
+    ], 'resource_lexical');
+    $this->assertSame('stale', $item['freshness']['status']);
+    $this->assertNull($item['freshness']['reviewed_at']);
+  }
+
+  /**
+   * Re-annotation (recordObservationBatch path) sees the echoed review date.
+   */
+  public function testReAnnotationPreservesReviewedAtViaFreshness(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $first = $service->annotateResult([
+      'id' => 'resource_1',
+      'source_url' => '/resources/form-1',
+      'updated_at' => $now - (300 * 86400),
+      'reviewed_at' => $now - (10 * 86400),
+    ], 'resource_lexical');
+    unset($first['reviewed_at']);
+
+    $second = $service->annotateResult($first, 'resource_lexical');
+
+    $this->assertSame('fresh', $second['freshness']['status']);
+    $this->assertSame('reviewed', $second['freshness']['basis']);
+    $this->assertSame($first['freshness']['reviewed_at'], $second['freshness']['reviewed_at']);
+  }
+
+  /**
+   * classifyFreshness matrix.
+   */
+  #[DataProvider('freshnessMatrixProvider')]
+  public function testClassifyFreshnessMatrix(?int $updated_offset, ?int $reviewed_offset, string $status, string $basis, ?int $age): void {
+    $now = 1_800_000_000;
+    $updated_at = $updated_offset === NULL ? NULL : $now - ($updated_offset * 86400);
+    $reviewed_at = $reviewed_offset === NULL ? NULL : $now - ($reviewed_offset * 86400);
+
+    $result = SourceGovernanceService::classifyFreshness($updated_at, $reviewed_at, 180, $now);
+
+    $this->assertSame($status, $result['status']);
+    $this->assertSame($basis, $result['basis']);
+    $this->assertSame($age, $result['age_days']);
+  }
+
+  /**
+   * Data provider for the freshness matrix.
+   */
+  public static function freshnessMatrixProvider(): array {
+    return [
+      'nothing known' => [NULL, NULL, 'unknown', 'unknown', NULL],
+      'changed only, fresh' => [10, NULL, 'fresh', 'changed', 10],
+      'changed only, stale' => [190, NULL, 'stale', 'changed', 190],
+      'reviewed only, fresh' => [NULL, 10, 'fresh', 'reviewed', 10],
+      'review newer than change' => [300, 10, 'fresh', 'reviewed', 10],
+      'change newer than review' => [10, 300, 'fresh', 'changed', 10],
+      'both old' => [400, 200, 'stale', 'reviewed', 200],
+      'exactly at boundary is fresh' => [180, NULL, 'fresh', 'changed', 180],
+      'same instant prefers reviewed' => [50, 50, 'fresh', 'reviewed', 50],
+    ];
+  }
+
+  /**
+   * parseReviewDate anchors at noon UTC and rejects malformed/future values.
+   */
+  public function testParseReviewDate(): void {
+    $now = gmmktime(0, 0, 0, 9, 9, 2026);
+
+    $this->assertSame(gmmktime(12, 0, 0, 8, 1, 2026), SourceGovernanceService::parseReviewDate('2026-08-01', $now));
+    $this->assertSame(gmmktime(12, 0, 0, 8, 1, 2026), SourceGovernanceService::parseReviewDate('2026-08-01T00:00:00', $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate('2026-13-01', $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate('2026-02-30', $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate('08/01/2026', $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate('', $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate(NULL, $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate(1_700_000_000, $now));
+    $this->assertNull(SourceGovernanceService::parseReviewDate('2026-12-25', $now), 'future date ignored');
+  }
+
+  /**
+   * resolveEntityReviewedAt reads the field from a fieldable entity.
+   */
+  public function testResolveEntityReviewedAtReadsFieldValue(): void {
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt(new \stdClass()));
+
+    $node_without_field = $this->createStub(SourceGovernanceReviewableEntityStub::class);
+    $node_without_field->method('hasField')->willReturn(FALSE);
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt($node_without_field));
+
+    $empty_list = $this->createStub(FieldItemListInterface::class);
+    $empty_list->method('isEmpty')->willReturn(TRUE);
+    $node_empty = $this->createStub(SourceGovernanceReviewableEntityStub::class);
+    $node_empty->method('hasField')->willReturn(TRUE);
+    $node_empty->method('get')->willReturn($empty_list);
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt($node_empty));
+
+    $node_valid = $this->buildNodeWithReviewDate('2026-08-01');
+    $this->assertSame(gmmktime(12, 0, 0, 8, 1, 2026), SourceGovernanceService::resolveEntityReviewedAt($node_valid));
+
+    $node_malformed = $this->buildNodeWithReviewDate('not-a-date');
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt($node_malformed));
+
+    $node_future = $this->buildNodeWithReviewDate(gmdate('Y-m-d', time() + (60 * 86400)));
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt($node_future));
+
+    $node_throwing = $this->createStub(SourceGovernanceReviewableEntityStub::class);
+    $node_throwing->method('hasField')->willReturn(TRUE);
+    $node_throwing->method('get')->willThrowException(new \RuntimeException('boom'));
+    $this->assertNull(SourceGovernanceService::resolveEntityReviewedAt($node_throwing));
+  }
+
+  /**
+   * buildEntityFreshness pairs changed and reviewed timestamps.
+   */
+  public function testBuildEntityFreshnessPairsChangedAndReviewed(): void {
+    $node = $this->buildNodeWithReviewDate('2026-08-01', 1_750_000_000);
+    $freshness = SourceGovernanceService::buildEntityFreshness($node);
+
+    $this->assertSame(1_750_000_000, $freshness['updated_at']);
+    $this->assertSame(gmmktime(12, 0, 0, 8, 1, 2026), $freshness['reviewed_at']);
+
+    $plain = SourceGovernanceService::buildEntityFreshness(new \stdClass());
+    $this->assertSame(['updated_at' => NULL, 'reviewed_at' => NULL], $plain);
+  }
+
+  /**
+   * Builds a node stub exposing field_last_reviewed with the given value.
+   */
+  private function buildNodeWithReviewDate(string $value, int $changed = 1_700_000_000): SourceGovernanceReviewableEntityStub {
+    $item = $this->createStub(FieldItemInterface::class);
+    $item->method('getValue')->willReturn(['value' => $value]);
+
+    $list = $this->createStub(FieldItemListInterface::class);
+    $list->method('isEmpty')->willReturn(FALSE);
+    $list->method('first')->willReturn($item);
+
+    $node = $this->createStub(SourceGovernanceReviewableEntityStub::class);
+    $node->method('hasField')->willReturnCallback(
+      static fn(string $name): bool => $name === SourceGovernanceService::REVIEW_FIELD
+    );
+    $node->method('get')->willReturn($list);
+    $node->method('getChangedTime')->willReturn($changed);
+
+    return $node;
+  }
+
+  /**
+   * Snapshot counts observations whose source has never been reviewed.
+   */
+  public function testObservationSnapshotCountsNeverReviewed(): void {
+    $service = $this->buildService();
+    $now = time();
+
+    $service->recordObservationBatch([
+      [
+        'id' => 'faq_1',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#a',
+        'updated_at' => $now - (200 * 86400),
+      ],
+      [
+        'id' => 'faq_2',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#b',
+        'updated_at' => $now - (200 * 86400),
+        'reviewed_at' => $now - (5 * 86400),
+      ],
+      [
+        'id' => 'resource_1',
+        'source_class' => 'resource_vector',
+        'source_url' => '/resources/x',
+        'updated_at' => $now - (5 * 86400),
+      ],
+    ]);
+
+    $snapshot = $service->getSnapshot();
+    $this->assertSame(3, $snapshot['total']);
+    $this->assertSame(1, $snapshot['stale']);
+    $this->assertSame(2, $snapshot['never_reviewed']);
+    $this->assertSame(1, $snapshot['by_source_class']['faq_lexical']['never_reviewed']);
+    $this->assertSame(1, $snapshot['by_source_class']['faq_lexical']['stale']);
+    $this->assertSame(1, $snapshot['by_source_class']['resource_vector']['never_reviewed']);
+    $this->assertSame(2, $snapshot['by_retrieval_method']['search_api']['never_reviewed']);
+  }
+
+  /**
+   * The stale-ratio alert carries the per-class breakdown content ops needs.
+   */
+  public function testStaleRatioAlertContextIncludesBreakdown(): void {
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('warning')
+      ->with(
+        $this->logicalAnd(
+          $this->stringContains('never_reviewed @never_reviewed'),
+          $this->stringContains('by class: @by_class')
+        ),
+        $this->callback(static function (array $context): bool {
+          return ($context['@never_reviewed'] ?? NULL) === 2
+            && ($context['@by_class'] ?? NULL) === 'faq_lexical=1/1 nr=1; resource_lexical=1/1 nr=1';
+        })
+      );
+
+    $service = $this->buildService($logger, [
+      'stale_ratio_alert_pct' => 10.0,
+      'min_observations' => 2,
+    ]);
+    $now = time();
+
+    $service->recordObservationBatch([
+      [
+        'id' => 'faq_1',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#a',
+        'updated_at' => $now - (200 * 86400),
+      ],
+      [
+        'id' => 'resource_1',
+        'source_class' => 'resource_lexical',
+        'source_url' => '/resources/x',
+        'updated_at' => $now - (200 * 86400),
+      ],
+    ]);
+  }
+
+  /**
+   * formatSourceClassBreakdown is compact, sorted, and tolerant.
+   */
+  public function testFormatSourceClassBreakdown(): void {
+    $this->assertSame('none', SourceGovernanceService::formatSourceClassBreakdown([]));
+    $this->assertSame(
+      'faq_vector=6/8 nr=8; resource_lexical=17/23 nr=23',
+      SourceGovernanceService::formatSourceClassBreakdown([
+        'resource_lexical' => ['total' => 23, 'stale' => 17, 'never_reviewed' => 23],
+        'faq_vector' => ['total' => 8, 'stale' => 6, 'never_reviewed' => 8],
+        'junk' => 'not-an-array',
+      ])
+    );
+  }
+
+  /**
+   * getMaxAgeDays reads the class policy with a safe fallback.
+   */
+  public function testGetMaxAgeDays(): void {
+    $service = $this->buildService(NULL, [
+      'source_classes' => ['resource_lexical' => ['max_age_days' => 365]],
+    ]);
+    $this->assertSame(365, $service->getMaxAgeDays('resource_lexical'));
+    $this->assertSame(180, $service->getMaxAgeDays('faq_lexical'));
+    $this->assertSame(180, $service->getMaxAgeDays('not_configured'));
   }
 
   /**
@@ -836,4 +1218,14 @@ final class SourceGovernanceServiceTest extends TestCase {
     return new SourceGovernanceService($configFactory, $state, $this->createStub(LoggerInterface::class));
   }
 
+}
+
+/**
+ * Fieldable, changed-tracking entity shape the freshness helpers duck-type.
+ *
+ * NodeInterface lives in a core module the pure runner does not autoload;
+ * the helpers only call hasField(), get() and getChangedTime(), which these
+ * two core interfaces provide.
+ */
+interface SourceGovernanceReviewableEntityStub extends FieldableEntityInterface, EntityChangedInterface {
 }

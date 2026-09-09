@@ -115,7 +115,7 @@ class ResponseBuilder {
       'ayuda', 'abogado', 'abogada', 'servicios', 'aplicar', 'solicitar',
       'desalojo', 'custodia', 'divorcio', 'beneficios', 'manutención',
       'oficina', 'línea', 'hola', 'necesito', 'tengo', 'mañana', 'corte',
-      'audiencia', 'aviso', 'vivienda', 'pago', 'inquilino',
+      'audiencia', 'aviso', 'vivienda', 'pago', 'inquilino', 'gracias',
     ];
     $score = 0;
     foreach ($cues as $cue) {
@@ -385,7 +385,17 @@ class ResponseBuilder {
       case 'thanks':
         $response['response_mode'] = self::MODE_ANSWER;
         $response['type'] = 'acknowledgement';
-        $response['answer_text'] = 'You\'re welcome. If you need something else, tell me the legal issue or choose a topic.';
+        // Action-rich closure: name Apply for Help and the Legal Advice Line
+        // so a gratitude turn still carries a concrete next step. No
+        // primary_action, so the widget does not render a navigation push.
+        $response['answer_text'] = 'You\'re welcome. If you need anything else, you can apply for free legal help, call our Legal Advice Line, or tell me the legal issue and I\'ll point you to the right forms or guides.';
+        $response['secondary_actions'] = [
+          ['label' => 'Apply for Help', 'url' => $this->canonicalUrls['apply']],
+          ['label' => 'Call Legal Advice Line', 'url' => $this->canonicalUrls['hotline']],
+        ];
+        if ($is_spanish_input) {
+          $response['answer_text'] .= $this->spanishBilingualPostscript();
+        }
         $response['reason_code'] = 'gratitude_acknowledged';
         break;
 

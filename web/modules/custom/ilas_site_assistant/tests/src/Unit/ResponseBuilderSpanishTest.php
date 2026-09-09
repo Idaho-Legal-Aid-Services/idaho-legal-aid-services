@@ -107,4 +107,38 @@ final class ResponseBuilderSpanishTest extends TestCase {
     $this->assertFalse(ResponseBuilder::looksLikeSpanish('What free legal services do you offer?'));
   }
 
+  /**
+   * "gracias" alone marks a mixed-language message as Spanish.
+   */
+  public function testSpanishDetectorFiresOnGracias(): void {
+    $this->assertTrue(ResponseBuilder::looksLikeSpanish('gracias you guys are really helpful'));
+    $this->assertTrue(ResponseBuilder::looksLikeSpanish('muchas gracias por la informacion'));
+    $this->assertTrue(ResponseBuilder::looksLikeSpanish('donde estan sus oficinas'));
+  }
+
+  /**
+   * A Spanish thank-you gets the bilingual next-step postscript.
+   */
+  public function testSpanishThanksAppendsBilingualPostscript(): void {
+    $response = $this->builder->buildFromIntent(
+      ['type' => 'thanks', 'confidence' => 0.95],
+      'muchas gracias por la informacion'
+    );
+
+    $this->assertSame('acknowledgement', $response['type']);
+    $text = $response['answer_text'] ?? '';
+    $this->assertStringContainsStringIgnoringCase('línea', $text);
+    $this->assertStringContainsStringIgnoringCase('ayuda', $text);
+    $this->assertStringContainsStringIgnoringCase('solicite', $text);
+  }
+
+  /**
+   * An English thank-you carries no Spanish postscript.
+   */
+  public function testEnglishThanksHasNoSpanishPostscript(): void {
+    $response = $this->builder->buildFromIntent(['type' => 'thanks', 'confidence' => 0.95], 'thanks!');
+
+    $this->assertStringNotContainsString('Si prefiere', $response['answer_text'] ?? '');
+  }
+
 }

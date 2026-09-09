@@ -301,6 +301,7 @@
         'fallback_label',
         'disclaimer',
         'caveat',
+        'freshness_caveat',
         'url',
         'cta',
         'topic',
@@ -1632,6 +1633,13 @@
             }
           }
           break;
+      }
+
+      // SOFT freshness enforcement: the server adds freshness_caveat when
+      // every cited source is stale or of unknown age. Rendered for all
+      // response types so the transparency promise reaches the user.
+      if (response.freshness_caveat) {
+        this.appendMessageParagraph(fragment, response.freshness_caveat, 'freshness-caveat', true);
       }
 
       if (response.suggestions && !renderedInlineSuggestions && !renderedTopicSuggestions) {

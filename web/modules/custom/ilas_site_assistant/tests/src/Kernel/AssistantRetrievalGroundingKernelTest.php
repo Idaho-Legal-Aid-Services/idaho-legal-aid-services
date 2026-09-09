@@ -54,6 +54,7 @@ final class AssistantRetrievalGroundingKernelTest extends KernelTestBase {
     'node',
     'entity_reference_revisions',
     'paragraphs',
+    'datetime',
     'ilas_site_assistant',
   ];
 
@@ -107,6 +108,8 @@ final class AssistantRetrievalGroundingKernelTest extends KernelTestBase {
     $this->installEntitySchema('taxonomy_term');
     $this->installEntitySchema('paragraph');
     $this->installEntitySchema('path_alias');
+    // Node re-saves (review-attestation case) touch node_access grants.
+    $this->installSchema('node', ['node_access']);
 
     $this->fixture = $this->loadFixture();
     $this->createContentModel();
@@ -147,6 +150,102 @@ final class AssistantRetrievalGroundingKernelTest extends KernelTestBase {
       $this->assertCitedSourceSupportsCase($case_id, $case, $grounded);
       $this->assertNoGenericHomepageCitation($grounded);
     }
+  }
+
+  /**
+   * A review attestation keeps unchanged content fresh end to end (PHP-9Z).
+   *
+   * Content untouched since migration must not age out when a content owner
+   * has set field_last_reviewed; a sibling without the attestation still goes
+   * stale. Covers both the resource path (buildResourceItem) and the FAQ path
+   * (getParentInfo on the host node).
+   */
+  public function testReviewAttestationKeepsUnchangedContentFresh(): void {
+    $old_changed = time() - (300 * 86400);
+    $review_date = gmdate('Y-m-d', time() - (10 * 86400));
+
+    // Resource reviewed 10 days ago but not edited for 300 days.
+    $reviewed = $this->nodeForSource('resource_custody_forms');
+    $reviewed->set(SourceGovernanceService::REVIEW_FIELD, $review_date);
+    $reviewed->setChangedTime($old_changed);
+    $reviewed->save();
+
+    // Resource neither edited nor reviewed for 300 days.
+    $unreviewed = $this->nodeForSource('resource_divorce_guide');
+    $unreviewed->setChangedTime($old_changed);
+    $unreviewed->save();
+
+    // FAQ host page reviewed 10 days ago, host changed 300 days ago.
+    $faq_host = $this->nodeForSource('faq_eviction_notice');
+    $faq_host->set(SourceGovernanceService::REVIEW_FIELD, $review_date);
+    $faq_host->setChangedTime($old_changed);
+    $faq_host->save();
+
+    $this->container->get('entity_type.manager')->getStorage('node')->resetCache();
+    $this->assertSame($old_changed, $this->nodeForSource('resource_custody_forms')->getChangedTime(), 'Fixture keeps the old changed timestamp.');
+
+    $reviewed_item = $this->itemForSource(
+      $this->retrieveForCase($this->qualityCase('custody_forms')),
+      'resource_custody_forms'
+    );
+    $this->assertSame('fresh', $reviewed_item['freshness']['status']);
+    $this->assertSame('reviewed', $reviewed_item['freshness']['basis']);
+    $this->assertSame($old_changed, $reviewed_item['freshness']['updated_at']);
+    $this->assertSame($review_date, gmdate('Y-m-d', $reviewed_item['freshness']['reviewed_at']));
+    $this->assertNotContains('stale_source', $reviewed_item['governance_flags']);
+
+    $unreviewed_item = $this->itemForSource(
+      $this->retrieveForCase($this->qualityCase('divorce_guide')),
+      'resource_divorce_guide'
+    );
+    $this->assertSame('stale', $unreviewed_item['freshness']['status']);
+    $this->assertSame('changed', $unreviewed_item['freshness']['basis']);
+    $this->assertNull($unreviewed_item['freshness']['reviewed_at']);
+    $this->assertContains('stale_source', $unreviewed_item['governance_flags']);
+
+    $faq_item = $this->itemForSource(
+      $this->retrieveForCase($this->qualityCase('eviction_notice')),
+      'faq_eviction_notice'
+    );
+    $this->assertSame('fresh', $faq_item['freshness']['status']);
+    $this->assertSame('reviewed', $faq_item['freshness']['basis']);
+    $this->assertSame($review_date, gmdate('Y-m-d', $faq_item['freshness']['reviewed_at']));
+
+    // Observation snapshot exposes the never_reviewed signal.
+    $this->sourceGovernance->recordObservationBatch([$reviewed_item, $unreviewed_item, $faq_item]);
+    $snapshot = $this->sourceGovernance->getSnapshot();
+    $this->assertSame(3, $snapshot['total']);
+    $this->assertSame(1, $snapshot['stale']);
+    $this->assertSame(1, $snapshot['never_reviewed']);
+  }
+
+  /**
+   * Loads the fixture node backing a source ID.
+   */
+  private function nodeForSource(string $source_id): Node {
+    foreach ($this->sourceIdByEntityKey as $entity_key => $mapped_source_id) {
+      if ($mapped_source_id === $source_id && str_starts_with($entity_key, 'node_')) {
+        $node = Node::load((int) substr($entity_key, 5));
+        $this->assertInstanceOf(Node::class, $node);
+        return $node;
+      }
+    }
+    $this->fail("No node fixture for $source_id.");
+  }
+
+  /**
+   * Finds the retrieval item for a fixture source ID.
+   *
+   * @param array<int, array<string, mixed>> $results
+   *   Retrieval results.
+   */
+  private function itemForSource(array $results, string $source_id): array {
+    foreach ($results as $result) {
+      if ($this->sourceIdForResult($result) === $source_id) {
+        return $result;
+      }
+    }
+    $this->fail("Retrieval did not return $source_id.");
   }
 
   /**
@@ -344,6 +443,9 @@ final class AssistantRetrievalGroundingKernelTest extends KernelTestBase {
       'target_type' => 'paragraph',
     ], -1);
     $this->createFieldStorage('node', 'field_main_content', 'text_long');
+    $this->createFieldStorage('node', SourceGovernanceService::REVIEW_FIELD, 'datetime', [
+      'datetime_type' => 'date',
+    ]);
     $this->createFieldStorage('node', 'field_topics', 'entity_reference', [
       'target_type' => 'taxonomy_term',
     ], -1);
@@ -360,6 +462,8 @@ final class AssistantRetrievalGroundingKernelTest extends KernelTestBase {
       'handler_settings' => ['target_bundles' => ['faq_smart_section' => 'faq_smart_section']],
     ]);
     $this->createField('node', 'resource', 'field_main_content', 'Main Content');
+    $this->createField('node', 'resource', SourceGovernanceService::REVIEW_FIELD, 'Last reviewed');
+    $this->createField('node', 'standard_page', SourceGovernanceService::REVIEW_FIELD, 'Last reviewed');
     $this->createField('node', 'resource', 'field_topics', 'Topics', [
       'handler' => 'default:taxonomy_term',
       'handler_settings' => ['target_bundles' => ['topics' => 'topics']],

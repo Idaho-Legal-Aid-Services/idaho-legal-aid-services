@@ -271,6 +271,25 @@ class ResponseBuilderTest extends TestCase {
   }
 
   /**
+   * Gratitude turns keep "You're welcome." and carry a concrete next step.
+   */
+  public function testThanksContractOffersNextSteps(): void {
+    $response = $this->builder->buildFromIntent(['type' => 'thanks', 'confidence' => 0.95], 'thanks!');
+    $urls = CanonicalUrlFixtures::defaults();
+
+    $this->assertEquals('acknowledgement', $response['type']);
+    $this->assertEquals('answer', $response['response_mode']);
+    $this->assertNull($response['primary_action']);
+    $this->assertEquals('gratitude_acknowledged', $response['reason_code']);
+    $this->assertStringStartsWith("You're welcome.", $response['answer_text']);
+    $this->assertStringContainsStringIgnoringCase('apply', $response['answer_text']);
+    $this->assertStringContainsString('Legal Advice Line', $response['answer_text']);
+    $this->assertCount(2, $response['secondary_actions']);
+    $this->assertEquals($urls['apply'], $response['secondary_actions'][0]['url']);
+    $this->assertEquals($urls['hotline'], $response['secondary_actions'][1]['url']);
+  }
+
+  /**
    * Data provider for testResponseContract.
    */
   public static function intentProvider(): array {
@@ -293,6 +312,7 @@ class ResponseBuilderTest extends TestCase {
       'risk_detector' => ['risk_detector'],
       'faq' => ['faq'],
       'greeting' => ['greeting'],
+      'thanks' => ['thanks'],
       'eligibility' => ['eligibility'],
       'clarify' => ['clarify'],
       'unknown' => ['unknown'],

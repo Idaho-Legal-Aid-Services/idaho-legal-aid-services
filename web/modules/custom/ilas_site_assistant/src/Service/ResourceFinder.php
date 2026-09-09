@@ -2,16 +2,17 @@
 
 namespace Drupal\ilas_site_assistant\Service;
 
-use Drupal\search_api\SearchApiException;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileUrlGeneratorInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant\Service\RetrievalContract;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\search_api\Entity\Index;
+use Drupal\search_api\SearchApiException;
 
 /**
  * Service for finding forms, guides, and resources.
@@ -422,7 +423,7 @@ class ResourceFinder {
       'title_lower' => strtolower($node->getTitle()),
       'url' => $node->toUrl()->toString(),
       'source_url' => $node->toUrl()->toString(),
-      'updated_at' => method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : NULL,
+      ...SourceGovernanceService::buildEntityFreshness($node),
       'topics' => [],
       'topic_names' => [],
       'service_areas' => [],
@@ -738,7 +739,7 @@ class ResourceFinder {
       'topic_ids' => $topic_ids,
       'topic_names' => $topic_names,
       'keywords' => $keywords,
-      'updated_at' => method_exists($media, 'getChangedTime') ? (int) $media->getChangedTime() : NULL,
+      ...SourceGovernanceService::buildEntityFreshness($media),
     ];
   }
 
@@ -1287,7 +1288,7 @@ class ResourceFinder {
       'has_link' => FALSE,
       'description' => '',
       'topics' => [],
-      'updated_at' => method_exists($node, 'getChangedTime') ? (int) $node->getChangedTime() : NULL,
+      ...SourceGovernanceService::buildEntityFreshness($node),
     ];
 
     // Get topics.
@@ -2102,6 +2103,7 @@ class ResourceFinder {
           'has_link' => $resource['has_link'],
           'topics' => $resource['topic_names'],
           'updated_at' => $resource['updated_at'] ?? NULL,
+          'reviewed_at' => $resource['reviewed_at'] ?? NULL,
         ];
       }
       $results = $this->rankingEnhancer->scoreResourceResults($items, $query, $type, $limit);
@@ -2161,6 +2163,7 @@ class ResourceFinder {
           'score' => $score,
           'source' => 'lexical',
           'updated_at' => $resource['updated_at'] ?? NULL,
+          'reviewed_at' => $resource['reviewed_at'] ?? NULL,
         ];
       }
     }
@@ -2210,6 +2213,7 @@ class ResourceFinder {
           'has_link' => $resource['has_link'],
           'source' => 'lexical',
           'updated_at' => $resource['updated_at'] ?? NULL,
+          'reviewed_at' => $resource['reviewed_at'] ?? NULL,
         ];
       }
     }
@@ -2253,6 +2257,7 @@ class ResourceFinder {
             'description' => $resource['description'],
             'source' => 'lexical',
             'updated_at' => $resource['updated_at'] ?? NULL,
+            'reviewed_at' => $resource['reviewed_at'] ?? NULL,
           ];
           break;
         }

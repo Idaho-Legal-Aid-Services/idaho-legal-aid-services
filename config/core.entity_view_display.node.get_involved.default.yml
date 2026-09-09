@@ -4,6 +4,7 @@ status: true
 dependencies:
   config:
     - field.field.node.get_involved.field_impact_quote
+    - field.field.node.get_involved.field_last_reviewed
     - field.field.node.get_involved.field_main_content
     - field.field.node.get_involved.field_sections
     - field.field.node.get_involved.field_subheader
@@ -48,6 +49,7 @@ content:
     weight: 2
     region: content
 hidden:
+  field_last_reviewed: true
   langcode: true
   links: true
   search_api_excerpt: true

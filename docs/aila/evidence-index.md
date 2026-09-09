@@ -1639,6 +1639,10 @@ Evidence precedence used in this audit:
   - `web/modules/custom/ilas_site_assistant/src/Service/ResourceFinder.php` (resource lexical/vector + legacy/topic/service-path governance annotations)
   - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php` (observation recording + health/metrics governance exposure + retrieval debug metadata fields)
   - `web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml` (source-governance service registration + retrieval service injections)
+  - `config/field.storage.node.field_last_reviewed.yml` + `config/field.field.node.{resource,standard_page,legal_content,get_involved,donate}.field_last_reviewed.yml` (review attestation field; freshness = max(changed, reviewed), PHP-9Z 2026-09)
+  - `web/modules/custom/ilas_site_assistant/src/Service/SourceGovernanceService.php` (`resolveEntityReviewedAt`, `buildEntityFreshness`, `classifyFreshness`, `never_reviewed` counters, per-class alert breakdown)
+  - `web/modules/custom/ilas_site_assistant/src/Controller/AssistantReportController.php` (`buildSourceFreshnessTable` content review queue)
+  - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SourceGovernanceServiceTest.php` (review-date freshness matrix, future-date guard, re-annotation echo, breakdown context)
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/SourceGovernanceServiceTest.php`
   - `web/modules/custom/ilas_site_assistant/tests/src/Unit/PhaseTwoObjectiveThreeGateTest.php`
   - `docs/aila/roadmap.md` (Phase 2 Objective #3 disposition dated 2026-03-03)
