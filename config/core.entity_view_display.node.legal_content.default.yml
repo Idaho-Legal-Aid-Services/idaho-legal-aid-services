@@ -3,6 +3,7 @@ langcode: en
 status: true
 dependencies:
   config:
+    - field.field.node.legal_content.field_last_reviewed
     - field.field.node.legal_content.field_legal_content_description
     - field.field.node.legal_content.field_legal_content_files
     - field.field.node.legal_content.field_legal_content_image
@@ -101,6 +102,7 @@ content:
     weight: 50
     region: content
 hidden:
+  field_last_reviewed: true
   field_service_area: true
   langcode: true
   links: true

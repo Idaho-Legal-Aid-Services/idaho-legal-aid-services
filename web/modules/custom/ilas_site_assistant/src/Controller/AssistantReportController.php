@@ -10,6 +10,7 @@ use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
 use Drupal\ilas_site_assistant\Service\SloDefinitions;
+use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\TopicResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -68,6 +69,32 @@ class AssistantReportController extends ControllerBase {
   protected SloDefinitions $sloDefinitions;
 
   /**
+   * The source governance service (freshness policy).
+   *
+   * @var \Drupal\ilas_site_assistant\Service\SourceGovernanceService|null
+   */
+  protected ?SourceGovernanceService $sourceGovernance;
+
+  /**
+   * Node bundles the assistant can cite, keyed to their governance class.
+   *
+   * resource nodes are cited directly; the others host FAQ/accordion
+   * paragraphs whose citations inherit the host node's freshness.
+   */
+  protected const REVIEWABLE_BUNDLES = [
+    'resource' => 'resource_lexical',
+    'standard_page' => 'faq_lexical',
+    'legal_content' => 'faq_lexical',
+    'get_involved' => 'faq_lexical',
+    'donate' => 'faq_lexical',
+  ];
+
+  /**
+   * Upper bound on nodes loaded for the review queue.
+   */
+  protected const REVIEW_QUEUE_LIMIT = 500;
+
+  /**
    * Constructs an AssistantReportController object.
    */
   public function __construct(
@@ -78,6 +105,7 @@ class AssistantReportController extends ControllerBase {
     RuntimeTruthSnapshotBuilder $snapshot_builder,
     QueueHealthMonitor $queue_health_monitor,
     SloDefinitions $slo_definitions,
+    ?SourceGovernanceService $source_governance = NULL,
   ) {
     $this->database = $database;
     $this->dateFormatter = $date_formatter;
@@ -86,6 +114,7 @@ class AssistantReportController extends ControllerBase {
     $this->snapshotBuilder = $snapshot_builder;
     $this->queueHealthMonitor = $queue_health_monitor;
     $this->sloDefinitions = $slo_definitions;
+    $this->sourceGovernance = $source_governance;
   }
 
   /**
@@ -100,6 +129,9 @@ class AssistantReportController extends ControllerBase {
       $container->get('ilas_site_assistant.runtime_truth_snapshot_builder'),
       $container->get('ilas_site_assistant.queue_health_monitor'),
       $container->get('ilas_site_assistant.slo_definitions'),
+      $container->has('ilas_site_assistant.source_governance')
+        ? $container->get('ilas_site_assistant.source_governance')
+        : NULL,
     );
   }
 
@@ -172,6 +204,20 @@ class AssistantReportController extends ControllerBase {
 
     $build['runtime_truth_status']['content'] = $this->buildRuntimeTruthStatusSection();
 
+    // Source freshness review queue (PHP-9Z): the work list behind the
+    // stale-ratio alert. Content ops attests currency with the "Last
+    // reviewed" field instead of making cosmetic edits.
+    $build['source_freshness'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Source freshness (content review queue)'),
+      '#open' => TRUE,
+      '#weight' => -5,
+    ];
+    $build['source_freshness']['description'] = [
+      '#markup' => '<p>' . $this->t('Pages the assistant can cite, per language. A page is <em>stale</em> when neither an edit nor a review attestation is newer than the freshness window. To attest that a page is still accurate, open it, set <strong>Last reviewed</strong> in the Content review sidebar, and <strong>publish</strong> (a draft revision is invisible to the assistant). Set it separately on each translation. Do not make cosmetic edits to reset the clock.') . '</p>',
+    ];
+    $build['source_freshness']['table'] = $this->buildSourceFreshnessTable();
+
     // Review loop.
     $build['review_loop'] = [
       '#type' => 'details',
@@ -182,6 +228,129 @@ class AssistantReportController extends ControllerBase {
     $build['review_loop']['content'] = $this->buildReviewLoopSection();
 
     return $build;
+  }
+
+  /**
+   * Builds the source freshness review-queue table.
+   *
+   * One row per published translation of each citable node, stale first.
+   *
+   * @return array
+   *   Render array (summary paragraph + table).
+   */
+  protected function buildSourceFreshnessTable(): array {
+    if (!$this->sourceGovernance) {
+      return ['#markup' => '<p>' . $this->t('Source governance service unavailable.') . '</p>'];
+    }
+
+    $now = time();
+    $rows = [];
+    $stale_count = 0;
+    $never_reviewed_count = 0;
+
+    try {
+      $storage = $this->entityTypeManager()->getStorage('node');
+      $nids = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', array_keys(self::REVIEWABLE_BUNDLES), 'IN')
+        ->condition('status', 1)
+        ->sort('changed', 'ASC')
+        ->range(0, self::REVIEW_QUEUE_LIMIT)
+        ->execute();
+      $nodes = $nids ? $storage->loadMultiple($nids) : [];
+    }
+    catch (\Throwable $e) {
+      return ['#markup' => '<p>' . $this->t('Review queue unavailable: @error', ['@error' => ObservabilityPayloadMinimizer::exceptionSignature($e)]) . '</p>'];
+    }
+
+    foreach ($nodes as $node) {
+      $bundle = $node->bundle();
+      $max_age_days = $this->sourceGovernance->getMaxAgeDays(self::REVIEWABLE_BUNDLES[$bundle] ?? 'resource_lexical');
+
+      foreach ($node->getTranslationLanguages() as $langcode => $language) {
+        $translation = $node->getTranslation($langcode);
+        if (!$translation->isPublished()) {
+          continue;
+        }
+        $freshness = SourceGovernanceService::buildEntityFreshness($translation);
+        $classification = SourceGovernanceService::classifyFreshness(
+          $freshness['updated_at'],
+          $freshness['reviewed_at'],
+          $max_age_days,
+          $now
+        );
+
+        $raw_review = NULL;
+        if ($translation->hasField(SourceGovernanceService::REVIEW_FIELD) && !$translation->get(SourceGovernanceService::REVIEW_FIELD)->isEmpty()) {
+          $raw_review = (string) ($translation->get(SourceGovernanceService::REVIEW_FIELD)->first()->getValue()['value'] ?? '');
+        }
+        if ($freshness['reviewed_at'] !== NULL) {
+          $reviewed_label = $this->dateFormatter->format($freshness['reviewed_at'], 'custom', 'Y-m-d');
+        }
+        elseif ($raw_review !== NULL && $raw_review !== '') {
+          $reviewed_label = $this->t('@date (future or invalid, ignored)', ['@date' => substr($raw_review, 0, 10)]);
+        }
+        else {
+          $reviewed_label = $this->t('never');
+          $never_reviewed_count++;
+        }
+
+        $is_stale = $classification['status'] === 'stale';
+        if ($is_stale) {
+          $stale_count++;
+        }
+
+        $rows[] = [
+          'data' => [
+            $translation->toLink($translation->label())->toString(),
+            $bundle,
+            $langcode,
+            $freshness['updated_at'] ? $this->dateFormatter->format($freshness['updated_at'], 'custom', 'Y-m-d') : '—',
+            $reviewed_label,
+            $classification['age_days'] ?? '—',
+            $classification['status'],
+            $classification['basis'],
+            $translation->toLink($this->t('Edit'), 'edit-form')->toString(),
+          ],
+          'class' => $is_stale ? ['color-error'] : [],
+          '_sort' => [$is_stale ? 0 : 1, -(int) ($classification['age_days'] ?? 0)],
+        ];
+      }
+    }
+
+    usort($rows, static fn(array $a, array $b) => $a['_sort'] <=> $b['_sort']);
+    foreach ($rows as &$row) {
+      unset($row['_sort']);
+    }
+    unset($row);
+
+    return [
+      'summary' => [
+        '#markup' => '<p><strong>' . $this->t('@stale stale of @total; @never never reviewed (window @days days).', [
+          '@stale' => $stale_count,
+          '@total' => count($rows),
+          '@never' => $never_reviewed_count,
+          '@days' => $this->sourceGovernance->getMaxAgeDays('resource_lexical'),
+        ]) . '</strong></p>',
+      ],
+      'table' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Title'),
+          $this->t('Type'),
+          $this->t('Lang'),
+          $this->t('Changed'),
+          $this->t('Last reviewed'),
+          $this->t('Age (days)'),
+          $this->t('Status'),
+          $this->t('Basis'),
+          $this->t('Actions'),
+        ],
+        '#rows' => $rows,
+        '#empty' => $this->t('No citable published content found.'),
+      ],
+      '#cache' => ['max-age' => 0],
+    ];
   }
 
   /**

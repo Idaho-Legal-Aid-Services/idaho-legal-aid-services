@@ -33,6 +33,14 @@ class SourceGovernanceService {
   private const ALERT_STATE_KEY = 'ilas_site_assistant.source_governance.last_alert';
 
   /**
+   * Node field holding the content owner's last-reviewed attestation date.
+   *
+   * Freshness is keyed off max(changed, field_last_reviewed) so an editor can
+   * attest that unchanged content is still current without a cosmetic edit.
+   */
+  public const REVIEW_FIELD = 'field_last_reviewed';
+
+  /**
    * Config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
@@ -125,6 +133,150 @@ class SourceGovernanceService {
   }
 
   /**
+   * Resolves the last-reviewed attestation timestamp from a content entity.
+   *
+   * Reads the date-only REVIEW_FIELD value and anchors it at 12:00 UTC (the
+   * Drupal date-only convention). Returns NULL when the entity has no such
+   * field, the field is empty or malformed, or the date lies in the future
+   * (a typo must not make an item permanently fresh).
+   *
+   * @param object $entity
+   *   A fieldable entity (node, media) or any object; non-fieldable objects
+   *   yield NULL.
+   *
+   * @return int|null
+   *   Unix timestamp of the review attestation, or NULL.
+   */
+  public static function resolveEntityReviewedAt(object $entity): ?int {
+    try {
+      if (!method_exists($entity, 'hasField') || !$entity->hasField(self::REVIEW_FIELD)) {
+        return NULL;
+      }
+      $list = $entity->get(self::REVIEW_FIELD);
+      if (!is_object($list) || !method_exists($list, 'isEmpty') || $list->isEmpty()) {
+        return NULL;
+      }
+      $first = method_exists($list, 'first') ? $list->first() : NULL;
+      if (!is_object($first) || !method_exists($first, 'getValue')) {
+        return NULL;
+      }
+      $value = $first->getValue()['value'] ?? NULL;
+      return self::parseReviewDate($value);
+    }
+    catch (\Throwable $e) {
+      return NULL;
+    }
+  }
+
+  /**
+   * Parses a Y-m-d review date into a noon-UTC timestamp.
+   *
+   * @param mixed $value
+   *   Raw field value.
+   * @param int|null $now
+   *   Reference time for the future-date guard (defaults to time()).
+   *
+   * @return int|null
+   *   Timestamp, or NULL when the value is not a valid non-future date.
+   */
+  public static function parseReviewDate(mixed $value, ?int $now = NULL): ?int {
+    if (!is_string($value) || $value === '') {
+      return NULL;
+    }
+    $date_part = substr(trim($value), 0, 10);
+    $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $date_part, new \DateTimeZone('UTC'));
+    if ($date === FALSE || $date->format('Y-m-d') !== $date_part) {
+      return NULL;
+    }
+    $timestamp = $date->setTime(12, 0, 0)->getTimestamp();
+    if ($timestamp > ($now ?? time())) {
+      return NULL;
+    }
+    return $timestamp;
+  }
+
+  /**
+   * Builds the freshness timestamps a retrieval item should carry for an entity.
+   *
+   * @param object $entity
+   *   Node or media entity.
+   *
+   * @return array{updated_at: int|null, reviewed_at: int|null}
+   *   Changed timestamp and review attestation timestamp.
+   */
+  public static function buildEntityFreshness(object $entity): array {
+    $updated_at = NULL;
+    if (method_exists($entity, 'getChangedTime')) {
+      $changed = $entity->getChangedTime();
+      $updated_at = is_numeric($changed) && (int) $changed > 0 ? (int) $changed : NULL;
+    }
+    return [
+      'updated_at' => $updated_at,
+      'reviewed_at' => self::resolveEntityReviewedAt($entity),
+    ];
+  }
+
+  /**
+   * Classifies freshness from the changed and reviewed timestamps.
+   *
+   * The effective timestamp is the newer of the two: an edit is an implicit
+   * review, and a review attests unchanged content. Age is measured from the
+   * effective timestamp; an item is stale when age exceeds max_age_days.
+   *
+   * @param int|null $updated_at
+   *   Entity changed timestamp.
+   * @param int|null $reviewed_at
+   *   Review attestation timestamp.
+   * @param int $max_age_days
+   *   Maximum age before the item is stale.
+   * @param int|null $now
+   *   Reference time (defaults to time()).
+   *
+   * @return array{status: string, effective_at: int|null, age_days: int|null, basis: string}
+   *   status is fresh|stale|unknown; basis is reviewed|changed|unknown.
+   */
+  public static function classifyFreshness(?int $updated_at, ?int $reviewed_at, int $max_age_days, ?int $now = NULL): array {
+    $now = $now ?? time();
+    $updated_at = $updated_at !== NULL && $updated_at > 0 ? $updated_at : NULL;
+    $reviewed_at = $reviewed_at !== NULL && $reviewed_at > 0 ? $reviewed_at : NULL;
+
+    if ($updated_at === NULL && $reviewed_at === NULL) {
+      return [
+        'status' => 'unknown',
+        'effective_at' => NULL,
+        'age_days' => NULL,
+        'basis' => 'unknown',
+      ];
+    }
+
+    if ($reviewed_at !== NULL && $reviewed_at >= ($updated_at ?? 0)) {
+      $effective_at = $reviewed_at;
+      $basis = 'reviewed';
+    }
+    else {
+      $effective_at = $updated_at;
+      $basis = 'changed';
+    }
+
+    $age_days = (int) floor(max(0, $now - $effective_at) / 86400);
+
+    return [
+      'status' => $age_days > $max_age_days ? 'stale' : 'fresh',
+      'effective_at' => $effective_at,
+      'age_days' => $age_days,
+      'basis' => $basis,
+    ];
+  }
+
+  /**
+   * Returns the configured max_age_days for a source class.
+   */
+  public function getMaxAgeDays(string $source_class): int {
+    $class_policy = $this->getSourceClassPolicy($source_class, $this->getPolicy());
+    return max(1, (int) ($class_policy['max_age_days'] ?? 180));
+  }
+
+  /**
    * Annotates a single retrieval result with provenance/freshness metadata.
    *
    * @param array $item
@@ -148,18 +300,12 @@ class SourceGovernanceService {
     $sanitized_source_url = $this->sanitizeCitationUrl($source_url);
     $source_url_allowed = $sanitized_source_url !== NULL;
     $updated_at = $this->resolveUpdatedAt($item);
+    $reviewed_at = $this->resolveReviewedAt($item);
 
     $max_age_days = (int) ($class_policy['max_age_days'] ?? 180);
-    $age_days = $updated_at !== NULL
-      ? (int) floor(max(0, time() - $updated_at) / 86400)
-      : NULL;
-
-    if ($updated_at === NULL) {
-      $freshness_status = 'unknown';
-    }
-    else {
-      $freshness_status = $age_days > $max_age_days ? 'stale' : 'fresh';
-    }
+    $classification = self::classifyFreshness($updated_at, $reviewed_at, $max_age_days);
+    $freshness_status = $classification['status'];
+    $age_days = $classification['age_days'];
 
     $flags = [];
     if (!empty($class_policy['require_source_url']) && !$has_source_url) {
@@ -193,6 +339,9 @@ class SourceGovernanceService {
     $item['freshness'] = [
       'status' => $freshness_status,
       'updated_at' => $updated_at,
+      'reviewed_at' => $reviewed_at,
+      'effective_at' => $classification['effective_at'],
+      'basis' => $classification['basis'],
       'age_days' => $age_days,
       'max_age_days' => $max_age_days,
     ];
@@ -253,55 +402,22 @@ class SourceGovernanceService {
       $annotated = $this->annotateResult($result, $source_class, $retrieval_method);
       $freshness_status = $annotated['freshness']['status'] ?? 'unknown';
       $flags = $annotated['governance_flags'] ?? [];
+      $never_reviewed = ($annotated['freshness']['reviewed_at'] ?? NULL) === NULL;
 
-      $snapshot['total']++;
-      if ($freshness_status === 'stale') {
-        $snapshot['stale']++;
-      }
-      if ($freshness_status === 'unknown') {
-        $snapshot['unknown']++;
-      }
-      if (in_array('missing_source_url', $flags, TRUE)) {
-        $snapshot['missing_source_url']++;
-      }
+      $snapshot['never_reviewed'] = (int) ($snapshot['never_reviewed'] ?? 0);
+      $this->incrementCounters($snapshot, $freshness_status, $flags, $never_reviewed);
 
       if (!isset($snapshot['by_source_class'][$source_class])) {
-        $snapshot['by_source_class'][$source_class] = [
-          'total' => 0,
-          'stale' => 0,
-          'unknown' => 0,
-          'missing_source_url' => 0,
-        ];
+        $snapshot['by_source_class'][$source_class] = self::emptyCounters();
       }
-      $snapshot['by_source_class'][$source_class]['total']++;
-      if ($freshness_status === 'stale') {
-        $snapshot['by_source_class'][$source_class]['stale']++;
-      }
-      if ($freshness_status === 'unknown') {
-        $snapshot['by_source_class'][$source_class]['unknown']++;
-      }
-      if (in_array('missing_source_url', $flags, TRUE)) {
-        $snapshot['by_source_class'][$source_class]['missing_source_url']++;
-      }
+      $snapshot['by_source_class'][$source_class] += self::emptyCounters();
+      $this->incrementCounters($snapshot['by_source_class'][$source_class], $freshness_status, $flags, $never_reviewed);
 
       if (!isset($snapshot['by_retrieval_method'][$retrieval_method])) {
-        $snapshot['by_retrieval_method'][$retrieval_method] = [
-          'total' => 0,
-          'stale' => 0,
-          'unknown' => 0,
-          'missing_source_url' => 0,
-        ];
+        $snapshot['by_retrieval_method'][$retrieval_method] = self::emptyCounters();
       }
-      $snapshot['by_retrieval_method'][$retrieval_method]['total']++;
-      if ($freshness_status === 'stale') {
-        $snapshot['by_retrieval_method'][$retrieval_method]['stale']++;
-      }
-      if ($freshness_status === 'unknown') {
-        $snapshot['by_retrieval_method'][$retrieval_method]['unknown']++;
-      }
-      if (in_array('missing_source_url', $flags, TRUE)) {
-        $snapshot['by_retrieval_method'][$retrieval_method]['missing_source_url']++;
-      }
+      $snapshot['by_retrieval_method'][$retrieval_method] += self::emptyCounters();
+      $this->incrementCounters($snapshot['by_retrieval_method'][$retrieval_method], $freshness_status, $flags, $never_reviewed);
     }
 
     $snapshot['recorded_at'] = $now;
@@ -311,6 +427,38 @@ class SourceGovernanceService {
 
     $this->state->set(self::SNAPSHOT_STATE_KEY, $snapshot);
     $this->emitStaleRatioAlertIfNeeded($snapshot, $policy);
+  }
+
+  /**
+   * Returns a zeroed observation counter set.
+   */
+  protected static function emptyCounters(): array {
+    return [
+      'total' => 0,
+      'stale' => 0,
+      'unknown' => 0,
+      'missing_source_url' => 0,
+      'never_reviewed' => 0,
+    ];
+  }
+
+  /**
+   * Increments one observation into a counter set (by reference).
+   */
+  protected function incrementCounters(array &$counters, string $freshness_status, array $flags, bool $never_reviewed): void {
+    $counters['total']++;
+    if ($freshness_status === 'stale') {
+      $counters['stale']++;
+    }
+    if ($freshness_status === 'unknown') {
+      $counters['unknown']++;
+    }
+    if (in_array('missing_source_url', $flags, TRUE)) {
+      $counters['missing_source_url']++;
+    }
+    if ($never_reviewed) {
+      $counters['never_reviewed']++;
+    }
   }
 
   /**
@@ -333,6 +481,7 @@ class SourceGovernanceService {
       'stale' => 0,
       'unknown' => 0,
       'missing_source_url' => 0,
+      'never_reviewed' => 0,
       'stale_ratio_pct' => 0.0,
       'unknown_ratio_pct' => 0.0,
       'missing_source_url_ratio_pct' => 0.0,
@@ -423,20 +572,65 @@ class SourceGovernanceService {
     ];
 
     foreach ($candidates as $candidate) {
-      if (is_int($candidate) && $candidate > 0) {
-        return $candidate;
-      }
-      if (is_numeric($candidate) && (int) $candidate > 0) {
-        return (int) $candidate;
-      }
-      if (is_string($candidate) && $candidate !== '') {
-        $timestamp = strtotime($candidate);
-        if ($timestamp !== FALSE && $timestamp > 0) {
-          return $timestamp;
-        }
+      $timestamp = $this->coerceTimestamp($candidate, TRUE);
+      if ($timestamp !== NULL) {
+        return $timestamp;
       }
     }
 
+    return NULL;
+  }
+
+  /**
+   * Resolves the review attestation timestamp from result metadata.
+   *
+   * Accepts integer timestamps and Y-m-d strings only; free-form strings are
+   * not parsed so a stray value cannot manufacture a review. The
+   * freshness.reviewed_at echo matters because recordObservationBatch()
+   * re-annotates already-annotated results.
+   */
+  protected function resolveReviewedAt(array $item): ?int {
+    $candidates = [
+      $item['reviewed_at'] ?? NULL,
+      $item['freshness']['reviewed_at'] ?? NULL,
+    ];
+
+    foreach ($candidates as $candidate) {
+      if (is_string($candidate) && !is_numeric($candidate)) {
+        $timestamp = self::parseReviewDate($candidate);
+      }
+      else {
+        $timestamp = $this->coerceTimestamp($candidate, FALSE);
+      }
+      if ($timestamp !== NULL) {
+        return $timestamp;
+      }
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Coerces a timestamp candidate to a positive int.
+   *
+   * @param mixed $candidate
+   *   Raw value.
+   * @param bool $allow_free_text
+   *   Whether non-numeric strings may be parsed with strtotime().
+   */
+  protected function coerceTimestamp(mixed $candidate, bool $allow_free_text): ?int {
+    if (is_int($candidate) && $candidate > 0) {
+      return $candidate;
+    }
+    if (is_numeric($candidate) && (int) $candidate > 0) {
+      return (int) $candidate;
+    }
+    if ($allow_free_text && is_string($candidate) && $candidate !== '') {
+      $timestamp = strtotime($candidate);
+      if ($timestamp !== FALSE && $timestamp > 0) {
+        return $timestamp;
+      }
+    }
     return NULL;
   }
 
@@ -498,6 +692,7 @@ class SourceGovernanceService {
       'stale' => 0,
       'unknown' => 0,
       'missing_source_url' => 0,
+      'never_reviewed' => 0,
       'stale_ratio_pct' => 0.0,
       'unknown_ratio_pct' => 0.0,
       'missing_source_url_ratio_pct' => 0.0,
@@ -628,8 +823,12 @@ class SourceGovernanceService {
       '@stale' => (int) ($snapshot['stale'] ?? 0),
       '@total' => $total,
       '@min' => $min_observations,
+      '@never_reviewed' => (int) ($snapshot['never_reviewed'] ?? 0),
+      '@by_class' => self::formatSourceClassBreakdown($snapshot['by_source_class'] ?? []),
     ];
-    $message = 'Source governance stale ratio @ratio% exceeds threshold @threshold% (stale @stale / total @total, min_observations @min).';
+    // never_reviewed and the per-class breakdown tell content ops what to
+    // review (PHP-9Z): a class with nr == stale has never been attested.
+    $message = 'Source governance stale ratio @ratio% exceeds threshold @threshold% (stale @stale / total @total, min_observations @min; never_reviewed @never_reviewed; by class: @by_class).';
     if ($total >= $min_observations) {
       $this->logger->warning($message, $context);
     }
@@ -637,6 +836,29 @@ class SourceGovernanceService {
       $this->logger->notice($message, $context);
     }
     $this->state->set(self::ALERT_STATE_KEY, $now);
+  }
+
+  /**
+   * Formats per-class counters as a compact log string.
+   *
+   * Example: "faq_lexical=2/2 nr=2; resource_lexical=17/23 nr=23".
+   */
+  public static function formatSourceClassBreakdown(array $by_source_class): string {
+    $parts = [];
+    ksort($by_source_class);
+    foreach ($by_source_class as $class => $counters) {
+      if (!is_array($counters)) {
+        continue;
+      }
+      $parts[] = sprintf(
+        '%s=%d/%d nr=%d',
+        (string) $class,
+        (int) ($counters['stale'] ?? 0),
+        (int) ($counters['total'] ?? 0),
+        (int) ($counters['never_reviewed'] ?? 0)
+      );
+    }
+    return $parts ? implode('; ', $parts) : 'none';
   }
 
   /**

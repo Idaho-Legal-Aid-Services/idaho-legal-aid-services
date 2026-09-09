@@ -7992,6 +7992,7 @@ class AssistantApiController extends ControllerBase {
         'stale' => $source_governance['stale'] ?? 0,
         'unknown' => $source_governance['unknown'] ?? 0,
         'missing_source_url' => $source_governance['missing_source_url'] ?? 0,
+        'never_reviewed' => $source_governance['never_reviewed'] ?? 0,
         'stale_ratio_pct' => $source_governance['stale_ratio_pct'] ?? 0.0,
         'unknown_ratio_pct' => $source_governance['unknown_ratio_pct'] ?? 0.0,
         'missing_source_url_ratio_pct' => $source_governance['missing_source_url_ratio_pct'] ?? 0.0,

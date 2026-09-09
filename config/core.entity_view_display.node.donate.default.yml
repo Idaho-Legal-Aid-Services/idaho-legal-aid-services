@@ -8,6 +8,7 @@ dependencies:
     - field.field.node.donate.field_donor_title
     - field.field.node.donate.field_donorbox
     - field.field.node.donate.field_hide_donation_form
+    - field.field.node.donate.field_last_reviewed
     - field.field.node.donate.field_main_content
     - field.field.node.donate.field_sections
     - node.type.donate
@@ -77,6 +78,7 @@ content:
     weight: 3
     region: content
 hidden:
+  field_last_reviewed: true
   langcode: true
   links: true
   search_api_excerpt: true

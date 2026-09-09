@@ -1,0 +1,21 @@
+uuid: c123d917-5c80-4d0f-9687-4cb491c3dd87
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_last_reviewed
+    - node.type.legal_content
+  module:
+    - datetime
+id: node.legal_content.field_last_reviewed
+field_name: field_last_reviewed
+entity_type: node
+bundle: legal_content
+label: 'Last reviewed'
+description: 'Date a content owner last confirmed this content is accurate and current. Setting this is an attestation; leave blank if you have not reviewed it.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

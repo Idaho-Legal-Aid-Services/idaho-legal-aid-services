@@ -634,8 +634,9 @@
   color: var(--assistant-primary);
 }
 
-/* Eligibility Caveat */
-.eligibility-caveat {
+/* Eligibility / freshness caveats */
+.eligibility-caveat,
+.freshness-caveat {
   margin: 8px 0;
   padding: 10px 12px;
   background: #fff3cd;
