@@ -2598,8 +2598,15 @@ done
   - Search API vector indexes are `faq_accordion_vector` and
     `assistant_resources_vector`.
   - Both Search API servers target the same Pinecone index
-    `ilas-assistant`, but each uses its own collection/namespace:
-    `faq_accordion_vector` or `assistant_resources_vector`.
+    `ilas-assistant-voyage-1024`, but each uses its own collection/namespace.
+  - Namespaces are per environment (`web/sites/default/settings.php`,
+    "Per-environment Pinecone namespaces"): live uses the committed
+    `faq_accordion_vector` / `assistant_resources_vector`; every other
+    environment gets `faq_accordion_vector-<env>` /
+    `assistant_resources_vector-<env>` (`-dev`, `-test`, `-ddev`, multidev
+    name). A backfill or `--clear-first` off live can therefore never touch
+    live's vectors. Check the effective value with
+    `drush config:get search_api.server.pinecone_vector_faq backend_config.database_settings.collection --include-overridden`.
 - Safe default:
   - `ilas:vector-backfill` resumes without clearing, processes one small batch
     by default, and is safe to rerun until the tracker reaches zero remaining
@@ -2663,6 +2670,58 @@ ddev drush search-api:search assistant_resources_vector eviction
   - `ilas:vector-backfill --clear-first --until-complete` is allowed on hosted
     environments only during an approved change window, after a Pinecone
     snapshot, and with semantic retrieval still disabled.
+
+### Stale vectors and per-environment namespaces (PHP-28, 2026-09-09)
+
+- Symptom: `search_api` warning `Could not load the following items on index
+  FAQ Accordion (Vector): "entity:paragraph/402:en"` on live web requests.
+  The paragraph exists and no tracker row references it; the ID is returned
+  by Pinecone at query time. Search API's `delete_on_fail` self-heal asked the
+  backend to delete it on every occurrence, but the unpatched
+  `ai_vdb_provider_pinecone` resolved vector IDs with an exact-ID fetch of
+  the Search API item ID while vectors are stored as `<item id>:<chunk>`, so
+  every per-item delete was a silent no-op. Until 2026-09 all environments
+  also wrote into one namespace, so dev/test/DDEV content could overwrite or
+  linger next to live's vectors.
+- Fix in the repo: `patches/ai-vdb-provider-pinecone-delete-chunk-ids.patch`
+  (list chunk IDs by prefix, then delete; guarded by
+  `PineconeDeleteChunkContractTest`) and the per-environment namespace
+  override in `settings.php`.
+- Do not use `search-api:reset-tracker` for this (tracker-only UPDATE, never
+  touches Pinecone) and never run `search-api:clear` / `sapi-c` on a vector
+  index from an environment whose namespace is shared with live.
+- Read-only inventory by ID prefix (chunk IDs for one item; `auto:faq` /
+  `auto:resource` resolve the effective namespace of the current environment):
+
+```bash
+ddev drush php:script --script-path=/var/www/html/scripts/vector pinecone-list-prefix.php -- auto:faq 'entity:paragraph/402:'
+terminus remote:drush idaho-legal-aid-services.live -- php:script --script-path=/code/scripts/vector pinecone-list-prefix.php -- auto:faq 'entity:paragraph/402:'
+```
+
+- One-time rollout after the deploy (dev and test first, live last):
+
+```bash
+for ENV in dev test; do
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get search_api.server.pinecone_vector_faq backend_config.database_settings.collection --include-overridden
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- config:get search_api.server.pinecone_vector_resources backend_config.database_settings.collection --include-overridden
+  # Both must print the "-<env>" suffixed namespace before anything writes.
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-backfill faq_vector --clear-first --until-complete --sleep-seconds=5
+  terminus remote:drush "idaho-legal-aid-services.${ENV}" -- ilas:vector-backfill resource_vector --clear-first --until-complete --sleep-seconds=5
+done
+
+# Live: must print the unsuffixed names, then rebuild from live content only.
+terminus remote:drush idaho-legal-aid-services.live -- config:get search_api.server.pinecone_vector_faq backend_config.database_settings.collection --include-overridden
+terminus backup:create idaho-legal-aid-services.live --keep-for=1
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-backfill faq_vector --clear-first --until-complete --sleep-seconds=5
+terminus remote:drush idaho-legal-aid-services.live -- ilas:vector-backfill resource_vector --clear-first --until-complete --sleep-seconds=5
+```
+
+- Verify afterwards: `ilas:vector-status faq_vector --probe-now` and
+  `resource_vector --probe-now` on each environment, `search-api:status`
+  shows every item indexed, the list script returns nothing for
+  `entity:paragraph/402:`, `439:`, `453:` on live, and dev's backfill leaves
+  live's namespace vector count unchanged.
+
 
 ### TOVR-11 Pinecone retrieval integration hardening verification
 

@@ -656,6 +656,33 @@ if ($pinecone_key) {
 }
 
 /**
+ * Per-environment Pinecone namespaces.
+ *
+ * Every environment shares the one Pinecone index and API key. Live keeps the
+ * namespaces committed in search_api.server.pinecone_vector_*.yml; every other
+ * environment (Pantheon dev/test/multidev, DDEV) writes to "<namespace>-<env>"
+ * so a reindex or clear there can never touch live's vectors, and stale
+ * vectors from one environment can no longer surface in another.
+ *
+ * After changing environments (or on first use) rebuild the local namespaces:
+ *   drush ilas:vector-backfill faq_vector --clear-first --until-complete
+ *   drush ilas:vector-backfill resource_vector --clear-first --until-complete
+ * Verify the effective value with
+ *   drush config:get search_api.server.pinecone_vector_faq backend_config.database_settings.collection --include-overridden
+ */
+$ilas_vector_namespace_env = _ilas_raw_pantheon_environment();
+if ($ilas_vector_namespace_env === FALSE || $ilas_vector_namespace_env === '') {
+  $ilas_vector_namespace_env = getenv('IS_DDEV_PROJECT') === 'true' ? 'ddev' : '';
+}
+$ilas_vector_namespace_env = mb_strtolower(trim((string) $ilas_vector_namespace_env));
+if ($ilas_vector_namespace_env !== '' && $ilas_vector_namespace_env !== 'live') {
+  $ilas_vector_namespace_suffix = '-' . trim(preg_replace('/[^a-z0-9-]+/', '-', $ilas_vector_namespace_env), '-');
+  $config['search_api.server.pinecone_vector_faq']['backend_config']['database_settings']['collection'] = 'faq_accordion_vector' . $ilas_vector_namespace_suffix;
+  $config['search_api.server.pinecone_vector_resources']['backend_config']['database_settings']['collection'] = 'assistant_resources_vector' . $ilas_vector_namespace_suffix;
+}
+unset($ilas_vector_namespace_env, $ilas_vector_namespace_suffix);
+
+/**
  * ILAS Site Assistant vector-search rollout toggle.
  *
  * Runtime-only toggle. Sync config remains disabled-by-default so enablement

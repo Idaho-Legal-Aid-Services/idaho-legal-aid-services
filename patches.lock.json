@@ -1,5 +1,5 @@
 {
-    "_hash": "0932cff9057fa3953665129672586ad57f7b8fb9070c4dd194f382317f1f8265",
+    "_hash": "e9581fb064f53a50cddac097ca7663a6424fceca63c14b68b0b68f0c4fa40e2f",
     "patches": {
         "drupal/core": [
             {
@@ -43,6 +43,16 @@
                 "description": "Add query-only Pinecone timeout client and config controls",
                 "url": "patches/ai-vdb-provider-pinecone-query-timeouts.patch",
                 "sha256": "6eb8f289b7cb75e9fc1d3f5f08c74553de2e2ef0e5f6efd5f8eb6ca8066d357d",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            },
+            {
+                "package": "drupal/ai_vdb_provider_pinecone",
+                "description": "Resolve chunk vector IDs by prefix in getVdbIds()/deleteItems() so per-item deletes and re-index cleanups actually remove vectors (vectors are stored as <item id>:<chunk>)",
+                "url": "patches/ai-vdb-provider-pinecone-delete-chunk-ids.patch",
+                "sha256": "a848d0eb0b6071ffa94761e485156990a41e96fa6f752e3dc7290dee31d3cbdc",
                 "depth": 1,
                 "extra": {
                     "provenance": "root"

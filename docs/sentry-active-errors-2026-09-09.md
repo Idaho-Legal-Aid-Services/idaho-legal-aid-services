@@ -44,11 +44,31 @@ Org `idaho-legal-aid-services`, project `php` (PHP + browser events share it). S
 
 **Fix.** Add a `WeakSet` of seen objects plus a max depth (e.g. 8) to `scrubValue`, returning `'[Circular]'` / `'[Truncated]'`. Small, safe, one file.
 
-### A4. Vector index has an orphaned tracker item on live/test/dev (PHP-28)
+### A4. Stale vectors in the shared Pinecone namespace surface as "could not load" (PHP-28)
 
-[PHP-28](https://idaho-legal-aid-services.sentry.io/issues/7341743928/) · warning · live 13 / test 10 / dev 7 · 92 events total · last 09-05 · `search_api: Could not load the following items on index FAQ Accordion (Vector): "entity:paragraph/402:en"`.
+[PHP-28](https://idaho-legal-aid-services.sentry.io/issues/7341743928/) · warning · 32 retained events (94 lifetime) · last 09-09 · `search_api: Could not load the following items on index %index: @items.`
 
-Paragraph 402 was deleted but its tracker row remains in `faq_accordion_vector` on all three environments. It is not the retiring DB content index, so the 08-06 retirement did not cover it. Fix: `drush search-api:reset-tracker faq_accordion_vector` (or `sapi-c` for that index) on each env, then reindex. One-line ops task.
+**This issue groups on the message template, so it mixes unrelated causes.** Splitting the retained events by index and environment (2026-09-09):
+
+| Index | Env | Events | SAPI | What it is |
+|---|---|---|---|---|
+| FAQ Accordion (Vector) | live | 13 | web | `entity:paragraph/402:en`, 07-21 → 09-05, in pairs per request |
+| FAQ Accordion (Vector) | dev | 2 | web | `entity:paragraph/439:en`, `453:en` on 07-12 |
+| Content / Content (Solr) / Assistant Resources (Vector) / Assistant Resource Finder | test, dev | 17 | cron | nodes 170–188, batches on 07-15, 07-20, 08-14, 08-16, 08-24, 09-09 |
+
+**The original diagnosis ("paragraph 402 was deleted, tracker row orphaned") was wrong.** Read-only checks on live/test/dev/DDEV: paragraph 402 exists everywhere (Spanish `external_resource` paragraph under node 102), and no `search_api_item` row on any environment references it. The index only tracks `accordion_item`/`faq_item` paragraphs, so `ContentEntity::loadMultiple()` correctly refuses `402:en` on bundle and on the missing `en` translation. The ID comes back from **Pinecone at query time**: `FaqIndex::searchVector()` → `Item::getOriginalObject()` → `Index::loadItemsMultiple()` logs the warning and, because `delete_on_fail` is on, asks the backend to delete the item. Pinecone still holds `entity:paragraph/402:en:0`, `439:en:0`, `453:en:0` with metadata `paragraph_type=accordion_item`, i.e. vectors written by some other environment's content (every environment shared one namespace).
+
+**Root cause.** `PineconeProvider::deleteItems()` resolves vector IDs with an exact-ID `fetch` of the Search API item ID, but the AI Search backend stores vectors as `<item id>:<chunk>`. The fetch finds nothing, so every per-item delete (Search API self-heal, entity deletes, and the delete-before-upsert on re-index) has been a silent no-op since launch. Upstream 1.1.x and 2.0.x carry the same code.
+
+**Why the proposed one-liner would not have worked.** `search-api:reset-tracker` only runs `UPDATE search_api_item SET status=0`; it cannot remove rows and never touches Pinecone. `search-api:index` re-embeds everything and leaves the stale chunk. The `sapi-c` alternative calls `deleteAllFromNamespace`, which on test or dev would have wiped live's vectors because the namespace was shared.
+
+**Fix (this branch).**
+- `patches/ai-vdb-provider-pinecone-delete-chunk-ids.patch`: `getVdbIds()` lists vector IDs by prefix `<item id>:` (new `ListVectors` request against the serverless list endpoint) and keeps the exact-ID fetch as a fallback; `deleteItems()` chunks by 1000. Guarded by `PineconeDeleteChunkContractTest`.
+- `web/sites/default/settings.php`: non-live environments (Pantheon dev/test/multidev, DDEV) now use `faq_accordion_vector-<env>` / `assistant_resources_vector-<env>`; live keeps the committed names. A reindex or clear off live can no longer touch live's vectors.
+- `scripts/vector/pinecone-list-prefix.php`: read-only inventory by prefix (`auto:faq` / `auto:resource` resolve the effective namespace).
+- Rollout: after deploy, backfill dev and test into their new namespaces, then rebuild live once with `ilas:vector-backfill faq_vector --clear-first --until-complete` and `resource_vector` (see `docs/aila/runbook.md`, "Stale vectors and per-environment namespaces"). The live rebuild removes the three stale chunks and anything dev/test/DDEV wrote over the shared namespace (1060 vectors held for 887 tracked items before the rebuild).
+
+**The cron-time rows are a different, benign thing.** Nodes 170–188 on test (created 08-24 15:25 by uid 1, one "test" node per content type) and their dev counterparts (08-14, 08-16) were manual QA nodes that were then trashed. `trash` soft-deletes, which fires `entityUpdate` rather than `entityDelete`, so the rows stayed tracked until cron failed to load them and `delete_on_fail` dropped them. Test drained the last nine on 09-09 18:46 after weeks with no cron (environment asleep). Trackers on all three environments are clean. Follow-up (low priority): a `hook_entity_update` that untracks nodes when `deleted` becomes set would remove trashed content from Solr/DB/vector indexes immediately instead of on the next cron.
 
 ### A5. Cloudflare challenges CSS/JS/image subrequests for real visitors (PHP-AQ, PHP-AP, PHP-A5) — REVISED 2026-09-09
 
@@ -147,7 +167,7 @@ Bulk-resolve is a write: `PUT /api/0/projects/idaho-legal-aid-services/php/issue
 2. A5 — turn off Cloudflare SBFM static-resource protection (dashboard). Visitor-facing: 200–330 IPs/day get challenge pages instead of CSS/JS/images.
 3. A3 — cycle guard in `scrubValue` (tiny).
 4. C — add `deny_urls` / `ignore_errors` to raven browser config, enable Sentry's browser-extension inbound filter.
-5. A4 — reset the `faq_accordion_vector` tracker on live/test/dev.
+5. A4 — deploy the Pinecone delete-chunk patch + per-environment namespaces, backfill dev/test, rebuild live (see A4).
 6. A2 — decide the freshness policy with content ops.
 7. E — bulk-resolve the 131 stale issues.
 8. A6 — when convenient.
