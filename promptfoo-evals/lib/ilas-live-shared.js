@@ -729,10 +729,14 @@ function inferTopic(data) {
     ? data.active_selection
     : {};
 
+  const publicIntent = data.meta && typeof data.meta === 'object' && data.meta.intent && typeof data.meta.intent === 'object'
+    ? data.meta.intent
+    : {};
+
   return compactObject({
     id: topic.id || activeSelection.button_id || debug.topic_id || null,
     name: topic.name || activeSelection.label || debug.topic_name || null,
-    source: data.route_source || debug.intent_source || debug.route_source || null,
+    source: data.route_source || debug.intent_source || debug.route_source || publicIntent.source || null,
   });
 }
 
@@ -999,9 +1003,14 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
     decision_reason: payload.decision_reason || null,
     confidence: normalizeConfidence(payload.confidence),
     route: compactObject({
-      intent: payload.intent_selected || debug.intent_selected || null,
-      intent_confidence: compactNumber(payload.intent_confidence || debug.intent_confidence),
-      source: payload.route_source || debug.intent_source || null,
+      // Top-level and debug fields only exist on local debug runs; hosted
+      // targets publish the label in the always-public meta.intent envelope
+      // (AssistantApiController::recordIntentDiagnostics), so read that last.
+      intent: payload.intent_selected || debug.intent_selected || publicDiagnostics.intent?.selected || null,
+      intent_confidence: compactNumber(
+        payload.intent_confidence ?? debug.intent_confidence ?? publicDiagnostics.intent?.confidence
+      ),
+      source: payload.route_source || debug.intent_source || publicDiagnostics.intent?.source || null,
       topic: inferTopic(payload),
     }),
     citations: {
