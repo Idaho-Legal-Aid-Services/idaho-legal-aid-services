@@ -66,6 +66,27 @@
         }
       metric: multilingual-offices-contract
 - vars:
+    question: Donde estan sus oficinas
+  metadata:
+    scenario_family: multilingual_routing
+    scenario_id: es-offices-plural
+  description: Plural Spanish office question reaches offices page
+  assert:
+    - type: javascript
+      value: "output.includes('/contact/offices')"
+      metric: multilingual-offices-path
+    - type: javascript
+      value: |
+        const line = output.split('\n').find((entry) => entry.startsWith('[contract_meta]'));
+        if (!line) return false;
+        try {
+          const meta = JSON.parse(line.slice('[contract_meta]'.length));
+          return String(meta.response_mode || '') === 'navigate';
+        } catch (e) {
+          return false;
+        }
+      metric: multilingual-offices-contract
+- vars:
     question: Que formularios tienen
   metadata:
     scenario_family: multilingual_routing
