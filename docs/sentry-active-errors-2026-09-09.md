@@ -1,0 +1,127 @@
+# Sentry active-error review — 2026-09-09
+
+Org `idaho-legal-aid-services`, project `php` (PHP + browser events share it). Snapshot taken 2026-09-09 ~18:30 UTC via the REST API (read-only). Previous triage: 2026-07-20/21 (see memory `sentry-setup.md`). Releases: `live_183` deployed 2026-07-30, `live_184` deployed 2026-08-27.
+
+## Summary
+
+| Bucket | Issues | Notes |
+|---|---|---|
+| Unresolved total | 177 | 0 ignored, 1 resolved in 14d window |
+| Active (seen ≤30 days) | 46 | Reviewed individually below |
+| Stale (silent >30 days) | 131 | 64 are CSP "Blocked …" reports (all silent since 07-17); 67 other. Safe to bulk-resolve. |
+| Every July 2026 fix held | — | PHP-5H, 2N, 6B, 8Q, Z, 2M, 4S, 9C/9J, 8G, 8H all silent after their fix/deploy date |
+
+**Six things need a decision or a code change** (A1–A6). Everything else active is third-party noise that should be filtered at the SDK so it stops reaching Sentry, or is known telemetry.
+
+## A. Actionable — new since the July triage
+
+### A1. Dev LLM circuit-breaker loop is back with a different cause (PHP-9P, PHP-8N, PHP-8P, PHP-9N)
+
+| ID | Level | Env | Events (14d) | Last seen | Title |
+|---|---|---|---|---|---|
+| [PHP-9P](https://idaho-legal-aid-services.sentry.io/issues/7647740617/) | error | dev | 45 (18) | 09-06 | Request-time LLM intent classification failed: RuntimeException (HTTP none) |
+| [PHP-8N](https://idaho-legal-aid-services.sentry.io/issues/7600884006/) | warning | dev | 7 (2) | 09-06 | LLM circuit breaker opened after 3 consecutive failures within 60 s |
+| [PHP-8P](https://idaho-legal-aid-services.sentry.io/issues/7600884076/) | warning | dev | 215 (14) | 09-06 | Skipping request-time LLM classification because the circuit breaker is open |
+| [PHP-9N](https://idaho-legal-aid-services.sentry.io/issues/7647739579/) | warning | dev | 5 (2) | 09-06 | Per-IP LLM budget exhausted for identity … (10/10) |
+
+**Diagnosis (confirmed in code, not just correlation).** The July Cohere `response_format` fix held: PHP-6B (ClientException) went silent 07-30. The new driver is `RuntimeException (HTTP none)`, and the only RuntimeExceptions the enhancer throws with no HTTP status are budget denial, non-array payload, and "failed after retries". PHP-9N fires in the same minute-window every time (09-06: budget exhausted 10:29 → breaker opened 10:39 → 9P at 10:48). In `LlmEnhancer::classifyIntent` the cost-control check inside `completeStructuredRequest` throws `\RuntimeException('Request-time LLM budget exceeded: …')` from *inside* the `try` block, so the `catch (\Throwable)` logs it as an error and calls `circuitBreaker->recordFailure()`. Three budget denials from one identity within 60 s (eval/CI traffic against dev, single source IP) opens the breaker for everyone. A client-side admission decision is being counted as an upstream transport failure.
+
+**Fix (implemented 2026-09-09).** Admission denials now throw `LlmAdmissionDeniedException`, caught by type ahead of the generic catch in `LlmEnhancer::classifyIntent()`: logged at NOTICE, `meta.generation.reason` carries `budget_<reason>`, and `recordFailure()` is never called. The "skipping … circuit breaker is open" warning is emitted once per open window (keyed by the breaker's `opened_at`), NOTICE thereafter. Coverage: `tests/src/Unit/LlmEnhancerAdmissionDenialTest.php`. Traffic source: the Sunday 10:00 UTC `assistant-nightly-quality` workflow (485 serial messages from one runner IP) plus Dependabot-triggered PR gates on Thursdays; trusted eval traffic (`X-ILAS-Eval-Run-ID`) on dev/test is now exempt from the per-identity budget only (`LlmEvalTrafficPolicy`, kill switch `cost_control.eval_per_ip_budget_exempt`), and the promptfoo provider records `generation.reason` so weekly results show whether cases ran on the LLM path. Live is unaffected today because request-time LLM is disabled there; this fix is the prerequisite for enabling it.
+
+### A2. Source-governance stale ratio on LIVE: 27 of 34 sources are "stale" (PHP-9Z)
+
+[PHP-9Z](https://idaho-legal-aid-services.sentry.io/issues/7657016045/) · warning · live · 20 events (9 in 14d) · first 08-06, last 09-07 · releases live_183/184.
+
+**Diagnosis.** This is the real version of the July PHP-4S notice (that one was below `min_observations`; this one is 34 ≥ 20, so it is a genuine alert). Freshness is computed in `SourceGovernanceService::annotateResult` as `changed`/`updated_at` older than `max_age_days: 180` (`config/ilas_site_assistant.settings.yml` L214–229, alert threshold `stale_ratio_alert_pct: 18.0` L205). The site's resource content was migrated/created around Feb 2026 and largely untouched since, so it crossed 180 days in early August, which is exactly when this started. The assistant is now flagging ~80 % of cited sources as stale on every live conversation.
+
+**Decision needed.** (a) Content ops does a review pass and re-saves/updates resources (the intended path), or (b) freshness should key off an explicit review-date field rather than `changed`, or (c) raise `max_age_days` for the affected source classes. Recommend (b) long-term with (a) now; (c) just hides it.
+
+### A3. Our own JS scrubber can recurse forever (PHP-AJ)
+
+[PHP-AJ](https://idaho-legal-aid-services.sentry.io/issues/7702946198/) · error · live · 1 event · 08-31 · `RangeError: Maximum call stack size exceeded` in footer aggregate → `scrubValue` ↔ `Array.forEach`.
+
+**Diagnosis.** `scrubValue()` in `web/modules/custom/ilas_site_assistant/js/observability.js` (L25–48) walks objects recursively with no cycle guard and no depth limit. A browser extension ("Affirm Extension" console breadcrumb) injected a cyclic object into the captured event, and the scrubber blew the stack inside Sentry's `beforeSend`, which also means that event was lost.
+
+**Fix.** Add a `WeakSet` of seen objects plus a max depth (e.g. 8) to `scrubValue`, returning `'[Circular]'` / `'[Truncated]'`. Small, safe, one file.
+
+### A4. Vector index has an orphaned tracker item on live/test/dev (PHP-28)
+
+[PHP-28](https://idaho-legal-aid-services.sentry.io/issues/7341743928/) · warning · live 13 / test 10 / dev 7 · 92 events total · last 09-05 · `search_api: Could not load the following items on index FAQ Accordion (Vector): "entity:paragraph/402:en"`.
+
+Paragraph 402 was deleted but its tracker row remains in `faq_accordion_vector` on all three environments. It is not the retiring DB content index, so the 08-06 retirement did not cover it. Fix: `drush search-api:reset-tracker faq_accordion_vector` (or `sapi-c` for that index) on each env, then reindex. One-line ops task.
+
+### A5. Admin pages: AJAX asset load failure then "Drupal is not defined" (PHP-AQ, PHP-AP, PHP-A5)
+
+| ID | Env | Events | Last | Where |
+|---|---|---|---|---|
+| [PHP-AQ](https://idaho-legal-aid-services.sentry.io/issues/7722279454/) | live | 1 | 09-09 17:47 | `/admin/content`: "The following files could not be loaded: /sites/default/files/css/css_…?delta=0&amp;language=en&amp;theme=gin&amp;include=…" |
+| [PHP-AP](https://idaho-legal-aid-services.sentry.io/issues/7722279017/) | live | 1 | 09-09 17:47 | `/admin/dashboard`: ReferenceError: Drupal is not defined (aggregate line 3) |
+| [PHP-A5](https://idaho-legal-aid-services.sentry.io/issues/7671943043/) | dev | 2 | 08-14 | `/node/add/*`: ReferenceError: Drupal is not defined (aggregate line 3) |
+
+**Diagnosis.** Admin-only, almost certainly your own sessions (17:47 UTC today, just before the morning Sentry session). The failed CSS URL carries literal `&amp;` between query parameters, so the on-demand aggregate URL was HTML-entity-encoded once too often before the AJAX asset loader fetched it (core `ajax.js` add_css). The dev aggregate at fault for "Drupal is not defined" is the raven-init + Gin toolbar bundle, which is invoked with `Drupal` as an argument, so it fails only when the header bundle that defines `Drupal` did not load. Same failure family. Not user-facing; worth 15 minutes with the browser console open on `/admin/content` and `/admin/dashboard` to catch the 404 and check whether a core patch exists for the `&amp;` case.
+
+### A6. Widget error reports are titled `[REDACTED]` (PHP-1M)
+
+[PHP-1M](https://idaho-legal-aid-services.sentry.io/issues/7339281035/) · error · live · 45 events since March · last 09-02 · title `[REDACTED]`.
+
+**Diagnosis.** This is AILA's own `Sentry.captureMessage('AILA browser error')` from `observability.js` L298; the message scrubber replaces the whole message. The event context says: feature `quick_action`, status `0`, breadcrumbs show `POST /assistant/api/track` and `/assistant/api/message` both failing with no response, on Chrome Mobile / Android. So it is "widget request failed at the network layer" (mobile connection drop), about once a week. Not a server bug, but the title makes it untriageable. Fix: keep the constant message string out of scrubbing (scrub params, not the template) and put `status`/`feature` in the title or fingerprint.
+
+## B. Previously fixed, still firing?
+
+None regressed. Every item from the July triage is silent after its deploy: PHP-5H (last 07-08), 2N, 6B (07-30), 8Q (07-28), Z (07-23), 2M (07-26), 4S (07-30), 9C (07-29) / 9J (07-29, patch deployed with live_182 on 07-29), 8G/8H (07-07). The one nuance is A1 above: 8N/8P are still firing but with a new cause.
+
+## C. Third-party browser noise — filter at the SDK, not by hand
+
+None of these are our code. There are no `ignore_errors` / `deny_urls` entries in the raven config in `web/sites/default/settings.php` today, so all of it lands in Sentry as `error`. Recommend adding browser-side filters once, then resolving these.
+
+| Cluster | IDs | Events | Root | Filter |
+|---|---|---|---|---|
+| Cloudflare RUM beacon on old browsers (`Array.prototype.at` / `findLast` missing: KaiOS, Amazon Silk, old Chrome Mobile) | 9S, AG, AH, AD, 9R, 9T | 16 | `/beacon.min.js/v…` | `denyUrls: [/beacon\.min\.js/]` |
+| Chrome-for-iOS / Google-app injected scripts (identical line numbers 187–226 / 194–460 across different pages ⇒ injected, not page HTML) | AK, AB, AC, 37, AM, AN, A1 | 40 | inline, filename = page URL | ignoreErrors `/^(La|Ba)$/`; or drop when browser ∈ {Chrome Mobile iOS, Google} and all frames' filename equals page URL |
+| Facebook in-app browser (Android) `iabjs://navigation_performance_logger_android` | 9B, A4 | 8 | `Java object is gone` | `denyUrls: [/^iabjs:\/\//]` |
+| Browser extensions: MetaMask, ad-adjust fetch wrapper, Safari `runtime.sendMessage`, Affirm | 92, 9G, A3, 9F | 36 | `chrome-extension://`, `injectScriptAdjust.js` | `denyUrls: [/^chrome-extension:\/\//, /^moz-extension:\/\//, /^safari-web-extension:\/\//]` + enable Sentry's built-in "browser extensions" inbound filter |
+| Outlook SafeLinks / Edge read-aloud `Object Not Found Matching Id` | A0 | 2 | Microsoft injected | ignoreErrors `/Object Not Found Matching Id/` |
+| Misc one-offs: `Can't find variable: _G` (AE), `Load failed` (AA), CustomEvent unhandledrejection (1E), WebSocket CONNECTING in `/asset.js` (A6) | AE, AA, 1E, A6 | 12 | injected / network abort | resolve; revisit if they recur |
+
+## D. Known telemetry and bot traffic — leave open, no action
+
+| ID | Env | 14d | What | Why it is fine |
+|---|---|---|---|---|
+| 8J / 11 | live+dev | 3 | 403 on `/admin/reports/ilas-assistant` | Access control working; bots + non-privileged users |
+| 9H | dev 10 / live 3 | 0 | 403 on `/admin/dashboard?check_logged_in=1` | Post-login redirect for a role without dashboard access; cosmetic. If it annoys, set a per-role login destination |
+| 3D | dev 18 / live 1 | 3 | Vector FAQ search >3.5 s, backoff | Dev latency telemetry; live hit once |
+| 2J | dev | 1 | Vector FAQ search FatalRequestException (Saloon) | Dev Pinecone transport blip, 3 events since 08 |
+| 38 | live | 1 | Employment app: invalid Content-Type from one IP | Bot posts, guard working |
+| 57 | live/dev | 1 | csrf_deny on `/assistant/api/message` (headless Chrome 152, Linux) | Bot; guard working |
+| 32 | live | 0 | oEmbed `This resource is not available` (33 total) | Bots hitting `/media/oembed` with bad hashes. Could add to before_send drops |
+| A2 | live | 0 | Turnstile: response already validated | Double-submit, 1 event |
+| 6G | live | 1 | `Cron run failed` — "Attempting to re-run cron while it is already running" | Overlapping cron trigger (4 since May). Watch; if it climbs, check cron lock TTL vs. run length |
+| AF, A7, A9, A8, 95 | live | ~0 | Sentry performance issues ("Blocking Operation", "Degraded UI Performance") | Single-transaction performance detections, no user impact |
+
+## E. Stale — safe to bulk-resolve (131 issues, ~125k historical events)
+
+All silent for more than 30 days. Resolving them makes the unresolved list reflect reality; anything that recurs will reopen automatically as a regression.
+
+**64 CSP "Blocked …" reports** (all last seen ≤ 2026-07-17; the report-uri was removed 07-20):
+PHP-5W 44 60 24 3Y 4T 22 5S 6C 7F 74 2K 2W 1N 1V 3H 2P 25 2A 1P 21 7G 34 7M 23 5Z 3C 2Z 2B 7A 2C 29 7K 79 4Z 4R 40 7Y 7T 7N 5Y 4N 3F 39 8B 8A 89 86 85 83 7X 7Q 7P 7J 7C 6J 61 51 4W 4H 4G 45 3K 2X
+
+**67 other stale issues** (July deploy transients, fixed items from the July triage, klaro EvalErrors, one-off JS errors, old perf detections):
+PHP-5H 2M 9C 4S 6B 8Q 91 8G 93 6Q 11 9E 8H 90 8Z 8Y 9J Z 9R 9Y 9M 98 8M 7D 6Z 6H 20 A1 9X 9W 9V 9T 9Q 9K 9D 9A 99 97 96 94 8X 8W 8V 8T 8S 8R 8K 8F 8E 8D 8C 88 87 84 82 81 80 7Z 7W 7V 7S 7R 7H 7E 7B 72 5D
+
+(Note: PHP-11 is in the stale list because its successor PHP-8J carries the live traffic now; PHP-9R/9T are stale members of the beacon cluster.)
+
+Bulk-resolve is a write: `PUT /api/0/projects/idaho-legal-aid-services/php/issues/?id=…&id=…` with `{"status":"resolved"}`. It was permission-blocked in July and has not been run.
+
+## Suggested order of work
+
+1. A1 — budget denial must not trip the breaker (code + test). Blocks enabling LLM on live.
+2. A3 — cycle guard in `scrubValue` (tiny).
+3. C — add `deny_urls` / `ignore_errors` to raven browser config, enable Sentry's browser-extension inbound filter.
+4. A4 — reset the `faq_accordion_vector` tracker on live/test/dev.
+5. A2 — decide the freshness policy with content ops.
+6. E — bulk-resolve the 131 stale issues.
+7. A5 / A6 — when convenient.
+
+## Method
+
+Issues API paginated with `statsPeriod=14d` (the only values the endpoint accepts are `''`, `24h`, `14d`), `is:unresolved` / `is:ignored` / `is:resolved`. The 46 issues seen in the last 30 days were enriched with `/issues/{id}/tags/` and `/issues/{id}/events/latest/`. Diagnoses for A1, A2, A3, A6 were verified against the code in this repo; the injected-script conclusion in C rests on identical stack line numbers across different pages. A direct fetch of the live page and of a live JS aggregate from this machine was blocked by Cloudflare ("Attention Required"), so those were not inspected byte-for-byte.
