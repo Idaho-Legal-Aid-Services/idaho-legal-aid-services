@@ -967,6 +967,12 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
   const retrievalAttempted = inferRetrievalAttempted(payload, debug, provenance);
   const generationProvider = inferGenerationProvider(payload, debug);
   const llmUsed = inferGenerationUsed(payload, debug);
+  const generationReason = typeof publicDiagnostics.generation?.reason === 'string'
+    ? publicDiagnostics.generation.reason
+    : null;
+  const llmFallbackAvailability = Object.prototype.hasOwnProperty.call(debug, 'llm_used')
+    ? 'debug'
+    : (typeof publicDiagnostics.generation?.used === 'boolean' ? 'public_generation' : 'unavailable');
   const genericFallback = inferGenericFallback(payload, debug);
   const safetyBlocked = inferSafetyBlocked(payload, safetyClassification);
   const safetyStage = inferSafetyStage(payload, safetyBlocked, llmUsed);
@@ -981,7 +987,7 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
       safety_classification: safetyClassification ? 'debug_or_public' : 'unavailable',
       out_of_scope_classification: outOfScopeClassification ? 'debug_or_public' : 'unavailable',
       fallback_decision: debug.gate_decision ? 'debug' : 'public_inference',
-      llm_fallback: Object.prototype.hasOwnProperty.call(debug, 'llm_used') ? 'debug' : 'unavailable',
+      llm_fallback: llmFallbackAvailability,
       vector_usage: vectorUsed ? 'public_source_class' : 'unavailable',
       voyage_or_rerank: rerankMeta ? 'debug' : 'unavailable',
     },
@@ -1043,12 +1049,17 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
     llm_fallback: {
       used: llmUsed,
       provider: generationProvider,
-      availability: Object.prototype.hasOwnProperty.call(debug, 'llm_used') ? 'debug' : 'unavailable',
+      reason: generationReason,
+      availability: llmFallbackAvailability,
     },
     llm_used: llmUsed,
     generation: {
       provider: generationProvider,
       used: llmUsed,
+      // Server-side classifier outcome (classified, clarify, circuit_open,
+      // budget_<admission reason>, exception, disabled, ...). Advisory only:
+      // lets weekly results show whether cases were graded on the LLM path.
+      reason: generationReason,
       expected: null,
       availability: generationProvider || llmUsed !== null ? 'debug_or_public' : 'unavailable',
     },
