@@ -98,6 +98,7 @@ window._assistantWidgetTestDone = (async function () {
         'fallback_label',
         'disclaimer',
         'caveat',
+        'freshness_caveat',
         'url',
         'cta',
         'topic',

@@ -22,7 +22,15 @@
       .replace(/([?&](?:message|prompt|content|body|query|text)=)[^&]+/ig, '$1[REDACTED]');
   }
 
-  function scrubValue(value) {
+  // Depth cap for the recursive scrubber. Sentry event envelopes are ~6 deep
+  // (exception.values[].stacktrace.frames[].vars); anything deeper is either
+  // extension-injected junk or a cycle (PHP-AJ).
+  var MAX_SCRUB_DEPTH = 10;
+
+  function scrubValue(value, ancestors, depth) {
+    ancestors = ancestors || [];
+    depth = depth || 0;
+
     if (typeof value === 'string') {
       return scrubString(value);
     }
@@ -31,8 +39,22 @@
       return value;
     }
 
+    // Cycle guard: only true ancestors count, so shared (DAG) references are
+    // still scrubbed normally instead of being flagged as circular.
+    if (ancestors.indexOf(value) !== -1) {
+      return '[Circular]';
+    }
+
+    if (depth >= MAX_SCRUB_DEPTH) {
+      return '[Truncated]';
+    }
+
+    var nextAncestors = ancestors.concat([value]);
+
     if (Array.isArray(value)) {
-      return value.map(scrubValue);
+      return value.map(function (item) {
+        return scrubValue(item, nextAncestors, depth + 1);
+      });
     }
 
     var scrubbed = {};
@@ -42,10 +64,89 @@
         scrubbed[key] = '[REDACTED]';
         return;
       }
-      scrubbed[key] = scrubValue(value[key]);
+      scrubbed[key] = scrubValue(value[key], nextAncestors, depth + 1);
     });
 
     return scrubbed;
+  }
+
+  /**
+   * Scrubs a Sentry event envelope.
+   *
+   * scrubValue() is a key-name redactor meant for user-supplied payloads. Run
+   * over a whole Sentry event it also blanks the *template* fields Sentry uses
+   * for titling and grouping (event.message, logentry.message,
+   * breadcrumbs[].message), which is how PHP-1M ended up titled "[REDACTED]".
+   * Those fields are code-owned constants (captureMessage titles, breadcrumb
+   * categories, DOM selectors, console prefixes) so they get pattern
+   * scrubbing only; everything else (contexts, extra, request, exception)
+   * keeps the key-based redaction.
+   */
+  function scrubEvent(event) {
+    var scrubbed = scrubValue(event || {});
+
+    if (typeof event.message === 'string') {
+      scrubbed.message = scrubString(event.message);
+    }
+
+    if (event.logentry && typeof event.logentry === 'object') {
+      scrubbed.logentry = Object.assign({}, scrubbed.logentry || {}, {
+        message: scrubString(event.logentry.message),
+      });
+    }
+
+    if (Array.isArray(event.breadcrumbs)) {
+      scrubbed.breadcrumbs = event.breadcrumbs.map(function (crumb, index) {
+        var scrubbedCrumb = scrubbed.breadcrumbs[index];
+        if (!crumb || typeof crumb !== 'object' || !scrubbedCrumb || typeof scrubbedCrumb !== 'object') {
+          return scrubbedCrumb;
+        }
+        if (typeof crumb.message === 'string') {
+          scrubbedCrumb.message = scrubString(crumb.message);
+        }
+        return scrubbedCrumb;
+      });
+    }
+
+    return scrubbed;
+  }
+
+  var SAFE_TOKEN_PATTERN = /^[a-z0-9_]{1,64}$/i;
+
+  function safeToken(value) {
+    if (typeof value !== 'string' || !SAFE_TOKEN_PATTERN.test(value)) {
+      return '';
+    }
+    return value;
+  }
+
+  var KNOWN_ERROR_TYPES = ['offline', 'timeout'];
+
+  /**
+   * Derives a bounded failure class from the widget error payload.
+   *
+   * Precedence: server error code, then the transport types the widget itself
+   * sets (offline/timeout), then HTTP status, then "network" for a status-0
+   * request that never got a response (the PHP-1M case). Only code-owned
+   * tokens can reach the title/fingerprint.
+   */
+  function classifyAssistantError(payload) {
+    var errorCode = safeToken(payload.errorCode);
+    if (errorCode) {
+      return errorCode;
+    }
+
+    var type = safeToken(payload.type).toLowerCase();
+    if (KNOWN_ERROR_TYPES.indexOf(type) !== -1) {
+      return type;
+    }
+
+    var status = Number(payload.status);
+    if (status > 0 && isFinite(status)) {
+      return 'http_' + Math.floor(status);
+    }
+
+    return 'network';
   }
 
   function sharedTags() {
@@ -234,7 +335,7 @@
         if (isExtensionNoise(event)) {
           return null;
         }
-        var scrubbed = scrubValue(event || {});
+        var scrubbed = scrubEvent(event || {});
         scrubbed.tags = Object.assign({}, scrubbed.tags || {}, withCompactTags(sharedTags()));
         return scrubbed;
       });
@@ -276,12 +377,18 @@
 
   function emitAssistantError(detail) {
     var payload = scrubValue(detail || {});
+    var feature = safeToken(payload.feature) || 'unknown';
+    var errorClass = classifyAssistantError(payload);
+    // Constant template + bounded tokens only: never user or request content.
+    var title = 'AILA browser error: ' + feature + ' (' + errorClass + ')';
     var tags = withCompactTags(Object.assign(sharedTags(), {
       assistant_surface: payload.surface || '',
       assistant_mode: payload.pageMode ? 'page' : 'widget',
-      assistant_feature: payload.feature || 'unknown',
+      assistant_feature: feature,
       assistant_route: settings.assistant && settings.assistant.apiBase ? settings.assistant.apiBase : '/assistant/api',
-      error_code: payload.errorCode || payload.type || payload.status || 'unknown',
+      // Stringified so a status of 0 survives withCompactTags' falsy filter.
+      assistant_status: String(Number(payload.status) || 0),
+      error_code: errorClass,
     }));
 
     if (window.Sentry && settings.sentry && settings.sentry.browserEnabled && typeof window.Sentry.withScope === 'function') {
@@ -292,10 +399,15 @@
         if (typeof scope.setContext === 'function') {
           scope.setContext('assistant_error', payload);
         }
+        // One Sentry issue per feature x failure class (mirrors the fixed
+        // fingerprint convention in SentryProbeCommands.php).
+        if (typeof scope.setFingerprint === 'function') {
+          scope.setFingerprint(['aila-browser-error', feature, errorClass]);
+        }
 
         var eventId = null;
         if (typeof window.Sentry.captureMessage === 'function') {
-          eventId = window.Sentry.captureMessage('AILA browser error', 'error');
+          eventId = window.Sentry.captureMessage(title, 'error');
         }
 
         if (payload.promptForFeedback && eventId && typeof window.Sentry.showReportDialog === 'function') {

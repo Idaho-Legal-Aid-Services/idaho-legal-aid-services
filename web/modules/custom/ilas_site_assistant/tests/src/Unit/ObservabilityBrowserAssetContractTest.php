@@ -34,6 +34,40 @@ class ObservabilityBrowserAssetContractTest extends TestCase {
   }
 
   /**
+   * Tests widget error captures keep a readable, bounded title (PHP-1M).
+   *
+   * The Sentry event processor must scrub the envelope with scrubEvent() (so
+   * event.message / breadcrumb messages survive) and emitAssistantError must
+   * title + fingerprint by feature and failure class instead of the constant
+   * 'AILA browser error' that the key-name scrubber used to blank.
+   */
+  public function testObservabilityHelperTitlesAndFingerprintsWidgetErrors(): void {
+    $script = file_get_contents(self::repoRoot() . '/web/modules/custom/ilas_site_assistant/js/observability.js');
+
+    $this->assertIsString($script);
+    $this->assertStringContainsString("var title = 'AILA browser error: ' + feature + ' (' + errorClass + ')';", $script);
+    $this->assertStringContainsString('window.Sentry.captureMessage(title, \'error\')', $script);
+    $this->assertStringNotContainsString("captureMessage('AILA browser error'", $script);
+    $this->assertStringContainsString("scope.setFingerprint(['aila-browser-error', feature, errorClass])", $script);
+    $this->assertStringContainsString('var scrubbed = scrubEvent(event || {});', $script);
+    $this->assertStringContainsString('function classifyAssistantError(payload)', $script);
+    $this->assertStringContainsString('assistant_status:', $script);
+  }
+
+  /**
+   * Tests the browser scrubber carries cycle and depth guards (PHP-AJ).
+   */
+  public function testObservabilityScrubberHasRecursionGuards(): void {
+    $script = file_get_contents(self::repoRoot() . '/web/modules/custom/ilas_site_assistant/js/observability.js');
+
+    $this->assertIsString($script);
+    $this->assertStringContainsString('var MAX_SCRUB_DEPTH = 10;', $script);
+    $this->assertStringContainsString("return '[Circular]';", $script);
+    $this->assertStringContainsString("return '[Truncated]';", $script);
+    $this->assertStringContainsString('function scrubValue(value, ancestors, depth)', $script);
+  }
+
+  /**
    * Tests Drupal attaches the browser observability settings and helper.
    */
   public function testModuleAttachesObservabilityLibraryAndSettings(): void {
