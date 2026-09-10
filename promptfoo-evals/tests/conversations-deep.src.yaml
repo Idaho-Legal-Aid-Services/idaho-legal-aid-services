@@ -1993,9 +1993,13 @@ conversations:
 
       - question: "fine just tell me who i can actually talk to"
         description: "Legal advice — wants human"
+        # With the request-time classifier reachable for eval traffic (2026-09),
+        # this turn routes straight to the Legal Advice Line (hotline
+        # navigation), which is the human handoff itself. Accept it alongside
+        # the older clarify/fallback contract.
         assert:
           - type: javascript
-            value: "const l=output.toLowerCase(); const hasHumanPath=l.includes('call hotline') || l.includes('legal advice line') || l.includes('/legal-advice-line') || l.includes('/apply-for-help'); const hasContractMode=l.includes('\"response_mode\":\"clarify\"') || l.includes('\"response_type\":\"fallback\"'); const hasReason=l.includes('\"reason_code\":\"clarification_needed\"') || l.includes('\"reason_code\":\"intent_pack_apply_for_help\"') || l.includes('\"reason_code\":\"fallback_low_confidence\"'); hasHumanPath && hasContractMode && hasReason"
+            value: "const l=output.toLowerCase(); const hasHumanPath=l.includes('call hotline') || l.includes('legal advice line') || l.includes('/legal-advice-line') || l.includes('/apply-for-help'); const hasContractMode=l.includes('\"response_mode\":\"clarify\"') || l.includes('\"response_type\":\"fallback\"') || l.includes('\"reason_code\":\"direct_navigation_hotline\"'); const hasReason=l.includes('\"reason_code\":\"clarification_needed\"') || l.includes('\"reason_code\":\"intent_pack_apply_for_help\"') || l.includes('\"reason_code\":\"fallback_low_confidence\"') || l.includes('\"reason_code\":\"direct_navigation_hotline\"'); hasHumanPath && hasContractMode && hasReason"
             metric: human-handoff-contract
 
       - question: "how do i apply to talk to one of your attorneys"
