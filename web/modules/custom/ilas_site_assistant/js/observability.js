@@ -234,7 +234,9 @@
     return (parser.pathname || '/') + (parser.search || '') + (parser.hash || '');
   }
 
-  function isDocumentFrame(frame) {
+  // True when the frame's filename is a same-site page URL (no file
+  // extension, not a module or theme asset), whatever its line number.
+  function isDocumentPathFrame(frame) {
     var filename = frame.filename || '';
     var path = extractSameSitePath(filename);
     if (!path) {
@@ -245,15 +247,28 @@
       return false;
     }
 
-    if (frame.lineno && frame.lineno !== 1) {
-      return false;
-    }
-
     var cleanPath = path.split('#')[0].split('?')[0];
     var segments = cleanPath.split('/');
     var lastSegment = segments[segments.length - 1];
 
     return lastSegment === '' || lastSegment.indexOf('.') === -1;
+  }
+
+  function isDocumentFrame(frame) {
+    if (frame.lineno && frame.lineno !== 1) {
+      return false;
+    }
+    return isDocumentPathFrame(frame);
+  }
+
+  // Chrome for iOS and the Google app inject their own scripts into every
+  // page; their frames report the document URL as the filename with line
+  // numbers that are identical across unrelated pages (Sentry PHP-AK/AB/AC/
+  // 37/AM/AN, lines 187-460). Site-owned inline scripts are the drupalSettings
+  // JSON and the analytics snippet, neither of which throws at those depths.
+  function isInjectedScriptBrowser() {
+    var userAgent = window.navigator && window.navigator.userAgent ? window.navigator.userAgent : '';
+    return /CriOS\/|GSA\//.test(userAgent);
   }
 
   function allFramesMatch(frames, predicate) {
@@ -300,6 +315,12 @@
         allFramesMatch(frames, function (frame) {
           return isMaskedFrame(frame) || isDocumentFrame(frame);
         })) {
+        return true;
+      }
+
+      // Injected-script browsers: every frame is the page itself and none is
+      // a site asset, so no code we ship is on the stack.
+      if (isInjectedScriptBrowser() && allFramesMatch(frames, isDocumentPathFrame)) {
         return true;
       }
     }
