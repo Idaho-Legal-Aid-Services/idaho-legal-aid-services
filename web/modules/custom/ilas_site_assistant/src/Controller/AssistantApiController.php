@@ -5782,7 +5782,18 @@ class AssistantApiController extends ControllerBase {
 
       case 'feedback':
         $response['cta'] = $this->t('Give Feedback');
-        $response['message'] = $this->t('We value your feedback:');
+        if (self::looksFrustrated($message)) {
+          // A complaint is not a neutral request for the feedback form:
+          // acknowledge it and offer the human path alongside the form.
+          $response['message'] = $this->t("Sorry this isn't helping you so far. We value your feedback, and you can also call our Legal Advice Line to speak with a person:");
+          $response['secondary_actions'][] = [
+            'label' => $this->t('Call Legal Advice Line'),
+            'url' => $canonical_urls['hotline'],
+          ];
+        }
+        else {
+          $response['message'] = $this->t('We value your feedback:');
+        }
         break;
 
       case 'risk_detector':
@@ -6996,6 +7007,13 @@ class AssistantApiController extends ControllerBase {
       $server_history,
       $current_message
     );
+  }
+
+  /**
+   * Returns TRUE when the message reads as frustration with the assistant.
+   */
+  public static function looksFrustrated(string $message): bool {
+    return (bool) preg_match('/\b(sucks?|useless|terrible|stupid|hate|worst|garbage|awful|frustrat\w*|waste\s+of\s+time|not\s+helping|doesn\'?t\s+work|pointless)\b/iu', mb_strtolower(trim($message)));
   }
 
   /**
