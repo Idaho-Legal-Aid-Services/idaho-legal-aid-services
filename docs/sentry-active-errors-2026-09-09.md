@@ -127,6 +127,8 @@ None regressed. Every item from the July triage is silent after its deploy: PHP-
 
 None of these are our code. There are no `ignore_errors` / `deny_urls` entries in the raven config in `web/sites/default/settings.php` today, so all of it lands in Sentry as `error`. Recommend adding browser-side filters once, then resolving these.
 
+**Implemented 2026-09-10.** SDK-level filters live in `web/modules/custom/ilas_seo/js/sentry-filters.js` (runs before raven.js calls `Sentry.init()`): `denyUrls` for `beacon.min.js`, `chrome-extension://`, `moz-extension://`, `safari-web-extension://`, `injectScriptAdjust.js` and `iabjs://`; `ignoreErrors` for `/^(La|Ba)$/` and `Object Not Found Matching Id` (the existing `jQuery is not defined` entry stays until A5's toggle is verified). The Chrome-for-iOS / Google-app injected-inline-script cluster (frames whose filename is the page URL at deep line numbers, e.g. PHP-AS on 09-09) is dropped in `observability.js` `isExtensionNoise()` when the UA carries `CriOS/` or `GSA/` and no frame is a site asset. Coverage: `ilas_seo/tests/js/node/sentry-filters.test.mjs` and new cases in `observability-noise-filter.test.mjs` (`npm run test:assistant:js`). Sentry's own "browser extensions" inbound filter is a project setting and still needs enabling in the dashboard (Settings → Projects → php → Inbound Filters).
+
 | Cluster | IDs | Events | Root | Filter |
 |---|---|---|---|---|
 | Cloudflare RUM beacon on old browsers (`Array.prototype.at` / `findLast` missing: KaiOS, Amazon Silk, old Chrome Mobile) | 9S, AG, AH, AD, 9R, 9T | 16 | `/beacon.min.js/v…` | `denyUrls: [/beacon\.min\.js/]` |
@@ -173,8 +175,10 @@ Bulk-resolve is a write: `PUT /api/0/projects/idaho-legal-aid-services/php/issue
 4. C — add `deny_urls` / `ignore_errors` to raven browser config, enable Sentry's browser-extension inbound filter.
 5. A4 — deploy the Pinecone delete-chunk patch + per-environment namespaces, backfill dev/test, rebuild live (see A4).
 6. A2 — ~~decide the freshness policy with content ops~~ code shipped 09-09; content ops review pass via the admin report is the remaining step.
-7. E — bulk-resolve the 131 stale issues.
-8. A6 — when convenient.
+7. E — bulk-resolve the 131 stale issues. API write still permission-blocked on 2026-09-10; do it in the UI with `is:unresolved lastSeen:+30d`, select all, Resolve.
+8. A6 — when convenient. DONE 2026-09-09, live with live_185 on 09-10.
+
+Status 2026-09-10 (post live_185): A1 fixed/unverified (Sunday 09-13 run), A2 code live + content review pending, A3 and A6 live (resolve PHP-AJ/PHP-1M), A4 dev done / test backfill 09-10 / live rebuild pending, A5 toggle still ON (402 IPs/24h), C filters landed (this section).
 
 ## Method
 

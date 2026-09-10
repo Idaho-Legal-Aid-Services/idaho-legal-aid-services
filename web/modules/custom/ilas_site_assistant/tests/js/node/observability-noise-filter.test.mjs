@@ -40,6 +40,8 @@ async function bootstrap(userAgent) {
 }
 
 const FB_IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/553.0.0.0.0;FBBV/000000000]';
+const CHROME_IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/152.0.7977.0 Mobile/15E148 Safari/604.1';
+const GOOGLE_APP_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/380.0.0 Mobile/15E148 Safari/604.1';
 const SAFARI_IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
 
 function makeEvent(opts) {
@@ -183,6 +185,46 @@ describe('observability.js noise filter', () => {
   });
 
   // 5. Empty stack trace with unknown message → kept.
+  // Chrome-for-iOS / Google-app injected inline scripts (Sentry PHP-AK/AB/
+  // AC/37/AM/AN, PHP-AS): every frame is the page URL at a deep line number.
+  const INJECTED_FRAMES = [
+    { filename: 'https://idaholegalaid.org/legal-help/family', function: 'Rk', lineno: 232, colno: 63 },
+    { filename: 'https://idaholegalaid.org/legal-help/family', function: 'Tk', lineno: 232, colno: 408 },
+    { filename: 'https://idaholegalaid.org/legal-help/family', function: null, lineno: 196, colno: 41 },
+  ];
+
+  test('drops page-URL-only deep frames on Chrome for iOS', async () => {
+    const fn = await bootstrap(CHROME_IOS_UA);
+    const event = makeEvent({ errorType: 'RangeError', errorValue: 'Maximum call stack size exceeded.', frames: INJECTED_FRAMES });
+    assert.equal(fn(event), null);
+  });
+
+  test('drops page-URL-only deep frames in the Google app', async () => {
+    const fn = await bootstrap(GOOGLE_APP_UA);
+    const event = makeEvent({ errorType: 'Error', errorValue: 'Ba', frames: INJECTED_FRAMES });
+    assert.equal(fn(event), null);
+  });
+
+  test('keeps the same page-URL frames on Safari (no injected scripts there)', async () => {
+    const fn = await bootstrap(SAFARI_IOS_UA);
+    const event = makeEvent({ errorType: 'RangeError', errorValue: 'Maximum call stack size exceeded.', frames: INJECTED_FRAMES });
+    assert.ok(fn(event));
+  });
+
+  test('keeps Chrome for iOS errors when a site asset frame is on the stack', async () => {
+    const fn = await bootstrap(CHROME_IOS_UA);
+    const frames = INJECTED_FRAMES.concat([{ filename: 'https://idaholegalaid.org/modules/custom/ilas_site_assistant/js/assistant-widget.js', lineno: 12 }]);
+    const event = makeEvent({ errorType: 'TypeError', errorValue: 'x is not a function', frames });
+    assert.ok(fn(event));
+  });
+
+  test('keeps Chrome for iOS errors from a same-site .js file', async () => {
+    const fn = await bootstrap(CHROME_IOS_UA);
+    const frames = [{ filename: 'https://idaholegalaid.org/sites/default/files/js/js_abc.js', lineno: 3 }];
+    const event = makeEvent({ errorType: 'ReferenceError', errorValue: 'Drupal is not defined', frames });
+    assert.ok(fn(event));
+  });
+
   test('keeps errors with empty frames and non-noise message', async () => {
     const result = (await bootstrap())(makeEvent({ errorValue: 'Something unexpected happened', frames: [] }));
     assert.notEqual(result, null);
