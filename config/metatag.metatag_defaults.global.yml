@@ -36,9 +36,5 @@ tags:
   schema_organization_telephone: 208-746-7541
   schema_organization_contact_point: 'a:5:{s:5:"@type";s:12:"ContactPoint";s:9:"telephone";s:12:"208-746-7541";s:5:"email";s:22:"info@idaholegalaid.org";s:11:"contactType";s:20:"Legal Advice Hotline";s:14:"availableLanguage";a:2:{i:0;s:7:"English";i:1;s:7:"Spanish";}}'
   schema_organization_address: 'a:6:{s:5:"@type";s:13:"PostalAddress";s:13:"streetAddress";s:16:"1447 S Tyrell Ln";s:15:"addressLocality";s:5:"Boise";s:13:"addressRegion";s:2:"ID";s:10:"postalCode";s:5:"83706";s:14:"addressCountry";s:2:"US";}'
-  # SEO-03 Phase 2: schema_organization_founding_date and schema_organization_area_served
-  # are emitted by ilas_seo_page_attachments_alter() (no Tag plugin in schema_metatag 3.x).
-  # The founding_date key is retained as documentation; area_served was removed because
-  # its PHP-serialized-string form was inert (and misleading).
   schema_organization_founding_date: '1967'
   schema_organization_knows_language: 'English,Spanish'

@@ -27,6 +27,7 @@ field_settings:
 
 
 
+
       fields:
         - 'entity:paragraph/field_accordion_body'
         - 'entity:paragraph/field_faq_answer'
