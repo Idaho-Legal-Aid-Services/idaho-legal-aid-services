@@ -291,6 +291,7 @@ final class AssistantGapItemWorkflowKernelTest extends KernelTestBase {
     // Unknown trigger values are normalised, and the default is no-match.
     $other_id = $manager->recordNoAnswer('completely different text', ['trigger_code' => 'bogus']);
     $other = $storage->load($other_id);
+    $this->assertInstanceOf(AssistantGapItem::class, $other);
     $this->assertSame(AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK, (string) $other->get('trigger_code')->value);
   }
 

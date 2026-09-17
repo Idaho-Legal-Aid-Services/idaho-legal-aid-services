@@ -1001,6 +1001,14 @@ class IntentRouter {
       }
     }
 
+    // Step 9b: Alias-only sub-topic routing. No area regex matched, but the
+    // message names exactly one sub-topic alias (from topic_map.yml or the
+    // admin lexicon overrides) that has a pack answer.
+    $alias_intent = $this->refineToSubTopicIntent(NULL, $corrected, $extraction, 0.65, 'topic_alias_subtopic');
+    if ($alias_intent) {
+      return $alias_intent;
+    }
+
     // Step 10: Try to detect topic from message using taxonomy.
     $topic = $this->topicResolver->resolveFromText($message);
     if ($topic) {
@@ -1161,8 +1169,9 @@ class IntentRouter {
    * words and for messages naming several competing sub-topics, so those
    * keep the existing area-level disambiguation.
    *
-   * @param string $service_area
-   *   The matched service area key (e.g. 'housing').
+   * @param string|null $service_area
+   *   The matched service area key (e.g. 'housing'), or NULL to accept a
+   *   sub-topic from any area (alias-only routing).
    * @param string $message
    *   Typo-corrected user message.
    * @param array $extraction
@@ -1175,14 +1184,15 @@ class IntentRouter {
    * @return array|null
    *   Intent array shaped like the top-intents pack fallback, or NULL.
    */
-  protected function refineToSubTopicIntent(string $service_area, string $message, array $extraction, float $confidence, string $source): ?array {
+  protected function refineToSubTopicIntent(?string $service_area, string $message, array $extraction, float $confidence, string $source): ?array {
     if (!$this->topicRouter || !$this->topIntentsPack || !method_exists($this->topicRouter, 'resolveTopicKeys')) {
       return NULL;
     }
 
     $candidates = [];
+    $candidate_areas = [];
     foreach ($this->topicRouter->resolveTopicKeys($message) as $entry) {
-      if (($entry['service_area'] ?? '') !== $service_area) {
+      if ($service_area !== NULL && ($entry['service_area'] ?? '') !== $service_area) {
         continue;
       }
       $intent_key = (string) ($entry['pack_intent'] ?? ('topic_' . ($entry['canonical_key'] ?? '')));
@@ -1191,6 +1201,7 @@ class IntentRouter {
       }
       if (!isset($candidates[$intent_key])) {
         $candidates[$intent_key] = (string) ($entry['matched_alias'] ?? '');
+        $candidate_areas[$intent_key] = (string) ($entry['service_area'] ?? '');
       }
     }
 
@@ -1217,7 +1228,7 @@ class IntentRouter {
       'type' => $chosen,
       'confidence' => $confidence,
       'source' => $source,
-      'area' => $service_area,
+      'area' => $service_area ?? ($candidate_areas[$chosen] !== '' ? $candidate_areas[$chosen] : $this->inferAreaFromIntentType($chosen)),
       'pack_entry' => $pack_entry,
       'matched_alias' => $candidates[$chosen],
       'extraction' => $extraction,

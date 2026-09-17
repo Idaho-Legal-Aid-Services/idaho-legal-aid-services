@@ -119,6 +119,24 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
   }
 
   /**
+   * Admin topic-alias overrides route long sentences with no regex hit.
+   */
+  public function testLexiconOverrideAliasRoutesWithoutAreaRegex(): void {
+    $factory = LexiconOverridesTest::configFactoryWith([], [
+      ['phrase' => 'black mold', 'topic_intent' => 'topic_housing_landlord_tenant'],
+    ]);
+    $router = $this->buildRouter(new TopicRouter(NULL, $factory));
+
+    $intent = $router->route('there is black mold growing in our unit and nobody fixes it');
+    $this->assertSame('topic_housing_landlord_tenant', $intent['type'] ?? NULL);
+    $this->assertSame('topic_alias_subtopic', $intent['source'] ?? NULL);
+    $this->assertSame('housing', $intent['area'] ?? NULL);
+
+    // Without the override the same sentence stays unknown.
+    $this->assertSame('unknown', $this->buildRouter()->route('there is black mold growing in our unit and nobody fixes it')['type'] ?? NULL);
+  }
+
+  /**
    * The corrected message is what reaches the short-message matchers.
    */
   public function testTypoCorrectionReachesTopicRouter(): void {
@@ -140,7 +158,7 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
   /**
    * Builds a router with deterministic collaborators.
    */
-  private function buildRouter(): IntentRouter {
+  private function buildRouter(?TopicRouter $topicRouterOverride = NULL): IntentRouter {
     $configStub = $this->createStub(ImmutableConfig::class);
     $configFactory = $this->createStub(ConfigFactoryInterface::class);
     $configFactory->method('get')->willReturn($configStub);
@@ -148,7 +166,7 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
     $topicResolver = $this->createMock(TopicResolver::class);
     $topicResolver->method('resolveFromText')->willReturn(NULL);
 
-    $topicRouter = new TopicRouter(NULL);
+    $topicRouter = $topicRouterOverride ?? new TopicRouter(NULL);
     $typoCorrector = new TypoCorrector(NULL, $topicRouter);
     $keywordExtractor = $this->createMock(KeywordExtractor::class);
     $keywordExtractor->method('extract')->willReturnCallback(static function (string $message) use ($typoCorrector): array {

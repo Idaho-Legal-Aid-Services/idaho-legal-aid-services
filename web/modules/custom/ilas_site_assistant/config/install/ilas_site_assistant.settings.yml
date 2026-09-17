@@ -122,6 +122,9 @@ fallback_gate:
 #   for operator tuning and debugging.
 # - The Pinecone HTTP client uses Guzzle defaults (~30s timeout).
 #   Vector search failures are caught and return empty results gracefully.
+lexicon_overrides:
+  typos: {  }
+  topic_aliases: {  }
 retrieval:
   faq_index_id: 'faq_accordion'
   resource_index_id: 'assistant_resources'

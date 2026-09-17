@@ -27,7 +27,11 @@ services:
 
   ilas_site_assistant.typo_corrector:
     class: Drupal\ilas_site_assistant\Service\TypoCorrector
-    arguments: ['@cache.default', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.acronym_expander']
+    arguments: ['@cache.default', '@ilas_site_assistant.topic_router', '@ilas_site_assistant.acronym_expander', '@config.factory']
+
+  ilas_site_assistant.lexicon_overrides:
+    class: Drupal\ilas_site_assistant\Service\LexiconOverrides
+    arguments: ['@config.factory', '@cache.default', '@ilas_site_assistant.typo_corrector', '@ilas_site_assistant.top_intents_pack']
 
   ilas_site_assistant.keyword_extractor:
     class: Drupal\ilas_site_assistant\Service\KeywordExtractor
@@ -35,7 +39,7 @@ services:
 
   ilas_site_assistant.topic_router:
     class: Drupal\ilas_site_assistant\Service\TopicRouter
-    arguments: ['@cache.default']
+    arguments: ['@cache.default', '@config.factory']
 
   ilas_site_assistant.navigation_intent:
     class: Drupal\ilas_site_assistant\Service\NavigationIntent

@@ -9,6 +9,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityFormBuilderInterface;
 use Drupal\Core\Url;
+use Drupal\ilas_site_assistant\Service\LexiconOverrides;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -25,6 +26,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
     protected Connection $database,
     protected DateFormatterInterface $dateFormatter,
     protected EntityFormBuilderInterface $reviewEntityFormBuilder,
+    protected ?LexiconOverrides $lexiconOverrides = NULL,
   ) {}
 
   /**
@@ -35,6 +37,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
       $container->get('database'),
       $container->get('date.formatter'),
       $container->get('entity.form_builder'),
+      $container->has('ilas_site_assistant.lexicon_overrides') ? $container->get('ilas_site_assistant.lexicon_overrides') : NULL,
     );
   }
 
@@ -69,6 +72,26 @@ final class AssistantGapItemReviewController extends ControllerBase {
       'conversation' => $this->buildConversationExcerpt($assistant_gap_item),
       'technical' => $this->buildTechnicalDetails($assistant_gap_item),
     ];
+
+    if ($assistant_gap_item->access('update', $this->currentUser())
+      && $this->currentUser()->hasPermission('edit assistant gap items')
+      && $this->lexiconOverrides !== NULL) {
+      $build['lexicon'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Fix routing now'),
+        '#open' => TRUE,
+        '#weight' => 12,
+        'help' => [
+          '#markup' => '<p>' . $this->t('If the assistant should have answered this with an existing topic, add the wording as a topic alias. It takes effect immediately, no deploy needed.') . '</p>',
+        ],
+        'link' => [
+          '#type' => 'link',
+          '#title' => $this->t('Add exemplar as topic alias'),
+          '#url' => Url::fromRoute('ilas_site_assistant_governance.gap_add_topic_alias', ['assistant_gap_item' => $assistant_gap_item->id()]),
+          '#attributes' => ['class' => ['button', 'button--small']],
+        ],
+      ];
+    }
 
     if ($assistant_gap_item->access('update', $this->currentUser())) {
       $build['review_form'] = [

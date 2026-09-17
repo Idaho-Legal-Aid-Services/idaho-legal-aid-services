@@ -212,6 +212,53 @@ class GovernanceModuleContractTest extends TestCase {
   }
 
   /**
+   * The weekly candidate export is wired to cron and exposed as a queue tab.
+   */
+  public function testCandidateExportSurfaceIsWired(): void {
+    $routes = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.routing.yml');
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/export', $routes['ilas_site_assistant_governance.candidate_export']['path']);
+    $this->assertSame('view assistant gap items', $routes['ilas_site_assistant_governance.candidate_export']['requirements']['_permission']);
+    $this->assertSame('TRUE', $routes['ilas_site_assistant_governance.candidate_export_run']['requirements']['_csrf_token']);
+    $this->assertSame('edit assistant gap items', $routes['ilas_site_assistant_governance.candidate_export_run']['requirements']['_permission']);
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/export/download', $routes['ilas_site_assistant_governance.candidate_export_download']['path']);
+
+    $tasks = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.links.task.yml');
+    $this->assertSame('ilas_site_assistant_governance.candidate_export', $tasks['ilas_site_assistant_governance.candidate_export_tab']['route_name']);
+
+    $services = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.services.yml');
+    $this->assertArrayHasKey('ilas_site_assistant_governance.candidate_export_scheduler', $services['services']);
+
+    $module = self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.module');
+    $this->assertStringContainsString("candidate_export_scheduler')->runIfDue()", $module);
+
+    // The drush command and cron share one YAML renderer.
+    $command = self::readFile('web/modules/custom/ilas_site_assistant_governance/src/Commands/ReviewedGapPromptfooExportCommands.php');
+    $this->assertStringContainsString('renderCandidateYaml', $command);
+    $this->assertStringNotContainsString('Yaml::dump', $command);
+  }
+
+  /**
+   * The add-topic-alias reviewer form is routed with entity access.
+   */
+  public function testAddTopicAliasFormIsWired(): void {
+    $routes = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.routing.yml');
+    $route = $routes['ilas_site_assistant_governance.gap_add_topic_alias'];
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/{assistant_gap_item}/add-alias', $route['path']);
+    $this->assertSame('edit assistant gap items', $route['requirements']['_permission']);
+    $this->assertSame('assistant_gap_item.update', $route['requirements']['_entity_access']);
+    $this->assertSame('entity:assistant_gap_item', $route['options']['parameters']['assistant_gap_item']['type']);
+
+    $runtime_services = self::parseYaml('web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml');
+    $this->assertArrayHasKey('ilas_site_assistant.lexicon_overrides', $runtime_services['services']);
+    $schema = self::parseYaml('web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml');
+    $this->assertArrayHasKey('lexicon_overrides', $schema['ilas_site_assistant.settings']['mapping']);
+    foreach (['web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml', 'config/ilas_site_assistant.settings.yml'] as $path) {
+      $settings = self::parseYaml($path);
+      $this->assertSame(['typos' => [], 'topic_aliases' => []], $settings['lexicon_overrides'], $path);
+    }
+  }
+
+  /**
    * Feedback columns are declared in the schema and update hook.
    */
   public function testFeedbackColumnsDeclared(): void {

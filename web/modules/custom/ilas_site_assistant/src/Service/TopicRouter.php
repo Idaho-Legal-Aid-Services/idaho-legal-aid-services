@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\Service;
 
 use Drupal\Component\Serialization\Yaml;
+use Drupal\Core\Config\ConfigFactoryInterface;
 
 /**
  * Routes short/single-token queries to canonical topic landing pages.
@@ -47,6 +48,11 @@ class TopicRouter {
   const MIN_FUZZY_LENGTH = 5;
 
   /**
+   * Cache key for the parsed topic map.
+   */
+  const CACHE_KEY = 'ilas_topic_router_map';
+
+  /**
    * The loaded topic map.
    *
    * @var array
@@ -84,10 +90,73 @@ class TopicRouter {
    * @param object|null $cache
    *   Optional cache backend. NULL for standalone/test usage.
    */
-  public function __construct($cache = NULL) {
+  public function __construct($cache = NULL, ?ConfigFactoryInterface $config_factory = NULL) {
     $this->cache = $cache;
+    $this->configFactory = $config_factory;
     $this->loadTopicMap();
     $this->buildIndices();
+    $this->applyConfigOverrides();
+  }
+
+  /**
+   * Optional config factory for admin lexicon overrides.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface|null
+   */
+  protected ?ConfigFactoryInterface $configFactory = NULL;
+
+  /**
+   * Merges admin topic-alias overrides into the routing indices.
+   *
+   * Each override maps a phrase to a topic_* pack intent. The phrase joins
+   * the area-level phrase index (multi-word) or synonym index (single word)
+   * so short queries route to the area, and the alias index so sub-topic
+   * carry-through resolves the pack intent.
+   */
+  protected function applyConfigOverrides(): void {
+    if ($this->configFactory === NULL) {
+      return;
+    }
+    foreach (LexiconOverrides::topicAliasesFromConfig($this->configFactory) as $entry) {
+      $service_area = $this->serviceAreaForPackIntent($entry['topic_intent']);
+      if ($service_area === NULL) {
+        continue;
+      }
+      $phrase = $entry['phrase'];
+      $this->topicAliasIndex[$phrase] = [
+        'service_area' => $service_area,
+        'topic' => 'override',
+        'canonical_key' => 'override:' . $entry['topic_intent'],
+        'term_uuid' => NULL,
+        'term_name' => NULL,
+        'pack_intent' => $entry['topic_intent'],
+      ];
+      if (strpos($phrase, ' ') !== FALSE) {
+        $this->phraseIndex[$phrase] = $service_area;
+      }
+      else {
+        $this->synonymIndex[$phrase] = $service_area;
+        $this->fuzzyTokens[$phrase] = $service_area;
+      }
+    }
+  }
+
+  /**
+   * Derives the topic-map service area from a topic_* pack intent key.
+   *
+   * @return string|null
+   *   e.g. 'housing' for topic_housing_landlord_tenant, NULL when unknown.
+   */
+  public function serviceAreaForPackIntent(string $intent): ?string {
+    $best = NULL;
+    foreach (array_keys($this->topicMap) as $area) {
+      if ($intent === 'topic_' . $area || str_starts_with($intent, 'topic_' . $area . '_')) {
+        if ($best === NULL || strlen($area) > strlen($best)) {
+          $best = $area;
+        }
+      }
+    }
+    return $best;
   }
 
   /**
@@ -366,7 +435,7 @@ class TopicRouter {
   protected function loadTopicMap(): void {
     // Check cache first.
     if ($this->cache) {
-      $cached = $this->cache->get('ilas_topic_router_map');
+      $cached = $this->cache->get(self::CACHE_KEY);
       if ($cached) {
         $this->topicMap = $cached->data;
         return;
@@ -384,7 +453,7 @@ class TopicRouter {
 
     // Cache the parsed map.
     if ($this->cache && !empty($this->topicMap)) {
-      $this->cache->set('ilas_topic_router_map', $this->topicMap, time() + 3600);
+      $this->cache->set(self::CACHE_KEY, $this->topicMap, time() + 3600);
     }
   }
 

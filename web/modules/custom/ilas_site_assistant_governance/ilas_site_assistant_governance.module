@@ -12,4 +12,8 @@ function ilas_site_assistant_governance_cron(): void {
   if (\Drupal::hasService('ilas_site_assistant_governance.pruner')) {
     \Drupal::service('ilas_site_assistant_governance.pruner')->prune();
   }
+  // Weekly reviewed-gap -> promptfoo candidate export (private file system).
+  if (\Drupal::hasService('ilas_site_assistant_governance.candidate_export_scheduler')) {
+    \Drupal::service('ilas_site_assistant_governance.candidate_export_scheduler')->runIfDue();
+  }
 }

@@ -17,6 +17,42 @@ ilas_site_assistant_governance.flag_conversation_turn:
     conversation_id: '[a-f0-9\-]{36}'
     turn_sequence: '\d+'
 
+ilas_site_assistant_governance.gap_add_topic_alias:
+  path: '/admin/reports/ilas-assistant/gaps/{assistant_gap_item}/add-alias'
+  defaults:
+    _form: '\Drupal\ilas_site_assistant_governance\Form\AssistantGapItemAddTopicAliasForm'
+    _title: 'Add topic alias'
+  requirements:
+    _permission: 'edit assistant gap items'
+    _entity_access: 'assistant_gap_item.update'
+  options:
+    parameters:
+      assistant_gap_item:
+        type: 'entity:assistant_gap_item'
+
+ilas_site_assistant_governance.candidate_export:
+  path: '/admin/reports/ilas-assistant/gaps/export'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\CandidateExportController::page'
+    _title: 'Eval export'
+  requirements:
+    _permission: 'view assistant gap items'
+
+ilas_site_assistant_governance.candidate_export_run:
+  path: '/admin/reports/ilas-assistant/gaps/export/run'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\CandidateExportController::run'
+  requirements:
+    _permission: 'edit assistant gap items'
+    _csrf_token: 'TRUE'
+
+ilas_site_assistant_governance.candidate_export_download:
+  path: '/admin/reports/ilas-assistant/gaps/export/download'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\CandidateExportController::download'
+  requirements:
+    _permission: 'view assistant gap items'
+
 ilas_site_assistant_governance.gap_bulk_resolve_confirm:
   path: '/admin/reports/ilas-assistant/gaps/bulk/resolve'
   defaults:

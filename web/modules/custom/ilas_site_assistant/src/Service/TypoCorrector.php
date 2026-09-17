@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\Service;
 
 use Drupal\Component\Serialization\Yaml;
+use Drupal\Core\Config\ConfigFactoryInterface;
 
 /**
  * Lightweight typo correction using Levenshtein distance.
@@ -94,12 +95,20 @@ class TypoCorrector {
    * @param \Drupal\ilas_site_assistant\Service\AcronymExpander|null $acronym_expander
    *   Optional acronym expander for vocabulary.
    */
-  public function __construct($cache = NULL, ?TopicRouter $topic_router = NULL, ?AcronymExpander $acronym_expander = NULL) {
+  public function __construct($cache = NULL, ?TopicRouter $topic_router = NULL, ?AcronymExpander $acronym_expander = NULL, ?ConfigFactoryInterface $config_factory = NULL) {
     $this->cache = $cache;
     $this->topicRouter = $topic_router;
     $this->acronymExpander = $acronym_expander;
+    $this->configFactory = $config_factory;
     $this->buildVocabulary();
   }
+
+  /**
+   * Optional config factory for admin lexicon overrides.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface|null
+   */
+  protected ?ConfigFactoryInterface $configFactory = NULL;
 
   /**
    * Corrects typos in the given text.
@@ -299,6 +308,14 @@ class TypoCorrector {
 
     // Load the explicit typo dictionary (config/routing/typos.yml).
     $this->loadDictionary();
+
+    // Admin overrides (settings form / gap review) win over the shipped file.
+    if ($this->configFactory !== NULL) {
+      foreach (LexiconOverrides::typosFromConfig($this->configFactory) as $entry) {
+        $this->vocabulary[$entry['canonical']] = $entry['canonical'];
+        $this->dictionary[$entry['misspelling']] = $entry['canonical'];
+      }
+    }
 
     // Cache the vocabulary + dictionary bundle.
     if ($this->cache && !empty($this->vocabulary)) {

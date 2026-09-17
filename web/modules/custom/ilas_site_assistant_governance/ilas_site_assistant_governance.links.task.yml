@@ -27,3 +27,9 @@ view.assistant_gap_items.page_all_tab:
   title: 'All'
   base_route: view.assistant_gap_items.page_queue
   weight: 30
+
+ilas_site_assistant_governance.candidate_export_tab:
+  route_name: ilas_site_assistant_governance.candidate_export
+  title: 'Eval export'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 40

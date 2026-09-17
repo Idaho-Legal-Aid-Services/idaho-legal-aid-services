@@ -260,6 +260,36 @@ ilas_site_assistant.settings:
             ambiguous_message_words:
               type: integer
               label: 'Ambiguous message word count threshold (default: 2)'
+    lexicon_overrides:
+      type: mapping
+      label: 'Admin-editable lexicon overrides'
+      mapping:
+        typos:
+          type: sequence
+          label: 'Typo corrections'
+          sequence:
+            type: mapping
+            label: 'Typo correction'
+            mapping:
+              misspelling:
+                type: string
+                label: 'Misspelling'
+              canonical:
+                type: string
+                label: 'Canonical word'
+        topic_aliases:
+          type: sequence
+          label: 'Topic aliases'
+          sequence:
+            type: mapping
+            label: 'Topic alias'
+            mapping:
+              phrase:
+                type: string
+                label: 'Phrase'
+              topic_intent:
+                type: string
+                label: 'Top Intents pack key'
     retrieval:
       type: mapping
       label: 'Retrieval index settings'

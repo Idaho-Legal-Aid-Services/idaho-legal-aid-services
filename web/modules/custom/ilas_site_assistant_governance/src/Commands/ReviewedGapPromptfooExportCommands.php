@@ -6,7 +6,6 @@ namespace Drupal\ilas_site_assistant_governance\Commands;
 
 use Drupal\ilas_site_assistant_governance\Service\ReviewedGapPromptfooCandidateExporter;
 use Drush\Commands\DrushCommands;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Drush commands for exporting reviewed gap candidates to Promptfoo.
@@ -83,14 +82,7 @@ final class ReviewedGapPromptfooExportCommands extends DrushCommands {
       return 1;
     }
 
-    $yaml_flags = Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK;
-    if (defined(Yaml::class . '::DUMP_EMPTY_ARRAY_AS_SEQUENCE')) {
-      $yaml_flags |= constant(Yaml::class . '::DUMP_EMPTY_ARRAY_AS_SEQUENCE');
-    }
-
-    $yaml = "# Generated candidate Promptfoo cases from reviewed Site Assistant gaps.\n";
-    $yaml .= "# Human review is required before moving any case into promptfoo-evals/tests or blocking CI.\n";
-    $yaml .= Yaml::dump($export['candidates'], 8, 2, $yaml_flags);
+    $yaml = $this->exporter->renderCandidateYaml($export);
 
     if (file_put_contents($output_path, $yaml) === FALSE) {
       fwrite(STDERR, sprintf("Failed to write candidate YAML: %s\n", $output_path));

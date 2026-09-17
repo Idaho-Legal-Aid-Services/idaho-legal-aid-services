@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\Statement\FetchAs;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 use Drupal\ilas_site_assistant_governance\Service\GapItemIdentityBuilder;
 use Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger;
@@ -25,7 +26,7 @@ function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_
     return (string) t('Shipped gap queue View config was not found; nothing changed.');
   }
 
-  $data = \Drupal\Core\Serialization\Yaml::decode((string) file_get_contents($path));
+  $data = Yaml::decode((string) file_get_contents($path));
   if (!is_array($data) || ($data['id'] ?? '') !== 'assistant_gap_items') {
     return (string) t('Shipped gap queue View config is invalid; nothing changed.');
   }
@@ -50,7 +51,7 @@ function ilas_site_assistant_governance_post_update_reimport_conversations_view_
     return (string) t('Shipped conversation logs View config was not found; nothing changed.');
   }
 
-  $data = \Drupal\Core\Serialization\Yaml::decode((string) file_get_contents($path));
+  $data = Yaml::decode((string) file_get_contents($path));
   if (!is_array($data) || ($data['id'] ?? '') !== 'assistant_governance_conversations') {
     return (string) t('Shipped conversation logs View config is invalid; nothing changed.');
   }

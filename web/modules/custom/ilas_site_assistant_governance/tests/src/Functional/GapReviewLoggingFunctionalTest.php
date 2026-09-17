@@ -290,6 +290,68 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
     $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations/' . $conversation_id);
     $this->assertSession()->linkNotExists('Flag for review');
     $this->assertSession()->linkExists((string) $items[0]['id']);
+
+    // The Eval export tab is reachable for reviewers; run-now needs edit.
+    $this->drupalGet('/admin/reports/ilas-assistant/gaps/export');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Never');
+    $this->assertSession()->linkNotExists('Run export now');
+  }
+
+  /**
+   * A reviewer can turn a miss into a topic alias that routes immediately.
+   */
+  public function testReviewerCanAddTopicAliasFromGapItem(): void {
+    $this->drupalLogin($this->regularUser);
+    $conversation_id = '12345678-1234-4123-8123-123456789ac1';
+    $phrase = 'qwertyuiop asdfghjkl';
+
+    $this->postJson('/assistant/api/message', ['message' => $phrase, 'conversation_id' => $conversation_id]);
+    $database = \Drupal::database();
+    $item_id = (int) $database->select('assistant_gap_item', 'g')->fields('g', ['id'])->execute()->fetchField();
+    $this->assertGreaterThan(0, $item_id, 'The generic clarify created a gap item');
+
+    $reviewer = $this->drupalCreateUser([
+      'view assistant gap items',
+      'edit assistant gap items',
+      'transition assistant gap items to resolved',
+    ]);
+    $this->drupalLogin($reviewer);
+    $this->drupalGet('/admin/reports/ilas-assistant/gaps/' . $item_id);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Add exemplar as topic alias');
+    $this->assertSession()->fieldValueEquals('phrase', $phrase);
+    $this->submitForm([
+      'phrase' => $phrase,
+      'topic_intent' => 'topic_housing_landlord_tenant',
+      'resolve' => TRUE,
+    ], 'Add topic alias');
+    $this->assertSession()->pageTextContains('now routes to topic_housing_landlord_tenant');
+    $this->assertSession()->pageTextContains('resolved as search tuned');
+
+    $aliases = \Drupal::config('ilas_site_assistant.settings')->get('lexicon_overrides.topic_aliases');
+    $this->assertSame([['phrase' => $phrase, 'topic_intent' => 'topic_housing_landlord_tenant']], $aliases);
+
+    $item = $database->select('assistant_gap_item', 'g')
+      ->fields('g', ['review_state', 'resolution_code', 'resolution_reference'])
+      ->condition('id', $item_id)
+      ->execute()
+      ->fetchAssoc();
+    $this->assertSame('resolved', $item['review_state']);
+    $this->assertSame('search_tuned', $item['resolution_code']);
+    $this->assertSame('lexicon_overrides:' . $phrase, $item['resolution_reference']);
+
+    // The same wording now routes to the topic answer instead of the generic
+    // clarify. (The test site has no indexed content, so the grounding
+    // policy may still mark the citation-less answer as clarify_no_grounding;
+    // the routing evidence is the reason code and the canonical link.)
+    $this->drupalLogin($this->regularUser);
+    $response = $this->postJson('/assistant/api/message', ['message' => $phrase, 'conversation_id' => '12345678-1234-4123-8123-123456789ac2']);
+    $data = json_decode((string) $response->getBody(), TRUE);
+    $this->assertSame('intent_pack_topic_housing_landlord_tenant', $data['reason_code'] ?? NULL, json_encode($data));
+    $this->assertSame('/resources/landlord-and-tenant', $data['url'] ?? NULL);
+    $this->assertNotSame('clarification_needed', $data['reason_code'] ?? NULL);
+    $this->assertSame('1', (string) $database->select('assistant_gap_item', 'g')->countQuery()->execute()->fetchField(), 'No new gap item for the now-understood wording');
   }
 
   /**

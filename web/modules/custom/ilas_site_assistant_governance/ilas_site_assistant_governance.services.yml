@@ -48,3 +48,12 @@ services:
       - '@entity_type.manager'
       - '@database'
       - '@datetime.time'
+
+  ilas_site_assistant_governance.candidate_export_scheduler:
+    class: Drupal\ilas_site_assistant_governance\Service\CandidateExportScheduler
+    arguments:
+      - '@ilas_site_assistant_governance.reviewed_gap_promptfoo_candidate_exporter'
+      - '@state'
+      - '@file_system'
+      - '@datetime.time'
+      - '@logger.channel.ilas_site_assistant_governance'

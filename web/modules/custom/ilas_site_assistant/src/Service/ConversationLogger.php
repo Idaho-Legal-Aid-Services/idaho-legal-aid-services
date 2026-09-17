@@ -153,9 +153,10 @@ class ConversationLogger {
     string $requestId = '',
     array $context = [],
   ): void {
-    if (\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+    $governance_logger = $this->governanceLogger();
+    if ($governance_logger !== NULL) {
       try {
-        \Drupal::service('ilas_site_assistant_governance.conversation_logger')->logExchange(
+        $governance_logger->logExchange(
           $conversationId,
           $userMessage,
           $assistantMessage,
@@ -318,13 +319,13 @@ class ConversationLogger {
    *   Governance correlation result, or NULL when nothing was recorded.
    */
   public function recordFeedback(string $conversationId, string $responseRequestId, string $eventType): ?array {
-    if (!\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+    $governance_logger = $this->governanceLogger();
+    if ($governance_logger === NULL) {
       return NULL;
     }
     $value = $eventType === 'feedback_helpful' ? 'helpful' : 'not_helpful';
     try {
-      return \Drupal::service('ilas_site_assistant_governance.conversation_logger')
-        ->recordFeedback($responseRequestId, $conversationId, $value);
+      return $governance_logger->recordFeedback($responseRequestId, $conversationId, $value);
     }
     catch (\Throwable $e) {
       $this->logger->error('Governance feedback correlation failed: @class @error_signature', [
@@ -333,6 +334,22 @@ class ConversationLogger {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Returns the governance conversation logger when that module is enabled.
+   *
+   * The governance module depends on this one, so the canonical store can
+   * only be reached through the container at runtime.
+   *
+   * @return object|null
+   *   The governance logger service, or NULL when unavailable.
+   */
+  protected function governanceLogger(): ?object {
+    if (!\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+      return NULL;
+    }
+    return \Drupal::service('ilas_site_assistant_governance.conversation_logger');
   }
 
 }

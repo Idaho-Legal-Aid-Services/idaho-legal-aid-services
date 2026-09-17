@@ -99,6 +99,9 @@ class GapItemManager {
           'topic_assignment_source' => $topic_context['assignment_source'],
           'topic_assignment_confidence' => $topic_context['confidence'],
         ]);
+        if (!$entity instanceof AssistantGapItem) {
+          throw new \UnexpectedValueException('assistant_gap_item storage returned an unexpected entity type.');
+        }
         if ($entity->hasField('trigger_code')) {
           $entity->set('trigger_code', $trigger_code);
         }
@@ -117,6 +120,10 @@ class GapItemManager {
           $entity->setRevisionLogMessage('Automatically reopened after a new unanswered occurrence.');
           $entity->setNewRevision(TRUE);
         }
+      }
+
+      if (!$entity instanceof AssistantGapItem) {
+        throw new \UnexpectedValueException('assistant_gap_item storage returned an unexpected entity type.');
       }
 
       if ($entity->hasField('latest_trigger_code')) {

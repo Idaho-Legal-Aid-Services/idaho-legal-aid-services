@@ -31,6 +31,12 @@ why it is there:
      a short suppression note.
 2. **Clarify misses tab** (`/gaps/clarify`) — sorted by open occurrences.
    These are the "the bot did not understand me" cases. For each:
+   - **Fast path, no deploy:** on the gap item's review page use *Add
+     exemplar as topic alias* (routes that wording to a pack answer at once
+     and can resolve the item as search-tuned), or add typo / alias lines
+     under *Lexicon overrides* in Site Assistant settings. These live in
+     config and are merged over the shipped lexicon; promote the keepers
+     into the YAML files below with fixtures so CI covers them.
    - Misspelling → add it under its canonical word in
      `config/routing/typos.yml`, plus a case in
      `TypoCorrectorTest::typoCorrectionProvider`.
@@ -54,12 +60,15 @@ why it is there:
 3. **Top misses (30d) tab** (`/gaps/top-misses`) — the highest-volume open
    items regardless of trigger. Anything here with 3+ occurrences is this
    week's priority.
-4. **Promote to evals.** After resolving items, export reviewed/resolved gaps
-   as promptfoo candidates and promote the good ones by hand into
-   `promptfoo-evals/tests/` (never write into `tests/` directly):
+4. **Promote to evals.** Reviewed/resolved gaps are exported as promptfoo
+   *candidate* cases automatically once a week (cron) into the private file
+   system. Open the **Eval export** tab on the gap queue to download the
+   YAML or run the export now, review each case for privacy and overfitting,
+   and promote the good ones by hand into `promptfoo-evals/tests/` (nothing
+   is ever written into `tests/` automatically). The drush equivalent is
    `drush ilas:export-reviewed-gaps-to-promptfoo --days=90 --write`
    (output: `promptfoo-evals/output/reviewed-gaps.candidate.yaml`). Resolved
-   items purge 30 days after resolution, so export before then.
+   items purge 30 days after resolution, so promote within that window.
 5. **Langfuse sanity check** (optional): `dead_end_rate`, `clarify_rate`
    (healthy 5-15%), `history_fallback_rate` (10-20%).
 6. **Fixture regression:** run
