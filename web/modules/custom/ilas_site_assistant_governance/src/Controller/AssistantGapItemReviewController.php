@@ -252,14 +252,19 @@ final class AssistantGapItemReviewController extends ControllerBase {
       return $build;
     }
 
+    $excerpt_fields = [
+      'turn_sequence',
+      'direction',
+      'message_redacted',
+      'intent',
+      'response_type',
+    ];
+    $has_feedback = $this->database->schema()->fieldExists('ilas_site_assistant_conversation_turn', 'feedback_value');
+    if ($has_feedback) {
+      $excerpt_fields[] = 'feedback_value';
+    }
     $turns = $this->database->select('ilas_site_assistant_conversation_turn', 't')
-      ->fields('t', [
-        'turn_sequence',
-        'direction',
-        'message_redacted',
-        'intent',
-        'response_type',
-      ])
+      ->fields('t', $excerpt_fields)
       ->condition('conversation_id', $conversation_id)
       ->orderBy('turn_sequence', 'DESC')
       ->range(0, 6)
@@ -279,6 +284,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         $turn->message_redacted,
         $turn->intent ?: '-',
         $turn->response_type ?: '-',
+        $has_feedback && !empty($turn->feedback_value) ? str_replace('_', ' ', (string) $turn->feedback_value) : '-',
       ];
     }
 
@@ -298,6 +304,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         $this->t('Redacted message'),
         $this->t('Intent'),
         $this->t('Response type'),
+        $this->t('Feedback'),
       ],
       '#rows' => $rows,
     ];

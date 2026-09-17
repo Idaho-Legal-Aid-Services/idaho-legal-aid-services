@@ -201,6 +201,32 @@ class GovernanceModuleContractTest extends TestCase {
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_bulk_resolve_confirm', $routes);
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_bulk_archive_confirm', $routes);
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_start_review', $routes);
+    $this->assertArrayHasKey('ilas_site_assistant_governance.flag_conversation_turn', $routes);
+    $flag_route = $routes['ilas_site_assistant_governance.flag_conversation_turn'];
+    $this->assertSame('/admin/reports/ilas-assistant/governance/conversations/{conversation_id}/turns/{turn_sequence}/flag', $flag_route['path']);
+    $this->assertSame('flag assistant conversation turns', $flag_route['requirements']['_permission']);
+    $this->assertSame('TRUE', $flag_route['requirements']['_csrf_token']);
+    $permissions = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.permissions.yml');
+    $this->assertArrayHasKey('flag assistant conversation turns', $permissions);
+    $this->assertTrue($permissions['flag assistant conversation turns']['restrict access']);
+  }
+
+  /**
+   * Feedback columns are declared in the schema and update hook.
+   */
+  public function testFeedbackColumnsDeclared(): void {
+    $source = self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.install');
+    $this->assertStringContainsString("'feedback_value'", $source);
+    $this->assertStringContainsString("'feedback_at'", $source);
+    $this->assertStringContainsString("'has_negative_feedback'", $source);
+    $this->assertStringContainsString('function ilas_site_assistant_governance_update_11008', $source);
+
+    $conversations = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/config/install/views.view.assistant_governance_conversations.yml');
+    $fields = $conversations['display']['default']['display_options']['fields'];
+    $this->assertArrayHasKey('has_negative_feedback', $fields);
+    $this->assertSame('Not-helpful feedback', $fields['has_negative_feedback']['label']);
+    $active = self::parseYaml('config/views.view.assistant_governance_conversations.yml');
+    $this->assertSame($fields['has_negative_feedback'], $active['display']['default']['display_options']['fields']['has_negative_feedback']);
   }
 
   /**

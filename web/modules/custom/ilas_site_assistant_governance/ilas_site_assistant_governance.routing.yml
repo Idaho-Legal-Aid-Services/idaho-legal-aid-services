@@ -7,6 +7,16 @@ ilas_site_assistant_governance.conversation_detail:
     _permission: 'view assistant governance conversations'
     conversation_id: '[a-f0-9\-]{36}'
 
+ilas_site_assistant_governance.flag_conversation_turn:
+  path: '/admin/reports/ilas-assistant/governance/conversations/{conversation_id}/turns/{turn_sequence}/flag'
+  defaults:
+    _controller: '\Drupal\ilas_site_assistant_governance\Controller\GovernanceConversationController::flagTurn'
+  requirements:
+    _permission: 'flag assistant conversation turns'
+    _csrf_token: 'TRUE'
+    conversation_id: '[a-f0-9\-]{36}'
+    turn_sequence: '\d+'
+
 ilas_site_assistant_governance.gap_bulk_resolve_confirm:
   path: '/admin/reports/ilas-assistant/gaps/bulk/resolve'
   defaults:

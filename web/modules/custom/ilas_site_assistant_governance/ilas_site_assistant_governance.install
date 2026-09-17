@@ -86,6 +86,13 @@ function ilas_site_assistant_governance_schema(): array {
         'unsigned' => TRUE,
         'not null' => FALSE,
       ],
+      'has_negative_feedback' => [
+        'description' => 'Any assistant turn in this conversation received not-helpful feedback.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'is_held' => [
         'type' => 'int',
         'size' => 'tiny',
@@ -199,6 +206,17 @@ function ilas_site_assistant_governance_schema(): array {
         'default' => 0,
       ],
       'gap_item_id' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
+      'feedback_value' => [
+        'description' => 'helpful / not_helpful feedback on an assistant turn.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+      ],
+      'feedback_at' => [
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => FALSE,
@@ -654,6 +672,51 @@ function ilas_site_assistant_governance_update_11007(): string {
   return $installed === []
     ? (string) t('Trigger code fields were already installed.')
     : (string) t('Installed gap item trigger fields: @fields.', ['@fields' => implode(', ', $installed)]);
+}
+
+/**
+ * Adds per-turn feedback columns and the session negative-feedback flag.
+ */
+function ilas_site_assistant_governance_update_11008(): string {
+  $schema = \Drupal::database()->schema();
+  $added = [];
+
+  $turn_table = 'ilas_site_assistant_conversation_turn';
+  if ($schema->tableExists($turn_table)) {
+    if (!$schema->fieldExists($turn_table, 'feedback_value')) {
+      $schema->addField($turn_table, 'feedback_value', [
+        'description' => 'helpful / not_helpful feedback on an assistant turn.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+      ]);
+      $added[] = 'turn.feedback_value';
+    }
+    if (!$schema->fieldExists($turn_table, 'feedback_at')) {
+      $schema->addField($turn_table, 'feedback_at', [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ]);
+      $added[] = 'turn.feedback_at';
+    }
+  }
+
+  $session_table = 'ilas_site_assistant_conversation_session';
+  if ($schema->tableExists($session_table) && !$schema->fieldExists($session_table, 'has_negative_feedback')) {
+    $schema->addField($session_table, 'has_negative_feedback', [
+      'description' => 'Any assistant turn in this conversation received not-helpful feedback.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+    $added[] = 'session.has_negative_feedback';
+  }
+
+  return $added === []
+    ? (string) t('Feedback columns were already present.')
+    : (string) t('Added feedback columns: @columns.', ['@columns' => implode(', ', $added)]);
 }
 
 /**

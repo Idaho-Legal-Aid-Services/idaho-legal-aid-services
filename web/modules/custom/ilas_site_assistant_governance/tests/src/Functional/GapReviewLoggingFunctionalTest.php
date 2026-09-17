@@ -191,6 +191,108 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * A thumbs-down through /assistant/api/track becomes a negative_feedback item.
+   */
+  public function testNotHelpfulFeedbackCreatesNegativeFeedbackGapItem(): void {
+    $this->drupalLogin($this->regularUser);
+    $conversation_id = '12345678-1234-4123-8123-123456789abf';
+
+    $response = $this->postJson('/assistant/api/message', [
+      'message' => 'What are my tenant rights in Idaho?',
+      'conversation_id' => $conversation_id,
+    ]);
+    $this->assertSame(200, $response->getStatusCode());
+    $data = json_decode((string) $response->getBody(), TRUE);
+    $request_id = (string) ($data['request_id'] ?? '');
+    $this->assertMatchesRegularExpression('/^[a-f0-9\-]{36}$/i', $request_id, 'Message responses carry the request id the widget echoes back with feedback');
+
+    $database = \Drupal::database();
+    $this->assertSame('0', (string) $database->select('assistant_gap_item', 'g')->countQuery()->execute()->fetchField(), 'An answered question creates no gap item by itself');
+
+    $track = $this->postJson('/assistant/api/track', [
+      'event_type' => 'feedback_not_helpful',
+      'event_value' => 'topic',
+      'conversation_id' => $conversation_id,
+      'response_request_id' => $request_id,
+      'response_type' => 'topic',
+    ]);
+    $this->assertSame(200, $track->getStatusCode(), (string) $track->getBody());
+
+    $items = $database->select('assistant_gap_item', 'g')
+      ->fields('g', ['id', 'trigger_code', 'exemplar_redacted_query'])
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $this->assertCount(1, $items);
+    $this->assertSame('negative_feedback', $items[0]['trigger_code']);
+    $this->assertSame('What are my tenant rights in Idaho?', $items[0]['exemplar_redacted_query']);
+
+    $turns = $database->select('ilas_site_assistant_conversation_turn', 't')
+      ->fields('t', ['direction', 'feedback_value', 'gap_item_id'])
+      ->condition('conversation_id', $conversation_id)
+      ->orderBy('turn_sequence')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $this->assertSame('user', $turns[0]['direction']);
+    $this->assertSame((string) $items[0]['id'], (string) $turns[0]['gap_item_id']);
+    $this->assertSame('not_helpful', $turns[1]['feedback_value']);
+
+    $session = $database->select('ilas_site_assistant_conversation_session', 's')
+      ->fields('s', ['has_negative_feedback', 'has_unresolved_gap'])
+      ->condition('conversation_id', $conversation_id)
+      ->execute()
+      ->fetchAssoc();
+    $this->assertSame('1', (string) $session['has_negative_feedback']);
+    $this->assertSame('1', (string) $session['has_unresolved_gap']);
+
+    // A second vote on the same answer changes nothing.
+    $this->postJson('/assistant/api/track', [
+      'event_type' => 'feedback_not_helpful',
+      'conversation_id' => $conversation_id,
+      'response_request_id' => $request_id,
+      'response_type' => 'topic',
+    ]);
+    $this->assertSame('1', (string) $database->select('assistant_gap_item', 'g')->countQuery()->execute()->fetchField());
+  }
+
+  /**
+   * Reviewers can push a transcript turn into the queue from the detail page.
+   */
+  public function testReviewerCanFlagTranscriptTurn(): void {
+    $this->drupalLogin($this->regularUser);
+    $conversation_id = '12345678-1234-4123-8123-123456789ac0';
+    $this->postJson('/assistant/api/message', [
+      'message' => 'What are my tenant rights in Idaho?',
+      'conversation_id' => $conversation_id,
+    ]);
+
+    $reviewer = $this->drupalCreateUser([
+      'view assistant governance conversations',
+      'view assistant gap items',
+      'flag assistant conversation turns',
+    ]);
+    $this->drupalLogin($reviewer);
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations/' . $conversation_id);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Feedback');
+    $this->clickLink('Flag for review');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('was added to the gap review queue');
+
+    $database = \Drupal::database();
+    $items = $database->select('assistant_gap_item', 'g')
+      ->fields('g', ['id', 'trigger_code'])
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $this->assertCount(1, $items);
+    $this->assertSame('reviewer_flagged', $items[0]['trigger_code']);
+
+    // The flagged turn now links to the item and the link is gone.
+    $this->drupalGet('/admin/reports/ilas-assistant/governance/conversations/' . $conversation_id);
+    $this->assertSession()->linkNotExists('Flag for review');
+    $this->assertSession()->linkExists((string) $items[0]['id']);
+  }
+
+  /**
    * Understood topic clarifiers (disambiguation menus) stay out of the queue.
    */
   public function testTopicDisambiguationDoesNotCreateGapReviewArtifacts(): void {

@@ -4157,6 +4157,21 @@ class AssistantApiController extends ControllerBase {
       if (
         in_array($event_type, ['feedback_helpful', 'feedback_not_helpful'], TRUE)
         && $this->isUuidV4($response_request_id)
+        && $this->isUuidV4($conversation_id)
+        && $this->conversationLogger
+        && !GapReviewDecider::isPromptfooEvalRequest($request, $data)
+      ) {
+        // Tie the vote to the stored turn; not-helpful votes enter the gap
+        // review queue so reviewers see which answer failed, not a counter.
+        $feedback_correlation = $this->conversationLogger->recordFeedback($conversation_id, $response_request_id, $event_type);
+        if (!empty($feedback_correlation['gap_item_id'])) {
+          $this->analyticsLogger->log('gap_review_negative_feedback', $response_type !== '' ? $response_type : 'unknown');
+        }
+      }
+
+      if (
+        in_array($event_type, ['feedback_helpful', 'feedback_not_helpful'], TRUE)
+        && $this->isUuidV4($response_request_id)
       ) {
         $feedback_metadata = $this->buildLangfuseBaseTraceMetadata(
           $response_request_id,

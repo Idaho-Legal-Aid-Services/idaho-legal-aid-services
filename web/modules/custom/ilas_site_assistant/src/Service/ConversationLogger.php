@@ -300,4 +300,39 @@ class ConversationLogger {
     }
   }
 
+  /**
+   * Correlates helpful / not-helpful feedback with the answered turn.
+   *
+   * Delegates to the governance conversation logger, which owns the
+   * canonical turn store. Not-helpful feedback becomes a negative_feedback
+   * gap item built from the already-redacted stored user turn.
+   *
+   * @param string $conversationId
+   *   The conversation the answer belongs to.
+   * @param string $responseRequestId
+   *   Request ID of the answered assistant turn.
+   * @param string $eventType
+   *   feedback_helpful or feedback_not_helpful.
+   *
+   * @return array|null
+   *   Governance correlation result, or NULL when nothing was recorded.
+   */
+  public function recordFeedback(string $conversationId, string $responseRequestId, string $eventType): ?array {
+    if (!\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+      return NULL;
+    }
+    $value = $eventType === 'feedback_helpful' ? 'helpful' : 'not_helpful';
+    try {
+      return \Drupal::service('ilas_site_assistant_governance.conversation_logger')
+        ->recordFeedback($responseRequestId, $conversationId, $value);
+    }
+    catch (\Throwable $e) {
+      $this->logger->error('Governance feedback correlation failed: @class @error_signature', [
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+      ]);
+      return NULL;
+    }
+  }
+
 }

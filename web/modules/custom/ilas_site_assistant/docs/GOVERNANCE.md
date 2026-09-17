@@ -44,6 +44,13 @@ why it is there:
      and, if content is missing, a stub in `config/kb-stubs/` for attorney
      authorship.
    - Out of scope → resolve as *Expected out of scope*.
+   Two triggers come from people rather than the router: **Not-helpful
+   feedback** (a thumbs-down in the widget is tied to the exact answer, and
+   the user's question enters the queue) and **Flagged by reviewer** (on any
+   transcript in Reports → Conversation Logs, the *Flag for review* link next
+   to a user turn creates an item; needs the *Flag assistant conversation
+   turns* permission). Both show the conversation so you can read what was
+   asked and what the assistant said.
 3. **Top misses (30d) tab** (`/gaps/top-misses`) — the highest-volume open
    items regardless of trigger. Anything here with 3+ occurrences is this
    week's priority.

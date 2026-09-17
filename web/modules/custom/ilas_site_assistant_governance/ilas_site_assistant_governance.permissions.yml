@@ -72,3 +72,8 @@ view assistant governance conversations:
   title: 'View assistant governance conversations'
   description: 'View canonical PII-redacted assistant governance conversations.'
   restrict access: true
+
+flag assistant conversation turns:
+  title: 'Flag assistant conversation turns for review'
+  description: 'Push a redacted conversation turn into the gap review queue from the transcript screen.'
+  restrict access: true

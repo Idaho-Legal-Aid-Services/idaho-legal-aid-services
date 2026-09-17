@@ -74,6 +74,7 @@ function ilas_site_assistant_governance_views_data(): array {
   foreach ([
     'has_unresolved_gap' => t('Needs follow-up now'),
     'has_no_answer' => t('Ever had no-answer event'),
+    'has_negative_feedback' => t('Not-helpful feedback'),
     'is_held' => t('Legal hold'),
   ] as $field_name => $title) {
     $data['ilas_site_assistant_conversation_session'][$field_name] = [

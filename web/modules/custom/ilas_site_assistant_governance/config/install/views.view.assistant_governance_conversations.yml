@@ -50,6 +50,7 @@ display:
             last_response_type: last_response_type
             has_unresolved_gap: has_unresolved_gap
             has_no_answer: has_no_answer
+            has_negative_feedback: has_negative_feedback
             is_held: is_held
             latest_gap_item_id: latest_gap_item_id
           default: last_message_at
@@ -67,6 +68,8 @@ display:
             has_unresolved_gap:
               sortable: false
             has_no_answer:
+              sortable: false
+            has_negative_feedback:
               sortable: false
             is_held:
               sortable: false
@@ -386,6 +389,59 @@ display:
           admin_label: ''
           plugin_id: boolean
           label: 'Ever had no-answer event'
+          exclude: false
+          alter:
+            alter_text: false
+            text: ''
+            make_link: false
+            path: ''
+            absolute: false
+            external: false
+            replace_spaces: false
+            path_case: none
+            trim_whitespace: false
+            alt: ''
+            rel: ''
+            link_class: ''
+            prefix: ''
+            suffix: ''
+            target: ''
+            nl2br: false
+            max_length: 0
+            word_boundary: true
+            ellipsis: true
+            more_link: false
+            more_link_text: ''
+            more_link_path: ''
+            strip_tags: false
+            trim: false
+            preserve_tags: ''
+            html: false
+          element_type: ''
+          element_class: ''
+          element_label_type: ''
+          element_label_class: ''
+          element_label_colon: true
+          element_wrapper_type: ''
+          element_wrapper_class: ''
+          element_default_classes: true
+          empty: ''
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: yes-no
+          type_custom_true: ''
+          type_custom_false: ''
+          not: false
+        has_negative_feedback:
+          id: has_negative_feedback
+          table: ilas_site_assistant_conversation_session
+          field: has_negative_feedback
+          relationship: none
+          group_type: group
+          admin_label: ''
+          plugin_id: boolean
+          label: 'Not-helpful feedback'
           exclude: false
           alter:
             alter_text: false
