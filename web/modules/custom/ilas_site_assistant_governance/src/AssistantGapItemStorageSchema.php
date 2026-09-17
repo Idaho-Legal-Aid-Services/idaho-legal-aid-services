@@ -31,6 +31,7 @@ class AssistantGapItemStorageSchema extends SqlContentEntityStorageSchema {
         'assistant_gap_item__identity_selection_key' => ['identity_selection_key'],
         'assistant_gap_item__identity_intent' => ['identity_intent'],
         'assistant_gap_item__state_last_seen' => ['review_state', 'last_seen'],
+        'assistant_gap_item__trigger_last_seen' => ['trigger_code', 'last_seen'],
         'assistant_gap_item__state_assigned_changed' => ['review_state', 'assigned_uid', 'changed'],
         'assistant_gap_item__topic_last_seen' => ['primary_topic_tid', 'last_seen'],
         'assistant_gap_item__service_area_last_seen' => ['primary_service_area_tid', 'last_seen'],

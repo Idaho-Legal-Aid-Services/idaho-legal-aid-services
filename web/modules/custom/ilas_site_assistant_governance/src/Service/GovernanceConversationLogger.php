@@ -119,7 +119,10 @@ class GovernanceConversationLogger {
         'purge_after' => $now + (self::RETENTION_DAYS * 86400),
       ];
       if ($supports_unresolved_gap) {
-        $session_fields['has_unresolved_gap'] = !empty($context['is_no_answer']) || !empty($session['has_unresolved_gap']) ? 1 : 0;
+        // Any linked gap item (no-match, clarify, loop, grounding refusal)
+        // means a reviewer may still need to follow up on this conversation.
+        $has_open_gap = !empty($context['is_no_answer']) || !empty($context['gap_item_id']);
+        $session_fields['has_unresolved_gap'] = $has_open_gap || !empty($session['has_unresolved_gap']) ? 1 : 0;
       }
 
       if ($session) {

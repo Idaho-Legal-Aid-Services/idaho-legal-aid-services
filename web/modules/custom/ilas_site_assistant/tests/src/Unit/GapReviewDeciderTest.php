@@ -73,6 +73,108 @@ final class GapReviewDeciderTest extends TestCase {
   }
 
   /**
+   * Trigger codes for every reviewable response shape.
+   */
+  #[DataProvider('triggerCodeProvider')]
+  public function testResolveTriggerCode(array $response, array $intent, string $message, ?string $expected): void {
+    $this->assertSame($expected, GapReviewDecider::resolveTriggerCode($response, $intent, $message));
+  }
+
+  /**
+   *
+   */
+  public static function triggerCodeProvider(): array {
+    $clarify_response = ['type' => 'fallback', 'reason_code' => 'clarification_needed'];
+    $unknown_clarify = ['type' => 'clarify', 'original_intent' => 'unknown'];
+    return [
+      'no-match fallback' => [
+        ['type' => 'fallback', 'reason_code' => 'no_match_fallback'],
+        ['type' => 'unknown'],
+        'anything',
+        GapReviewDecider::TRIGGER_NO_MATCH_FALLBACK,
+      ],
+      'clarify loop break' => [
+        ['type' => 'clarify_loop_break', 'reason_code' => 'clarify_loop_break'],
+        ['type' => 'clarify'],
+        'what',
+        GapReviewDecider::TRIGGER_CLARIFY_LOOP_BREAK,
+      ],
+      'grounding refusal' => [
+        ['type' => 'clarify_no_grounding', 'reason_code' => 'faq_match_found'],
+        ['type' => 'faq'],
+        'tell me about probate timelines',
+        GapReviewDecider::TRIGGER_CLARIFY_NO_GROUNDING,
+      ],
+      'generic clarify, real words (conversation 7c10da94 turn 1)' => [
+        $clarify_response, $unknown_clarify, 'Tenet rights', GapReviewDecider::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+      ],
+      'generic clarify, three words' => [
+        $clarify_response, $unknown_clarify, 'Entering a residence', GapReviewDecider::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+      ],
+      'generic clarify, keyboard noise' => [
+        $clarify_response, $unknown_clarify, 'zxqvplm', NULL,
+      ],
+      'generic clarify, single word' => [
+        $clarify_response, $unknown_clarify, 'hello', NULL,
+      ],
+      'generic clarify, only short tokens' => [
+        $clarify_response, $unknown_clarify, 'is it ok', NULL,
+      ],
+      'generic clarify, numbers only' => [
+        $clarify_response, $unknown_clarify, '12345 67890', NULL,
+      ],
+      'pack clarifier is understood' => [
+        $clarify_response, ['type' => 'clarify', 'original_intent' => 'topic_housing'], 'housing question please', NULL,
+      ],
+      'disambiguation menu is understood' => [
+        $clarify_response, ['type' => 'disambiguation', 'source' => 'router'], 'divorce custody', NULL,
+      ],
+      'faq answer' => [
+        ['type' => 'faq', 'reason_code' => 'faq_match_found', 'results' => [['id' => 1]]],
+        ['type' => 'faq'],
+        'how do I apply',
+        NULL,
+      ],
+    ];
+  }
+
+  /**
+   * A substantive generic clarify now creates a review item.
+   */
+  public function testShouldRecordSubstantiveGenericClarify(): void {
+    $should_record = GapReviewDecider::shouldRecordGapItem(
+      ['type' => 'fallback', 'reason_code' => 'clarification_needed'],
+      ['type' => 'clarify', 'original_intent' => 'unknown'],
+      [],
+      Request::create('/assistant/api/message', 'POST'),
+      ['message' => 'Entering a residence'],
+    );
+
+    $this->assertTrue($should_record);
+  }
+
+  /**
+   * A precomputed trigger in the governance context is honoured.
+   */
+  public function testShouldRecordUsesGovernanceContextTrigger(): void {
+    $request = Request::create('/assistant/api/message', 'POST');
+    $this->assertTrue(GapReviewDecider::shouldRecordGapItem(
+      ['type' => 'faq'],
+      ['type' => 'faq'],
+      ['trigger_code' => GapReviewDecider::TRIGGER_CLARIFY_LOOP_BREAK],
+      $request,
+      [],
+    ));
+    $this->assertFalse(GapReviewDecider::shouldRecordGapItem(
+      ['type' => 'fallback', 'reason_code' => 'no_match_fallback'],
+      ['type' => 'unknown'],
+      ['trigger_code' => NULL],
+      $request,
+      [],
+    ));
+  }
+
+  /**
    * Structured selection provenance is preserved without fabricating a topic.
    */
   public function testBuildGovernanceContextPreservesSelectionProvenance(): void {

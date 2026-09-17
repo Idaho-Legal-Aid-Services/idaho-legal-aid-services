@@ -33,15 +33,32 @@ class GapItemManager {
   ) {}
 
   /**
-   * Records a no-answer occurrence and returns the canonical gap-item ID.
+   * Whether the gap-hit table has the trigger_code column (NULL = unchecked).
+   */
+  protected ?bool $hitTableHasTrigger = NULL;
+
+  /**
+   * Records a reviewable occurrence and returns the canonical gap-item ID.
+   *
+   * @param string $query
+   *   The user's query (raw, or already-redacted stored text when
+   *   $context['text_metadata'] is supplied).
+   * @param array $context
+   *   Governance context. Recognised keys beyond the identity/topic context:
+   *   - trigger_code: one of AssistantGapItem::TRIGGER_* (default no-match).
+   *   - text_metadata: precomputed ['text_hash', 'language_hint',
+   *     'length_bucket', 'redaction_profile'] from a stored turn row, so a
+   *     feedback- or reviewer-driven occurrence clusters with the runtime
+   *     miss for the same message.
    */
   public function recordNoAnswer(string $query, array $context = []): ?int {
     try {
-      $metadata = ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage($query);
+      $metadata = $this->resolveTextMetadata($query, $context);
       if ($metadata['length_bucket'] === ObservabilityPayloadMinimizer::LENGTH_BUCKET_EMPTY) {
         return NULL;
       }
 
+      $trigger_code = AssistantGapItem::normalizeTriggerCode($context['trigger_code'] ?? NULL);
       $now = $this->time->getRequestTime();
       $topic_context = $this->deriveTopicContext($query, $context);
       $identity = $this->identityBuilder->buildFromRuntimeContext(
@@ -82,7 +99,10 @@ class GapItemManager {
           'topic_assignment_source' => $topic_context['assignment_source'],
           'topic_assignment_confidence' => $topic_context['confidence'],
         ]);
-        $entity->setRevisionLogMessage('Created automatically from unanswered assistant query.');
+        if ($entity->hasField('trigger_code')) {
+          $entity->set('trigger_code', $trigger_code);
+        }
+        $entity->setRevisionLogMessage(sprintf('Created automatically from assistant interaction (trigger: %s).', $trigger_code));
         $entity->setNewRevision(TRUE);
       }
       else {
@@ -97,6 +117,10 @@ class GapItemManager {
           $entity->setRevisionLogMessage('Automatically reopened after a new unanswered occurrence.');
           $entity->setNewRevision(TRUE);
         }
+      }
+
+      if ($entity->hasField('latest_trigger_code')) {
+        $entity->set('latest_trigger_code', $trigger_code);
       }
 
       if ($entity->get('primary_topic_tid')->isEmpty() && $topic_context['topic_id'] !== NULL) {
@@ -129,21 +153,25 @@ class GapItemManager {
       $entity->save();
       $gap_item_id = (int) $entity->id();
 
+      $hit_fields = [
+        'gap_item_id' => $gap_item_id,
+        'conversation_id' => $this->nullableString($context['conversation_id'] ?? '', 36),
+        'request_id' => $this->nullableString($context['request_id'] ?? '', 36),
+        'occurred_at' => $now,
+        'is_unresolved' => 1,
+        'query_hash' => $metadata['text_hash'],
+        'language_hint' => $metadata['language_hint'],
+        'observed_topic_tid' => $topic_context['topic_id'],
+        'observed_service_area_tid' => $topic_context['service_area_id'],
+        'assignment_source' => $topic_context['assignment_source'],
+        'intent' => $this->nullableString($context['intent_type'] ?? ($context['intent']['type'] ?? ''), 64),
+        'active_selection_key' => $this->nullableString($context['active_selection_key'] ?? '', 64),
+      ];
+      if ($this->hitTableHasTriggerColumn()) {
+        $hit_fields['trigger_code'] = $trigger_code;
+      }
       $this->database->insert('ilas_site_assistant_gap_hit')
-        ->fields([
-          'gap_item_id' => $gap_item_id,
-          'conversation_id' => $this->nullableString($context['conversation_id'] ?? '', 36),
-          'request_id' => $this->nullableString($context['request_id'] ?? '', 36),
-          'occurred_at' => $now,
-          'is_unresolved' => 1,
-          'query_hash' => $metadata['text_hash'],
-          'language_hint' => $metadata['language_hint'],
-          'observed_topic_tid' => $topic_context['topic_id'],
-          'observed_service_area_tid' => $topic_context['service_area_id'],
-          'assignment_source' => $topic_context['assignment_source'],
-          'intent' => $this->nullableString($context['intent_type'] ?? ($context['intent']['type'] ?? ''), 64),
-          'active_selection_key' => $this->nullableString($context['active_selection_key'] ?? '', 64),
-        ])
+        ->fields($hit_fields)
         ->execute();
 
       if ($this->shouldWriteAnalyticsRollups()) {
@@ -164,6 +192,34 @@ class GapItemManager {
       ]);
       return NULL;
     }
+  }
+
+  /**
+   * Uses stored turn metadata when supplied, else computes it from the text.
+   */
+  protected function resolveTextMetadata(string $query, array $context): array {
+    $supplied = $context['text_metadata'] ?? NULL;
+    if (is_array($supplied)
+      && trim((string) ($supplied['text_hash'] ?? '')) !== ''
+      && trim((string) ($supplied['length_bucket'] ?? '')) !== '') {
+      return [
+        'text_hash' => (string) $supplied['text_hash'],
+        'language_hint' => (string) ($supplied['language_hint'] ?? 'unknown'),
+        'length_bucket' => (string) $supplied['length_bucket'],
+        'redaction_profile' => (string) ($supplied['redaction_profile'] ?? 'none'),
+      ];
+    }
+    return ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage($query);
+  }
+
+  /**
+   * Returns TRUE once the gap-hit table carries trigger_code (post 11007).
+   */
+  protected function hitTableHasTriggerColumn(): bool {
+    if ($this->hitTableHasTrigger === NULL) {
+      $this->hitTableHasTrigger = $this->database->schema()->fieldExists('ilas_site_assistant_gap_hit', 'trigger_code');
+    }
+    return $this->hitTableHasTrigger;
   }
 
   /**

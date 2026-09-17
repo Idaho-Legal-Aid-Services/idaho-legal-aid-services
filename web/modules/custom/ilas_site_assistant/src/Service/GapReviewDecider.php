@@ -17,6 +17,38 @@ final class GapReviewDecider {
   private const REVIEWABLE_REASON_CODE = 'no_match_fallback';
 
   /**
+   * Trigger codes: why an interaction entered the human review queue.
+   *
+   * Mirrored by AssistantGapItem::triggerCodeOptions() in the governance
+   * module; keep both lists in sync.
+   */
+  public const TRIGGER_NO_MATCH_FALLBACK = 'no_match_fallback';
+  public const TRIGGER_CLARIFY_UNKNOWN_INTENT = 'clarify_unknown_intent';
+  public const TRIGGER_CLARIFY_LOOP_BREAK = 'clarify_loop_break';
+  public const TRIGGER_CLARIFY_NO_GROUNDING = 'clarify_no_grounding';
+  public const TRIGGER_NEGATIVE_FEEDBACK = 'negative_feedback';
+  public const TRIGGER_REVIEWER_FLAGGED = 'reviewer_flagged';
+
+  public const TRIGGER_CODES = [
+    self::TRIGGER_NO_MATCH_FALLBACK,
+    self::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+    self::TRIGGER_CLARIFY_LOOP_BREAK,
+    self::TRIGGER_CLARIFY_NO_GROUNDING,
+    self::TRIGGER_NEGATIVE_FEEDBACK,
+    self::TRIGGER_REVIEWER_FLAGGED,
+  ];
+
+  /**
+   * Minimum words before an unknown-intent clarify is worth a reviewer's time.
+   */
+  private const CLARIFY_MIN_WORDS = 2;
+
+  /**
+   * Minimum length of at least one alphabetic token in a reviewable clarify.
+   */
+  private const CLARIFY_MIN_TOKEN_LENGTH = 4;
+
+  /**
    * Builds the canonical governance context for a possible gap item.
    */
   public static function buildGovernanceContext(
@@ -68,11 +100,77 @@ final class GapReviewDecider {
     Request $request,
     array $request_payload = [],
   ): bool {
-    if (!self::isTrueNoMatchFallback($response)) {
+    // The controller resolves the trigger once and passes it explicitly
+    // (NULL meaning "nothing reviewable"); older callers omit the key.
+    $trigger = array_key_exists('trigger_code', $governance_context)
+      ? $governance_context['trigger_code']
+      : self::resolveTriggerCode($response, $intent, (string) ($request_payload['message'] ?? ''));
+    if ($trigger === NULL || $trigger === '') {
       return FALSE;
     }
 
     return !self::isPromptfooEvalRequest($request, $request_payload);
+  }
+
+  /**
+   * Resolves why this interaction should enter the review queue, if at all.
+   *
+   * Runtime triggers (feedback and reviewer flags are recorded elsewhere):
+   * - fallback + no_match_fallback: true dead end.
+   * - clarify_loop_break: the user was asked to clarify repeatedly.
+   * - clarify_no_grounding: an answerable type had nothing to cite.
+   * - fallback + clarification_needed with an unknown original intent: the
+   *   generic "could you describe your legal issue" clarify. Only recorded
+   *   when the message has enough substance for a reviewer to act on
+   *   (>= 2 words and at least one alphabetic token of 4+ characters), so
+   *   keyboard noise like "zxqvplm" or "hi" stays out of the queue. Pack
+   *   clarifiers and disambiguation menus are understood questions and are
+   *   not recorded.
+   *
+   * @return string|null
+   *   One of the TRIGGER_* constants, or NULL when nothing is reviewable.
+   */
+  public static function resolveTriggerCode(array $response, array $intent, string $message = ''): ?string {
+    $response_type = trim((string) ($response['type'] ?? ''));
+    $reason_code = trim((string) ($response['reason_code'] ?? ''));
+
+    if (self::isTrueNoMatchFallback($response)) {
+      return self::TRIGGER_NO_MATCH_FALLBACK;
+    }
+    if ($response_type === 'clarify_loop_break') {
+      return self::TRIGGER_CLARIFY_LOOP_BREAK;
+    }
+    if ($response_type === 'clarify_no_grounding') {
+      return self::TRIGGER_CLARIFY_NO_GROUNDING;
+    }
+
+    if (
+      $response_type === 'fallback'
+      && $reason_code === 'clarification_needed'
+      && (string) ($intent['type'] ?? '') === 'clarify'
+      && (string) ($intent['original_intent'] ?? 'unknown') === 'unknown'
+      && self::isReviewableClarifyMessage($message)
+    ) {
+      return self::TRIGGER_CLARIFY_UNKNOWN_INTENT;
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Returns TRUE when a clarified message carries enough substance to review.
+   */
+  public static function isReviewableClarifyMessage(string $message): bool {
+    $tokens = preg_split('/[^\p{L}\p{N}\'-]+/u', mb_strtolower(trim($message)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (count($tokens) < self::CLARIFY_MIN_WORDS) {
+      return FALSE;
+    }
+    foreach ($tokens as $token) {
+      if (mb_strlen($token) >= self::CLARIFY_MIN_TOKEN_LENGTH && preg_match('/^\p{L}+$/u', $token)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   /**

@@ -68,6 +68,27 @@ class GovernanceModuleContractTest extends TestCase {
     }
 
     $this->assertStringContainsString("'is_unresolved'", $source);
+    $this->assertStringContainsString("'trigger_code'", $source);
+    $this->assertStringContainsString('function ilas_site_assistant_governance_update_11007', $source);
+  }
+
+  /**
+   * Trigger codes stay in sync between the runtime decider and the entity.
+   */
+  public function testTriggerCodesMirrorRuntimeDecider(): void {
+    $decider = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/GapReviewDecider.php');
+    $entity = self::readFile('web/modules/custom/ilas_site_assistant_governance/src/Entity/AssistantGapItem.php');
+    foreach ([
+      'no_match_fallback',
+      'clarify_unknown_intent',
+      'clarify_loop_break',
+      'clarify_no_grounding',
+      'negative_feedback',
+      'reviewer_flagged',
+    ] as $code) {
+      $this->assertStringContainsString("'{$code}'", $decider);
+      $this->assertStringContainsString("'{$code}'", $entity);
+    }
   }
 
   /**
@@ -89,7 +110,37 @@ class GovernanceModuleContractTest extends TestCase {
     $this->assertArrayHasKey('page_queue', $install_view['display']);
     $this->assertArrayHasKey('page_new', $install_view['display']);
     $this->assertArrayHasKey('page_needs_review', $install_view['display']);
+    $this->assertArrayHasKey('page_clarify', $install_view['display']);
+    $this->assertArrayHasKey('page_top_misses', $install_view['display']);
     $this->assertArrayHasKey('page_all', $install_view['display']);
+    $this->assertArrayHasKey('trigger_code', $fields);
+    $this->assertSame('Trigger', $fields['trigger_code']['label']);
+    $this->assertArrayHasKey('trigger_code', $style_options['columns']);
+    // The main queue hides generic-clarify items; they get their own tab.
+    $queue_trigger_filter = $install_view['display']['page_queue']['display_options']['filters']['trigger_code'];
+    $this->assertSame('not in', $queue_trigger_filter['operator']);
+    $this->assertSame('in', $install_view['display']['page_queue']['display_options']['filters']['review_state']['operator']);
+    $this->assertStringContainsString("['options callback'] = \$callback", self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.views.inc'));
+    $this->assertSame(['clarify_unknown_intent' => 'clarify_unknown_intent'], $queue_trigger_filter['value']);
+    $clarify_display = $install_view['display']['page_clarify']['display_options'];
+    $this->assertSame('admin/reports/ilas-assistant/gaps/clarify', $clarify_display['path']);
+    $this->assertSame([
+      'clarify_unknown_intent' => 'clarify_unknown_intent',
+      'clarify_loop_break' => 'clarify_loop_break',
+      'clarify_no_grounding' => 'clarify_no_grounding',
+    ], $clarify_display['filters']['trigger_code']['value']);
+    $this->assertSame('DESC', $clarify_display['sorts']['occurrence_count_unresolved']['order']);
+    $top_display = $install_view['display']['page_top_misses']['display_options'];
+    $this->assertSame('admin/reports/ilas-assistant/gaps/top-misses', $top_display['path']);
+    $this->assertSame('-30 days', $top_display['filters']['last_seen']['value']['value']);
+    $this->assertSame('offset', $top_display['filters']['last_seen']['value']['type']);
+    $this->assertSame('DESC', $top_display['sorts']['occurrence_count_unresolved']['order']);
+    $this->assertSame($fields['trigger_code'], $active_view['display']['default']['display_options']['fields']['trigger_code']);
+    $this->assertSame($clarify_display['filters'], $active_view['display']['page_clarify']['display_options']['filters']);
+    $this->assertSame($top_display['filters'], $active_view['display']['page_top_misses']['display_options']['filters']);
+    $tasks = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.links.task.yml');
+    $this->assertSame('view.assistant_gap_items.page_clarify', $tasks['view.assistant_gap_items.page_clarify_tab']['route_name']);
+    $this->assertSame('view.assistant_gap_items.page_top_misses', $tasks['view.assistant_gap_items.page_top_misses_tab']['route_name']);
     $this->assertArrayHasKey('assistant_gap_item_bulk_form', $fields);
     $this->assertArrayNotHasKey('bulk_form', $fields);
     $this->assertSame('assistant_gap_item_bulk_form', $fields['assistant_gap_item_bulk_form']['field']);

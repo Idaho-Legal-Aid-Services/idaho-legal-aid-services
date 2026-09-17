@@ -5,6 +5,8 @@
  * Views data for assistant governance tables.
  */
 
+use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
+
 /**
  * Implements hook_views_data().
  */
@@ -122,6 +124,33 @@ function ilas_site_assistant_governance_views_data(): array {
  * Implements hook_views_data_alter().
  */
 function ilas_site_assistant_governance_views_data_alter(array &$data): void {
+  // The options module only maps *configurable* list fields to list-aware
+  // Views handlers (OptionsViewsHooks::fieldViewsData). For base fields Views
+  // falls back to the plain string filter, which ignores the "or"/"in"
+  // operators and throws on "not" with a list of values, so the queue's state
+  // and trigger filters silently never applied. Base-table columns have no
+  // multi-value join, so use the in_operator filter (not list_field) with the
+  // entity's option callbacks.
+  $option_callbacks = [
+    'review_state' => AssistantGapItem::class . '::stateOptions',
+    'trigger_code' => AssistantGapItem::class . '::triggerCodeOptions',
+    'latest_trigger_code' => AssistantGapItem::class . '::triggerCodeOptions',
+    'topic_assignment_source' => AssistantGapItem::class . '::topicAssignmentSourceOptions',
+    'resolution_code' => AssistantGapItem::class . '::resolutionCodeOptions',
+  ];
+  foreach (['assistant_gap_item', 'assistant_gap_item_revision'] as $table) {
+    if (!isset($data[$table])) {
+      continue;
+    }
+    foreach ($option_callbacks as $field_name => $callback) {
+      if (!isset($data[$table][$field_name]['filter'])) {
+        continue;
+      }
+      $data[$table][$field_name]['filter']['id'] = 'in_operator';
+      $data[$table][$field_name]['filter']['options callback'] = $callback;
+    }
+  }
+
   $data['assistant_gap_item']['next_action'] = [
     'title' => t('Next action'),
     'help' => t('Reviewer guidance based on the current gap-item state and topic assignment.'),

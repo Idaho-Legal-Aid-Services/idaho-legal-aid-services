@@ -383,12 +383,12 @@ review_loop:
     - 'Top content gaps from no-answer fingerprints'
     - 'Grounding refusal frequency'
   escalation_path: 'Content Manager -> Drupal Lead -> Product Owner'
-  artifact_location: 'docs/aila/runtime/phard-05-search-quality-review.txt'
+  artifact_location: 'promptfoo-evals/output/reviewed-gaps.candidate.yaml'
 
 cost_control:
   daily_call_limit: 5000
   monthly_call_limit: 100000
-  per_ip_hourly_call_limit: 10
+  per_ip_hourly_call_limit: 30  # Shared by intent classification and grounded generation
   per_ip_window_seconds: 3600
   sample_rate: 1.0
   cache_hit_rate_target: 0.30

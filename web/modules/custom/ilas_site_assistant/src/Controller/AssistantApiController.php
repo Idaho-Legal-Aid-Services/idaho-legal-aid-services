@@ -3474,6 +3474,7 @@ class AssistantApiController extends ControllerBase {
       }
 
       $gap_item_id = NULL;
+      $gap_trigger_code = GapReviewDecider::resolveTriggerCode($response, $intent, $user_message);
       $governance_context = GapReviewDecider::buildGovernanceContext(
       $intent,
       $response,
@@ -3483,11 +3484,12 @@ class AssistantApiController extends ControllerBase {
       ) + [
         'conversation_id' => $conversation_id ?? '',
         'request_id' => $request_id,
+        'trigger_code' => $gap_trigger_code,
       ];
 
       if (GapReviewDecider::shouldRecordGapItem($response, $intent, $governance_context, $request, $data)) {
         $gap_item_id = $this->analyticsLogger->logNoAnswer($user_message, $governance_context);
-        $analytics_events[] = 'no_answer';
+        $analytics_events[] = $gap_trigger_code === GapReviewDecider::TRIGGER_NO_MATCH_FALLBACK ? 'no_answer' : 'gap_review_' . $gap_trigger_code;
 
         if ($debug_mode) {
           $debug_meta['reason_code'] = (string) ($response['reason_code'] ?? 'no_match_fallback');
@@ -3606,7 +3608,9 @@ class AssistantApiController extends ControllerBase {
         $request_id,
         $governance_context + [
           'gap_item_id' => $gap_item_id,
-          'is_no_answer' => $gap_item_id !== NULL,
+          // is_no_answer keeps its historical meaning (true dead end);
+          // clarify/loop/grounding triggers only link the gap item.
+          'is_no_answer' => $gap_item_id !== NULL && $gap_trigger_code === GapReviewDecider::TRIGGER_NO_MATCH_FALLBACK,
         ],
         );
         $conversation_logger_written = TRUE;

@@ -99,6 +99,8 @@ final class AssistantGapItemReviewController extends ControllerBase {
     $rows = [
       [$this->t('Redacted exemplar'), (string) ($assistant_gap_item->get('exemplar_redacted_query')->value ?? $this->t('None available'))],
       [$this->t('Status'), AssistantGapItem::stateOptions()[$assistant_gap_item->getReviewState()] ?? $assistant_gap_item->getReviewState()],
+      [$this->t('Trigger'), $this->triggerLabel($assistant_gap_item, 'trigger_code')],
+      [$this->t('Latest trigger'), $this->triggerLabel($assistant_gap_item, 'latest_trigger_code')],
       [$this->t('Next action'), $assistant_gap_item->getNextActionLabel()],
       [$this->t('Assigned reviewer'), $assistant_gap_item->get('assigned_uid')->entity?->label() ?? $this->t('Unassigned')],
       [$this->t('Identity context'), (string) ($assistant_gap_item->get('identity_context_key')->value ?? 'legacy:unknown')],
@@ -144,14 +146,19 @@ final class AssistantGapItemReviewController extends ControllerBase {
     }
 
     $query = $this->database->select('ilas_site_assistant_gap_hit', 'h');
-    $query->fields('h', [
+    $hit_fields = [
       'conversation_id',
       'occurred_at',
       'language_hint',
       'assignment_source',
       'intent',
       'active_selection_key',
-    ]);
+    ];
+    $has_trigger_column = $this->database->schema()->fieldExists('ilas_site_assistant_gap_hit', 'trigger_code');
+    if ($has_trigger_column) {
+      $hit_fields[] = 'trigger_code';
+    }
+    $query->fields('h', $hit_fields);
     $query->condition('h.gap_item_id', (int) $assistant_gap_item->id());
     $query->leftJoin('taxonomy_term_field_data', 'topic_term', 'topic_term.tid = h.observed_topic_tid');
     $query->leftJoin('taxonomy_term_field_data', 'service_area_term', 'service_area_term.tid = h.observed_service_area_tid');
@@ -175,6 +182,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
 
       $rows[] = [
         $this->formatTimestamp((int) $row->occurred_at),
+        AssistantGapItem::triggerCodeOptions()[(string) ($row->trigger_code ?? '')] ?? ($row->trigger_code ?? '-'),
         $row->language_hint ?: '-',
         $row->intent ?: '-',
         $row->assignment_source ?: '-',
@@ -194,6 +202,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         '#type' => 'table',
         '#header' => [
           $this->t('When'),
+          $this->t('Trigger'),
           $this->t('Language'),
           $this->t('Intent'),
           $this->t('Source'),
@@ -206,6 +215,17 @@ final class AssistantGapItemReviewController extends ControllerBase {
         '#empty' => $this->t('No evidence rows are available for this gap item yet.'),
       ],
     ];
+  }
+
+  /**
+   * Returns the human label for a trigger field on the gap item.
+   */
+  protected function triggerLabel(AssistantGapItem $assistant_gap_item, string $field_name): string {
+    if (!$assistant_gap_item->hasField($field_name)) {
+      return (string) $this->t('Unknown');
+    }
+    $code = (string) ($assistant_gap_item->get($field_name)->value ?? AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK);
+    return AssistantGapItem::triggerCodeOptions()[$code] ?? $code;
   }
 
   /**

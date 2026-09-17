@@ -291,10 +291,18 @@ function ilas_site_assistant_governance_schema(): array {
         'length' => 64,
         'not null' => FALSE,
       ],
+      'trigger_code' => [
+        'description' => 'Why this occurrence was recorded (GapReviewDecider::TRIGGER_*).',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'no_match_fallback',
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
       'gap_item_occurred' => ['gap_item_id', 'occurred_at'],
+      'trigger_occurred' => ['trigger_code', 'occurred_at'],
       'topic_occurred' => ['observed_topic_tid', 'occurred_at'],
       'service_area_occurred' => ['observed_service_area_tid', 'occurred_at'],
       'conversation_id' => ['conversation_id'],
@@ -571,6 +579,81 @@ function ilas_site_assistant_governance_update_11005(): void {
       ->condition('conversation_id', $chunk, 'IN')
       ->execute();
   }
+}
+
+/**
+ * Adds trigger codes to gap items and gap-hit evidence rows.
+ */
+function ilas_site_assistant_governance_update_11007(): string {
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $entity_type = $entity_type_manager->getDefinition('assistant_gap_item');
+  $field_definitions = AssistantGapItem::baseFieldDefinitions($entity_type);
+  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $installed_field_definitions = \Drupal::service('entity.last_installed_schema.repository')
+    ->getLastInstalledFieldStorageDefinitions('assistant_gap_item');
+
+  $installed = [];
+  foreach (['trigger_code', 'latest_trigger_code'] as $field_name) {
+    if (!isset($installed_field_definitions[$field_name])) {
+      $entity_definition_update_manager->installFieldStorageDefinition(
+        $field_name,
+        'assistant_gap_item',
+        'ilas_site_assistant_governance',
+        $field_definitions[$field_name],
+      );
+      $installed[] = $field_name;
+    }
+  }
+
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('assistant_gap_item')) {
+    // Pre-existing items were all created by the no-match trigger.
+    foreach (['trigger_code', 'latest_trigger_code'] as $field_name) {
+      if ($schema->fieldExists('assistant_gap_item', $field_name)) {
+        $database->update('assistant_gap_item')
+          ->fields([$field_name => AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK])
+          ->isNull($field_name)
+          ->execute();
+      }
+    }
+    if (!$schema->indexExists('assistant_gap_item', 'assistant_gap_item__trigger_last_seen')
+      && $schema->fieldExists('assistant_gap_item', 'trigger_code')
+      && $schema->fieldExists('assistant_gap_item', 'last_seen')) {
+      $schema->addIndex('assistant_gap_item', 'assistant_gap_item__trigger_last_seen', ['trigger_code', 'last_seen'], [
+        'fields' => [
+          'trigger_code' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => 'no_match_fallback'],
+          'last_seen' => ['type' => 'int', 'not null' => FALSE],
+        ],
+      ]);
+    }
+  }
+
+  $hit_table = 'ilas_site_assistant_gap_hit';
+  if ($schema->tableExists($hit_table)) {
+    if (!$schema->fieldExists($hit_table, 'trigger_code')) {
+      $schema->addField($hit_table, 'trigger_code', [
+        'description' => 'Why this occurrence was recorded (GapReviewDecider::TRIGGER_*).',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'no_match_fallback',
+      ]);
+    }
+    if (!$schema->indexExists($hit_table, 'trigger_occurred')) {
+      $schema->addIndex($hit_table, 'trigger_occurred', ['trigger_code', 'occurred_at'], [
+        'fields' => [
+          'trigger_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'no_match_fallback'],
+          'occurred_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        ],
+      ]);
+    }
+  }
+
+  return $installed === []
+    ? (string) t('Trigger code fields were already installed.')
+    : (string) t('Installed gap item trigger fields: @fields.', ['@fields' => implode(', ', $installed)]);
 }
 
 /**

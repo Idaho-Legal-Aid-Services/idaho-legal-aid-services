@@ -10,6 +10,18 @@ view.assistant_gap_items.page_needs_review_tab:
   base_route: view.assistant_gap_items.page_queue
   weight: 20
 
+view.assistant_gap_items.page_clarify_tab:
+  route_name: view.assistant_gap_items.page_clarify
+  title: 'Clarify misses'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 25
+
+view.assistant_gap_items.page_top_misses_tab:
+  route_name: view.assistant_gap_items.page_top_misses
+  title: 'Top misses (30d)'
+  base_route: view.assistant_gap_items.page_queue
+  weight: 28
+
 view.assistant_gap_items.page_all_tab:
   route_name: view.assistant_gap_items.page_all
   title: 'All'

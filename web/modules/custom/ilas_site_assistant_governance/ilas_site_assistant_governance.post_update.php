@@ -13,6 +13,34 @@ use Drupal\ilas_site_assistant_governance\Service\GapItemIdentityBuilder;
 use Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger;
 
 /**
+ * Re-imports the gap queue View so trigger tabs and columns are available.
+ *
+ * This replaces the active views.view.assistant_gap_items config with the
+ * module's shipped version (manual edits made in the Views UI are lost).
+ */
+function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_triggers(): string {
+  $path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant_governance')
+    . '/config/install/views.view.assistant_gap_items.yml';
+  if (!is_file($path)) {
+    return (string) t('Shipped gap queue View config was not found; nothing changed.');
+  }
+
+  $data = \Drupal\Core\Serialization\Yaml::decode((string) file_get_contents($path));
+  if (!is_array($data) || ($data['id'] ?? '') !== 'assistant_gap_items') {
+    return (string) t('Shipped gap queue View config is invalid; nothing changed.');
+  }
+
+  $config = \Drupal::configFactory()->getEditable('views.view.assistant_gap_items');
+  $existing_uuid = $config->get('uuid');
+  if (is_string($existing_uuid) && $existing_uuid !== '') {
+    $data['uuid'] = $existing_uuid;
+  }
+  $config->setData($data)->save(TRUE);
+
+  return (string) t('Re-imported the assistant gap queue View with trigger tabs.');
+}
+
+/**
  * Backfills canonical gap items from legacy no-answer rows.
  */
 function ilas_site_assistant_governance_post_update_backfill_gap_items(array &$sandbox): string {

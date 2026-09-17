@@ -321,4 +321,4 @@ review_loop:
     - 'Top content gaps from no-answer fingerprints'
     - 'Grounding refusal frequency'
   escalation_path: 'Content Manager -> Drupal Lead -> Product Owner'
-  artifact_location: docs/aila/runtime/phard-05-search-quality-review.txt
+  artifact_location: 'promptfoo-evals/output/reviewed-gaps.candidate.yaml'

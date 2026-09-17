@@ -135,6 +135,83 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
   }
 
   /**
+   * A substantive generic clarify creates a clarify-triggered gap item.
+   *
+   * Regression for conversation 7c10da94, whose three clarify/navigation
+   * turns left no trace in the review queue.
+   */
+  public function testSubstantiveGenericClarifyCreatesClarifyTriggeredGapItem(): void {
+    $this->drupalLogin($this->regularUser);
+    $conversation_id = '12345678-1234-4123-8123-123456789abd';
+
+    $response = $this->postJson('/assistant/api/message', [
+      'message' => 'qwertyuiop asdfghjkl',
+      'conversation_id' => $conversation_id,
+    ]);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $data = json_decode((string) $response->getBody(), TRUE);
+    $this->assertSame('fallback', $data['type'] ?? NULL);
+    $this->assertSame('clarification_needed', $data['reason_code'] ?? NULL);
+
+    $database = \Drupal::database();
+    $items = $database->select('assistant_gap_item', 'g')
+      ->fields('g', ['id', 'trigger_code', 'latest_trigger_code', 'occurrence_count_unresolved'])
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $this->assertCount(1, $items);
+    $this->assertSame('clarify_unknown_intent', $items[0]['trigger_code']);
+    $this->assertSame('clarify_unknown_intent', $items[0]['latest_trigger_code']);
+
+    $hit = $database->select('ilas_site_assistant_gap_hit', 'h')
+      ->fields('h', ['trigger_code', 'conversation_id', 'is_unresolved'])
+      ->execute()
+      ->fetchAssoc();
+    $this->assertSame('clarify_unknown_intent', $hit['trigger_code']);
+    $this->assertSame($conversation_id, $hit['conversation_id']);
+
+    $session = $database->select('ilas_site_assistant_conversation_session', 's')
+      ->fields('s', ['has_no_answer', 'has_unresolved_gap', 'latest_gap_item_id'])
+      ->condition('conversation_id', $conversation_id)
+      ->execute()
+      ->fetchAssoc();
+    // Not a dead end, but the conversation does need follow-up.
+    $this->assertSame('0', (string) $session['has_no_answer']);
+    $this->assertSame('1', (string) $session['has_unresolved_gap']);
+    $this->assertSame((string) $items[0]['id'], (string) $session['latest_gap_item_id']);
+
+    $turn = $database->select('ilas_site_assistant_conversation_turn', 't')
+      ->fields('t', ['is_no_answer', 'gap_item_id'])
+      ->condition('conversation_id', $conversation_id)
+      ->condition('direction', 'user')
+      ->execute()
+      ->fetchAssoc();
+    $this->assertSame('0', (string) $turn['is_no_answer']);
+    $this->assertSame((string) $items[0]['id'], (string) $turn['gap_item_id']);
+  }
+
+  /**
+   * Understood topic clarifiers (disambiguation menus) stay out of the queue.
+   */
+  public function testTopicDisambiguationDoesNotCreateGapReviewArtifacts(): void {
+    $this->drupalLogin($this->regularUser);
+
+    $response = $this->postJson('/assistant/api/message', [
+      'message' => 'housing',
+      'conversation_id' => '12345678-1234-4123-8123-123456789abe',
+    ]);
+
+    $this->assertSame(200, $response->getStatusCode());
+    $data = json_decode((string) $response->getBody(), TRUE);
+    $this->assertNotEmpty($data['options'] ?? $data['topic_suggestions'] ?? [], 'Bare area word should return a disambiguation menu');
+
+    $this->assertSame(
+      '0',
+      (string) \Drupal::database()->select('assistant_gap_item', 'g')->countQuery()->execute()->fetchField()
+    );
+  }
+
+  /**
    * Deterministic apply CTA traffic must not create gap-review artifacts.
    */
   public function testApplyQuickActionDoesNotCreateGapReviewArtifacts(): void {
