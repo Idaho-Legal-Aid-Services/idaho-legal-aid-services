@@ -225,7 +225,7 @@ intents:
       url: /legal-help/housing
     chips:
       - { label: Eviction Help, intent: topic_housing_eviction }
-      - { label: Tenant Rights, intent: topic_housing }
+      - { label: Tenant Rights, intent: topic_housing_landlord_tenant }
       - { label: Apply for Help, intent: apply_for_help }
       - { label: Call Hotline, intent: legal_advice_line }
     clarifier:
@@ -233,7 +233,7 @@ intents:
       options:
         - { label: Eviction or notice to vacate, intent: topic_housing_eviction }
         - { label: Foreclosure, intent: topic_housing_foreclosure }
-        - { label: Tenant rights or repairs, intent: topic_housing }
+        - { label: Tenant rights or repairs, intent: topic_housing_landlord_tenant }
         - { label: Something else, intent: apply_for_help }
     synonyms:
       - housing
@@ -494,6 +494,28 @@ intents:
       - mortgage
       - losing my house
       - ejecucion hipotecaria
+
+  topic_housing_landlord_tenant:
+    label: Tenant Rights
+    answer_text: Our Landlord and Tenant resource explains tenant rights in Idaho, including when a landlord must give notice before entering, repairs and habitability, security deposits, and lease problems.
+    primary_action:
+      label: Landlord and Tenant Resources
+      url: /resources/landlord-and-tenant
+    chips:
+      - { label: Eviction Help, intent: topic_housing_eviction }
+      - { label: Housing Guides, intent: guides_housing }
+      - { label: Apply for Help, intent: apply_for_help }
+      - { label: Call Hotline, intent: legal_advice_line }
+    synonyms:
+      - tenant rights
+      - tenants rights
+      - renter rights
+      - renters rights
+      - landlord tenant
+      - landlord entry
+      - habitability
+      - repairs
+      - derechos del inquilino
 
   # ─── INVENTORY INTENTS ──────────────────────────────────────────
 

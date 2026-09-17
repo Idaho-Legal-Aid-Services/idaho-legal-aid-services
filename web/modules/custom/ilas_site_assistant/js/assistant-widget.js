@@ -1248,6 +1248,7 @@
         topic_family_protection_order: Drupal.t('I need protection order information'),
         topic_housing_eviction: Drupal.t('I need eviction help'),
         topic_housing_foreclosure: Drupal.t('I need foreclosure help'),
+        topic_housing_landlord_tenant: Drupal.t('I need tenant rights information'),
         topic_consumer_debt_collection: Drupal.t('I need debt collection help'),
         topic_consumer_bankruptcy: Drupal.t('I need bankruptcy information'),
         // TopIntentsPack navigation intents.

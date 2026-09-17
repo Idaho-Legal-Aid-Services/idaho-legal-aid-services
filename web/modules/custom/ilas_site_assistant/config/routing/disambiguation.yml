@@ -451,9 +451,9 @@ topic_lexicon:
     divorcio: { area: family, label: divorcio, topic_intent: topic_family_divorce }
     custodia: { area: family, label: custodia, topic_intent: topic_family_custody }
     eviction: { area: housing, label: eviction, topic_intent: topic_housing_eviction }
-    landlord: { area: housing, label: 'landlord issues' }
-    tenant: { area: housing, label: 'tenant rights' }
-    rent: { area: housing, label: 'rent issues' }
+    landlord: { area: housing, label: 'landlord issues', topic_intent: topic_housing_landlord_tenant }
+    tenant: { area: housing, label: 'tenant rights', topic_intent: topic_housing_landlord_tenant }
+    rent: { area: housing, label: 'rent issues', topic_intent: topic_housing_landlord_tenant }
     foreclosure: { area: housing, label: foreclosure, topic_intent: topic_housing_foreclosure }
     desalojo: { area: housing, label: desalojo, topic_intent: topic_housing_eviction }
     debt: { area: consumer, label: debt, topic_intent: topic_consumer_debt_collection }

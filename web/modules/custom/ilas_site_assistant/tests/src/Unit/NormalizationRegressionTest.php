@@ -134,6 +134,8 @@ class NormalizationRegressionTest extends TestCase {
       ['bankrupcy help', 'bankruptcy', 'bankruptcy typo'],
       ['lanldord problems', 'landlord', 'landlord typo'],
       ['custdy forms', 'custody', 'custody typo in forms query'],
+      ['tenet rights', 'tenant', 'tenet dictionary typo (conversation 7c10da94)'],
+      ['tenent rights', 'tenant', 'tenent typo'],
     ];
   }
 

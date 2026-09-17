@@ -434,6 +434,7 @@ class TopicRouter {
           'canonical_key' => $sub_topic['canonical_key'],
           'term_uuid' => $sub_topic['term_uuid'] ?? NULL,
           'term_name' => $sub_topic['term_name'] ?? NULL,
+          'pack_intent' => $sub_topic['pack_intent'] ?? NULL,
         ];
         // Index the sub-key itself (e.g., "divorce", "eviction").
         $this->topicAliasIndex[strtolower($sub_key)] = $entry;
@@ -514,6 +515,61 @@ class TopicRouter {
   }
 
   /**
+   * Resolves every distinct sub-topic alias present in a message.
+   *
+   * Unlike resolveTopicKey() this does not stop at the first hit: the full
+   * normalized message is checked first, then multi-word aliases contained
+   * in the message, then each non-stop token. Used by IntentRouter to refine
+   * an area-level match ("housing") to a concrete sub-topic intent
+   * ("housing_landlord_tenant") when exactly one sub-topic is mentioned.
+   *
+   * @param string $message
+   *   The user's message (raw input; typo-corrected text preferred).
+   *
+   * @return array
+   *   Ordered list of alias-index entries (same shape as resolveTopicKey())
+   *   with an added 'matched_alias' key. Each canonical_key appears once.
+   */
+  public function resolveTopicKeys(string $message): array {
+    $normalized = $this->normalize($message);
+    if ($normalized === '') {
+      return [];
+    }
+
+    $matches = [];
+    $add = function (string $alias, array $entry) use (&$matches) {
+      $key = $entry['canonical_key'];
+      if (!isset($matches[$key])) {
+        $matches[$key] = $entry + ['matched_alias' => $alias];
+      }
+    };
+
+    // 1. Full normalized message.
+    if (isset($this->topicAliasIndex[$normalized])) {
+      $add($normalized, $this->topicAliasIndex[$normalized]);
+    }
+
+    // 2. Multi-word aliases contained anywhere in the message (word-bounded).
+    foreach ($this->topicAliasIndex as $alias => $entry) {
+      if (strpos($alias, ' ') === FALSE || $alias === $normalized) {
+        continue;
+      }
+      if (preg_match('/(?<![\w-])' . preg_quote($alias, '/') . '(?![\w-])/u', $normalized)) {
+        $add($alias, $entry);
+      }
+    }
+
+    // 3. Individual tokens (after stop word removal).
+    foreach ($this->tokenize($normalized) as $word) {
+      if (isset($this->topicAliasIndex[$word])) {
+        $add($word, $this->topicAliasIndex[$word]);
+      }
+    }
+
+    return array_values($matches);
+  }
+
+  /**
    * Returns all canonical topic keys with their metadata.
    *
    * @return array
@@ -530,6 +586,7 @@ class TopicRouter {
           'canonical_key' => $sub_topic['canonical_key'],
           'term_uuid' => $sub_topic['term_uuid'] ?? NULL,
           'term_name' => $sub_topic['term_name'] ?? NULL,
+          'pack_intent' => $sub_topic['pack_intent'] ?? NULL,
         ];
       }
     }

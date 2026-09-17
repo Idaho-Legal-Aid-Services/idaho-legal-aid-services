@@ -24,6 +24,18 @@ class IntentRouter {
   const CONFIDENCE_LOW = 0.50;
 
   /**
+   * Sub-topic pack intents that win when several sub-topics are mentioned.
+   *
+   * "my landlord is evicting me" names both landlord_tenant and eviction;
+   * the urgent/deadline-bearing topic should carry the answer.
+   */
+  const SUBTOPIC_PRIORITY = [
+    'topic_housing_eviction',
+    'topic_housing_foreclosure',
+    'topic_family_protection_order',
+  ];
+
+  /**
    * The config factory.
    *
    * @var \Drupal\Core\Config\ConfigFactoryInterface
@@ -796,6 +808,12 @@ class IntentRouter {
     $normalized = $extraction['normalized'];
     $original = $extraction['original'];
 
+    // Typo-corrected copy of the raw message. The extraction's normalized
+    // text also joins phrases and applies synonyms, which would break the
+    // short-message matchers (TopicRouter, Disambiguator, top-intent pack),
+    // so those get the raw message with only spelling fixes applied.
+    $corrected = $this->applyTypoCorrections($message, $extraction['typos_corrected'] ?? []);
+
     // Check for greeting first (only if message is very short).
     // Skip greeting detection if message contains topic-specific keywords
     // to prevent false positives like "child custody forms" being detected
@@ -816,7 +834,7 @@ class IntentRouter {
       ];
     }
 
-    $explicit_top_intent = $this->matchExplicitTopIntent($message);
+    $explicit_top_intent = $this->matchExplicitTopIntent($corrected);
     if ($explicit_top_intent) {
       $explicit_top_intent['extraction'] = $extraction;
       return $explicit_top_intent;
@@ -828,7 +846,7 @@ class IntentRouter {
     // routed to a topic page without context.
     // Use the new Disambiguator service for deterministic vague query detection.
     if ($this->disambiguator) {
-      $disamb_result = $this->disambiguator->check($message, [], ['extraction' => $extraction]);
+      $disamb_result = $this->disambiguator->check($corrected, [], ['extraction' => $extraction]);
       if ($disamb_result && in_array($disamb_result['reason'] ?? '', ['vague_query', 'topic_without_action'])) {
         $disamb_result['extraction'] = $extraction;
         return $disamb_result;
@@ -869,10 +887,18 @@ class IntentRouter {
     // instead of intent scoring.
     $is_auxiliary_question = (bool) preg_match('/^\s*(will|can|could|would|do|does|am|is|are|should)\b/i', $message);
     if ($this->topicRouter && str_word_count($message) <= 4 && !$has_resource_type_word && !$is_auxiliary_question) {
-      $topic_route = $this->topicRouter->route($message);
+      $topic_route = $this->topicRouter->route($corrected);
       if ($topic_route) {
         $service_area = $topic_route['service_area'];
-        // Single topic words are inherently ambiguous — the user hasn't
+        // Sub-topic carry-through: "tenant rights", "eviction notice" name a
+        // concrete sub-topic with a pack answer, so answer it instead of
+        // asking which housing issue the user has.
+        $sub_topic_intent = $this->refineToSubTopicIntent($service_area, $corrected, $extraction, 0.70, 'topic_router_subtopic');
+        if ($sub_topic_intent) {
+          $sub_topic_intent['topic_route'] = $topic_route;
+          return $sub_topic_intent;
+        }
+        // Bare area words are inherently ambiguous — the user hasn't
         // specified an action. Return disambiguation instead of routing.
         // Flatten question/options to top level so processIntent reads them.
         $disamb = $this->getTopicDisambiguation($service_area);
@@ -950,9 +976,17 @@ class IntentRouter {
 
     foreach ($topic_intents as $intent) {
       if ($this->matchesIntent($original, $intent) || $this->matchesIntent($normalized, $intent)) {
+        $service_area = $this->patterns[$intent]['service_area'];
+        // Sub-topic carry-through: a sentence that names one concrete
+        // sub-topic ("my landlord entered without notice") gets that
+        // sub-topic's answer rather than the area landing page.
+        $sub_topic_intent = $this->refineToSubTopicIntent($service_area, $corrected, $extraction, 0.70, 'topic_regex_subtopic');
+        if ($sub_topic_intent) {
+          $sub_topic_intent['intent_source'] = $intent;
+          return $sub_topic_intent;
+        }
         // Topic detected - may need disambiguation.
         // Flatten question/options to top level so processIntent reads them.
-        $service_area = $this->patterns[$intent]['service_area'];
         $disamb = $this->getTopicDisambiguation($service_area);
         return [
           'type' => 'service_area',
@@ -1070,13 +1104,134 @@ class IntentRouter {
       return NULL;
     }
 
+    // An area-level pack match ("I need help with my landlord" ->
+    // topic_housing) is refined to its sub-topic when exactly one is named.
+    $area = $this->inferAreaFromIntentType($pack_match);
+    if ($area !== NULL && $pack_match === 'topic_' . $area) {
+      $sub_topic_intent = $this->refineToSubTopicIntent($area, $message, [], 0.72, 'explicit_top_intents_pack_subtopic');
+      if ($sub_topic_intent) {
+        unset($sub_topic_intent['extraction']);
+        return $sub_topic_intent;
+      }
+    }
+
     return [
       'type' => $pack_match,
       'confidence' => 0.72,
       'source' => 'explicit_top_intents_pack',
-      'area' => $this->inferAreaFromIntentType($pack_match),
+      'area' => $area,
       'pack_entry' => $this->topIntentsPack->lookup($pack_match),
     ];
+  }
+
+  /**
+   * Applies KeywordExtractor typo corrections to the raw message.
+   *
+   * Only whole-word spelling replacements are applied; phrase joining and
+   * synonym substitution are deliberately left out so the result still
+   * reads like the user's message for the short-message matchers.
+   *
+   * @param string $message
+   *   The raw user message.
+   * @param array $corrections
+   *   Entries of ['original' => ..., 'corrected' => ...] from extraction.
+   *
+   * @return string
+   *   The message with spelling corrections applied.
+   */
+  protected function applyTypoCorrections(string $message, array $corrections): string {
+    foreach ($corrections as $correction) {
+      $from = trim((string) ($correction['original'] ?? ''));
+      $to = trim((string) ($correction['corrected'] ?? ''));
+      if ($from === '' || $to === '' || $from === $to) {
+        continue;
+      }
+      $message = (string) preg_replace('/\b' . preg_quote($from, '/') . '\b/iu', $to, $message);
+    }
+    return $message;
+  }
+
+  /**
+   * Refines an area-level match to a concrete sub-topic pack intent.
+   *
+   * Resolves every sub-topic alias in the message via TopicRouter, keeps
+   * those in the matched service area that have a Top Intents pack entry,
+   * and returns that intent when exactly one distinct sub-topic remains (or
+   * one of SUBTOPIC_PRIORITY is among them). Returns NULL for bare area
+   * words and for messages naming several competing sub-topics, so those
+   * keep the existing area-level disambiguation.
+   *
+   * @param string $service_area
+   *   The matched service area key (e.g. 'housing').
+   * @param string $message
+   *   Typo-corrected user message.
+   * @param array $extraction
+   *   Extraction payload to attach (may be empty).
+   * @param float $confidence
+   *   Confidence to report for the refined intent.
+   * @param string $source
+   *   Source label for observability.
+   *
+   * @return array|null
+   *   Intent array shaped like the top-intents pack fallback, or NULL.
+   */
+  protected function refineToSubTopicIntent(string $service_area, string $message, array $extraction, float $confidence, string $source): ?array {
+    if (!$this->topicRouter || !$this->topIntentsPack || !method_exists($this->topicRouter, 'resolveTopicKeys')) {
+      return NULL;
+    }
+
+    $candidates = [];
+    foreach ($this->topicRouter->resolveTopicKeys($message) as $entry) {
+      if (($entry['service_area'] ?? '') !== $service_area) {
+        continue;
+      }
+      $intent_key = (string) ($entry['pack_intent'] ?? ('topic_' . ($entry['canonical_key'] ?? '')));
+      if ($intent_key === 'topic_' || $this->topIntentsPack->lookup($intent_key) === NULL) {
+        continue;
+      }
+      if (!isset($candidates[$intent_key])) {
+        $candidates[$intent_key] = (string) ($entry['matched_alias'] ?? '');
+      }
+    }
+
+    if ($candidates === []) {
+      return NULL;
+    }
+
+    $chosen = NULL;
+    foreach (self::SUBTOPIC_PRIORITY as $priority_key) {
+      if (isset($candidates[$priority_key])) {
+        $chosen = $priority_key;
+        break;
+      }
+    }
+    if ($chosen === NULL) {
+      if (count($candidates) !== 1) {
+        return NULL;
+      }
+      $chosen = (string) array_key_first($candidates);
+    }
+
+    $pack_entry = $this->topIntentsPack->lookup($chosen);
+    $intent = [
+      'type' => $chosen,
+      'confidence' => $confidence,
+      'source' => $source,
+      'area' => $service_area,
+      'pack_entry' => $pack_entry,
+      'matched_alias' => $candidates[$chosen],
+      'extraction' => $extraction,
+    ];
+    // Only echo the matched term back in the answer when it is a pack
+    // synonym ("tenant rights"), not an internal alias ("enter my home").
+    $pack_synonyms = array_map(
+      static fn($synonym) => mb_strtolower(trim((string) $synonym)),
+      $pack_entry['synonyms'] ?? []
+    );
+    if (in_array(mb_strtolower($candidates[$chosen]), $pack_synonyms, TRUE)) {
+      $intent['matched_synonym'] = $candidates[$chosen];
+    }
+    return $intent;
   }
 
   /**

@@ -14,6 +14,7 @@ use Drupal\ilas_site_assistant\Service\NavigationIntent;
 use Drupal\ilas_site_assistant\Service\TopicResolver;
 use Drupal\ilas_site_assistant\Service\TopicRouter;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
+use Drupal\ilas_site_assistant\Service\TypoCorrector;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -77,6 +78,57 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
   }
 
   /**
+   * Bare service-area words keep the area-level clarifier.
+   */
+  public function testBareAreaWordStillDisambiguates(): void {
+    $intent = $this->buildRouter()->route('housing');
+
+    $this->assertSame('disambiguation', $intent['type'] ?? NULL);
+    $this->assertSame('housing', $intent['area'] ?? NULL);
+  }
+
+  /**
+   * Short sub-topic queries answer the sub-topic instead of asking which.
+   *
+   * Regression for conversation 7c10da94: "Tenet rights" and "Entering a
+   * residence" both fell to the generic clarify.
+   */
+  #[\PHPUnit\Framework\Attributes\DataProvider('subTopicCarryThroughProvider')]
+  public function testSubTopicCarryThrough(string $message, string $expected_intent, string $expected_area): void {
+    $intent = $this->buildRouter()->route($message);
+
+    $this->assertSame($expected_intent, $intent['type'] ?? NULL, "Intent mismatch for '$message'");
+    $this->assertSame($expected_area, $intent['area'] ?? NULL, "Area mismatch for '$message'");
+    $this->assertNotEmpty($intent['pack_entry']['primary_action']['url'] ?? '', 'Pack entry must carry a landing URL');
+  }
+
+  /**
+   *
+   */
+  public static function subTopicCarryThroughProvider(): array {
+    return [
+      'misspelled short query' => ['Tenet rights', 'topic_housing_landlord_tenant', 'housing'],
+      'short query' => ['tenant rights', 'topic_housing_landlord_tenant', 'housing'],
+      'phrase query' => ['Entering a residence', 'topic_housing_landlord_tenant', 'housing'],
+      'long sentence' => ['My landlord tried to enter my home without notice', 'topic_housing_landlord_tenant', 'housing'],
+      'retaliation sentence' => ['my landlord is not renewing my lease because i complained', 'topic_housing_landlord_tenant', 'housing'],
+      'eviction wins over landlord' => ['My landlord gave me an eviction notice', 'topic_housing_eviction', 'housing'],
+      'misspelled eviction' => ['evicton notice', 'topic_housing_eviction', 'housing'],
+      'family sub-topic' => ['i want a divorce', 'topic_family_divorce', 'family'],
+    ];
+  }
+
+  /**
+   * The corrected message is what reaches the short-message matchers.
+   */
+  public function testTypoCorrectionReachesTopicRouter(): void {
+    $intent = $this->buildRouter()->route('lanldord problems');
+
+    $this->assertSame('topic_housing_landlord_tenant', $intent['type'] ?? NULL);
+    $this->assertSame('lanldord', $intent['extraction']['typos_corrected'][0]['original'] ?? NULL);
+  }
+
+  /**
    * Resource-qualified topic requests keep resource routing precedence.
    */
   public function testResourceQualifiedTopicDoesNotShortCircuitToTopIntent(): void {
@@ -96,14 +148,18 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
     $topicResolver = $this->createMock(TopicResolver::class);
     $topicResolver->method('resolveFromText')->willReturn(NULL);
 
+    $topicRouter = new TopicRouter(NULL);
+    $typoCorrector = new TypoCorrector(NULL, $topicRouter);
     $keywordExtractor = $this->createMock(KeywordExtractor::class);
-    $keywordExtractor->method('extract')->willReturnCallback(static function (string $message): array {
+    $keywordExtractor->method('extract')->willReturnCallback(static function (string $message) use ($typoCorrector): array {
+      $typo = $typoCorrector->correct(mb_strtolower(trim($message)));
       return [
         'original' => $message,
-        'normalized' => mb_strtolower(trim($message)),
+        'normalized' => $typo['text'],
         'keywords' => [],
         'phrases_found' => [],
         'synonyms_applied' => [],
+        'typos_corrected' => $typo['corrections'],
       ];
     });
     $keywordExtractor->method('hasNegativeKeyword')->willReturn(FALSE);
@@ -115,7 +171,7 @@ final class IntentRouterTopIntentRequestTest extends TestCase {
       $configFactory,
       $topicResolver,
       $keywordExtractor,
-      new TopicRouter(NULL),
+      $topicRouter,
       $navigationIntent,
       new Disambiguator(),
       new TopIntentsPack(NULL),

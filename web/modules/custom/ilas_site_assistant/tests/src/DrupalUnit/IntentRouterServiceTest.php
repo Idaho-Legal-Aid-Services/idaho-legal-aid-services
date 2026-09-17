@@ -587,7 +587,9 @@ class IntentRouterServiceTest extends UnitTestCase {
   public function testRetaliationConcernDoesNotRouteToFeedback(): void {
     $result = $this->buildProductionRouter()->route('my landlord is not renewing my lease because i complained');
     $this->assertNotEquals('feedback', $result['type']);
-    $this->assertEquals('service_area', $result['type']);
+    // Sub-topic carry-through: landlord phrasing answers tenant rights
+    // directly instead of the housing landing page.
+    $this->assertSame('topic_housing_landlord_tenant', $result['type']);
     $this->assertEquals('housing', $result['area']);
   }
 

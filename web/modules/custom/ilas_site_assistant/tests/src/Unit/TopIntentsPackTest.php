@@ -108,6 +108,18 @@ class TopIntentsPackTest extends TestCase {
   /**
    * MatchSynonyms finds "eviction" -> topic_housing_eviction.
    */
+  public function testLandlordTenantSynonymsRouteToSubTopic(): void {
+    $this->assertSame('topic_housing_landlord_tenant', $this->pack->matchSynonyms('what are my tenant rights'));
+    $this->assertSame('topic_housing_landlord_tenant', $this->pack->matchSynonyms('landlord entry rules'));
+    // Bare "landlord" stays an area-level synonym; IntentRouter's sub-topic
+    // carry-through (SUBTOPIC_PRIORITY) is what promotes this to eviction.
+    $this->assertSame('topic_housing', $this->pack->matchSynonyms('my landlord gave me an eviction notice'));
+    $this->assertSame('/resources/landlord-and-tenant', $this->pack->lookup('topic_housing_landlord_tenant')['primary_action']['url'] ?? NULL);
+  }
+
+  /**
+   *
+   */
   public function testMatchSynonymsEviction(): void {
     $result = $this->pack->matchSynonyms('eviction');
     $this->assertEquals('topic_housing_eviction', $result);
