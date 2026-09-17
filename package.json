@@ -45,10 +45,10 @@
     "view:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action view"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.59.1",
-    "jest-environment-jsdom": "^30.3.0",
-    "promptfoo": "^0.121.19"
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "jest-environment-jsdom": "^30.5.1",
+    "promptfoo": "^0.123.0"
   },
   "overrides": {
     "protobufjs": "8.7.1",
