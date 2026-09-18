@@ -157,7 +157,12 @@ final class LlmEnhancerHardeningTest extends TestCase {
       ->willReturn(['allowed' => TRUE, 'reason' => 'allowed']);
     $costControl->expects($this->once())->method('recordCacheMiss');
     $costControl->expects($this->once())->method('recordCacheHit');
-    $costControl->expects($this->once())->method('recordCall');
+    // Budget was reserved by beginRequest(); a successful call attributes
+    // usage only, so it is counted exactly once.
+    $costControl->expects($this->never())->method('recordCall');
+    $costControl->expects($this->once())
+      ->method('recordUsage')
+      ->with(['input' => 9, 'output' => 2, 'total' => 11], 'intent_classification');
 
     $transport = new StaticRequestTimeTransport(TRUE, ['payload' => ['intent' => 'guides'], 'usage' => ['input' => 9, 'output' => 2, 'total' => 11]]);
     $enhancer = $this->buildEnhancer(

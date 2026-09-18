@@ -66,6 +66,7 @@ final class LlmEnhancerAdmissionDenialTest extends TestCase {
       ->willReturn(['allowed' => FALSE, 'reason' => 'per_ip_budget_exceeded']);
     $costControl->expects($this->never())->method('recordCacheMiss');
     $costControl->expects($this->never())->method('recordCall');
+    $costControl->expects($this->never())->method('recordUsage');
 
     $transport = new AdmissionDenialStaticTransport();
     $enhancer = $this->buildEnhancer($logger, $breaker, $costControl, $transport);

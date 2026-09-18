@@ -124,6 +124,27 @@ services:
     class: Drupal\ilas_site_assistant\Service\LlmRuntimeConfigResolver
     arguments: ['@config.factory']
 
+  ilas_site_assistant.llm_request_pipeline:
+    class: Drupal\ilas_site_assistant\Service\LlmRequestPipeline
+    arguments:
+      - '@config.factory'
+      - '@cache.ilas_site_assistant'
+      - '@ilas_site_assistant.llm_circuit_breaker'
+      - '@ilas_site_assistant.cost_control_policy'
+
+  ilas_site_assistant.grounded_answer_generator:
+    class: Drupal\ilas_site_assistant\Service\GroundedAnswerGenerator
+    arguments:
+      - '@config.factory'
+      - '@ilas_site_assistant.llm_runtime_config'
+      - '@ilas_site_assistant.cohere_llm_transport'
+      - '@ilas_site_assistant.llm_request_pipeline'
+      - '@logger.channel.ilas_site_assistant'
+      - '@state'
+      - '@ilas_site_assistant.policy_filter'
+      - '@ilas_site_assistant.response_grounder'
+      - '@ilas_site_assistant.llm_circuit_breaker'
+
   ilas_site_assistant.cohere_llm_transport:
     class: Drupal\ilas_site_assistant\Service\CohereLlmTransport
     arguments: ['@http_client', '@ilas_site_assistant.llm_runtime_config']

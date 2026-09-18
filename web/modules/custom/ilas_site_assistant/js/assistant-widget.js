@@ -297,6 +297,7 @@
         'type',
         'message',
         'results',
+        'generation',
         'fallback_url',
         'fallback_label',
         'disclaimer',
@@ -1506,6 +1507,14 @@
         this.appendMessageParagraph(fragment, response.message);
       }
 
+      // TOVR-18: a generated answer lists the site pages it was written from.
+      if (response.generation && response.generation.used === true) {
+        var sources = this.renderGenerationSources(response.generation.citations, response.results);
+        if (sources) {
+          fragment.appendChild(sources);
+        }
+      }
+
       switch (response.type) {
         case 'faq':
           fragment.appendChild(this.renderFaqResults(response.results, response.fallback_url));
@@ -1748,6 +1757,64 @@
           container.appendChild(resultCard);
         }
       });
+      return container;
+    },
+
+    /**
+     * Render the "Sources" list for a generated (grounded) answer.
+     *
+     * Each citation points at a results[] entry by index; the link label and
+     * URL come from that result (falling back to the citation's own fields).
+     * Text is always set via textContent, never innerHTML.
+     *
+     * @param {Array} citations - generation.citations from the API.
+     * @param {Array} results - response.results from the API.
+     * @return {HTMLElement|null} The sources block, or null when nothing is citable.
+     */
+    renderGenerationSources: function (citations, results) {
+      if (!Array.isArray(citations) || citations.length === 0) {
+        return null;
+      }
+      var self = this;
+      var seen = {};
+      var list = document.createElement('ol');
+      list.className = 'assistant-sources__list';
+      var rendered = 0;
+
+      citations.forEach(function (citation) {
+        if (rendered >= 4 || !citation || typeof citation !== 'object') {
+          return;
+        }
+        var result = null;
+        if (Array.isArray(results) && Number.isInteger(citation.result_index)
+          && citation.result_index >= 0 && citation.result_index < results.length) {
+          result = results[citation.result_index];
+        }
+        var url = (result && typeof result.url === 'string' && result.url) ? result.url
+          : (typeof citation.url === 'string' ? citation.url : '');
+        var title = (result && (result.question || result.title)) ? String(result.question || result.title)
+          : (typeof citation.title === 'string' ? citation.title : '');
+        if (!url || !title) {
+          return;
+        }
+        var safeUrl = self.sanitizeUrl(url);
+        if (!safeUrl || safeUrl === '#' || seen[safeUrl]) {
+          return;
+        }
+        seen[safeUrl] = true;
+        var item = document.createElement('li');
+        item.className = 'assistant-sources__item';
+        item.appendChild(self.createTrackedLink(safeUrl, 'assistant-sources__link', title, 'resource_click'));
+        list.appendChild(item);
+        rendered++;
+      });
+
+      if (rendered === 0) {
+        return null;
+      }
+      var container = this.createElement('div', 'assistant-sources');
+      container.appendChild(this.createElement('span', 'assistant-sources__label', Drupal.t('Sources:')));
+      container.appendChild(list);
       return container;
     },
 

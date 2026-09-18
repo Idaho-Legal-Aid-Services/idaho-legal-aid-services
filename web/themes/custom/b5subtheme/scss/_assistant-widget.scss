@@ -611,6 +611,48 @@
   }
 }
 
+// Sources list under a generated (grounded) answer (TOVR-18)
+.assistant-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $spacer-xs;
+  margin: 0 0 $spacer-sm 0;
+  font-size: 0.8rem;
+  color: $color-gray-text;
+}
+
+.assistant-sources__label {
+  font-weight: $weight-button;
+}
+
+.assistant-sources__list {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant-sources__item {
+  display: inline;
+
+  &:not(:last-child)::after {
+    content: '\00b7';
+    margin: 0 $spacer-xs;
+  }
+}
+
+.assistant-sources__link {
+  color: $color-primary;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: none;
+  }
+}
+
 // Best-match FAQ card
 .faq-result--best {
   background: $color-white;

@@ -10,8 +10,6 @@ use Drupal\Core\Config\ImmutableConfig;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\ilas_site_assistant\Exception\LlmAdmissionDeniedException;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 
 /**
  * Bounded request-time LLM orchestration for ambiguous-intent recovery.
@@ -19,7 +17,6 @@ use GuzzleHttp\Exception\RequestException;
 class LlmEnhancer {
 
   private const POLICY_VERSION = '2.0';
-  private const MAX_SYNC_RETRY_DELAY_MS = 250;
   private const VALID_INTENTS = [
     'eligibility',
     'faq',
@@ -118,6 +115,11 @@ PROMPT;
    * @var array<string, mixed>|null
    */
   protected ?array $lastRequestMeta = NULL;
+
+  /**
+   * Lazily built shared admission/cache/retry pipeline.
+   */
+  protected ?LlmRequestPipeline $pipeline = NULL;
 
   /**
    * Returns TRUE when request-time LLM is enabled and runtime-ready.
@@ -374,11 +376,7 @@ PROMPT;
    *   Structured response payload.
    */
   protected function completeStructuredRequest(string $operation, array $messages, array $schema, array $options = []): array {
-    $cache_ttl = array_key_exists('cache_ttl', $options)
-      ? max(0, (int) $options['cache_ttl'])
-      : max(0, (int) $this->getLlmSetting('cache_ttl', 3600));
     $cache_key = $this->buildCacheKey($operation, $messages, $schema, $options);
-    $budget_key = $this->buildBudgetKey($options['user_identifier'] ?? NULL);
     $this->lastRequestMeta = array_merge(
       $this->lastRequestMeta ?? [],
       $this->buildBaseRequestMeta($operation),
@@ -391,110 +389,57 @@ PROMPT;
       ],
     );
 
-    if ($this->costControlPolicy) {
-      $policy_result = $this->costControlPolicy->beginRequest($budget_key, [
-        LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => !empty($options[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT]),
-      ]);
-      if (!is_array($policy_result) || empty($policy_result['allowed'])) {
-        $reason = is_array($policy_result) ? (string) ($policy_result['reason'] ?? 'unknown') : 'unknown';
-        // Local admission decision, not a provider failure. Callers catch
-        // this type ahead of \Throwable so it never reaches the breaker.
-        $exception = new LlmAdmissionDeniedException($reason);
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'success' => FALSE,
-          'transport_attempted' => FALSE,
-          'fallback_reason' => $exception->getFallbackReason(),
-          'admission_reason' => $reason,
-        ]);
-        throw $exception;
+    $pipeline = $this->getRequestPipeline();
+    $pipeline_options = [
+      LlmRequestPipeline::OPTION_USER_IDENTIFIER => $options['user_identifier'] ?? NULL,
+      LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => !empty($options[LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT]),
+    ];
+    if (array_key_exists('cache_ttl', $options)) {
+      $pipeline_options[LlmRequestPipeline::OPTION_CACHE_TTL] = $options['cache_ttl'];
+    }
+
+    try {
+      $result = $pipeline->execute(
+        $operation,
+        $cache_key,
+        function () use ($messages, $schema, $options): array {
+          $dispatched = $this->dispatchStructuredJsonRequest($messages, $schema, $options);
+          $payload = $dispatched['payload'] ?? [];
+          if (!is_array($payload)) {
+            throw new \RuntimeException('Request-time LLM transport returned a non-array payload.');
+          }
+          return ['payload' => $payload, 'usage' => $dispatched['usage'] ?? NULL];
+        },
+        $pipeline_options,
+      );
+    }
+    finally {
+      $meta = $pipeline->getLastMeta();
+      unset($meta['operation']);
+      $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], $meta);
+      if (!empty($meta['transport_attempted']) && !empty($meta['success'])) {
+        $this->lastUsage = is_array($meta['usage'] ?? NULL) && $meta['usage'] !== [] ? $meta['usage'] : NULL;
       }
     }
 
-    if ($this->cache && $cache_ttl > 0) {
-      $cached = $this->cache->get($cache_key);
-      if ($cached && is_array($cached->data)) {
-        if ($this->costControlPolicy) {
-          $this->costControlPolicy->recordCacheHit();
-        }
-        /** @var array<string, mixed> $cached_payload */
-        $cached_payload = $cached->data;
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'cache_hit' => TRUE,
-          'transport_attempted' => FALSE,
-          'success' => TRUE,
-        ]);
-        return $cached_payload;
-      }
-    }
+    /** @var array<string, mixed> $payload */
+    $payload = is_array($result['payload'] ?? NULL) ? $result['payload'] : [];
+    return $payload;
+  }
 
-    if ($this->costControlPolicy) {
-      $this->costControlPolicy->recordCacheMiss();
-    }
-
-    $attempt = 0;
-    $max_retries = max(0, (int) $this->getLlmSetting('max_retries', 1));
-    do {
-      try {
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'transport_attempted' => TRUE,
-          'attempt_number' => $attempt + 1,
-        ]);
-        $result = $this->dispatchStructuredJsonRequest($messages, $schema, $options);
-        $payload = $result['payload'] ?? [];
-        if (!is_array($payload)) {
-          throw new \RuntimeException('Request-time LLM transport returned a non-array payload.');
-        }
-        $usage = $result['usage'] ?? NULL;
-        $this->lastUsage = is_array($usage) ? $usage : NULL;
-
-        if ($this->costControlPolicy && is_array($usage)) {
-          $this->costControlPolicy->recordCall($usage);
-        }
-
-        if ($this->cache && $cache_ttl > 0) {
-          $this->cache->set($cache_key, $payload, time() + $cache_ttl);
-        }
-
-        if ($this->circuitBreaker) {
-          $this->circuitBreaker->recordSuccess();
-        }
-
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'success' => TRUE,
-          'usage' => $this->lastUsage ?? [],
-        ]);
-
-        return $payload;
-      }
-      catch (RequestException $e) {
-        $attempt++;
-        $status_code = $e->getResponse()?->getStatusCode();
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'success' => FALSE,
-          'http_status' => $status_code,
-          'error_class' => get_class($e),
-          'error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
-        ]);
-        if ($attempt > $max_retries || !$this->isRetryableStatusCode($status_code)) {
-          throw $e;
-        }
-        $this->sleepMilliseconds($this->backoffDelayMs($attempt));
-      }
-      catch (GuzzleException $e) {
-        $attempt++;
-        $this->lastRequestMeta = array_merge($this->lastRequestMeta ?? [], [
-          'success' => FALSE,
-          'error_class' => get_class($e),
-          'error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
-        ]);
-        if ($attempt > $max_retries) {
-          throw $e;
-        }
-        $this->sleepMilliseconds($this->backoffDelayMs($attempt));
-      }
-    } while ($attempt <= $max_retries);
-
-    throw new \RuntimeException('Request-time LLM request failed after retries.');
+  /**
+   * Returns the shared request pipeline bound to this enhancer's guards.
+   */
+  protected function getRequestPipeline(): LlmRequestPipeline {
+    return $this->pipeline ??= new LlmRequestPipeline(
+      $this->configFactory,
+      $this->cache,
+      $this->circuitBreaker,
+      $this->costControlPolicy,
+      function (int $delayMs): void {
+        $this->sleepMilliseconds($delayMs);
+      },
+    );
   }
 
   /**
@@ -596,20 +541,6 @@ PROMPT;
   }
 
   /**
-   * Returns TRUE when the status code is retryable.
-   */
-  protected function isRetryableStatusCode(?int $statusCode): bool {
-    return in_array($statusCode, [429, 500, 502, 503, 504], TRUE);
-  }
-
-  /**
-   * Returns the retry backoff delay in milliseconds.
-   */
-  protected function backoffDelayMs(int $attempt): int {
-    return min(self::MAX_SYNC_RETRY_DELAY_MS, 50 * (2 ** max(0, $attempt - 1)));
-  }
-
-  /**
    * Sleep wrapper for testability.
    */
   protected function sleepMilliseconds(int $delayMs): void {
@@ -700,17 +631,6 @@ PROMPT;
     $cooldown = max(60, (int) $this->getLlmSetting('circuit_breaker.cooldown_seconds', 300));
     $this->cache->set($cid, TRUE, max(time() + 60, $openedAt + $cooldown));
     return TRUE;
-  }
-
-  /**
-   * Builds a stable budget identity.
-   */
-  protected function buildBudgetKey(?string $userIdentifier): string {
-    $identifier = trim((string) $userIdentifier);
-    if ($identifier === '') {
-      return 'global';
-    }
-    return hash('sha256', $identifier);
   }
 
   /**

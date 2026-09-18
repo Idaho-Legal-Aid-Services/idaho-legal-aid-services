@@ -31,6 +31,13 @@ on hosted environments.
 - `ILAS_LLM_ENABLED`
   - Runtime-only rollout toggle for request-time assistant classification.
   - Honored on `local`, `dev`, `test`, and `live` when set truthy.
+- `ILAS_LLM_GENERATION_ENABLED`
+  - Runtime-only rollout toggle for grounded answer generation (Cohere writes
+    a short cited answer from retrieved FAQ/resource content).
+  - Honored on `local`, `dev`, `test`, and `live` when set truthy.
+  - Has no effect on its own: it requires `ILAS_LLM_ENABLED=1` plus
+    `ILAS_COHERE_API_KEY`. Stored config keeps `llm.generation.enabled` false
+    and the admin checkbox stays disabled on live.
 - `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN`
   - Runtime-only machine-auth token for guarded assistant diagnostics metadata
     and private observability endpoints.
@@ -144,6 +151,9 @@ Use local-only files for local values. Do not commit real credentials.
   config.
 - Keep `ILAS_LLM_ENABLED=0` by default and only set it to `1` when
   intentionally verifying request-time Cohere rollout behavior.
+- Keep `ILAS_LLM_GENERATION_ENABLED=0` by default and only set it to `1`
+  (together with `ILAS_LLM_ENABLED=1`) when intentionally verifying grounded
+  answer generation.
 - Keep `ILAS_VECTOR_SEARCH_ENABLED=0` by default and only set it to `1` when
   intentionally verifying vector rollout behavior.
 - Set `ILAS_LOCAL_BROWSER_OBSERVABILITY=1` only if you intentionally want local

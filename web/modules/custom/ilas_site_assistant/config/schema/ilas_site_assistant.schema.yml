@@ -213,6 +213,46 @@ ilas_site_assistant.settings:
             window_seconds:
               type: integer
               label: 'Rate limit window in seconds (default: 3600)'
+        generation:
+          type: mapping
+          label: 'Grounded answer generation settings'
+          mapping:
+            enabled:
+              type: boolean
+              label: 'Enable grounded answer generation from retrieved content'
+            max_tokens:
+              type: integer
+              label: 'Maximum output tokens for a grounded answer'
+            temperature:
+              type: float
+              label: 'Generation temperature (0.0-1.0)'
+            timeout_seconds:
+              type: float
+              label: 'Provider timeout in seconds for a grounded answer request'
+            max_documents:
+              type: integer
+              label: 'Maximum retrieved documents sent to the provider'
+            snippet_chars:
+              type: integer
+              label: 'Maximum characters per document snippet'
+            max_words:
+              type: integer
+              label: 'Maximum words allowed in a generated answer'
+            citation_mode:
+              type: string
+              label: 'Provider citation mode (FAST | ACCURATE)'
+            cache_ttl:
+              type: integer
+              label: 'Generated answer cache TTL in seconds (0 = disabled)'
+            max_retries:
+              type: integer
+              label: 'Max retry attempts for a grounded answer request'
+            response_types:
+              type: sequence
+              label: 'Response types eligible for grounded generation'
+              sequence:
+                type: string
+                label: 'Response type'
     fallback_gate:
       type: mapping
       label: 'Fallback Gate Configuration'

@@ -177,6 +177,9 @@ jobs:
       - name: Run UX/a11y widget hardening suite (P3-EXT-01)
         run: node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs
 
+      - name: Run widget grounded-generation sources rendering suite (TOVR-18)
+        run: node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-generation-sources.mjs
+
       - name: Run browser observability node tests (Sentry scrub/title contract)
         run: npm run test:assistant:js
 

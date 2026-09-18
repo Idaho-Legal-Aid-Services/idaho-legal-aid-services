@@ -48,6 +48,9 @@ final class LlmRuntimeConfigResolverTest extends TestCase {
     $this->assertSame('command-a-03-2025', $summary['model']);
     $this->assertTrue($summary['key_present']);
     $this->assertTrue($summary['runtime_ready']);
+    $this->assertFalse($summary['generation_enabled']);
+    $this->assertFalse($summary['generation_runtime_ready']);
+    $this->assertSame('config export llm.generation.enabled', $summary['sources']['generation_enabled'] ?? NULL);
     $this->assertSame('config export llm.provider', $summary['sources']['provider'] ?? NULL);
     $this->assertSame('settings.php runtime toggle ILAS_LLM_ENABLED -> getenv/pantheon_get_secret', $summary['sources']['enabled'] ?? NULL);
 
@@ -127,6 +130,41 @@ final class LlmRuntimeConfigResolverTest extends TestCase {
       'settings.php runtime site setting ILAS_COHERE_API_KEY -> getenv/pantheon_get_secret',
       $summary['sources']['key_present'] ?? NULL,
     );
+  }
+
+  /**
+   *
+   */
+  public function testGenerationRuntimeReadyRequiresClassificationRuntimeReady(): void {
+    new Settings([
+      'ilas_cohere_api_key' => 'cohere-secret-value',
+      'ilas_llm_generation_override_channel' => 'settings.php runtime toggle ILAS_LLM_GENERATION_ENABLED -> getenv/pantheon_get_secret',
+      'hash_salt' => 'test-salt',
+    ]);
+
+    $disabled = new LlmRuntimeConfigResolver($this->buildConfigFactory([
+      'llm.enabled' => FALSE,
+      'llm.provider' => 'cohere',
+      'llm.model' => 'command-a-03-2025',
+      'llm.generation.enabled' => TRUE,
+    ]));
+    $summary = $disabled->resolve();
+    $this->assertTrue($summary['generation_enabled']);
+    $this->assertFalse($summary['generation_runtime_ready'], 'Generation must not be ready while llm.enabled is FALSE.');
+    $this->assertFalse($disabled->isGenerationRuntimeReady());
+    $this->assertSame(
+      'settings.php runtime toggle ILAS_LLM_GENERATION_ENABLED -> getenv/pantheon_get_secret',
+      $summary['sources']['generation_enabled'] ?? NULL,
+    );
+
+    $enabled = new LlmRuntimeConfigResolver($this->buildConfigFactory([
+      'llm.enabled' => TRUE,
+      'llm.provider' => 'cohere',
+      'llm.model' => 'command-a-03-2025',
+      'llm.generation.enabled' => TRUE,
+    ]));
+    $this->assertTrue($enabled->isGenerationRuntimeReady());
+    $this->assertSame('llm.runtime_ready + llm.generation.enabled', $enabled->resolve()['sources']['generation_runtime_ready'] ?? NULL);
   }
 
   /**

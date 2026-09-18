@@ -54,9 +54,11 @@ conversation_logging:
   show_user_notice: true
 llm:
   # NOTE: Active deployment config keeps this FALSE so CI / local dev never
-  # silently depend on live Cohere. Production enables it via Drupal Settings
-  # override (`$settings['ilas_site_assistant_llm_enabled'] = TRUE;` or admin
-  # form). See VectorRetrievalLiveEnablementTest for the matching guardrail.
+  # silently depend on live Cohere. Hosted enablement is runtime-only: the
+  # ILAS_LLM_ENABLED secret read in settings.php sets
+  # $config['ilas_site_assistant.settings']['llm']['enabled'] = TRUE; the admin
+  # checkbox is disabled on live. llm.generation.enabled is separately gated
+  # by ILAS_LLM_GENERATION_ENABLED.
   enabled: false
   provider: cohere
   model: command-a-03-2025
@@ -73,6 +75,28 @@ llm:
   global_rate_limit:
     max_per_hour: 500
     window_seconds: 3600
+  generation:
+    # Grounded answer generation (TOVR-18). When enabled, Cohere writes a short
+    # answer strictly from the retrieved FAQ/resource documents with citations
+    # for the listed response types; every guard failure falls back to the
+    # deterministic template. Live enablement is runtime-only via the
+    # ILAS_LLM_GENERATION_ENABLED secret read in settings.php; it requires
+    # llm.enabled (ILAS_LLM_ENABLED) plus the Cohere runtime key.
+    enabled: false
+    max_tokens: 220
+    temperature: 0.2
+    timeout_seconds: 8.0
+    max_documents: 4
+    snippet_chars: 1200
+    max_words: 120
+    citation_mode: FAST
+    cache_ttl: 3600
+    max_retries: 0
+    response_types:
+      - faq
+      - resources
+      - search_results
+      - eligibility
 fallback_gate:
   thresholds:
     intent_high_conf: 0.85
@@ -113,6 +137,25 @@ retrieval_contract:
   supplement_source_classes:
     - faq_vector
     - resource_vector
+retrieve_first:
+  # Retrieve-first augmentation: attaches retrieval results (and therefore
+  # citations + retrieval contract provenance) to template-only response
+  # types without replacing their message. enabled: false is the instant
+  # kill-switch.
+  enabled: true
+  max_results: 3
+  intent_types:
+    - navigation
+    - topic
+    - service_area
+    - disambiguation
+    - eligibility
+    - apply_cta
+    - services
+    - services_overview
+    - escalation
+    - high_risk
+    - office_location
 vector_search:
   # NOTE: Active deployment config keeps this FALSE so CI / local dev never
   # silently call Pinecone. Production enables it through admin form or a
@@ -139,25 +182,6 @@ voyage:
     failure_threshold: 3
     cooldown_seconds: 300
   fallback_on_error: true
-retrieve_first:
-  # Retrieve-first augmentation: attaches retrieval results (and therefore
-  # citations + retrieval contract provenance) to template-only response
-  # types without replacing their message. enabled: false is the instant
-  # kill-switch.
-  enabled: true
-  max_results: 3
-  intent_types:
-    - navigation
-    - topic
-    - service_area
-    - disambiguation
-    - eligibility
-    - apply_cta
-    - services
-    - services_overview
-    - escalation
-    - high_risk
-    - office_location
 safety_alerting:
   enabled: false
   threshold: 20
@@ -290,7 +314,8 @@ audit_governance:
 cost_control:
   daily_call_limit: 5000
   monthly_call_limit: 100000
-  per_ip_hourly_call_limit: 10
+  # 30: shared by intent classification and grounded answer generation.
+  per_ip_hourly_call_limit: 30
   per_ip_window_seconds: 3600
   sample_rate: 1.0
   cache_hit_rate_target: 0.3

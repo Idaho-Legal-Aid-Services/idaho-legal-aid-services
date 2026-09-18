@@ -99,6 +99,10 @@ jobs:
       ILAS_ASSISTANT_URL: ${{ secrets.ILAS_ASSISTANT_URL || vars.ILAS_ASSISTANT_URL }}
       ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE: ${{ vars.ILAS_CONFIGURED_RATE_LIMIT_PER_MINUTE }}
       ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR: ${{ vars.ILAS_CONFIGURED_RATE_LIMIT_PER_HOUR }}
+      # TOVR-18: template-wording suites stay deterministic even when the
+      # hosted environment has grounded generation switched on. Honoured
+      # server-side only for trusted eval traffic on non-live environments.
+      ILAS_EVAL_GENERATION_MODE: off
 
     steps:
       - name: Checkout repository
@@ -179,3 +183,73 @@ jobs:
             output/playwright/report
             output/playwright/test-results
           if-no-files-found: warn
+
+  hosted-generation-quality:
+    name: Hosted Grounded Generation Quality (TOVR-18)
+    runs-on: ubuntu-latest
+    needs: hosted-deep-quality
+    # Opt-in: set repository variable ILAS_GENERATION_EVAL=1 once the dev
+    # environment has ILAS_LLM_GENERATION_ENABLED=1. Advisory until two clean
+    # runs, then switch --mode to blocking (threshold 90).
+    if: ${{ always() && vars.ILAS_GENERATION_EVAL == '1' }}
+    env:
+      ASSISTANT_BASE_URL: ${{ inputs.assistant_base_url || secrets.ASSISTANT_BASE_URL || vars.ASSISTANT_BASE_URL }}
+      ILAS_ASSISTANT_URL: ${{ secrets.ILAS_ASSISTANT_URL || vars.ILAS_ASSISTANT_URL }}
+      ILAS_EVAL_GENERATION_MODE: on
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Normalize hosted assistant endpoint
+        id: endpoint
+        run: |
+          set -euo pipefail
+          if [[ -z "${ASSISTANT_BASE_URL:-}" && -n "${ILAS_ASSISTANT_URL:-}" ]]; then
+            ASSISTANT_BASE_URL="${ILAS_ASSISTANT_URL%/assistant/api/message}"
+          fi
+          if [[ -z "${ILAS_ASSISTANT_URL:-}" && -n "${ASSISTANT_BASE_URL:-}" ]]; then
+            ILAS_ASSISTANT_URL="${ASSISTANT_BASE_URL%/}/assistant/api/message"
+          fi
+          if [[ -z "${ASSISTANT_BASE_URL:-}" || -z "${ILAS_ASSISTANT_URL:-}" ]]; then
+            echo "::warning::Grounded generation suite skipped because ASSISTANT_BASE_URL/ILAS_ASSISTANT_URL is unavailable."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "ASSISTANT_BASE_URL=$ASSISTANT_BASE_URL"
+            echo "ILAS_ASSISTANT_URL=$ILAS_ASSISTANT_URL"
+            echo "CI_PROMPTFOO_ENV=$TARGET_ENV"
+          } >> "$GITHUB_ENV"
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run grounded generation Promptfoo suite (advisory)
+        if: ${{ steps.endpoint.outputs.should_run == 'true' }}
+        run: |
+          set -euo pipefail
+          bash scripts/ci/run-promptfoo-gate.sh \
+            --env "$TARGET_ENV" \
+            --mode advisory \
+            --threshold 85 \
+            --config promptfooconfig.generation.yaml \
+            --no-deep-eval
+
+      - name: Upload grounded generation artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: assistant-nightly-generation-artifacts
+          path: |
+            promptfoo-evals/output/gate-summary.txt
+            promptfoo-evals/output/results.json

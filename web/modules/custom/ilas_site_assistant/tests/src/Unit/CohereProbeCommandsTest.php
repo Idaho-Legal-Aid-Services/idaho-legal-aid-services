@@ -71,10 +71,58 @@ final class CohereProbeCommandsTest extends TestCase {
   }
 
   /**
+   * The --grounded option routes to the grounded probe and its pass flag.
+   */
+  public function testGroundedOptionRunsGroundedProbe(): void {
+    new Settings([
+      'ilas_cohere_api_key' => 'cohere-secret-value',
+      'hash_salt' => 'test-salt',
+    ]);
+    $client = $this->createMock(ClientInterface::class);
+    $client->method('request')->willReturn(new Response(200, [], json_encode([
+      'message' => [
+        'content' => [['type' => 'text', 'text' => 'The probe library opens at nine.']],
+        'citations' => [
+          [
+            'start' => 0,
+            'end' => 5,
+            'text' => 'nine',
+            'sources' => [['type' => 'document', 'id' => 'probe_doc_0']],
+          ],
+        ],
+      ],
+    ], JSON_THROW_ON_ERROR)));
+    $command = new CohereProbeCommands($this->buildProbe($client, TRUE, TRUE));
+    $output = new BufferedOutput();
+    $command->setOutput($output);
+
+    $this->assertSame(0, $command->cohereProbe(['grounded' => TRUE]));
+    $decoded = json_decode($output->fetch(), TRUE, 512, JSON_THROW_ON_ERROR);
+    $this->assertTrue($decoded['grounded_probe_passed'] ?? FALSE);
+    $this->assertSame('grounded_answer', $decoded['operation'] ?? NULL);
+  }
+
+  /**
+   * The --grounded option fails closed while generation is disabled.
+   */
+  public function testGroundedOptionFailsWhenGenerationDisabled(): void {
+    new Settings([
+      'ilas_cohere_api_key' => 'cohere-secret-value',
+      'hash_salt' => 'test-salt',
+    ]);
+    $client = $this->createMock(ClientInterface::class);
+    $client->expects($this->never())->method('request');
+    $command = new CohereProbeCommands($this->buildProbe($client, TRUE, FALSE));
+    $command->setOutput(new BufferedOutput());
+
+    $this->assertSame(1, $command->cohereProbe(['grounded' => TRUE]));
+  }
+
+  /**
    *
    */
-  private function buildProbe(ClientInterface $client, bool $enabled): CohereGenerationProbe {
-    $resolver = new LlmRuntimeConfigResolver($this->buildConfigFactory($enabled));
+  private function buildProbe(ClientInterface $client, bool $enabled, bool $generationEnabled = FALSE): CohereGenerationProbe {
+    $resolver = new LlmRuntimeConfigResolver($this->buildConfigFactory($enabled, $generationEnabled));
     return new CohereGenerationProbe(
       $resolver,
       new CohereLlmTransport($client, $resolver),
@@ -85,11 +133,12 @@ final class CohereProbeCommandsTest extends TestCase {
   /**
    *
    */
-  private function buildConfigFactory(bool $enabled): ConfigFactoryInterface {
+  private function buildConfigFactory(bool $enabled, bool $generationEnabled = FALSE): ConfigFactoryInterface {
     $values = [
       'llm.enabled' => $enabled,
       'llm.provider' => 'cohere',
       'llm.model' => 'command-a-03-2025',
+      'llm.generation.enabled' => $generationEnabled,
     ];
     $config = $this->createStub(ImmutableConfig::class);
     $config->method('get')

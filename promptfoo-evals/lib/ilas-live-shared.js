@@ -1062,6 +1062,27 @@ function buildIlasProviderMeta(data, siteBaseUrl = DEFAULT_SITE_BASE_URL, option
       availability: llmFallbackAvailability,
     },
     llm_used: llmUsed,
+    generation: compactObject({
+      provider: generationProvider,
+      used: typeof publicDiagnostics.generation?.used === 'boolean' ? publicDiagnostics.generation.used : llmUsed,
+      reason: generationReason,
+      operation: typeof publicDiagnostics.generation?.operation === 'string' ? publicDiagnostics.generation.operation : null,
+      operations: publicDiagnostics.generation?.operations && typeof publicDiagnostics.generation.operations === 'object'
+        ? publicDiagnostics.generation.operations
+        : null,
+      grounded_answer: payload.generation && typeof payload.generation === 'object'
+        ? compactObject({
+          used: payload.generation.used === true,
+          reason: typeof payload.generation.reason === 'string' ? payload.generation.reason : null,
+          citation_count: Array.isArray(payload.generation.citations) ? payload.generation.citations.length : 0,
+          citation_urls: Array.isArray(payload.generation.citations)
+            ? payload.generation.citations
+              .map((citation) => (citation && typeof citation.url === 'string' ? toAbsoluteUrl(citation.url, siteBaseUrl) : null))
+              .filter(Boolean)
+            : [],
+        })
+        : null,
+    }),
     generation: {
       provider: generationProvider,
       used: llmUsed,
@@ -1232,6 +1253,7 @@ function createTransportOptions(options = {}) {
       DEFAULT_EXPECTED_REQUEST_TOTAL
     ),
     evalRunId: (options.evalRunId ?? process.env.ILAS_EVAL_RUN_ID ?? '').trim(),
+    generationMode: String(options.generationMode ?? process.env.ILAS_EVAL_GENERATION_MODE ?? '').trim().toLowerCase(),
     fetchImpl: options.fetchImpl || global.fetch,
     pacer: options.pacer,
     silent: readBoolean(options.silent, false),
@@ -1499,11 +1521,17 @@ class IlasLiveTransport {
       ...(requestContext && typeof requestContext === 'object' ? requestContext : {}),
     };
 
-    const body = JSON.stringify({
+    const requestBody = {
       message: question,
       conversation_id: conversationId,
       context,
-    });
+    };
+    if (this.options.generationMode === 'on' || this.options.generationMode === 'off') {
+      // Honoured server-side only for trusted eval traffic on non-live
+      // environments (X-ILAS-Eval-Run-ID); see resolveEvalGenerationOverride().
+      requestBody.generation_mode = this.options.generationMode;
+    }
+    const body = JSON.stringify(requestBody);
 
     const headers = {
       'Content-Type': 'application/json',

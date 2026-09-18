@@ -564,7 +564,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['llm'] = [
       '#type' => 'details',
       '#title' => $this->t('Request-time LLM'),
-      '#description' => $this->t('Use Cohere only for bounded ambiguous-intent classification. Assistant responses remain deterministic, safety-gated, and grounded in site content.'),
+      '#description' => $this->t('Use Cohere for bounded ambiguous-intent classification and, when grounded generation is enabled, for short cited answers written strictly from retrieved site content. Assistant responses remain safety-gated and fall back to deterministic templates.'),
       '#open' => FALSE,
     ];
 
@@ -639,6 +639,48 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#max' => 5,
     ];
 
+    $generation_config = is_array($llm_config['generation'] ?? NULL) ? $llm_config['generation'] : [];
+    $form['llm']['generation'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Grounded answer generation'),
+      '#description' => $this->t('When enabled, Cohere writes a short answer strictly from the retrieved FAQ/resource documents with citations. Any guard failure (no citations, legal-advice phrasing, invented contact details, timeout, budget) falls back to the deterministic template.'),
+      '#open' => FALSE,
+    ];
+
+    $form['llm']['generation']['llm_generation_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable grounded answer generation'),
+      '#description' => $is_live_environment
+        ? $this->t('Live enablement is runtime-only. Set <code>ILAS_LLM_GENERATION_ENABLED</code> and clear caches instead of saving this checkbox.')
+        : $this->t('Requires request-time LLM classification to be enabled and the Cohere runtime key to be present.'),
+      '#default_value' => (bool) ($generation_config['enabled'] ?? FALSE),
+      '#disabled' => $is_live_environment,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_tokens'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Generation Maximum Tokens'),
+      '#default_value' => (int) ($generation_config['max_tokens'] ?? 220),
+      '#min' => 64,
+      '#max' => 400,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_documents'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Documents Sent'),
+      '#default_value' => (int) ($generation_config['max_documents'] ?? 4),
+      '#min' => 1,
+      '#max' => 6,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_words'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Answer Words'),
+      '#default_value' => (int) ($generation_config['max_words'] ?? 120),
+      '#min' => 40,
+      '#max' => 250,
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -669,6 +711,13 @@ class AssistantSettingsForm extends ConfigFormBase {
       $form_state->setErrorByName(
         'llm_enabled',
         $this->t('Live request-time LLM rollout is runtime-only. Set <code>ILAS_LLM_ENABLED</code> and clear caches instead of saving this checkbox.'),
+      );
+    }
+
+    if ($this->isLiveEnvironment() && (bool) $form_state->getValue('llm_generation_enabled')) {
+      $form_state->setErrorByName(
+        'llm_generation_enabled',
+        $this->t('Live grounded generation rollout is runtime-only. Set <code>ILAS_LLM_GENERATION_ENABLED</code> and clear caches instead of saving this checkbox.'),
       );
     }
 
@@ -822,6 +871,17 @@ class AssistantSettingsForm extends ConfigFormBase {
     $llm_config['safety_threshold'] = (string) $form_state->getValue('llm_safety_threshold');
     $llm_config['cache_ttl'] = (int) $form_state->getValue('llm_cache_ttl');
     $llm_config['max_retries'] = (int) $form_state->getValue('llm_max_retries');
+
+    $llm_generation_enabled = (bool) $form_state->getValue('llm_generation_enabled');
+    if ($this->isLiveEnvironment()) {
+      $llm_generation_enabled = FALSE;
+    }
+    $generation_config = is_array($llm_config['generation'] ?? NULL) ? $llm_config['generation'] : [];
+    $generation_config['enabled'] = $llm_generation_enabled;
+    $generation_config['max_tokens'] = (int) $form_state->getValue('llm_generation_max_tokens');
+    $generation_config['max_documents'] = (int) $form_state->getValue('llm_generation_max_documents');
+    $generation_config['max_words'] = (int) $form_state->getValue('llm_generation_max_words');
+    $llm_config['generation'] = $generation_config;
 
     // Build conversation logging config array.
     $conversation_logging_config = [

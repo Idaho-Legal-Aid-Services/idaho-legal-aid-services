@@ -49,6 +49,8 @@ run_step "composer phpcs" composer phpcs
 run_step "composer phpstan" composer phpstan
 run_step "widget hardening (P3-EXT-01)" \
   node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-hardening.mjs
+run_step "widget grounded-generation sources (TOVR-18)" \
+  node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-generation-sources.mjs
 run_step "browser observability node tests" \
   npm run --silent test:assistant:js
 
