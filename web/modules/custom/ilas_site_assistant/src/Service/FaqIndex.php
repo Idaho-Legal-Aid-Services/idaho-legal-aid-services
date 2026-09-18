@@ -48,6 +48,13 @@ class FaqIndex {
   const QUERY_CACHE_TTL = 300;
 
   /**
+   * Lexical over-fetch factor: one copy per site language (en/es/nl/sw).
+   *
+   * @see self::collapseLanguageCopies()
+   */
+  const LANGUAGE_COPY_OVERFETCH = 4;
+
+  /**
    * Maximum tolerated duration for a vector search call (ms) before we
    * temporarily disable vector queries to protect latency.
    */
@@ -237,6 +244,41 @@ class FaqIndex {
   }
 
   /**
+   * Collapses copies of one answer, keeping the best-ranked.
+   *
+   * Every page exists in four languages and each language version owns its
+   * own copy of the page's accordion items. The copies are separate indexed
+   * paragraphs with the same question that resolve to one URL, so a single
+   * answer could otherwise occupy every result slot ("Security Deposits"
+   * three times). The question is part of the key because different answers
+   * can share a URL (items with no anchor of their own).
+   *
+   * @param array $items
+   *   Built FAQ result items, best first.
+   *
+   * @return array
+   *   The items with later same-URL-and-question entries removed; items
+   *   without a URL are always kept.
+   */
+  protected function collapseLanguageCopies(array $items): array {
+    $seen = [];
+    $collapsed = [];
+    foreach ($items as $item) {
+      $url = is_array($item) && is_string($item['url'] ?? NULL) ? trim($item['url']) : '';
+      if ($url !== '') {
+        $heading = (string) ($item['question'] ?? ($item['title'] ?? ''));
+        $key = $url . "\0" . mb_strtolower(trim($heading));
+        if (isset($seen[$key])) {
+          continue;
+        }
+        $seen[$key] = TRUE;
+      }
+      $collapsed[] = $item;
+    }
+    return $collapsed;
+  }
+
+  /**
    * Filters built FAQ items to the current language context.
    *
    * @param array $items
@@ -423,7 +465,11 @@ class FaqIndex {
     try {
       $search_query = $index->query();
       $search_query->keys($query);
-      $search_query->range(0, $limit);
+      // Over-fetch: each language version of a page owns its own copy of the
+      // page's accordion items, and those copies can share one langcode, so
+      // the language filter below cannot separate them. Without headroom the
+      // top $limit slots fill with copies of a single answer.
+      $search_query->range(0, $limit * self::LANGUAGE_COPY_OVERFETCH);
 
       // Filter by current language to avoid duplicate results for translations.
       $langcode = $this->getCurrentLanguage();
@@ -451,10 +497,11 @@ class FaqIndex {
         }
       }
       $items = array_values($this->filterItemsByCurrentLanguage($items));
+      $items = array_slice($this->collapseLanguageCopies($items), 0, $limit);
 
       // Supplement with vector search if lexical results are sparse.
       $supplement = $this->supplementWithVectorResultsDetailed($items, $query, $limit, $type);
-      $items = $supplement['items'];
+      $items = $this->collapseLanguageCopies($supplement['items']);
 
       if ($cache_key && $this->isVectorOutcomeCacheable($supplement['vector_outcome'])) {
         $this->cache->set($cache_key, $items, time() + self::QUERY_CACHE_TTL, [

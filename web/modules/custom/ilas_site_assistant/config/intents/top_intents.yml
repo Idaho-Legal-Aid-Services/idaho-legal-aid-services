@@ -272,8 +272,11 @@ intents:
       label: Seniors Legal Help
       url: /legal-help/seniors
     chips:
-      - { label: Guardianship, intent: topic_seniors }
-      - { label: Estate Planning, intent: topic_seniors }
+      # A chip must never point back at its own entry: with no sub-topic pack
+      # entry to land on, it would just re-serve this same card (enforced by
+      # TopIntentsPackTest::testNoChipPointsBackAtItsOwnEntry).
+      - { label: Seniors & Guardianship Forms, intent: forms_seniors }
+      - { label: Seniors Guides, intent: guides_seniors }
       - { label: Apply for Help, intent: apply_for_help }
       - { label: Risk Detector, intent: risk_detector }
     synonyms:
@@ -293,8 +296,8 @@ intents:
       label: Health Legal Help
       url: /legal-help/health
     chips:
-      - { label: Medicaid, intent: topic_health }
-      - { label: Disability Benefits, intent: topic_health }
+      - { label: Health & Benefits Forms, intent: forms_benefits }
+      - { label: Health & Benefits Guides, intent: guides_benefits }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - health
@@ -321,7 +324,7 @@ intents:
       options:
         - { label: Debt collection or garnishment, intent: topic_consumer_debt_collection }
         - { label: Bankruptcy, intent: topic_consumer_bankruptcy }
-        - { label: Scam or fraud, intent: topic_consumer }
+        - { label: Scam or fraud, intent: guides_consumer }
         - { label: Something else, intent: apply_for_help }
     synonyms:
       - consumer
@@ -337,9 +340,9 @@ intents:
       label: Civil Rights Legal Help
       url: /legal-help/civil-rights
     chips:
-      - { label: Discrimination, intent: topic_civil_rights }
       - { label: Employment Rights, intent: topic_employment }
       - { label: Apply for Help, intent: apply_for_help }
+      - { label: Call Hotline, intent: legal_advice_line }
     synonyms:
       - civil rights
       - discrimination
@@ -352,8 +355,8 @@ intents:
       label: Civil Rights Legal Help
       url: /legal-help/civil-rights
     chips:
-      - { label: Wrongful Termination, intent: topic_employment }
-      - { label: Unpaid Wages, intent: topic_employment }
+      - { label: Employment Forms, intent: forms_employment }
+      - { label: Employment Guides, intent: guides_employment }
       - { label: Apply for Help, intent: apply_for_help }
     synonyms:
       - employment
@@ -497,7 +500,10 @@ intents:
 
   topic_housing_landlord_tenant:
     label: Tenant Rights
-    answer_text: Our Landlord and Tenant resource explains tenant rights in Idaho, including when a landlord must give notice before entering, repairs and habitability, security deposits, and lease problems.
+    # Only name subjects the linked page actually covers (verify with
+    # `drush ilas:kb-coverage`). Landlord entry / notice-to-enter has no site
+    # content yet: see config/kb-stubs/housing-landlord-tenant-faq-stubs.yml.
+    answer_text: Our Landlord and Tenant resource covers the rights and responsibilities of landlords and tenants in Idaho, including leases, repairs, security deposits, rent increases, and evictions.
     primary_action:
       label: Landlord and Tenant Resources
       url: /resources/landlord-and-tenant

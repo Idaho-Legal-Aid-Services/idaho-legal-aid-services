@@ -6,6 +6,11 @@
 # paragraph entity in Drupal, hosted on the consumer legal help page
 # or the main FAQ page.
 #
+# REVIEW STATUS: these answers were drafted without a recorded attorney review.
+# `ilas:kb-import` refuses the file until the reviewing attorney sets, on each
+# stub: review_status: approved, reviewed_by: "Name", reviewed_on: "YYYY-MM-DD"
+# (see KbStubValidator and docs/GOVERNANCE.md, "Content authoring path").
+#
 # To implement:
 # 1. Create or identify the appropriate node (e.g., /legal-help/consumer or /faq)
 # 2. Add these as faq_item paragraphs with the specified fields
@@ -20,6 +25,7 @@ faq_stubs:
 
   - id: faq_debt_collection_rights
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-are-my-rights-when-a-debt-collector-contacts-me
     question: "What are my rights when a debt collector contacts me?"
@@ -72,6 +78,7 @@ faq_stubs:
 
   - id: faq_debt_dispute
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: how-do-i-dispute-a-debt
     question: "How do I dispute a debt I don't think I owe?"
@@ -123,6 +130,7 @@ faq_stubs:
 
   - id: faq_wage_garnishment
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-can-i-do-about-wage-garnishment
     question: "What can I do about wage garnishment?"
@@ -181,6 +189,7 @@ faq_stubs:
 
   - id: faq_credit_report_errors
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: how-do-i-fix-errors-on-my-credit-report
     question: "How do I fix errors on my credit report?"
@@ -240,6 +249,7 @@ faq_stubs:
 
   - id: faq_medical_debt
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-can-i-do-about-medical-debt
     question: "What can I do about medical debt?"
@@ -297,6 +307,7 @@ faq_stubs:
 
   - id: faq_consumer_scam_recovery
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-should-i-do-if-i-was-scammed
     question: "What should I do if I was scammed?"
@@ -355,6 +366,7 @@ faq_stubs:
 
   - id: faq_identity_theft
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-do-i-do-if-someone-stole-my-identity
     question: "What do I do if someone stole my identity?"
@@ -409,6 +421,7 @@ faq_stubs:
 
   - id: faq_debt_lawsuit
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-do-i-do-if-im-sued-for-a-debt
     question: "What do I do if I'm sued for a debt?"
@@ -464,6 +477,7 @@ faq_stubs:
 
   - id: faq_bankruptcy_basics
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: should-i-consider-bankruptcy
     question: "Should I consider bankruptcy?"
@@ -525,6 +539,7 @@ faq_stubs:
 
   - id: faq_car_repossession
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-are-my-rights-if-my-car-is-repossessed
     question: "What are my rights if my car is repossessed?"
@@ -579,6 +594,7 @@ faq_stubs:
 
   - id: faq_payday_loans
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-can-i-do-about-payday-loan-debt
     question: "What can I do about payday loan debt?"
@@ -637,6 +653,7 @@ faq_stubs:
 
   - id: faq_debt_statute_limitations
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: can-a-creditor-still-collect-on-old-debt
     question: "Can a creditor still collect on an old debt?"
@@ -687,6 +704,7 @@ faq_stubs:
 
   - id: faq_bank_account_levy
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: can-a-creditor-take-money-from-my-bank-account
     question: "Can a creditor take money from my bank account?"
@@ -746,6 +764,7 @@ faq_stubs:
 
   - id: faq_predatory_lending
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-is-predatory-lending
     question: "What is predatory lending and what can I do about it?"
@@ -801,6 +820,7 @@ faq_stubs:
 
   - id: faq_debt_after_death
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: am-i-responsible-for-a-family-members-debt
     question: "Am I responsible for a family member's debt after they die?"

@@ -77,6 +77,58 @@ why it is there:
 Deploy lexicon changes like any code change (`drush cr` afterwards: routing
 YAML is cached for one hour).
 
+## Content authoring path (gap → stub → attorney → live)
+
+Routing fixes make the assistant *understand* a question; only content lets it
+*answer* one. When a gap item's real cause is missing content:
+
+1. **Measure before you write.** Run `ddev drush ilas:kb-coverage`
+   (`--gaps-only` for just the problems). For every `topic_map.yml` sub-topic
+   it counts distinct published `faq_item` and `accordion_item` content whose
+   heading (strong) or body (weak) mentions the sub-topic, whether a pack
+   answer exists, and how many stubs are pending. Check **both** bundles: the
+   site's legal content lives in `accordion_item`; the `faq_item` bundle holds
+   organisational FAQs. A topic with zero FAQ items can still be well covered.
+   Counts are of *distinct* content: every page exists in four languages and
+   each language version owns its own copy of the page's accordion items, so
+   raw paragraph counts are about four times higher.
+2. **Flag the gap item** `Needs content update` or `Potential content gap` so
+   the request is visible in the queue, and put the stub id in *Resolution
+   reference* when you resolve it.
+3. **Write a stub** in `config/kb-stubs/` with the question and a
+   `TODO (attorney review)` answer, `review_status: unreviewed`. Do not draft
+   the legal answer yourself.
+4. **Attorney authors and signs off** on each stub:
+
+   ```yaml
+   review_status: approved
+   reviewed_by: "Attorney name"
+   reviewed_on: "2026-10-01"
+   ```
+
+5. **Import:** `ddev drush ilas:kb-import <file> --dry-run`, then with
+   `--node-id=<nid>`. The command **refuses the whole file** while any stub
+   has an empty/`TODO` answer or lacks the three sign-off fields
+   (`KbStubValidator`); `drush ilas:kb-list` shows pending vs importable
+   counts. `KbStubValidatorTest::testShippedStubFilesAreAllAwaitingSignOff`
+   pins the shipped files as unapproved — update it in the same change that
+   records a sign-off.
+6. Attach the created paragraphs to the host node in the node edit form
+   (the importer does not attach them), then re-run `ilas:kb-coverage`.
+
+**Reviewer of record (decided 2026-09-18):** Evan Curry signs off both the
+pack `answer_text` sentences and the kb-stub FAQ answers. Sign-off is per
+answer, never in bulk: a stub is marked `approved` only after the reviewer has
+read that answer and said so, and `reviewed_by` / `reviewed_on` record who and
+when. An answer the reviewer wants a second opinion on stays `unreviewed`
+(blocked) until an attorney has looked at it.
+
+**Pack answer text is content too.** `answer_text` in
+`config/intents/top_intents.yml` is served verbatim and cites the pack's own
+page (`source: curated_pack`) when retrieval finds nothing, so it must only
+name subjects that page actually covers — confirm with `ilas:kb-coverage`
+before naming a subject — and must never state the law itself.
+
 ## Intent Pack Update Process
 
 1. Edit `config/intents/top_intents.yml`

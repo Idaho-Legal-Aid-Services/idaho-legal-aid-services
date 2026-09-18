@@ -148,6 +148,14 @@ class ResourceFinder {
   ];
 
   /**
+   * Why the latest retrieval ran degraded, or NULL when it ran healthy.
+   *
+   * Failures here fail open (empty/legacy results), so callers cannot tell
+   * "found nothing" from "could not look". Set by recordRetrievalTelemetry().
+   */
+  protected ?string $lastRetrievalDegradedReason = NULL;
+
+  /**
    * Request-local retrieval telemetry summaries for observability traces.
    *
    * @var array<int, array<string, mixed>>
@@ -348,6 +356,17 @@ class ResourceFinder {
   public function getLastLexicalResolution(): array {
     $this->getIndex();
     return $this->lastLexicalResolution;
+  }
+
+  /**
+   * Returns why the latest retrieval ran degraded, if it did.
+   *
+   * @return string|null
+   *   A reason code (e.g. 'lexical_search_failed', 'vector_backoff_active',
+   *   'resource_primary_index_unavailable'), or NULL for a healthy retrieval.
+   */
+  public function getLastRetrievalDegradedReason(): ?string {
+    return $this->lastRetrievalDegradedReason;
   }
 
   /**
@@ -1066,6 +1085,17 @@ class ResourceFinder {
     $lexical_degraded_reason = isset($decision['lexical_degraded_reason']) && is_string($decision['lexical_degraded_reason'])
       ? $decision['lexical_degraded_reason']
       : NULL;
+    // Every retrieval path reports here, so this is the one place that knows
+    // whether an empty result means "no content" or "could not look".
+    $vector_status = (string) ($vector_outcome['status'] ?? '');
+    $vector_reason = (string) ($vector_outcome['reason'] ?? '');
+    $this->lastRetrievalDegradedReason = match (TRUE) {
+      // A failed search is more specific than the index mode it ran in.
+      in_array($vector_reason, ['lexical_search_failed', 'lexical_index_unavailable'], TRUE) => $vector_reason,
+      $lexical_degraded_reason !== NULL => $lexical_degraded_reason,
+      in_array($vector_status, ['degraded', 'backoff'], TRUE) => 'vector_' . ($vector_reason !== '' ? $vector_reason : $vector_status),
+      default => NULL,
+    };
     $vector_top_scores = [];
     $vector_top_match_ids = [];
     foreach ($items as $item) {

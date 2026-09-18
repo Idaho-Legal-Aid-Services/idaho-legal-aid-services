@@ -4,6 +4,11 @@
 # These FAQ entries should be created in Drupal as paragraph entities
 # (faq_item or accordion_item) to address the identified coverage gaps.
 #
+# REVIEW STATUS: these answers were drafted without a recorded attorney review.
+# `ilas:kb-import` refuses the file until the reviewing attorney sets, on each
+# stub: review_status: approved, reviewed_by: "Name", reviewed_on: "YYYY-MM-DD"
+# (see KbStubValidator and docs/GOVERNANCE.md, "Content authoring path").
+#
 # To implement:
 # 1. Create or identify an appropriate node to host these FAQs
 # 2. Add these as faq_item paragraphs with the specified fields
@@ -18,6 +23,7 @@ faq_stubs:
 
   - id: faq_employment_fired
     type: faq_item
+    review_status: unreviewed
     category: Employment
     anchor_id: what-if-i-was-fired-unfairly
     question: "What if I was fired unfairly?"
@@ -47,13 +53,14 @@ faq_stubs:
       - discrimination
       - retaliation
       - despedido
-    url_destination: /legal-help/employment
+    url_destination: /legal-help/civil-rights
     related_resources:
       - Idaho Human Rights Commission
       - EEOC
 
   - id: faq_employment_wages
     type: faq_item
+    review_status: unreviewed
     category: Employment
     anchor_id: how-do-i-collect-unpaid-wages
     question: "How do I collect unpaid wages?"
@@ -82,7 +89,7 @@ faq_stubs:
       - back pay
       - no me pagan
       - salario
-    url_destination: /legal-help/employment
+    url_destination: /legal-help/civil-rights
     related_resources:
       - Idaho Department of Labor
       - Small Claims Court Guide
@@ -93,6 +100,7 @@ faq_stubs:
 
   - id: faq_utility_shutoff
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: what-if-my-utilities-are-being-shut-off
     question: "What if my utilities are being shut off?"
@@ -144,6 +152,7 @@ faq_stubs:
 
   - id: faq_name_change
     type: faq_item
+    review_status: unreviewed
     category: Family
     anchor_id: how-do-i-legally-change-my-name
     question: "How do I legally change my name?"
@@ -187,6 +196,7 @@ faq_stubs:
 
   - id: faq_mobile_home_rights
     type: faq_item
+    review_status: unreviewed
     category: Housing
     anchor_id: what-are-my-rights-in-a-mobile-home-park
     question: "What are my rights in a mobile home park?"
@@ -240,6 +250,7 @@ faq_stubs:
 
   - id: faq_veterans_services
     type: faq_item
+    review_status: unreviewed
     category: General
     anchor_id: does-idaho-legal-aid-help-veterans
     question: "Does Idaho Legal Aid help veterans?"
@@ -279,6 +290,7 @@ faq_stubs:
 
   - id: faq_expungement
     type: faq_item
+    review_status: unreviewed
     category: Consumer
     anchor_id: can-i-seal-or-expunge-my-criminal-record
     question: "Can I seal or expunge my criminal record?"

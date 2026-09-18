@@ -101,6 +101,13 @@ class RetrievalAugmenter {
       $response['retrieval_attempted'] = TRUE;
       $merged = $this->mergeResults($early_retrieval, $resources, $max_results, $user_message);
       if ($merged === []) {
+        // ResourceFinder fails open to an empty list; carry its reason so an
+        // outage is not mistaken for a content gap (internal flag, stripped
+        // by the controller).
+        $degraded_reason = $this->resourceFinder->getLastRetrievalDegradedReason();
+        if ($degraded_reason !== NULL) {
+          $response['_retrieval_degraded'] = $degraded_reason;
+        }
         return $response;
       }
 
@@ -113,6 +120,9 @@ class RetrievalAugmenter {
         '@class' => get_class($e),
         '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
       ]);
+      // Internal flag (stripped by the controller): lets the grounding
+      // refusal tell a retrieval failure apart from a genuine content gap.
+      $response['_retrieval_degraded'] = get_class($e);
     }
     return $response;
   }

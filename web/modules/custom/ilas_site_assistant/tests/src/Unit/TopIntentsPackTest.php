@@ -320,4 +320,29 @@ class TopIntentsPackTest extends TestCase {
     }
   }
 
+  /**
+   * No chip or clarifier option points back at the entry that offers it.
+   *
+   * A self-referential chip ("Guardianship" on the seniors card routing to
+   * the seniors card) is a dead end: the user taps a specific topic and gets
+   * the same generic answer again. Sub-topics without their own pack entry
+   * must link to a forms/guides selection or a contact action instead.
+   */
+  public function testNoChipPointsBackAtItsOwnEntry(): void {
+    $self_references = [];
+    foreach ($this->pack->getAllKeys() as $key) {
+      $options = array_merge(
+        $this->pack->getChips($key),
+        $this->pack->getClarifier($key)['options'] ?? [],
+      );
+      foreach ($options as $option) {
+        if (($option['intent'] ?? NULL) === $key) {
+          $self_references[] = $key . ' -> "' . ($option['label'] ?? '?') . '"';
+        }
+      }
+    }
+
+    $this->assertSame([], $self_references);
+  }
+
 }

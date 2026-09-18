@@ -18,7 +18,8 @@
       "critical_config": {
         "phpunit_config": "phpunit.pure.xml",
         "bootstrap": "phpunit.pure.bootstrap.php",
-        "notes": "Pure-PHP unit suite (no Drupal kernel); runs on host PHP without DDEV."
+        "also_runs": "phpunit.xml --testsuite custom-unit",
+        "notes": "Pure-PHP unit suite (no Drupal kernel); runs on host PHP without DDEV. phpunit.pure.xml covers ilas_site_assistant only, so the gate also runs the custom-unit testsuite (every other custom module's Unit tests) — those ran in no gate before 2026-09."
       }
     },
     {

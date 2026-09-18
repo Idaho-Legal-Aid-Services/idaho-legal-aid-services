@@ -589,6 +589,17 @@ class AssistantApiController extends ControllerBase {
    *   The JSON response with security headers.
    */
   protected function jsonResponse(array $data, int $status = 200, array $extra_headers = [], string $request_id = ''): JsonResponse {
+    // Keys starting with "_" are pipeline bookkeeping (_grounded,
+    // _hard_route_enforced, _all_citations_stale, ...). Per-path unset lists
+    // kept missing some (the safety-escalation path skips them entirely), so
+    // drop them at the single exit point. "_debug" is the one public
+    // exception: it is only attached for authorized debug requests.
+    foreach (array_keys($data) as $key) {
+      if (is_string($key) && $key !== '_debug' && str_starts_with($key, '_')) {
+        unset($data[$key]);
+      }
+    }
+
     $headers = array_merge(self::SECURITY_HEADERS, $extra_headers);
     if ($request_id !== '') {
       $headers['X-Correlation-ID'] = $request_id;
@@ -3549,6 +3560,12 @@ class AssistantApiController extends ControllerBase {
       : NULL;
       $response_menu_signature = $this->buildMenuSignature($response);
 
+      // PHARD-03: decide the grounding refusal before anything is persisted,
+      // so the gap trigger, transcript, history, and telemetry all record the
+      // message the user actually receives.
+      $is_eval_traffic = GapReviewDecider::isPromptfooEvalRequest($request, is_array($data) ? $data : []);
+      $response = $this->applyGroundingRefusal($response, $gate_decision, $user_message, (string) $request_id, $is_eval_traffic);
+
       // Log the interaction.
       $analytics_events = [];
       $this->langfuseTracer?->startSpan('analytics.persist', [
@@ -3769,20 +3786,11 @@ class AssistantApiController extends ControllerBase {
         $response['governance'] = $this->sourceGovernance->getGovernanceSummary();
       }
 
-      // PHARD-03: Refuse when answerable + low confidence + no citations.
-      $is_citation_required = in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE);
-      if ($is_citation_required && empty($response['citations']) && ($response['confidence'] ?? 0) <= 0.5) {
-        $response['message'] = ResponseBuilder::looksLikeSpanish($user_message)
-          ? (string) $this->t('No encontré información específica sobre ese tema. Para ayuda con su situación, llame a nuestra Línea de Consejos Legales o solicite ayuda legal gratuita. / For help, please call our Legal Advice Line or apply for help.')
-          : (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
-        $response['type'] = 'clarify_no_grounding';
-        $response['confidence'] = 0.0;
-        $response['decision_reason'] = 'answerable_type_no_citations_low_confidence';
-        if (!empty($response['generation']['used'])) {
-          $response['generation'] = ['used' => FALSE, 'reason' => 'grounding_refusal'];
-        }
-        $this->analyticsLogger->log('grounding_refusal', $request_id ?? '');
-      }
+      // PHARD-03 backstop: the refusal is normally decided before persistence
+      // (see applyGroundingRefusal() above); re-check in case a later stage
+      // dropped the evidence. No-op for an already-refused response.
+      $response = $this->applyGroundingRefusal($response, $gate_decision, $user_message, (string) $request_id, $is_eval_traffic, $response);
+      unset($response['_retrieval_degraded'], $response['_grounding_refusal_reason']);
 
       if (($response['reason_code'] ?? '') === 'resource_results_fallback_index' && empty($response['degraded_notice'])) {
         $response['degraded_notice'] = (string) $this->t('These matches come from our broader site content because the dedicated assistant resource index is unavailable right now.');
@@ -6300,6 +6308,7 @@ class AssistantApiController extends ControllerBase {
           if ($pack_entry !== NULL) {
             $response['type'] = 'topic';
             $response['response_mode'] = 'topic';
+            $response['reason_code'] = 'intent_pack_' . $original_intent_type;
             $answer_text = (string) ($pack_entry['answer_text'] ?? $response['message']);
             // Echo the user's own topic terms so the answer names what was
             // asked about (SSI, guardianship, custody, ...) instead of only
@@ -6729,6 +6738,9 @@ class AssistantApiController extends ControllerBase {
       if ($corrected_entry !== NULL) {
         $response['type'] = 'topic';
         $response['response_mode'] = 'topic';
+        // The clarify this replaces left 'clarification_needed' behind; this
+        // is now a pack answer, and buildPackCitation() keys on the code.
+        $response['reason_code'] = 'intent_pack_' . $corrected['intent_key'];
         $response['message'] = trim(
           (string) ($corrected_entry['answer_text'] ?? '') . ' '
           . $this->t('It includes help with @topic. You can apply for free legal help online, call our Legal Advice Line, or browse our forms and guides.', [
@@ -8348,6 +8360,78 @@ class AssistantApiController extends ControllerBase {
       $response['decision_reason'] .= '; citations_unavailable';
     }
 
+    // PHARD-03: a refusal decided upstream keeps its contract values; the
+    // gate decision describes the answer that was withheld, not the refusal.
+    if ($response_type === 'clarify_no_grounding') {
+      $response['confidence'] = 0.0;
+      $response['decision_reason'] = (string) ($response['_grounding_refusal_reason'] ?? 'answerable_type_no_citations_low_confidence');
+      unset($response['_grounding_refusal_reason']);
+    }
+
+    return $response;
+  }
+
+  /**
+   * PHARD-03: refuses an answerable response that has nothing to cite.
+   *
+   * Refuses when the type requires citations, none can be derived, and the
+   * contract confidence is at or below 0.5. Curated pack answers cite their
+   * own canonical page (see buildPackCitation()), so they are only refused
+   * when the pack entry has no usable URL.
+   *
+   * @param array $response
+   *   The response to evaluate and, when refused, rewrite.
+   * @param array|null $gate_decision
+   *   The fallback gate decision (confidence source).
+   * @param string $user_message
+   *   The user's message (selects Spanish refusal copy).
+   * @param string $request_id
+   *   The request ID for analytics/log correlation.
+   * @param bool $is_eval_traffic
+   *   TRUE for promptfoo/eval requests, which must not inflate the counter.
+   * @param array|null $assembled
+   *   The already-assembled contract, when available. Omit to evaluate a
+   *   side-effect-free preview (the response's own internal flags are kept
+   *   for the real assembly).
+   */
+  private function applyGroundingRefusal(array $response, ?array $gate_decision, string $user_message, string $request_id, bool $is_eval_traffic = FALSE, ?array $assembled = NULL): array {
+    if (!in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE)) {
+      return $response;
+    }
+
+    $contract = $assembled ?? $this->assembleContractFields($response, $gate_decision, 'normal');
+    if (!empty($contract['citations']) || ($contract['confidence'] ?? 0) > 0.5) {
+      return $response;
+    }
+
+    // Distinguish "retrieval failed" from "retrieval found nothing": an index
+    // outage must not read as a content gap.
+    $retrieval_degraded = !empty($response['_retrieval_degraded']);
+    $refusal_reason = $retrieval_degraded
+      ? 'answerable_type_no_citations_retrieval_degraded'
+      : 'answerable_type_no_citations_low_confidence';
+    if ($retrieval_degraded) {
+      $this->logger->warning('[@request_id] Grounding refusal while retrieval was degraded (@type): @detail', [
+        '@request_id' => $request_id,
+        '@type' => $response['type'] ?? 'unknown',
+        '@detail' => (string) $response['_retrieval_degraded'],
+      ]);
+    }
+
+    $response['message'] = ResponseBuilder::looksLikeSpanish($user_message)
+      ? (string) $this->t('No encontré información específica sobre ese tema. Para ayuda con su situación, llame a nuestra Línea de Consejos Legales o solicite ayuda legal gratuita. / For help, please call our Legal Advice Line or apply for help.')
+      : (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
+    $response['type'] = 'clarify_no_grounding';
+    $response['confidence'] = 0.0;
+    $response['decision_reason'] = $refusal_reason;
+    $response['_grounding_refusal_reason'] = $refusal_reason;
+    if (!empty($response['generation']['used'])) {
+      $response['generation'] = ['used' => FALSE, 'reason' => 'grounding_refusal'];
+    }
+    if (!$is_eval_traffic) {
+      $this->analyticsLogger->log('grounding_refusal', $request_id);
+    }
+
     return $response;
   }
 
@@ -8380,6 +8464,52 @@ class AssistantApiController extends ControllerBase {
    * Normalizes citations from sources, with safe fallback derivation.
    */
   private function normalizeContractCitations(array $response): array {
+    $citations = $this->deriveContractCitations($response);
+    if ($citations === []) {
+      $pack_citation = $this->buildPackCitation($response);
+      if ($pack_citation !== NULL) {
+        $citations[] = $pack_citation;
+      }
+    }
+    return $citations;
+  }
+
+  /**
+   * Builds the citation for a curated Top Intents pack answer.
+   *
+   * Pack answer text describes the pack's own canonical page, so that page is
+   * the answer's source even when retrieval returns nothing (empty index,
+   * outage, low vector scores). ResponseBuilder marks pack answers with an
+   * `intent_pack_*` reason code.
+   */
+  private function buildPackCitation(array $response): ?array {
+    if (!str_starts_with((string) ($response['reason_code'] ?? ''), 'intent_pack_')) {
+      return NULL;
+    }
+    $action = $response['primary_action'] ?? NULL;
+    if (!is_array($action)) {
+      return NULL;
+    }
+    $url = $this->sanitizeCitationUrl($action['url'] ?? NULL);
+    if ($url === NULL) {
+      return NULL;
+    }
+
+    $citation = ['url' => $url, 'source' => 'curated_pack'];
+    if (!empty($action['label']) && is_string($action['label'])) {
+      $citation = ['title' => $action['label']] + $citation;
+    }
+    $topic = $this->resolveCitationTopic($citation, $url);
+    if ($topic !== NULL) {
+      $citation['topic'] = $topic;
+    }
+    return $citation;
+  }
+
+  /**
+   * Derives citations from grounded sources, then from retrieval results.
+   */
+  private function deriveContractCitations(array $response): array {
     if (!empty($response['sources']) && is_array($response['sources'])) {
       $citations = [];
       foreach ($response['sources'] as $item) {

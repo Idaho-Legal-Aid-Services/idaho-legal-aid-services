@@ -266,6 +266,29 @@ gate_vc_pure() {
     exit "$rc"
   fi
   publish_gates_record_phase "vc_pure" "0"
+
+  # The pure config only covers ilas_site_assistant. The other custom modules'
+  # Unit tests (governance, SEO, security, employment application, ...) ran in
+  # no gate at all until 2026-09; they take well under a second. Mirrors
+  # GitHub CI's "Run PHPUnit unit tests for the other custom modules" step.
+  echo ""
+  echo "=== Gate: VC-PURE (phpunit.xml custom-unit testsuite) ==="
+  local custom_junit="$ILAS_PUBLISH_GATES_JUNIT_DIR/vc_custom_unit.xml"
+  publish_gates_record_junit "vc_custom_unit" "$custom_junit"
+  local custom_cmd="vendor/bin/phpunit -c phpunit.xml --testsuite custom-unit --colors=always --log-junit ${custom_junit}"
+  rc=0
+  eval "$custom_cmd" || rc=$?
+  if (( rc != 0 )); then
+    publish_gates_record_phase "vc_custom_unit" "$rc"
+    _publish_gates_print_fail \
+      "VC-PURE custom-unit phpunit suite" \
+      "phpunit.xml --testsuite custom-unit (non-assistant module unit tests)" \
+      "$custom_cmd" \
+      "" \
+      ""
+    exit "$rc"
+  fi
+  publish_gates_record_phase "vc_custom_unit" "0"
 }
 
 # Gate 3: Module quality gate. Composite — runs Phase 1 (VC-UNIT),

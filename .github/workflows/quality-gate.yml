@@ -171,6 +171,11 @@ jobs:
       - name: Run PHPUnit pure/unit classifier and safety tests
         run: vendor/bin/phpunit -c phpunit.pure.xml --colors=always
 
+      # Second half of gate_vc_pure: phpunit.pure.xml only covers
+      # ilas_site_assistant, so the other custom modules' Unit tests run here.
+      - name: Run PHPUnit unit tests for the other custom modules
+        run: vendor/bin/phpunit -c phpunit.xml --testsuite custom-unit --colors=always
+
       - name: Run PHPUnit DrupalUnit tests
         run: vendor/bin/phpunit -c phpunit.xml --testsuite drupal-unit --colors=always
 

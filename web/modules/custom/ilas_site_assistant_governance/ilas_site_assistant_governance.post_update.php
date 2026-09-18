@@ -42,6 +42,21 @@ function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_
 }
 
 /**
+ * Re-imports the gap queue View so stored filter plugin IDs match runtime.
+ *
+ * The list filters stored `plugin_id: list_field` while views data maps them
+ * to `in_operator` (see ilas_site_assistant_governance_views_data_alter()).
+ * Views resolves the handler from views data, so behaviour is unchanged, but
+ * the first save in the Views UI would have rewritten the IDs and drifted the
+ * active config away from the shipped file.
+ */
+function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_in_operator_filters(): string {
+  ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_triggers();
+
+  return (string) t('Re-imported the assistant gap queue View with in_operator list filters.');
+}
+
+/**
  * Re-imports the conversation logs View so the feedback column is available.
  */
 function ilas_site_assistant_governance_post_update_reimport_conversations_view_for_feedback(): string {

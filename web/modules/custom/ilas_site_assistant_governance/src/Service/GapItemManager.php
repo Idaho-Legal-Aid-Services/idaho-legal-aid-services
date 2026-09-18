@@ -246,11 +246,11 @@ class GapItemManager {
     }
 
     if ($topic_id === NULL) {
-      $topic_label_candidates = [
-        (string) ($context['topic_label'] ?? ''),
-        (string) ($context['selection_label'] ?? ''),
-      ];
-      $topic_label_candidates = array_merge($selection_topic_candidates, $topic_label_candidates);
+      // Selection labels lead, then the routed topic label; each distinct
+      // label is resolved at most once.
+      $topic_label_candidates = array_unique(array_merge($selection_topic_candidates, [
+        trim((string) ($context['topic_label'] ?? '')),
+      ]));
 
       foreach ($topic_label_candidates as $candidate) {
         if ($candidate === '') {

@@ -45,6 +45,7 @@ final class RetrievalAugmenterTest extends TestCase {
     ?array $settings = self::DEFAULT_SETTINGS,
     array $resource_results = [],
     ?\Throwable $resource_exception = NULL,
+    ?string $degraded_reason = NULL,
   ): RetrievalAugmenter {
     $config = $this->createMock(ImmutableConfig::class);
     $config->method('get')->with('retrieve_first')->willReturn($settings);
@@ -61,6 +62,7 @@ final class RetrievalAugmenterTest extends TestCase {
     else {
       $resource_finder->method('findResources')->willReturn($resource_results);
     }
+    $resource_finder->method('getLastRetrievalDegradedReason')->willReturn($degraded_reason);
 
     return new RetrievalAugmenter($config_factory, $faq_index, $resource_finder, new NullLogger());
   }
@@ -205,10 +207,39 @@ final class RetrievalAugmenterTest extends TestCase {
     $this->assertArrayNotHasKey('retrieval_supplemented', $augmented);
     // Retrieval ran — the attempt must be provable even with zero matches.
     $this->assertTrue($augmented['retrieval_attempted']);
+    // A healthy retrieval that found nothing is a content gap, not an outage.
+    $this->assertArrayNotHasKey('_retrieval_degraded', $augmented);
   }
 
   /**
-   * Retrieval exceptions leave the response untouched.
+   * ResourceFinder swallows its own failures; its reason must be carried.
+   */
+  public function testEmptyResultsFromDegradedRetrievalAreFlagged(): void {
+    $augmenter = $this->buildAugmenter(self::DEFAULT_SETTINGS, [], NULL, 'lexical_search_failed');
+    $augmented = $augmenter->augment(['type' => 'topic', 'message' => 'Topic.'], ['type' => 'topic_housing'], 'rent help');
+
+    $this->assertSame('lexical_search_failed', $augmented['_retrieval_degraded']);
+    $this->assertArrayNotHasKey('results', $augmented);
+  }
+
+  /**
+   * A degraded retrieval that still found results needs no flag.
+   */
+  public function testDegradedRetrievalWithResultsIsNotFlagged(): void {
+    $augmenter = $this->buildAugmenter(
+      self::DEFAULT_SETTINGS,
+      [self::resourceItem('r1', '/resources/a')],
+      NULL,
+      'vector_backoff_active',
+    );
+    $augmented = $augmenter->augment(['type' => 'topic', 'message' => 'Topic.'], ['type' => 'topic_housing'], 'rent help');
+
+    $this->assertCount(1, $augmented['results']);
+    $this->assertArrayNotHasKey('_retrieval_degraded', $augmented);
+  }
+
+  /**
+   * Retrieval exceptions fail open, flagged so a refusal can name the cause.
    */
   public function testAugmentFailsOpenOnRetrievalException(): void {
     $augmenter = $this->buildAugmenter(
@@ -219,7 +250,7 @@ final class RetrievalAugmenterTest extends TestCase {
     $response = ['type' => 'service_area', 'message' => 'Area page.'];
     $augmented = $augmenter->augment($response, ['type' => 'service_area', 'area' => 'housing'], 'I am behind on my mortgage.');
 
-    $this->assertSame($response, $augmented);
+    $this->assertSame($response + ['_retrieval_degraded' => \RuntimeException::class], $augmented);
   }
 
   /**

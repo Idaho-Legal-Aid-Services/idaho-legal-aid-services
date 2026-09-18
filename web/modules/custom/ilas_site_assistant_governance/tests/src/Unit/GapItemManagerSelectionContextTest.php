@@ -7,19 +7,33 @@ namespace Drupal\Tests\ilas_site_assistant_governance\Unit;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\ilas_site_assistant\Service\TopicResolver;
 use Drupal\ilas_site_assistant_governance\Service\GapItemIdentityBuilder;
 use Drupal\ilas_site_assistant_governance\Service\GapItemManager;
+use Drupal\Tests\UnitTestCase;
 use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
  * Tests selection-derived topic context for gap items.
  */
 #[Group('ilas_site_assistant_governance')]
-final class GapItemManagerSelectionContextTest extends TestCase {
+final class GapItemManagerSelectionContextTest extends UnitTestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
+    parent::setUp();
+
+    // AssistantGapItem's option lists are translated, so deriving the
+    // assignment source needs a translation service.
+    $container = new ContainerBuilder();
+    $container->set('string_translation', $this->getStringTranslationStub());
+    \Drupal::setContainer($container);
+  }
 
   /**
    * Branch selections must carry topic and service-area context forward.

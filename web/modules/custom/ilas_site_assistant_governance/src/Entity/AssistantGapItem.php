@@ -887,6 +887,12 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
         'weight' => 8,
       ]);
 
+    // Views: not mapped in ilas_site_assistant_governance_views_data_alter().
+    // Being multi-value it lives in its own table, so a Views filter on it
+    // needs a many_to_one handler with the options callback (in_operator,
+    // used for the single-value list fields, is wrong here). Until that
+    // mapping exists Views falls back to the plain string filter, which
+    // silently ignores "in"/"or" — map it before adding any such filter.
     $fields['secondary_flags'] = BaseFieldDefinition::create('list_string')
       ->setLabel(t('Secondary flags'))
       ->setSetting('allowed_values', self::secondaryFlagOptions())

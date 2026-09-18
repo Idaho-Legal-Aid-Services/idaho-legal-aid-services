@@ -342,6 +342,48 @@ final class AssistantGapItemWorkflowKernelTest extends KernelTestBase {
   }
 
   /**
+   * Every single-value list field is list-aware in views data and config.
+   *
+   * Views picks the handler from views data, not from the view's stored
+   * plugin_id, so both must agree: a mismatch is invisible at runtime but
+   * becomes config drift on the first save in the Views UI.
+   */
+  public function testListFieldsAreMappedInViewsDataAndStoredConfig(): void {
+    $views_data = $this->container->get('views.views_data');
+    $callbacks = [
+      'review_state' => 'stateOptions',
+      'trigger_code' => 'triggerCodeOptions',
+      'latest_trigger_code' => 'triggerCodeOptions',
+      'topic_assignment_source' => 'topicAssignmentSourceOptions',
+      'resolution_code' => 'resolutionCodeOptions',
+    ];
+    foreach (['assistant_gap_item', 'assistant_gap_item_revision'] as $table) {
+      $table_data = $views_data->get($table);
+      foreach ($callbacks as $field => $callback) {
+        if (!isset($table_data[$field]['filter'])) {
+          // Non-revisionable fields have no column on the revision table.
+          $this->assertSame('assistant_gap_item_revision', $table, "$field must be filterable on the base table.");
+          continue;
+        }
+        $this->assertSame('in_operator', $table_data[$field]['filter']['id'], "$table.$field");
+        $this->assertSame(AssistantGapItem::class . '::' . $callback, $table_data[$field]['filter']['options callback'], "$table.$field");
+        $this->assertNotEmpty(call_user_func($table_data[$field]['filter']['options callback']));
+      }
+    }
+
+    $list_filters = 0;
+    foreach ($this->config('views.view.assistant_gap_items')->get('display') as $display_id => $display) {
+      foreach ($display['display_options']['filters'] ?? [] as $filter_id => $filter) {
+        if (isset($callbacks[$filter['field'] ?? ''])) {
+          $list_filters++;
+          $this->assertSame('in_operator', $filter['plugin_id'], "$display_id.$filter_id stores a plugin_id that differs from the runtime handler.");
+        }
+      }
+    }
+    $this->assertGreaterThan(0, $list_filters);
+  }
+
+  /**
    * The clarify and top-misses tabs filter on trigger and recency.
    */
   public function testTriggerQueueTabsFilterByTrigger(): void {
