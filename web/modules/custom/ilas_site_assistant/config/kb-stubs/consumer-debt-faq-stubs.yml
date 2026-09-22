@@ -6,10 +6,13 @@
 # paragraph entity in Drupal, hosted on the consumer legal help page
 # or the main FAQ page.
 #
-# REVIEW STATUS: these answers were drafted without a recorded attorney review.
-# `ilas:kb-import` refuses the file until the reviewing attorney sets, on each
-# stub: review_status: approved, reviewed_by: "Name", reviewed_on: "YYYY-MM-DD"
-# (see KbStubValidator and docs/GOVERNANCE.md, "Content authoring path").
+# REVIEW STATUS: each stub records its own sign-off. `ilas:kb-import` imports
+# only stubs with review_status: approved, reviewed_by: "Name" and
+# reviewed_on: "YYYY-MM-DD"; it reports and skips the rest. A stub marked
+# review_status: needs_changes stays blocked, and its review_notes list what
+# the reviewer wants changed before it can be approved. Round 1 of review was
+# recorded on 2026-09-22 (see KbStubValidator and docs/GOVERNANCE.md,
+# "Content authoring path").
 #
 # To implement:
 # 1. Create or identify the appropriate node (e.g., /legal-help/consumer or /faq)
@@ -25,7 +28,9 @@ faq_stubs:
 
   - id: faq_debt_collection_rights
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-are-my-rights-when-a-debt-collector-contacts-me
     question: "What are my rights when a debt collector contacts me?"
@@ -78,7 +83,12 @@ faq_stubs:
 
   - id: faq_debt_dispute
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Free credit reports are now weekly (permanent since 2023), not \"once per year\"."
+      - "\"They must ... remove it from your credit report\" overstates the collector's duty when a debt cannot be verified; the duty to stop collecting is the clear part."
+      - "Confirm that \"the original creditor never notified you\" is a real ground for dispute."
     category: Consumer
     anchor_id: how-do-i-dispute-a-debt
     question: "How do I dispute a debt I don't think I owe?"
@@ -130,7 +140,11 @@ faq_stubs:
 
   - id: faq_wage_garnishment
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "The \"head of household exemption\" line is probably wrong: Idaho Code 11-207 tracks the federal 25% / 30x-minimum-wage limit and no separate Idaho head-of-household exemption is known."
+      - "Garnishment for child support, taxes and federal student loans follows different limits; say so or scope the answer to consumer debt."
     category: Consumer
     anchor_id: what-can-i-do-about-wage-garnishment
     question: "What can I do about wage garnishment?"
@@ -189,7 +203,11 @@ faq_stubs:
 
   - id: faq_credit_report_errors
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Free credit reports are now weekly (permanent since 2023), not \"one free credit report per year\"."
+      - "Bureau investigation can take 45 days in some cases, not always 30; confirm the 100-word statement."
     category: Consumer
     anchor_id: how-do-i-fix-errors-on-my-credit-report
     question: "How do I fix errors on my credit report?"
@@ -249,7 +267,12 @@ faq_stubs:
 
   - id: faq_medical_debt
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "The three credit-report \"protections\" (under $500 not reported, paid debt removed, one-year wait) were voluntary bureau policies, not law, and the 2025 federal rule was struck down; \"cannot appear\" is too strong."
+      - "Charity care requirement applies to nonprofit hospitals, not \"most hospitals\"."
+      - "Confirm Idaho Medicaid's current retroactive coverage period."
     category: Consumer
     anchor_id: what-can-i-do-about-medical-debt
     question: "What can I do about medical debt?"
@@ -307,7 +330,9 @@ faq_stubs:
 
   - id: faq_consumer_scam_recovery
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-should-i-do-if-i-was-scammed
     question: "What should I do if I was scammed?"
@@ -366,7 +391,9 @@ faq_stubs:
 
   - id: faq_identity_theft
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-do-i-do-if-someone-stole-my-identity
     question: "What do I do if someone stole my identity?"
@@ -421,7 +448,10 @@ faq_stubs:
 
   - id: faq_debt_lawsuit
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "The statute-of-limitations line (\"typically 5 years\") must agree with the corrected faq_debt_statute_limitations answer."
     category: Consumer
     anchor_id: what-do-i-do-if-im-sued-for-a-debt
     question: "What do I do if I'm sued for a debt?"
@@ -477,7 +507,9 @@ faq_stubs:
 
   - id: faq_bankruptcy_basics
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: should-i-consider-bankruptcy
     question: "Should I consider bankruptcy?"
@@ -539,7 +571,9 @@ faq_stubs:
 
   - id: faq_car_repossession
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-are-my-rights-if-my-car-is-repossessed
     question: "What are my rights if my car is repossessed?"
@@ -594,7 +628,11 @@ faq_stubs:
 
   - id: faq_payday_loans
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "\"Payday lenders and their collectors must follow the same FDCPA rules\" overstates it: the FDCPA generally covers third-party collectors, not the original lender."
+      - "Extended payment plan: confirm the details against Idaho Code 28-46-414 (once per 12 months, on request)."
     category: Consumer
     anchor_id: what-can-i-do-about-payday-loan-debt
     question: "What can I do about payday loan debt?"
@@ -653,7 +691,13 @@ faq_stubs:
 
   - id: faq_debt_statute_limitations
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Credit cards appear under both \"written contracts: 5 years\" and \"open accounts: 4 years\"; the answer contradicts itself and the Idaho period for credit cards is genuinely argued."
+      - "\"Judgments: 5 years (but renewable)\" is likely outdated; Idaho lengthened it to 10 years in 2015."
+      - "\"Medical debt: 5 years\" depends on whether there is a written contract."
+      - "\"Making a payment ... can restart the clock\": confirm against Idaho Code 5-238 (acknowledgment requires a signed writing)."
     category: Consumer
     anchor_id: can-a-creditor-still-collect-on-old-debt
     question: "Can a creditor still collect on an old debt?"
@@ -704,7 +748,9 @@ faq_stubs:
 
   - id: faq_bank_account_levy
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: can-a-creditor-take-money-from-my-bank-account
     question: "Can a creditor take money from my bank account?"
@@ -764,7 +810,9 @@ faq_stubs:
 
   - id: faq_predatory_lending
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-is-predatory-lending
     question: "What is predatory lending and what can I do about it?"
@@ -820,7 +868,9 @@ faq_stubs:
 
   - id: faq_debt_after_death
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: am-i-responsible-for-a-family-members-debt
     question: "Am I responsible for a family member's debt after they die?"

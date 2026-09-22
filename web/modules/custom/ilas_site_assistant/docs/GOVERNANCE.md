@@ -98,21 +98,33 @@ Routing fixes make the assistant *understand* a question; only content lets it
 3. **Write a stub** in `config/kb-stubs/` with the question and a
    `TODO (attorney review)` answer, `review_status: unreviewed`. Do not draft
    the legal answer yourself.
-4. **Attorney authors and signs off** on each stub:
+4. **Reviewer authors and signs off** on each stub. The review instrument is
+   the *ILAS FAQ Sign-off Sheet* artifact (one entry per drafted answer with
+   the points to check, three decisions, and a free-text box for what must
+   change); Claude transcribes the decisions into the YAML:
 
    ```yaml
-   review_status: approved
-   reviewed_by: "Attorney name"
-   reviewed_on: "2026-10-01"
+   review_status: approved          # unreviewed | needs_changes | approved
+   reviewed_by: "Reviewer name"
+   reviewed_on: "2026-10-01"        # quoted YYYY-MM-DD
    ```
 
+   A stub the reviewer sends back is marked `needs_changes` with a
+   `review_notes` list saying what to change; it stays blocked until the
+   answer is revised and approved in a later round. Nothing in this
+   repository revises the legal text itself — that is the reviewer's edit.
+
 5. **Import:** `ddev drush ilas:kb-import <file> --dry-run`, then with
-   `--node-id=<nid>`. The command **refuses the whole file** while any stub
-   has an empty/`TODO` answer or lacks the three sign-off fields
-   (`KbStubValidator`); `drush ilas:kb-list` shows pending vs importable
-   counts. `KbStubValidatorTest::testShippedStubFilesAreAllAwaitingSignOff`
-   pins the shipped files as unapproved — update it in the same change that
-   records a sign-off.
+   `--node-id=<nid>`. The command imports the stubs that carry a finished
+   answer and a valid sign-off and **reports and skips** the rest
+   (`KbStubValidator::partition()`), so approved answers ship while others
+   are still under review. It also skips a stub whose `anchor_id` already
+   exists on a `faq_item` paragraph, so re-running after later approvals does
+   not duplicate the earlier batch. `drush ilas:kb-list` shows pending vs
+   importable counts.
+   `KbStubValidatorTest::testShippedStubSignOffsMatchRecordedDecisions` pins
+   exactly which stubs are approved — update its list in the same change
+   that records a sign-off.
 6. Attach the created paragraphs to the host node in the node edit form
    (the importer does not attach them), then re-run `ilas:kb-coverage`.
 
@@ -121,13 +133,22 @@ pack `answer_text` sentences and the kb-stub FAQ answers. Sign-off is per
 answer, never in bulk: a stub is marked `approved` only after the reviewer has
 read that answer and said so, and `reviewed_by` / `reviewed_on` record who and
 when. An answer the reviewer wants a second opinion on stays `unreviewed`
-(blocked) until an attorney has looked at it.
+(blocked) until an attorney has looked at it. Round 1 was recorded on
+2026-09-22: 11 stubs approved, 11 sent back with `review_notes`, none held for
+an attorney, all 35 pack sentences approved.
 
 **Pack answer text is content too.** `answer_text` in
 `config/intents/top_intents.yml` is served verbatim and cites the pack's own
 page (`source: curated_pack`) when retrieval finds nothing, so it must only
 name subjects that page actually covers — confirm with `ilas:kb-coverage`
-before naming a subject — and must never state the law itself.
+before naming a subject — and must never state the law itself. Its sign-off
+is recorded in the file's `answer_text_review` block (`reviewed_by`,
+`reviewed_on`, `digest`). The digest is
+`TopIntentsPack::answerTextDigest()` over every intent's `answer_text`, and
+`TopIntentsPackTest::testAnswerTextMatchesRecordedSignOff` fails when any
+sentence changes without a new sign-off: after the reviewer approves the new
+wording, set `reviewed_on` and paste the recomputed digest (the recipe is in
+the YAML comment above the block).
 
 ## Intent Pack Update Process
 

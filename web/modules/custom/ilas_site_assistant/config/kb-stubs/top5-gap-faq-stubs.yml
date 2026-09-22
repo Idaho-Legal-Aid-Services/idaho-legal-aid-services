@@ -4,10 +4,13 @@
 # These FAQ entries should be created in Drupal as paragraph entities
 # (faq_item or accordion_item) to address the identified coverage gaps.
 #
-# REVIEW STATUS: these answers were drafted without a recorded attorney review.
-# `ilas:kb-import` refuses the file until the reviewing attorney sets, on each
-# stub: review_status: approved, reviewed_by: "Name", reviewed_on: "YYYY-MM-DD"
-# (see KbStubValidator and docs/GOVERNANCE.md, "Content authoring path").
+# REVIEW STATUS: each stub records its own sign-off. `ilas:kb-import` imports
+# only stubs with review_status: approved, reviewed_by: "Name" and
+# reviewed_on: "YYYY-MM-DD"; it reports and skips the rest. A stub marked
+# review_status: needs_changes stays blocked, and its review_notes list what
+# the reviewer wants changed before it can be approved. Round 1 of review was
+# recorded on 2026-09-22 (see KbStubValidator and docs/GOVERNANCE.md,
+# "Content authoring path").
 #
 # To implement:
 # 1. Create or identify an appropriate node to host these FAQs
@@ -23,7 +26,10 @@ faq_stubs:
 
   - id: faq_employment_fired
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Confirm whether Idaho gives private-sector employees a right to their personnel file; otherwise soften \"Request your personnel file\" to \"ask for\"."
     category: Employment
     anchor_id: what-if-i-was-fired-unfairly
     question: "What if I was fired unfairly?"
@@ -60,7 +66,11 @@ faq_stubs:
 
   - id: faq_employment_wages
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Final paycheck timing: Idaho Code 45-606 is the earlier of the next regular payday or 10 days (weekends/holidays excluded), and 48 hours if the worker asks in writing; the answer only says \"next regular payday\"."
+      - "Confirm the small claims limit ($5,000) is current."
     category: Employment
     anchor_id: how-do-i-collect-unpaid-wages
     question: "How do I collect unpaid wages?"
@@ -100,7 +110,9 @@ faq_stubs:
 
   - id: faq_utility_shutoff
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-if-my-utilities-are-being-shut-off
     question: "What if my utilities are being shut off?"
@@ -152,7 +164,12 @@ faq_stubs:
 
   - id: faq_name_change
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Confirm the current filing fee (answer says approximately $200)."
+      - "Confirm the newspaper publication requirement (\"4 consecutive weeks\") against Idaho Code 7-803."
+      - "Confirm the wording for minors (\"both parents' consent or court approval\")."
     category: Family
     anchor_id: how-do-i-legally-change-my-name
     question: "How do I legally change my name?"
@@ -196,7 +213,13 @@ faq_stubs:
 
   - id: faq_mobile_home_rights
     type: faq_item
-    review_status: unreviewed
+    review_status: needs_changes
+    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_notes:
+      - "Statute name and citation: the answer says \"Idaho Residential Mobile Home Landlord and Tenant Act\"; Idaho Code Title 55, Chapter 20 may be the \"Manufactured Home Residency Act\"."
+      - "Confirm the 90-day written notice for lot rent increases (Idaho Code 55-2006)."
+      - "Confirm the statute actually requires rent increases to be \"reasonable and non-discriminatory\"."
+      - "Right to cure, right to sell in place, and the no-specific-dealer rule are each specific statutory claims; confirm each."
     category: Housing
     anchor_id: what-are-my-rights-in-a-mobile-home-park
     question: "What are my rights in a mobile home park?"
@@ -250,7 +273,9 @@ faq_stubs:
 
   - id: faq_veterans_services
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: General
     anchor_id: does-idaho-legal-aid-help-veterans
     question: "Does Idaho Legal Aid help veterans?"
@@ -290,7 +315,9 @@ faq_stubs:
 
   - id: faq_expungement
     type: faq_item
-    review_status: unreviewed
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: can-i-seal-or-expunge-my-criminal-record
     question: "Can I seal or expunge my criminal record?"

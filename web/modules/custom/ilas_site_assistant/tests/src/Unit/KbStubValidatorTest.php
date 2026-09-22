@@ -74,6 +74,7 @@ final class KbStubValidatorTest extends TestCase {
       'empty answer' => [['answer' => "  \n"], 'missing answer'],
       'no question' => [['question' => ''], 'missing question'],
       'unreviewed' => [['review_status' => 'unreviewed'], "review_status is 'unreviewed', not 'approved'"],
+      'needs changes' => [['review_status' => 'needs_changes'], "review_status is 'needs_changes', not 'approved'"],
       'no status' => [['review_status' => NULL], 'no review_status (attorney sign-off required)'],
       'no reviewer' => [['reviewed_by' => ' '], 'missing reviewed_by'],
       'no date' => [['reviewed_on' => NULL], 'missing reviewed_on'],
@@ -106,24 +107,80 @@ final class KbStubValidatorTest extends TestCase {
   }
 
   /**
-   * No shipped stub file is importable until an attorney signs it off.
+   * partition() keeps importable stubs in file order and reports the rest.
+   */
+  public function testPartitionSplitsImportableFromBlocked(): void {
+    $first = self::approvedStub(['id' => 'faq_a']);
+    $third = self::approvedStub(['id' => 'faq_c']);
+    $result = KbStubValidator::partition([
+      $first,
+      self::approvedStub(['id' => 'faq_b', 'review_status' => 'needs_changes']),
+      $third,
+      'not a mapping',
+    ], self::today());
+
+    $this->assertSame([$first, $third], $result['importable']);
+    $this->assertSame(['faq_b', '#4'], array_keys($result['blocked']));
+    $this->assertContains("review_status is 'needs_changes', not 'approved'", $result['blocked']['faq_b']);
+  }
+
+  /**
+   * The shipped stub files carry exactly the sign-offs the reviewer recorded.
    *
    * This is the guard against publishing drafted-but-unreviewed legal
-   * answers. When an attorney approves a stub this test must be updated
-   * deliberately, in the same change that records the sign-off.
+   * answers: a stub imports only when it is listed here AND carries a valid
+   * sign-off in the YAML. When the reviewer approves (or un-approves) a stub,
+   * update this list deliberately, in the same change that records it.
+   *
+   * Round 1 was recorded on 2026-09-22 from the ILAS FAQ Sign-off Sheet.
    */
-  public function testShippedStubFilesAreAllAwaitingSignOff(): void {
+  public function testShippedStubSignOffsMatchRecordedDecisions(): void {
+    $approved = [
+      'top5-gap-faq-stubs.yml' => [
+        'faq_utility_shutoff',
+        'faq_veterans_services',
+        'faq_expungement',
+      ],
+      'consumer-debt-faq-stubs.yml' => [
+        'faq_debt_collection_rights',
+        'faq_consumer_scam_recovery',
+        'faq_identity_theft',
+        'faq_bankruptcy_basics',
+        'faq_car_repossession',
+        'faq_bank_account_levy',
+        'faq_predatory_lending',
+        'faq_debt_after_death',
+      ],
+      'housing-landlord-tenant-faq-stubs.yml' => [],
+    ];
+
     $files = glob(dirname(__DIR__, 3) . '/config/kb-stubs/*.yml') ?: [];
     $this->assertNotEmpty($files);
+    $this->assertEqualsCanonicalizing(array_keys($approved), array_map('basename', $files), 'A stub file was added or removed; record its sign-off state here.');
 
+    // Real sign-off dates are in the past; the synthetic fixtures above use
+    // a frozen date, but the shipped files must validate against today.
+    $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     foreach ($files as $file) {
+      $name = basename($file);
       $stubs = Yaml::parseFile($file)['faq_stubs'] ?? [];
-      $this->assertNotEmpty($stubs, basename($file));
-      $this->assertCount(
-        count($stubs),
-        KbStubValidator::blockedStubs($stubs, self::today()),
-        basename($file) . ' contains a stub that would import without a recorded attorney sign-off.',
+      $this->assertNotEmpty($stubs, $name);
+
+      $ids = array_map(static fn(array $stub): string => (string) $stub['id'], $stubs);
+      $expected_blocked = array_values(array_diff($ids, $approved[$name]));
+      $this->assertSame(
+        $expected_blocked,
+        array_keys(KbStubValidator::blockedStubs($stubs, $now)),
+        $name . ': the importable stubs differ from the recorded sign-off decisions.',
       );
+      foreach ($stubs as $stub) {
+        if (in_array($stub['id'], $approved[$name], TRUE)) {
+          $this->assertSame('Evan Curry', $stub['reviewed_by'] ?? NULL, $stub['id']);
+        }
+        elseif (($stub['review_status'] ?? NULL) === 'needs_changes') {
+          $this->assertNotEmpty($stub['review_notes'] ?? [], $stub['id'] . ': needs_changes without review_notes');
+        }
+      }
     }
   }
 

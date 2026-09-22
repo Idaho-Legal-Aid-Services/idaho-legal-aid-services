@@ -14,6 +14,17 @@
 
 version: '1.0'
 
+# Sign-off of record for every intent's answer_text (served verbatim to
+# visitors). `digest` is TopIntentsPack::answerTextDigest() over the intents
+# map; TopIntentsPackTest fails when any answer_text changes without the
+# reviewer re-recording reviewed_on and the new digest here. Recompute with:
+#   php -r 'require "vendor/autoload.php"; require "web/modules/custom/ilas_site_assistant/src/Service/TopIntentsPack.php";
+#     echo Drupal\ilas_site_assistant\Service\TopIntentsPack::answerTextDigest(Symfony\Component\Yaml\Yaml::parseFile("web/modules/custom/ilas_site_assistant/config/intents/top_intents.yml")["intents"]), "\n";'
+answer_text_review:
+  reviewed_by: "Evan Curry"
+  reviewed_on: "2026-09-22"
+  digest: "9ae9abcb6f29daeff40803ab4d3916a046f0aa58a6dc8482a1878533fcd8915a"
+
 intents:
 
   # ─── NAVIGATION INTENTS ──────────────────────────────────────────
