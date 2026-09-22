@@ -42,9 +42,11 @@ class KbImportCommands extends DrushCommands {
    * @option dry-run Show what would be imported without creating entities.
    * @option node-id Node ID to attach paragraphs to (required for actual import).
    * @usage ilas:kb-import config/kb-stubs/top5-gap-faq-stubs.yml --dry-run
-   *   Preview FAQ import.
+   *   Preview: which stubs would import, which are already present, which
+   *   are blocked pending sign-off.
    * @usage ilas:kb-import config/kb-stubs/top5-gap-faq-stubs.yml --node-id=123
-   *   Import FAQs to node 123.
+   *   Import the approved stubs as faq_item paragraphs (node 123 is the
+   *   intended host; attach in the node edit form afterwards).
    */
   public function kbImport($file, array $options = ['dry-run' => FALSE, 'node-id' => NULL]) {
     $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
@@ -78,16 +80,20 @@ class KbImportCommands extends DrushCommands {
     $stubs = $data['faq_stubs'];
     $this->logger()->notice("Found " . count($stubs) . " FAQ stubs.");
 
-    // FAQ answers are published legal information: refuse the whole file
-    // unless every stub is complete and carries an attorney sign-off. The
-    // check also runs for --dry-run so a preview shows what would be blocked.
-    $blocked = KbStubValidator::blockedStubs($stubs);
-    if ($blocked !== []) {
-      foreach ($blocked as $stub_id => $reasons) {
-        $this->logger()->error("BLOCKED {$stub_id}: " . implode('; ', $reasons));
-      }
-      $this->logger()->error(count($blocked) . ' of ' . count($stubs) . ' stubs are not importable; nothing was imported. Each stub needs a finished answer plus review_status: approved, reviewed_by and reviewed_on (YYYY-MM-DD) recorded by the reviewing attorney.');
+    // FAQ answers are published legal information: only stubs with a
+    // finished answer and a recorded sign-off import. The rest of the file
+    // is reported and skipped, so approved answers are not held back by
+    // ones still under review. The check also runs for --dry-run.
+    ['importable' => $importable, 'blocked' => $blocked] = KbStubValidator::partition($stubs);
+    foreach ($blocked as $stub_id => $reasons) {
+      $this->logger()->warning("BLOCKED {$stub_id}: " . implode('; ', $reasons));
+    }
+    if ($importable === []) {
+      $this->logger()->error(count($blocked) . ' of ' . count($stubs) . ' stubs are not importable; nothing to import. Each stub needs a finished answer plus review_status: approved, reviewed_by and reviewed_on (YYYY-MM-DD) recorded by the reviewer.');
       return 1;
+    }
+    if ($blocked !== []) {
+      $this->logger()->notice(count($blocked) . ' of ' . count($stubs) . ' stubs are blocked pending sign-off and will be skipped.');
     }
 
     $dry_run = $options['dry-run'];
@@ -109,11 +115,21 @@ class KbImportCommands extends DrushCommands {
     }
 
     $created = 0;
-    foreach ($stubs as $stub) {
+    $skipped = 0;
+    foreach ($importable as $stub) {
       $this->logger()->notice("Processing: {$stub['id']}");
       $this->logger()->notice("  Question: " . substr($stub['question'], 0, 60) . "...");
-      $this->logger()->notice("  Category: {$stub['category']}");
+      $this->logger()->notice("  Category: " . ($stub['category'] ?? 'n/a'));
       $this->logger()->notice("  Anchor: {$stub['anchor_id']}");
+
+      // Re-running the command after later approvals must not duplicate the
+      // paragraphs created by an earlier run: the anchor id is the identity.
+      $existing = $this->findExistingFaqParagraphIds($stub['anchor_id']);
+      if ($existing !== []) {
+        $skipped++;
+        $this->logger()->notice(($dry_run ? '  Would skip' : '  SKIPPED') . ": already imported as paragraph " . implode(', ', $existing));
+        continue;
+      }
 
       if (!$dry_run) {
         // Create the paragraph.
@@ -141,15 +157,36 @@ class KbImportCommands extends DrushCommands {
       }
     }
 
+    $would_create = count($importable) - $skipped;
     if ($dry_run) {
-      $this->logger()->notice("DRY RUN complete. Would create " . count($stubs) . " FAQ paragraphs.");
+      $this->logger()->notice("DRY RUN complete. Would create {$would_create} FAQ paragraphs, skip {$skipped} already present, leave " . count($blocked) . ' blocked.');
     }
     else {
-      $this->logger()->success("Created {$created} FAQ paragraphs.");
-      $this->logger()->notice("NOTE: Paragraphs created but not attached to node. Attach manually via the node edit form.");
+      $this->logger()->success("Created {$created} FAQ paragraphs, skipped {$skipped} already present, left " . count($blocked) . ' blocked.');
+      if ($created > 0) {
+        $this->logger()->notice("NOTE: Paragraphs created but not attached to node. Attach manually via the node edit form.");
+      }
     }
 
     return 0;
+  }
+
+  /**
+   * IDs of faq_item paragraphs that already carry the given anchor id.
+   *
+   * @return string[]
+   *   Paragraph entity ids, empty when the stub has not been imported.
+   */
+  protected function findExistingFaqParagraphIds(string $anchor_id): array {
+    if ($anchor_id === '') {
+      return [];
+    }
+    $ids = $this->entityTypeManager->getStorage('paragraph')->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'faq_item')
+      ->condition('field_anchor_id', $anchor_id)
+      ->execute();
+    return array_map('strval', array_values($ids));
   }
 
   /**

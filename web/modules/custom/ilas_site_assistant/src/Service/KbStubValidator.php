@@ -12,12 +12,17 @@ namespace Drupal\ilas_site_assistant\Service;
  * written and signed off on the answer. The sign-off lives on the stub:
  *
  * @code
- * review_status: approved        # unreviewed | approved
+ * review_status: approved        # unreviewed | needs_changes | approved
  * reviewed_by: "Attorney name"
  * reviewed_on: 2026-09-18        # YYYY-MM-DD, not in the future
+ * review_notes:                  # optional, with needs_changes: what to change
+ *   - "..."
  * @endcode
  *
- * A stub with no review block is treated as unreviewed.
+ * A stub with no review block is treated as unreviewed. Only `approved`
+ * imports; `needs_changes` keeps a stub blocked while recording what the
+ * reviewer wants changed. `review_notes` is informational and never
+ * affects the decision.
  */
 final class KbStubValidator {
 
@@ -76,17 +81,33 @@ final class KbStubValidator {
    *   Blocking reasons per stub, only for stubs that are blocked.
    */
   public static function blockedStubs(array $stubs, ?\DateTimeImmutable $today = NULL): array {
+    return self::partition($stubs, $today)['blocked'];
+  }
+
+  /**
+   * Splits a file's stubs into the ones that may import and the blocked ones.
+   *
+   * The importer imports the first set and reports the second, so a file can
+   * ship approved answers while others are still under review.
+   *
+   * @return array{importable: array<int, array>, blocked: array<string, string[]>}
+   *   'importable' keeps file order; 'blocked' is keyed like blockedStubs().
+   */
+  public static function partition(array $stubs, ?\DateTimeImmutable $today = NULL): array {
+    $importable = [];
     $blocked = [];
     foreach (array_values($stubs) as $index => $stub) {
       $reasons = is_array($stub) ? self::blockingReasons($stub, $today) : ['stub is not a mapping'];
-      if ($reasons !== []) {
-        $key = is_array($stub) && is_string($stub['id'] ?? NULL) && $stub['id'] !== ''
-          ? $stub['id']
-          : '#' . ($index + 1);
-        $blocked[$key] = $reasons;
+      if ($reasons === []) {
+        $importable[] = $stub;
+        continue;
       }
+      $key = is_array($stub) && is_string($stub['id'] ?? NULL) && $stub['id'] !== ''
+        ? $stub['id']
+        : '#' . ($index + 1);
+      $blocked[$key] = $reasons;
     }
-    return $blocked;
+    return ['importable' => $importable, 'blocked' => $blocked];
   }
 
   /**

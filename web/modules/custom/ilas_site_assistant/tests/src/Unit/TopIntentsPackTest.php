@@ -5,6 +5,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Tests for TopIntentsPack — unified intents config loader.
@@ -45,6 +46,43 @@ class TopIntentsPackTest extends TestCase {
     $keys = $this->pack->getAllKeys();
     $this->assertNotEmpty($keys);
     $this->assertGreaterThanOrEqual(30, count($keys));
+  }
+
+  /**
+   * Every answer_text is covered by the reviewer's recorded sign-off.
+   *
+   * answer_text is served verbatim to visitors, so it is reviewed content.
+   * The digest pins the exact wording that was signed off: change any
+   * answer_text and this fails until the reviewer re-records reviewed_on
+   * and the new digest in answer_text_review (see docs/GOVERNANCE.md).
+   */
+  public function testAnswerTextMatchesRecordedSignOff(): void {
+    $data = Yaml::parseFile(dirname(__DIR__, 3) . '/config/intents/top_intents.yml');
+    $review = $data['answer_text_review'] ?? NULL;
+    $this->assertIsArray($review, 'top_intents.yml has no answer_text_review block.');
+    $this->assertNotEmpty(trim((string) ($review['reviewed_by'] ?? '')), 'answer_text_review.reviewed_by is empty.');
+
+    $reviewed_on = (string) ($review['reviewed_on'] ?? '');
+    $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $reviewed_on, new \DateTimeZone('UTC'));
+    $this->assertNotFalse($date, 'answer_text_review.reviewed_on must be a quoted YYYY-MM-DD date.');
+    $this->assertSame($reviewed_on, $date->format('Y-m-d'));
+    $this->assertLessThanOrEqual(new \DateTimeImmutable('now', new \DateTimeZone('UTC')), $date, 'reviewed_on is in the future.');
+
+    $this->assertSame(
+      TopIntentsPack::answerTextDigest($data['intents']),
+      $review['digest'] ?? NULL,
+      'An answer_text changed since the recorded sign-off. Have the reviewer approve the new wording, then update answer_text_review.reviewed_on and digest (recipe in top_intents.yml).',
+    );
+  }
+
+  /**
+   * The digest depends only on answer_text, not on ordering or other keys.
+   */
+  public function testAnswerTextDigestIgnoresOrderAndOtherFields(): void {
+    $a = ['x' => ['answer_text' => 'One', 'label' => 'A'], 'y' => ['answer_text' => 'Two']];
+    $b = ['y' => ['answer_text' => 'Two', 'chips' => []], 'x' => ['answer_text' => 'One']];
+    $this->assertSame(TopIntentsPack::answerTextDigest($a), TopIntentsPack::answerTextDigest($b));
+    $this->assertNotSame(TopIntentsPack::answerTextDigest($a), TopIntentsPack::answerTextDigest(['x' => ['answer_text' => 'One.'], 'y' => ['answer_text' => 'Two']]));
   }
 
   /**
