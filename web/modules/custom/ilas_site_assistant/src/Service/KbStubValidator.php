@@ -12,7 +12,7 @@ namespace Drupal\ilas_site_assistant\Service;
  * written and signed off on the answer. The sign-off lives on the stub:
  *
  * @code
- * review_status: approved        # unreviewed | needs_changes | approved
+ * review_status: approved        # unreviewed | needs_changes | revised | approved
  * reviewed_by: "Attorney name"
  * reviewed_on: 2026-09-18        # YYYY-MM-DD, not in the future
  * review_notes:                  # optional, with needs_changes: what to change
@@ -21,8 +21,9 @@ namespace Drupal\ilas_site_assistant\Service;
  *
  * A stub with no review block is treated as unreviewed. Only `approved`
  * imports; `needs_changes` keeps a stub blocked while recording what the
- * reviewer wants changed. `review_notes` is informational and never
- * affects the decision.
+ * reviewer wants changed, and `revised` marks an answer rewritten from
+ * those notes and waiting for the reviewer's re-approval. `review_notes`
+ * is informational and never affects the decision.
  */
 final class KbStubValidator {
 

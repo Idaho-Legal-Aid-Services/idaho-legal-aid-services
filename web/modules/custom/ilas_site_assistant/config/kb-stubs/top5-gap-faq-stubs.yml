@@ -26,31 +26,82 @@ faq_stubs:
 
   - id: faq_employment_fired
     type: faq_item
-    review_status: needs_changes
-    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_status: revised
     review_notes:
-      - "Confirm whether Idaho gives private-sector employees a right to their personnel file; otherwise soften \"Request your personnel file\" to \"ask for\"."
+      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
     category: Employment
     anchor_id: what-if-i-was-fired-unfairly
     question: "What if I was fired unfairly?"
     answer: |
-      Idaho is an "at-will" employment state, meaning employers can generally
-      terminate employees for any reason. However, termination may be wrongful if
-      it was based on:
+      Idaho is an "at-will" employment state. That means an employer can fire
+      you for almost any reason, or for no reason at all. A firing that is merely
+      unfair, unkind, or without good cause is NOT illegal by itself. A firing is
+      unlawful only when it falls within a recognized exception:
 
-      - Discrimination (race, sex, age, disability, religion, national origin)
-      - Retaliation for protected activity (reporting safety violations, filing
-        workers' compensation claims, whistleblowing)
-      - Violation of an employment contract
-      - Violation of public policy
+      1. Discrimination - The Idaho Human Rights Act (Idaho Code 67-5909) bars
+         firing you because of race, color, religion, sex (including pregnancy),
+         national origin, age (40 and older), or disability. It applies to
+         employers with 5 or more employees. Federal law covers the same grounds
+         for larger employers (Title VII and the ADA: 15 or more employees; the
+         ADEA: 20 or more) and also protects sexual orientation and gender
+         identity, which Idaho state law does not.
+
+      2. Retaliation for protected activity - Where the protection comes from
+         matters:
+         - Reporting a workplace safety violation: protected by federal OSHA law,
+           but you must file a complaint with OSHA within 30 days of the firing.
+         - Filing a workers' compensation claim: Idaho courts treat this as a
+           "public policy" claim (Idaho has no statute on it).
+         - Whistleblowing: Idaho's whistleblower statute (Idaho Code 6-2101 and
+           following) protects only government employees. Private-sector workers
+           rely on federal laws or the narrow public-policy exception below.
+
+      3. Breach of an employment contract - This includes written contracts and
+         implied ones. An employee handbook or manual can become part of your
+         contract and limit the employer's right to fire you.
+
+      4. Violation of public policy - For example, being fired for refusing to
+         break the law, for performing an important public duty, or for
+         exercising a legal right.
+
+      5. Breach of the covenant of good faith and fair dealing - Idaho implies
+         this covenant in every employment relationship, but it is narrow: it
+         does not turn at-will employment into for-cause employment.
+
+      Deadlines are strict. Missing one can permanently bar your claim:
+      - Idaho Human Rights Commission discrimination complaint: 1 year from the
+        discrimination (Idaho Code 67-5907). You must file with the Commission
+        before you can sue.
+      - EEOC (federal) charge: 300 days. A charge filed with one agency can be
+        cross-filed with the other.
+      - Lawsuit after the agency issues a right-to-sue notice: 90 days.
+      - OSHA safety-retaliation complaint: 30 days.
+      - Wrongful discharge lawsuit (public policy or workers' compensation
+        retaliation): 2 years.
+      Act quickly, and get legal advice before the earliest deadline.
 
       If you believe you were wrongfully terminated:
-      1. Gather documentation of your employment history and the circumstances of your firing
-      2. Request your personnel file from your employer
-      3. Note any witnesses to discriminatory or retaliatory statements
+      1. Gather documentation of your employment history and the circumstances of
+         your firing. Keep your own copies of pay stubs, reviews, and
+         correspondence.
+      2. You can ask for your personnel file, but Idaho law does not require
+         private employers to provide it (only government employers must, under
+         Idaho Code 74-106 and 33-518). You are entitled to written information
+         about your rate of pay and pay dates on request (Idaho Code 45-610).
+      3. Note any witnesses to discriminatory or retaliatory statements.
 
-      You may file a complaint with the Idaho Human Rights Commission (for discrimination)
-      or contact Idaho Legal Aid if you meet income eligibility requirements.
+      Also know:
+      - Unemployment benefits: being fired does not disqualify you unless the
+        employer proves workplace misconduct (Idaho Code 72-1366). Apply through
+        the Idaho Department of Labor.
+      - Final paycheck: your wages are due by the earlier of the next regular
+        payday or 10 days after separation (weekends and holidays excluded), or
+        within 48 hours if you ask in writing (Idaho Code 45-606). The Idaho
+        Department of Labor takes wage claims.
+
+      You may file a complaint with the Idaho Human Rights Commission (for
+      discrimination) or contact Idaho Legal Aid if you meet income eligibility
+      requirements.
     keywords:
       - fired
       - wrongful termination
@@ -66,23 +117,27 @@ faq_stubs:
 
   - id: faq_employment_wages
     type: faq_item
-    review_status: needs_changes
-    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_status: revised
     review_notes:
-      - "Final paycheck timing: Idaho Code 45-606 is the earlier of the next regular payday or 10 days (weekends/holidays excluded), and 48 hours if the worker asks in writing; the answer only says \"next regular payday\"."
-      - "Confirm the small claims limit ($5,000) is current."
+      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
     category: Employment
     anchor_id: how-do-i-collect-unpaid-wages
     question: "How do I collect unpaid wages?"
     answer: |
-      Idaho law requires employers to pay wages at least monthly on regular paydays
-      and to provide final payment by the next regular payday after termination.
+      Idaho law requires employers to pay wages at least monthly on regular paydays.
+
+      When you are laid off or fired, or you quit, all wages you are owed are due
+      by the earlier of the next regular payday or 10 days after separation
+      (weekends and holidays excluded). If you ask for your final pay in writing,
+      the employer must pay within 48 hours of receiving your request (weekends
+      and holidays excluded). Tip: put your request in writing; that is what
+      triggers the 48-hour deadline. (Idaho Code 45-606)
 
       If your employer owes you wages, you have several options:
 
       1. Request payment in writing - Send a formal written demand to your employer
       2. File a wage claim - Contact the Idaho Department of Labor to file a complaint
-      3. Sue in small claims court - For amounts under $5,000, you can file in
+      3. Sue in small claims court - For amounts up to $15,000, you can file in
          small claims court without an attorney
       4. Consult with a lawyer - For larger amounts or complex situations
 
@@ -164,12 +219,9 @@ faq_stubs:
 
   - id: faq_name_change
     type: faq_item
-    review_status: needs_changes
-    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_status: revised
     review_notes:
-      - "Confirm the current filing fee (answer says approximately $200)."
-      - "Confirm the newspaper publication requirement (\"4 consecutive weeks\") against Idaho Code 7-803."
-      - "Confirm the wording for minors (\"both parents' consent or court approval\")."
+      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
     category: Family
     anchor_id: how-do-i-legally-change-my-name
     question: "How do I legally change my name?"
@@ -178,7 +230,8 @@ faq_stubs:
 
       Steps to change your name:
       1. File a Petition for Name Change in your county's district court
-      2. Pay the filing fee (approximately $200 in most counties)
+      2. Pay the filing fee (approximately $170; verify the current amount with
+         your county clerk)
       3. Publish notice in a local newspaper for 4 consecutive weeks
       4. Attend a court hearing where the judge reviews your petition
       5. If approved, receive a court order for name change
@@ -213,13 +266,9 @@ faq_stubs:
 
   - id: faq_mobile_home_rights
     type: faq_item
-    review_status: needs_changes
-    # Flagged on the sign-off sheet, 2026-09-22 (Evan Curry): blocked until revised and re-approved.
+    review_status: revised
     review_notes:
-      - "Statute name and citation: the answer says \"Idaho Residential Mobile Home Landlord and Tenant Act\"; Idaho Code Title 55, Chapter 20 may be the \"Manufactured Home Residency Act\"."
-      - "Confirm the 90-day written notice for lot rent increases (Idaho Code 55-2006)."
-      - "Confirm the statute actually requires rent increases to be \"reasonable and non-discriminatory\"."
-      - "Right to cure, right to sell in place, and the no-specific-dealer rule are each specific statutory claims; confirm each."
+      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
     category: Housing
     anchor_id: what-are-my-rights-in-a-mobile-home-park
     question: "What are my rights in a mobile home park?"
@@ -238,7 +287,10 @@ faq_stubs:
       2. Rent and fees:
          - Lot rent cannot be raised without 90 days written notice
          - The park must provide an itemized list of any fees
-         - Rent increases must be reasonable and non-discriminatory
+         - Rent increases must be uniform across the community. If rents are
+           tiered by lot or home size, amenities, or location, an increase must
+           be uniform within your rent tier. Idaho does not cap the amount of an
+           increase.
 
       3. Rules and regulations:
          - Park rules must be reasonable and apply equally to all residents

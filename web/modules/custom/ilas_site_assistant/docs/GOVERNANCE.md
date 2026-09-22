@@ -110,9 +110,11 @@ Routing fixes make the assistant *understand* a question; only content lets it
    ```
 
    A stub the reviewer sends back is marked `needs_changes` with a
-   `review_notes` list saying what to change; it stays blocked until the
-   answer is revised and approved in a later round. Nothing in this
-   repository revises the legal text itself — that is the reviewer's edit.
+   `review_notes` list saying what to change. Once the answer has been
+   rewritten from the reviewer's own correction notes (typed into the
+   sheet), it is marked `revised` — still blocked — until the reviewer
+   re-approves it in the next round. The legal content of a revision comes
+   from the reviewer's notes, never from Claude's own drafting.
 
 5. **Import:** `ddev drush ilas:kb-import <file> --dry-run`, then with
    `--node-id=<nid>`. The command imports the stubs that carry a finished

@@ -75,6 +75,7 @@ final class KbStubValidatorTest extends TestCase {
       'no question' => [['question' => ''], 'missing question'],
       'unreviewed' => [['review_status' => 'unreviewed'], "review_status is 'unreviewed', not 'approved'"],
       'needs changes' => [['review_status' => 'needs_changes'], "review_status is 'needs_changes', not 'approved'"],
+      'revised, not re-approved' => [['review_status' => 'revised'], "review_status is 'revised', not 'approved'"],
       'no status' => [['review_status' => NULL], 'no review_status (attorney sign-off required)'],
       'no reviewer' => [['reviewed_by' => ' '], 'missing reviewed_by'],
       'no date' => [['reviewed_on' => NULL], 'missing reviewed_on'],
@@ -132,7 +133,9 @@ final class KbStubValidatorTest extends TestCase {
    * sign-off in the YAML. When the reviewer approves (or un-approves) a stub,
    * update this list deliberately, in the same change that records it.
    *
-   * Round 1 was recorded on 2026-09-22 from the ILAS FAQ Sign-off Sheet.
+   * Round 1 was recorded on 2026-09-22 from the ILAS FAQ Sign-off Sheet;
+   * the 11 answers sent back were revised the same day and are `revised`
+   * (blocked) until round 2 re-approves them.
    */
   public function testShippedStubSignOffsMatchRecordedDecisions(): void {
     $approved = [
@@ -177,8 +180,8 @@ final class KbStubValidatorTest extends TestCase {
         if (in_array($stub['id'], $approved[$name], TRUE)) {
           $this->assertSame('Evan Curry', $stub['reviewed_by'] ?? NULL, $stub['id']);
         }
-        elseif (($stub['review_status'] ?? NULL) === 'needs_changes') {
-          $this->assertNotEmpty($stub['review_notes'] ?? [], $stub['id'] . ': needs_changes without review_notes');
+        elseif (in_array($stub['review_status'] ?? NULL, ['needs_changes', 'revised'], TRUE)) {
+          $this->assertNotEmpty($stub['review_notes'] ?? [], $stub['id'] . ': ' . $stub['review_status'] . ' without review_notes');
         }
       }
     }
