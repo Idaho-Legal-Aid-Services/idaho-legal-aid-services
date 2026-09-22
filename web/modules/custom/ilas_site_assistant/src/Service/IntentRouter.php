@@ -892,8 +892,10 @@ class IntentRouter {
         $service_area = $topic_route['service_area'];
         // Sub-topic carry-through: "tenant rights", "eviction notice" name a
         // concrete sub-topic with a pack answer, so answer it instead of
-        // asking which housing issue the user has.
-        $sub_topic_intent = $this->refineToSubTopicIntent($service_area, $corrected, $extraction, 0.70, 'topic_router_subtopic');
+        // asking which housing issue the user has. A sub-topic without its
+        // own pack answer ("security deposits") gets the area answer plus
+        // retrieval for the named term, not the generic area question.
+        $sub_topic_intent = $this->refineToSubTopicIntent($service_area, $corrected, $extraction, 0.70, 'topic_router_subtopic', TRUE);
         if ($sub_topic_intent) {
           $sub_topic_intent['topic_route'] = $topic_route;
           return $sub_topic_intent;
@@ -1180,23 +1182,38 @@ class IntentRouter {
    *   Confidence to report for the refined intent.
    * @param string $source
    *   Source label for observability.
+   * @param bool $allow_area_fallback
+   *   When TRUE and the message names exactly one sub-topic that has no pack
+   *   entry of its own, answer with the area's pack entry instead of NULL,
+   *   echoing the named sub-topic so retrieval searches for it. Only the
+   *   short-message path opts in; long sentences keep area-level handling.
    *
    * @return array|null
    *   Intent array shaped like the top-intents pack fallback, or NULL.
    */
-  protected function refineToSubTopicIntent(?string $service_area, string $message, array $extraction, float $confidence, string $source): ?array {
+  protected function refineToSubTopicIntent(?string $service_area, string $message, array $extraction, float $confidence, string $source, bool $allow_area_fallback = FALSE): ?array {
     if (!$this->topicRouter || !$this->topIntentsPack || !method_exists($this->topicRouter, 'resolveTopicKeys')) {
       return NULL;
     }
 
     $candidates = [];
     $candidate_areas = [];
+    $packless = [];
     foreach ($this->topicRouter->resolveTopicKeys($message) as $entry) {
       if ($service_area !== NULL && ($entry['service_area'] ?? '') !== $service_area) {
         continue;
       }
       $intent_key = (string) ($entry['pack_intent'] ?? ('topic_' . ($entry['canonical_key'] ?? '')));
       if ($intent_key === 'topic_' || $this->topIntentsPack->lookup($intent_key) === NULL) {
+        // A known sub-topic without its own answer: remember it so the area
+        // answer can still name it instead of asking "which housing issue?".
+        $canonical_key = (string) ($entry['canonical_key'] ?? '');
+        if ($canonical_key !== '' && !isset($packless[$canonical_key])) {
+          $packless[$canonical_key] = [
+            'area' => (string) ($entry['service_area'] ?? ''),
+            'alias' => (string) ($entry['matched_alias'] ?? ''),
+          ];
+        }
         continue;
       }
       if (!isset($candidates[$intent_key])) {
@@ -1206,7 +1223,9 @@ class IntentRouter {
     }
 
     if ($candidates === []) {
-      return NULL;
+      return $allow_area_fallback
+        ? $this->buildAreaFallbackForSubTopic($packless, $service_area, $extraction, $confidence, $source)
+        : NULL;
     }
 
     $chosen = NULL;
@@ -1243,6 +1262,53 @@ class IntentRouter {
       $intent['matched_synonym'] = $candidates[$chosen];
     }
     return $intent;
+  }
+
+  /**
+   * Answers a lone pack-less sub-topic with its area's pack entry.
+   *
+   * "security deposits" resolves to housing_security_deposit, which has no
+   * pack answer. Rather than ask which housing issue the user has, return the
+   * housing area answer and echo the user's own term (matched_synonym), so the
+   * area page link is offered and retrieve-first searches the site for the
+   * term. No answer text is invented: the copy is the area entry's.
+   *
+   * @param array<string, array{area: string, alias: string}> $packless
+   *   Pack-less sub-topics named in the message, keyed by canonical key.
+   * @param string|null $service_area
+   *   The routed area; the sub-topic must belong to it.
+   *
+   * @return array|null
+   *   The area pack intent, or NULL when zero or several sub-topics were
+   *   named, the area is unknown, or the area has no pack entry.
+   */
+  protected function buildAreaFallbackForSubTopic(array $packless, ?string $service_area, array $extraction, float $confidence, string $source): ?array {
+    if (count($packless) !== 1) {
+      return NULL;
+    }
+    $canonical_key = (string) array_key_first($packless);
+    $area = $service_area ?? $packless[$canonical_key]['area'];
+    if ($area === '' || $packless[$canonical_key]['area'] !== $area) {
+      return NULL;
+    }
+    $area_intent = 'topic_' . $area;
+    $pack_entry = $this->topIntentsPack->lookup($area_intent);
+    if ($pack_entry === NULL) {
+      return NULL;
+    }
+    $alias = $packless[$canonical_key]['alias'];
+
+    return [
+      'type' => $area_intent,
+      'confidence' => $confidence,
+      'source' => $source . '_area_fallback',
+      'area' => $area,
+      'pack_entry' => $pack_entry,
+      'matched_alias' => $alias,
+      'matched_synonym' => $alias,
+      'sub_topic_key' => $canonical_key,
+      'extraction' => $extraction,
+    ];
   }
 
   /**

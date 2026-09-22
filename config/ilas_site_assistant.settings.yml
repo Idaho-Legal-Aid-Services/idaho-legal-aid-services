@@ -148,7 +148,6 @@ retrieve_first:
     - navigation
     - topic
     - service_area
-    - disambiguation
     - eligibility
     - apply_cta
     - services

@@ -53,6 +53,15 @@ class TopicRouterTest extends TestCase {
       ['renew passport', []],
       ['custody', ['family_custody_parenting']],
       ['', []],
+      // Sub-topics without a pack entry still resolve; the router decides
+      // what to do with them.
+      ['security deposits', ['housing_security_deposit']],
+      ['security deposit', ['housing_security_deposit']],
+      ['power of attorney', ['seniors_power_of_attorney']],
+      ['mobile home', ['housing_mobile_home']],
+      ['public benefits', ['health_public_benefits']],
+      ['workplace rights', ['employment_workplace_rights']],
+      ['deposit', []],
     ];
   }
 

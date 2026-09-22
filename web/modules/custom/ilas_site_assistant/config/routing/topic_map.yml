@@ -309,6 +309,7 @@ housing:
       term_uuid: 7aa78dca-07b9-4b00-808d-90b233e29329  # TID:89
       term_name: "Mobile Home Issues"
       aliases:
+        - mobile home
         - trailer park
         - manufactured home
         - casa movil
@@ -317,6 +318,7 @@ housing:
       term_uuid: 15faea60-f071-4d30-a0e0-7ac90490180b  # TID:80
       term_name: "Security Deposits"
       aliases:
+        - security deposit
         - deposit return
         - deposito de seguridad
         - move out
@@ -762,6 +764,7 @@ health:
       term_uuid: bc0a299d-4819-48a9-96d0-1d306b944a30  # TID:71 "SNAP"; also: TANF (TID:72). No general "Public Benefits" term
       term_name: "SNAP"
       aliases:
+        - public benefits
         - beneficios publicos
         - food stamps
         - estampillas
@@ -890,6 +893,7 @@ employment:
       term_uuid: 0dd85706-39aa-46ad-a8a9-b7b75b8d1bf8  # TID:58
       term_name: "Workplace Safety"
       aliases:
+        - workplace rights
         - derechos en el trabajo
         - hostile work environment
         - fmla
