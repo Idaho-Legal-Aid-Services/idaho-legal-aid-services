@@ -133,23 +133,34 @@ final class KbStubValidatorTest extends TestCase {
    * sign-off in the YAML. When the reviewer approves (or un-approves) a stub,
    * update this list deliberately, in the same change that records it.
    *
-   * Round 1 was recorded on 2026-09-22 from the ILAS FAQ Sign-off Sheet;
-   * the 11 answers sent back were revised the same day and are `revised`
-   * (blocked) until round 2 re-approves them.
+   * Rounds 1 and 2 were recorded on 2026-09-22 from the ILAS FAQ Sign-off
+   * Sheet: 11 answers approved as written, 11 revised from the reviewer's
+   * notes and then approved. The housing file still holds TODO answers.
    */
   public function testShippedStubSignOffsMatchRecordedDecisions(): void {
     $approved = [
       'top5-gap-faq-stubs.yml' => [
+        'faq_employment_fired',
+        'faq_employment_wages',
         'faq_utility_shutoff',
+        'faq_name_change',
+        'faq_mobile_home_rights',
         'faq_veterans_services',
         'faq_expungement',
       ],
       'consumer-debt-faq-stubs.yml' => [
         'faq_debt_collection_rights',
+        'faq_debt_dispute',
+        'faq_wage_garnishment',
+        'faq_credit_report_errors',
+        'faq_medical_debt',
         'faq_consumer_scam_recovery',
         'faq_identity_theft',
+        'faq_debt_lawsuit',
         'faq_bankruptcy_basics',
         'faq_car_repossession',
+        'faq_payday_loans',
+        'faq_debt_statute_limitations',
         'faq_bank_account_levy',
         'faq_predatory_lending',
         'faq_debt_after_death',

@@ -135,9 +135,13 @@ pack `answer_text` sentences and the kb-stub FAQ answers. Sign-off is per
 answer, never in bulk: a stub is marked `approved` only after the reviewer has
 read that answer and said so, and `reviewed_by` / `reviewed_on` record who and
 when. An answer the reviewer wants a second opinion on stays `unreviewed`
-(blocked) until an attorney has looked at it. Round 1 was recorded on
-2026-09-22: 11 stubs approved, 11 sent back with `review_notes`, none held for
-an attorney, all 35 pack sentences approved.
+(blocked) until an attorney has looked at it. Rounds 1 and 2 were recorded on
+2026-09-22: 11 stubs approved as written, 11 sent back with the reviewer's
+correction notes (`docs/faq-signoff-round1-notes.md`), revised from those
+notes and approved the same day; all 35 pack sentences approved. One point
+was referred onward: the credit-card limitation period in
+`faq_debt_statute_limitations` is worded as "4 or 5 years" and awaits an
+attorney's view (see its `review_notes`).
 
 **Pack answer text is content too.** `answer_text` in
 `config/intents/top_intents.yml` is served verbatim and cites the pack's own

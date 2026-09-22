@@ -9,10 +9,11 @@
 # REVIEW STATUS: each stub records its own sign-off. `ilas:kb-import` imports
 # only stubs with review_status: approved, reviewed_by: "Name" and
 # reviewed_on: "YYYY-MM-DD"; it reports and skips the rest. A stub marked
-# review_status: needs_changes stays blocked, and its review_notes list what
-# the reviewer wants changed before it can be approved. Round 1 of review was
-# recorded on 2026-09-22 (see KbStubValidator and docs/GOVERNANCE.md,
-# "Content authoring path").
+# review_status: needs_changes or revised stays blocked, and its review_notes
+# list what the reviewer wants changed or that it awaits re-approval. Every
+# stub in this file was approved by the reviewer on 2026-09-22 (rounds 1 and
+# 2 of the ILAS FAQ Sign-off Sheet; see KbStubValidator and
+# docs/GOVERNANCE.md, "Content authoring path").
 #
 # To implement:
 # 1. Create or identify the appropriate node (e.g., /legal-help/consumer or /faq)
@@ -83,9 +84,9 @@ faq_stubs:
 
   - id: faq_debt_dispute
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: how-do-i-dispute-a-debt
     question: "How do I dispute a debt I don't think I owe?"
@@ -143,9 +144,9 @@ faq_stubs:
 
   - id: faq_wage_garnishment
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-wage-garnishment
     question: "What can I do about wage garnishment?"
@@ -214,9 +215,9 @@ faq_stubs:
 
   - id: faq_credit_report_errors
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: how-do-i-fix-errors-on-my-credit-report
     question: "How do I fix errors on my credit report?"
@@ -279,9 +280,9 @@ faq_stubs:
 
   - id: faq_medical_debt
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-medical-debt
     question: "What can I do about medical debt?"
@@ -474,9 +475,9 @@ faq_stubs:
 
   - id: faq_debt_lawsuit
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-do-i-do-if-im-sued-for-a-debt
     question: "What do I do if I'm sued for a debt?"
@@ -655,9 +656,9 @@ faq_stubs:
 
   - id: faq_payday_loans
     type: faq_item
-    review_status: revised
-    review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-payday-loan-debt
     question: "What can I do about payday loan debt?"
@@ -729,10 +730,11 @@ faq_stubs:
 
   - id: faq_debt_statute_limitations
     type: faq_item
-    review_status: revised
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     review_notes:
-      - "Revised 2026-09-22 from the reviewer's round-1 notes on the ILAS FAQ Sign-off Sheet; awaiting re-approval in round 2."
-      - "Credit-card limitation period (4 vs 5 years): the reviewer asked that this point be held for an attorney's sign-off."
+      - "Credit-card limitation period: the reviewer approved the \"4 or 5 years depending on how the account is documented\" wording on 2026-09-22 and referred the underlying question (Idaho Code 5-216 vs 5-217) for an attorney's sign-off."
     category: Consumer
     anchor_id: can-a-creditor-still-collect-on-old-debt
     question: "Can a creditor still collect on an old debt?"
