@@ -291,6 +291,43 @@ gate_vc_pure() {
   publish_gates_record_phase "vc_custom_unit" "0"
 }
 
+# Gate 2b: Theme CSS drift — theme SCSS changed without a compiled-CSS rebuild.
+# Pure git, sub-second, so it runs even on the gate-safe-paths fast path
+# (theme paths are exactly what that fast path admits). Mirrors GitHub CI's
+# "Theme CSS drift guard" step. Args: <base> <head>; with no args it compares
+# github/master (or origin/master) to HEAD.
+gate_theme_css_drift() {
+  local base="${1:-}" head="${2:-HEAD}"
+  if [[ -z "$base" ]]; then
+    base="$(git -C "$ILAS_PUBLISH_GATES_REPO_ROOT" merge-base HEAD github/master 2>/dev/null)" \
+      || base="$(git -C "$ILAS_PUBLISH_GATES_REPO_ROOT" merge-base HEAD origin/master 2>/dev/null)" \
+      || base=""
+  fi
+  echo ""
+  echo "=== Gate: Theme CSS drift (scss changed => css rebuilt) ==="
+  if [[ -z "$base" ]]; then
+    echo "[warn] no base commit resolvable (no github/origin master ref); skipping."
+    publish_gates_record_skip "theme_css_drift" "no-base-ref"
+    return 0
+  fi
+  local rc=0
+  (cd "$ILAS_PUBLISH_GATES_REPO_ROOT" && bash scripts/ci/theme-css-drift-guard.sh "$base" "$head") || rc=$?
+  if [[ "${THEME_CSS_GUARD_SKIP:-}" == "1" ]]; then
+    publish_gates_record_drift "theme_css_drift bypassed via THEME_CSS_GUARD_SKIP=1 range=${base}..${head}"
+  fi
+  if (( rc != 0 )); then
+    publish_gates_record_phase "theme_css_drift" "$rc"
+    _publish_gates_print_fail \
+      "Theme CSS drift guard" \
+      "web/themes/custom/b5subtheme scss changed, css/style.css and css/critical.css did not" \
+      "bash scripts/ci/theme-css-drift-guard.sh ${base} ${head}" \
+      "" \
+      ""
+    exit "$rc"
+  fi
+  publish_gates_record_phase "theme_css_drift" "0"
+}
+
 # Gate 3: Module quality gate. Composite — runs Phase 1 (VC-UNIT),
 # 1b (VC-DRUPAL-UNIT), 1c (VC-KERNEL), 1d (Functional assistant API behavior),
 # 1e (Conversation intent fixtures), 1f (Promptfoo runtime tests).

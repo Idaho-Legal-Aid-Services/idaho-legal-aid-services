@@ -167,6 +167,24 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # gate_theme_css_drift — PIPE-05: parity annotation for gates.lock.json
+      - name: Theme CSS drift guard (scss changed => css rebuilt)
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PUSH_BEFORE_SHA: ${{ github.event.before || '' }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base="${PR_BASE_SHA:-$PUSH_BEFORE_SHA}"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse "${CURRENT_SHA}^" 2>/dev/null || true)"
+          fi
+          if [[ -z "$base" ]]; then
+            echo "::notice::No base commit; skipping theme CSS drift guard."
+            exit 0
+          fi
+          bash scripts/ci/theme-css-drift-guard.sh "$base" "$CURRENT_SHA"
+
       # gate_vc_pure — PIPE-05: parity annotation for gates.lock.json
       - name: Run PHPUnit pure/unit classifier and safety tests
         run: vendor/bin/phpunit -c phpunit.pure.xml --colors=always

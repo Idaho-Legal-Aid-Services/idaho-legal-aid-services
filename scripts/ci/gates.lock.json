@@ -12,6 +12,16 @@
       }
     },
     {
+      "id": "theme_css_drift",
+      "library_fn": "gate_theme_css_drift",
+      "required_in": ["pre-push", "publish-gate-local", "ci:quality-gate"],
+      "critical_config": {
+        "script": "scripts/ci/theme-css-drift-guard.sh",
+        "bypass_env": "THEME_CSS_GUARD_SKIP=1",
+        "notes": "Pure git, sub-second. Fails when web/themes/custom/b5subtheme/scss/** changed in the range but neither css/style.css nor css/critical.css did (compiled CSS is committed; Pantheon never runs npm). Runs even on the pre-push gate-safe fast path. See web/themes/custom/b5subtheme/BUILD.md."
+      }
+    },
+    {
       "id": "vc_pure",
       "library_fn": "gate_vc_pure",
       "required_in": ["pre-push", "publish-gate-local", "ci:quality-gate"],
