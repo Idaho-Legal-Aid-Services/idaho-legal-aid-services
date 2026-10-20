@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\ilas_site_assistant\Unit;
 
+use Drupal\Component\Serialization\Yaml as DrupalYaml;
 use Drupal\ilas_site_assistant\Service\KbStubValidator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -47,10 +48,10 @@ final class KbStubValidatorTest extends TestCase {
   }
 
   /**
-   * Symfony YAML turns an unquoted date into a timestamp; accept it.
+   * YAML parsing turns an unquoted date into a timestamp; accept it.
    */
   public function testUnquotedYamlDateIsAccepted(): void {
-    $parsed = Yaml::parse("reviewed_on: 2026-09-01\n");
+    $parsed = DrupalYaml::decode("reviewed_on: 2026-09-01\n");
     $this->assertIsInt($parsed['reviewed_on']);
     $this->assertSame([], KbStubValidator::blockingReasons(self::approvedStub($parsed), self::today()));
   }

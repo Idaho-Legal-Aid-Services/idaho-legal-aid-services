@@ -3,8 +3,11 @@
 namespace Drupal\ilas_site_assistant\Commands;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\ilas_site_assistant\Service\KbCoverageAnalyzer;
 use Drupal\ilas_site_assistant\Service\KbStubValidator;
+use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use Drupal\paragraphs\Entity\Paragraph;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\Yaml\Yaml;
@@ -22,11 +25,27 @@ class KbImportCommands extends DrushCommands {
   protected $entityTypeManager;
 
   /**
+   * The module extension list.
+   *
+   * @var \Drupal\Core\Extension\ModuleExtensionList
+   */
+  protected $moduleExtensionList;
+
+  /**
+   * The top intents pack.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\TopIntentsPack
+   */
+  protected $topIntentsPack;
+
+  /**
    * Constructs a KbImportCommands object.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager) {
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, ModuleExtensionList $module_extension_list, TopIntentsPack $top_intents_pack) {
     parent::__construct();
     $this->entityTypeManager = $entity_type_manager;
+    $this->moduleExtensionList = $module_extension_list;
+    $this->topIntentsPack = $top_intents_pack;
   }
 
   /**
@@ -49,7 +68,7 @@ class KbImportCommands extends DrushCommands {
    *   intended host; attach in the node edit form afterwards).
    */
   public function kbImport($file, array $options = ['dry-run' => FALSE, 'node-id' => NULL]) {
-    $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
+    $module_path = $this->moduleExtensionList->getPath('ilas_site_assistant');
     $file_path = $module_path . '/' . $file;
 
     if (!file_exists($file_path)) {
@@ -209,7 +228,7 @@ class KbImportCommands extends DrushCommands {
    *   Only the sub-topics that need content.
    */
   public function kbCoverage(array $options = ['gaps-only' => FALSE]) {
-    $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
+    $module_path = $this->moduleExtensionList->getPath('ilas_site_assistant');
 
     try {
       $topic_map = Yaml::parseFile($module_path . '/config/routing/topic_map.yml');
@@ -233,7 +252,7 @@ class KbImportCommands extends DrushCommands {
     $rows = KbCoverageAnalyzer::analyze(
       is_array($topic_map) ? $topic_map : [],
       $documents,
-      \Drupal::service('ilas_site_assistant.top_intents_pack')->getAllKeys(),
+      $this->topIntentsPack->getAllKeys(),
       $stubs,
     );
 
@@ -304,6 +323,9 @@ class KbImportCommands extends DrushCommands {
     $documents = [];
     foreach (array_chunk($ids, 100) as $chunk) {
       foreach ($storage->loadMultiple($chunk) as $paragraph) {
+        if (!$paragraph instanceof FieldableEntityInterface) {
+          continue;
+        }
         [$heading_field, $body_field] = $fields[$paragraph->bundle()];
         $heading = $paragraph->hasField($heading_field) ? (string) $paragraph->get($heading_field)->value : '';
         $body = $paragraph->hasField($body_field) ? (string) $paragraph->get($body_field)->value : '';
@@ -325,7 +347,7 @@ class KbImportCommands extends DrushCommands {
    * @aliases kb-list
    */
   public function kbList() {
-    $module_path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant');
+    $module_path = $this->moduleExtensionList->getPath('ilas_site_assistant');
     $stub_dir = $module_path . '/config/kb-stubs';
 
     if (!is_dir($stub_dir)) {

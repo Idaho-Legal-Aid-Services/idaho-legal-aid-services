@@ -1,7 +1,7 @@
 services:
   ilas_site_assistant.commands:
     class: \Drupal\ilas_site_assistant\Commands\KbImportCommands
-    arguments: ['@entity_type.manager']
+    arguments: ['@entity_type.manager', '@extension.list.module', '@ilas_site_assistant.top_intents_pack']
     tags:
       - { name: drush.command }
   ilas_site_assistant.sentry_probe_commands:

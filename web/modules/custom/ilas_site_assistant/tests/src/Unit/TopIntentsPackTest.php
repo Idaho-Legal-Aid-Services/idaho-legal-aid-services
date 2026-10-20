@@ -51,8 +51,8 @@ class TopIntentsPackTest extends TestCase {
   /**
    * Every answer_text is covered by the reviewer's recorded sign-off.
    *
-   * answer_text is served verbatim to visitors, so it is reviewed content.
-   * The digest pins the exact wording that was signed off: change any
+   * The answer_text field is served verbatim to visitors, so it is reviewed
+   * content. The digest pins the exact wording that was signed off: change any
    * answer_text and this fails until the reviewer re-records reviewed_on
    * and the new digest in answer_text_review (see docs/GOVERNANCE.md).
    */
