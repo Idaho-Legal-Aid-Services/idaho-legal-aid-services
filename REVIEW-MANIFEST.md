@@ -139,7 +139,6 @@ user_admin_people, watchdog, webform_submissions.
 - drupal/tmgmt → tmgmt-paragraphs-3134922-46.patch
 - drupal/gemini_provider → gemini-provider-v1beta.patch
 - drupal/ai_vdb_provider_pinecone → ai-vdb-provider-pinecone-query-timeouts.patch
-- drupal/ai → ai-search-embedding-base-honor-convert-to-label.patch
 
 No `composer.patches.json` file exists (patches declared inline in composer.json).
 Patches touch contrib/core (out of scope) but are noted for Pass 1 advisory context.
