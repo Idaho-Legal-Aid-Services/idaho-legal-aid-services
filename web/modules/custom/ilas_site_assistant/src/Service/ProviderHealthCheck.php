@@ -32,6 +32,7 @@ final class ProviderHealthCheck {
       'cohere' => $this->checkCohere(),
       'voyage' => $this->checkVoyage(),
       'pinecone' => $this->checkPinecone(),
+      'grounded_generation' => $this->checkGroundedGeneration(),
     ];
 
     $report['ok'] = ($report['cohere']['ok'] ?? FALSE)
@@ -61,6 +62,39 @@ final class ProviderHealthCheck {
       'reason' => $probe['reason'] ?? NULL,
       'last_error' => $this->sanitizeError($probe['last_error'] ?? NULL),
     ];
+  }
+
+  /**
+   * Grounded-generation readiness (informational; not part of `ok`).
+   *
+   * Runs the grounded probe only when generation is runtime-ready so a dark
+   * deployment never spends a provider call.
+   *
+   * @return array<string, mixed>
+   */
+  private function checkGroundedGeneration(): array {
+    $summary = $this->cohereProbe->getGroundedReadinessSummary();
+    $result = [
+      'ok' => NULL,
+      'generation_enabled' => (bool) ($summary['generation_enabled'] ?? FALSE),
+      'generation_runtime_ready' => (bool) ($summary['generation_runtime_ready'] ?? FALSE),
+      'grounded_probe_passed' => FALSE,
+      'citation_count' => 0,
+      'latency_ms' => NULL,
+      'reason' => 'generation_disabled',
+      'last_error' => NULL,
+    ];
+    if (!$result['generation_runtime_ready']) {
+      return $result;
+    }
+    $probe = $this->cohereProbe->probeGrounded();
+    $result['ok'] = (bool) ($probe['grounded_probe_passed'] ?? FALSE);
+    $result['grounded_probe_passed'] = $result['ok'];
+    $result['citation_count'] = (int) ($probe['citation_count'] ?? 0);
+    $result['latency_ms'] = $probe['latency_ms'] ?? NULL;
+    $result['reason'] = $probe['reason'] ?? NULL;
+    $result['last_error'] = $this->sanitizeError($probe['last_error'] ?? NULL);
+    return $result;
   }
 
   /**

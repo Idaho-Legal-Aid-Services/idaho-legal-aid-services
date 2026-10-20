@@ -29,6 +29,56 @@ class TopicRouterTest extends TestCase {
   }
 
   /**
+   * Sub-topic alias resolution used for sub-topic carry-through.
+   */
+  #[DataProvider('resolveTopicKeysProvider')]
+  public function testResolveTopicKeys(string $input, array $expected_keys): void {
+    $keys = array_column($this->router->resolveTopicKeys($input), 'canonical_key');
+    $this->assertSame($expected_keys, $keys, "Sub-topic keys mismatch for '$input'");
+  }
+
+  /**
+   *
+   */
+  public static function resolveTopicKeysProvider(): array {
+    return [
+      ['tenant rights', ['housing_landlord_tenant']],
+      ['Tenant Rights', ['housing_landlord_tenant']],
+      ['entering a residence', ['housing_landlord_tenant']],
+      ['My landlord tried to enter my home without notice', ['housing_landlord_tenant']],
+      ['my landlord is not renewing my lease because i complained', ['housing_landlord_tenant']],
+      // Both eviction and landlord_tenant are named; order is deterministic.
+      ['I got an eviction notice from my landlord', ['housing_eviction', 'housing_landlord_tenant']],
+      ['housing', []],
+      ['renew passport', []],
+      ['custody', ['family_custody_parenting']],
+      ['', []],
+      // Sub-topics without a pack entry still resolve; the router decides
+      // what to do with them.
+      ['security deposits', ['housing_security_deposit']],
+      ['security deposit', ['housing_security_deposit']],
+      ['power of attorney', ['seniors_power_of_attorney']],
+      ['mobile home', ['housing_mobile_home']],
+      ['public benefits', ['health_public_benefits']],
+      ['workplace rights', ['employment_workplace_rights']],
+      ['deposit', []],
+    ];
+  }
+
+  /**
+   * pack_intent is carried into the alias index when configured.
+   */
+  public function testPackIntentCarriedForCustody(): void {
+    $entries = $this->router->resolveTopicKeys('custody');
+    $this->assertCount(1, $entries);
+    $this->assertSame('topic_family_custody', $entries[0]['pack_intent']);
+    $this->assertSame('custody', $entries[0]['matched_alias']);
+
+    $entries = $this->router->resolveTopicKeys('tenant rights');
+    $this->assertNull($entries[0]['pack_intent']);
+  }
+
+  /**
    * Tests that the topic map loaded correctly.
    */
   public function testTopicMapLoaded(): void {

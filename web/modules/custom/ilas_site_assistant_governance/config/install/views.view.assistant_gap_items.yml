@@ -47,6 +47,7 @@ display:
             assistant_gap_item_bulk_form: assistant_gap_item_bulk_form
             exemplar_redacted_query: exemplar_redacted_query
             review_state: review_state
+            trigger_code: trigger_code
             next_action: next_action
             identity_context_key: identity_context_key
             primary_topic_tid: primary_topic_tid
@@ -66,6 +67,8 @@ display:
             exemplar_redacted_query:
               sortable: false
             review_state:
+              sortable: false
+            trigger_code:
               sortable: false
             next_action:
               sortable: false
@@ -259,6 +262,26 @@ display:
           entity_field: review_state
           plugin_id: field
           label: State
+          exclude: false
+          alter:
+            alter_text: false
+          element_default_classes: true
+          hide_empty: false
+          empty_zero: false
+          hide_alter_empty: true
+          type: list_default
+          settings: {  }
+        trigger_code:
+          id: trigger_code
+          table: assistant_gap_item
+          field: trigger_code
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: trigger_code
+          plugin_id: field
+          label: Trigger
           exclude: false
           alter:
             alter_text: false
@@ -613,12 +636,25 @@ display:
           admin_label: ''
           entity_type: assistant_gap_item
           entity_field: review_state
-          plugin_id: list_field
-          operator: or
+          plugin_id: in_operator
+          operator: in
           value:
             new: new
             needs_review: needs_review
             reviewed: reviewed
+        trigger_code:
+          id: trigger_code
+          table: assistant_gap_item
+          field: trigger_code
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: trigger_code
+          plugin_id: in_operator
+          operator: 'not in'
+          value:
+            clarify_unknown_intent: clarify_unknown_intent
         occurrence_count_unresolved:
           id: occurrence_count_unresolved
           table: assistant_gap_item
@@ -655,8 +691,8 @@ display:
           admin_label: ''
           entity_type: assistant_gap_item
           entity_field: review_state
-          plugin_id: list_field
-          operator: or
+          plugin_id: in_operator
+          operator: in
           value:
             new: new
         occurrence_count_unresolved:
@@ -695,8 +731,8 @@ display:
           admin_label: ''
           entity_type: assistant_gap_item
           entity_field: review_state
-          plugin_id: list_field
-          operator: or
+          plugin_id: in_operator
+          operator: in
           value:
             needs_review: needs_review
         occurrence_count_unresolved:
@@ -714,11 +750,174 @@ display:
             value: '0'
       menu:
         type: none
+  page_clarify:
+    id: page_clarify
+    display_title: 'Clarify misses'
+    display_plugin: page
+    position: 4
+    display_options:
+      defaults:
+        title: false
+        filters: false
+        sorts: false
+      title: 'Generic clarify misses (queries the assistant did not understand)'
+      path: admin/reports/ilas-assistant/gaps/clarify
+      filters:
+        review_state:
+          id: review_state
+          table: assistant_gap_item
+          field: review_state
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: review_state
+          plugin_id: in_operator
+          operator: in
+          value:
+            new: new
+            needs_review: needs_review
+            reviewed: reviewed
+        trigger_code:
+          id: trigger_code
+          table: assistant_gap_item
+          field: trigger_code
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: trigger_code
+          plugin_id: in_operator
+          operator: in
+          value:
+            clarify_unknown_intent: clarify_unknown_intent
+            clarify_loop_break: clarify_loop_break
+            clarify_no_grounding: clarify_no_grounding
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: numeric
+          operator: '>'
+          value:
+            value: '0'
+      sorts:
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: standard
+          order: DESC
+        last_seen:
+          id: last_seen
+          table: assistant_gap_item
+          field: last_seen
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: last_seen
+          plugin_id: date
+          order: DESC
+      menu:
+        type: none
+  page_top_misses:
+    id: page_top_misses
+    display_title: 'Top misses (30d)'
+    display_plugin: page
+    position: 5
+    display_options:
+      defaults:
+        title: false
+        filters: false
+        sorts: false
+      title: 'Top misses in the last 30 days'
+      path: admin/reports/ilas-assistant/gaps/top-misses
+      filters:
+        review_state:
+          id: review_state
+          table: assistant_gap_item
+          field: review_state
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: review_state
+          plugin_id: in_operator
+          operator: in
+          value:
+            new: new
+            needs_review: needs_review
+            reviewed: reviewed
+        last_seen:
+          id: last_seen
+          table: assistant_gap_item
+          field: last_seen
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: last_seen
+          plugin_id: date
+          operator: '>='
+          value:
+            min: ''
+            max: ''
+            value: '-30 days'
+            type: offset
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: numeric
+          operator: '>'
+          value:
+            value: '0'
+      sorts:
+        occurrence_count_unresolved:
+          id: occurrence_count_unresolved
+          table: assistant_gap_item
+          field: occurrence_count_unresolved
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: occurrence_count_unresolved
+          plugin_id: standard
+          order: DESC
+        last_seen:
+          id: last_seen
+          table: assistant_gap_item
+          field: last_seen
+          relationship: none
+          group_type: group
+          admin_label: ''
+          entity_type: assistant_gap_item
+          entity_field: last_seen
+          plugin_id: date
+          order: DESC
+      menu:
+        type: none
   page_all:
     id: page_all
     display_title: All
     display_plugin: page
-    position: 4
+    position: 6
     display_options:
       defaults:
         title: false

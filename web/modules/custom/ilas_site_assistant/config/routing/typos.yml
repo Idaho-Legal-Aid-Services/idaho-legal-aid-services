@@ -1,0 +1,89 @@
+# Typo dictionary — explicit misspelling → canonical word corrections.
+#
+# Loaded by TypoCorrector (src/Service/TypoCorrector.php) and applied
+# before Levenshtein matching, so entries here are corrected even when the
+# edit distance is larger than the conservative fuzzy thresholds allow
+# (e.g. "tenet" -> "tenant" is distance 2 on a 5-letter token).
+#
+# Format: canonical_word -> [misspellings]. Canonical words must be real
+# vocabulary terms (TypoCorrectorTest::testDictionaryTargetsAreVocabulary).
+# Corrections show up in KeywordExtractor output as typos_corrected and are
+# applied to the message IntentRouter hands to the short-message matchers.
+#
+# To add an entry seen in the gap review queue: append the misspelling under
+# its canonical word, then add a case to TypoCorrectorTest::typoCorrectionProvider.
+
+typos:
+  apartment:
+    - apartmant
+    - appartment
+    - apartement
+  application:
+    - aplicaton
+    - aplication
+    - applicaton
+  bankruptcy:
+    - bankrupcy
+    - bankrupty
+    - bankrupcty
+    - bankruptsy
+  custody:
+    - cutsody
+    - custidy
+    - custoy
+    - cusotdy
+  deposit:
+    - deposite
+    - depost
+  divorce:
+    - divorec
+    - divorse
+    - divore
+    - divorece
+  eviction:
+    - evicton
+    - eviciton
+    - evition
+    - eviktion
+    - evictoin
+  foreclosure:
+    - forclosure
+    - foreclosur
+    - forecloser
+  garnishment:
+    - garnishmen
+    - garnishement
+  guardianship:
+    - gaurdianship
+    - guardienship
+  landlord:
+    - landord
+    - lanldord
+    - landolrd
+    - landlard
+    - lanlord
+    - landlords
+  lawyer:
+    - laywyer
+    - laywer
+    - lawer
+    - laweyr
+  lease:
+    - leese
+    - leas
+  notice:
+    - notise
+    - notic
+  protection:
+    - protecton
+    - protecion
+    - proteccion
+  renter:
+    - rentor
+  tenant:
+    - tenet
+    - tenent
+    - tennant
+    - tenat
+    - tenents
+    - tennants

@@ -192,11 +192,14 @@ class LlmAdmissionCoordinator {
         $this->logRateLimiterThresholds($limiter);
       }
 
+      $operation = self::normalizeOperation($options[CostControlPolicy::OPTION_OPERATION] ?? NULL);
       $daily['count']++;
+      $daily['by_operation'][$operation] = (int) ($daily['by_operation'][$operation] ?? 0) + 1;
       $this->state->set(CostControlPolicy::STATE_KEY_DAILY, $daily);
       $this->logDailyBudgetThresholds($daily);
 
       $monthly['count']++;
+      $monthly['by_operation'][$operation] = (int) ($monthly['by_operation'][$operation] ?? 0) + 1;
       $this->state->set(CostControlPolicy::STATE_KEY_MONTHLY, $monthly);
 
       if ($identityHash !== NULL && $this->getCostControlConfig('per_ip_hourly_call_limit') > 0) {
@@ -312,19 +315,94 @@ class LlmAdmissionCoordinator {
 
   /**
    * Atomically records a compatibility-path cost-control increment.
+   *
+   * Increments the call counters AND attributes usage/cost. Only for callers
+   * that did not reserve budget through beginRequest().
+   *
+   * @param string $operation
+   *   Operation label for per-operation counters.
+   * @param float $estimatedCostUsd
+   *   Estimated cost of the call in USD.
+   * @param array<string, int> $tokenUsage
+   *   Normalized token usage ('input', 'output').
    */
-  public function recordCostControlCall(): void {
-    $this->withBlockingControlLock(function (): void {
+  public function recordCostControlCall(string $operation = CostControlPolicy::OPERATION_DEFAULT, float $estimatedCostUsd = 0.0, array $tokenUsage = []): void {
+    $operation = self::normalizeOperation($operation);
+    $this->withBlockingControlLock(function () use ($operation, $estimatedCostUsd, $tokenUsage): void {
       $now = time();
-      $daily = $this->getDailyBudgetData($now);
+      $daily = $this->applyUsage($this->getDailyBudgetData($now), $estimatedCostUsd, $tokenUsage);
       $daily['count']++;
+      $daily['by_operation'][$operation] = (int) ($daily['by_operation'][$operation] ?? 0) + 1;
       $this->state->set(CostControlPolicy::STATE_KEY_DAILY, $daily);
       $this->logDailyBudgetThresholds($daily);
 
-      $monthly = $this->getMonthlyBudgetData($now);
+      $monthly = $this->applyUsage($this->getMonthlyBudgetData($now), $estimatedCostUsd, $tokenUsage);
       $monthly['count']++;
+      $monthly['by_operation'][$operation] = (int) ($monthly['by_operation'][$operation] ?? 0) + 1;
       $this->state->set(CostControlPolicy::STATE_KEY_MONTHLY, $monthly);
     });
+  }
+
+  /**
+   * Atomically attributes usage/cost to a call already reserved at admission.
+   *
+   * Never touches the call counters.
+   *
+   * @param string $operation
+   *   Operation label (kept for symmetry and future per-operation cost).
+   * @param float $estimatedCostUsd
+   *   Estimated cost of the call in USD.
+   * @param array<string, int> $tokenUsage
+   *   Normalized token usage ('input', 'output').
+   */
+  public function recordCostControlUsage(string $operation, float $estimatedCostUsd, array $tokenUsage = []): void {
+    $operation = self::normalizeOperation($operation);
+    if ($estimatedCostUsd <= 0.0 && $tokenUsage === []) {
+      return;
+    }
+    $this->withBlockingControlLock(function () use ($operation, $estimatedCostUsd, $tokenUsage): void {
+      $now = time();
+      $daily = $this->applyUsage($this->getDailyBudgetData($now), $estimatedCostUsd, $tokenUsage);
+      $daily['cost_by_operation'][$operation] = round((float) ($daily['cost_by_operation'][$operation] ?? 0.0) + $estimatedCostUsd, 8);
+      $this->state->set(CostControlPolicy::STATE_KEY_DAILY, $daily);
+
+      $monthly = $this->applyUsage($this->getMonthlyBudgetData($now), $estimatedCostUsd, $tokenUsage);
+      $monthly['cost_by_operation'][$operation] = round((float) ($monthly['cost_by_operation'][$operation] ?? 0.0) + $estimatedCostUsd, 8);
+      $this->state->set(CostControlPolicy::STATE_KEY_MONTHLY, $monthly);
+    });
+  }
+
+  /**
+   * Adds estimated cost and token usage to a budget window.
+   *
+   * @param array<string, mixed> $data
+   *   Normalized daily or monthly budget data.
+   * @param float $estimatedCostUsd
+   *   Cost to add.
+   * @param array<string, int> $tokenUsage
+   *   Token usage to add.
+   *
+   * @return array<string, mixed>
+   *   Updated budget data.
+   */
+  protected function applyUsage(array $data, float $estimatedCostUsd, array $tokenUsage): array {
+    $data['estimated_cost_usd'] = round((float) ($data['estimated_cost_usd'] ?? 0.0) + max(0.0, $estimatedCostUsd), 8);
+    $data['tokens']['input'] = (int) ($data['tokens']['input'] ?? 0) + max(0, (int) ($tokenUsage['input'] ?? 0));
+    $data['tokens']['output'] = (int) ($data['tokens']['output'] ?? 0) + max(0, (int) ($tokenUsage['output'] ?? 0));
+    return $data;
+  }
+
+  /**
+   * Normalizes an operation label to a stable, bounded identifier.
+   */
+  public static function normalizeOperation(mixed $operation): string {
+    $label = strtolower(trim((string) $operation));
+    $label = preg_replace('/[^a-z0-9_]+/', '_', $label) ?? '';
+    $label = trim($label, '_');
+    if ($label === '') {
+      return CostControlPolicy::OPERATION_DEFAULT;
+    }
+    return substr($label, 0, 48);
   }
 
   /**
@@ -576,10 +654,10 @@ class LlmAdmissionCoordinator {
     if (!is_array($data) || !isset($data['count']) || ($data['date'] ?? '') !== $today) {
       return ['count' => 0, 'date' => $today];
     }
-    return [
+    return $this->normalizeBudgetExtras([
       'count' => (int) $data['count'],
       'date' => (string) $data['date'],
-    ];
+    ], $data);
   }
 
   /**
@@ -591,10 +669,46 @@ class LlmAdmissionCoordinator {
     if (!is_array($data) || !isset($data['count']) || ($data['month'] ?? '') !== $month) {
       return ['count' => 0, 'month' => $month];
     }
-    return [
+    return $this->normalizeBudgetExtras([
       'count' => (int) $data['count'],
       'month' => (string) $data['month'],
-    ];
+    ], $data);
+  }
+
+  /**
+   * Carries per-operation counters, cost, and token totals across a window.
+   *
+   * @param array<string, mixed> $normalized
+   *   Base normalized window (count + date/month).
+   * @param array<string, mixed> $raw
+   *   Raw stored window.
+   *
+   * @return array<string, mixed>
+   *   Normalized window with optional extras preserved.
+   */
+  protected function normalizeBudgetExtras(array $normalized, array $raw): array {
+    if (is_array($raw['by_operation'] ?? NULL)) {
+      $normalized['by_operation'] = [];
+      foreach ($raw['by_operation'] as $operation => $count) {
+        $normalized['by_operation'][self::normalizeOperation($operation)] = max(0, (int) $count);
+      }
+    }
+    if (is_array($raw['cost_by_operation'] ?? NULL)) {
+      $normalized['cost_by_operation'] = [];
+      foreach ($raw['cost_by_operation'] as $operation => $cost) {
+        $normalized['cost_by_operation'][self::normalizeOperation($operation)] = max(0.0, (float) $cost);
+      }
+    }
+    if (isset($raw['estimated_cost_usd'])) {
+      $normalized['estimated_cost_usd'] = max(0.0, (float) $raw['estimated_cost_usd']);
+    }
+    if (is_array($raw['tokens'] ?? NULL)) {
+      $normalized['tokens'] = [
+        'input' => max(0, (int) ($raw['tokens']['input'] ?? 0)),
+        'output' => max(0, (int) ($raw['tokens']['output'] ?? 0)),
+      ];
+    }
+    return $normalized;
   }
 
   /**

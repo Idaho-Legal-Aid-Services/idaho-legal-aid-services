@@ -36,6 +36,8 @@ final class LlmRuntimeConfigResolver {
     $key_present = $this->getApiKey() !== '';
     $provider_is_cohere = $provider === self::DEFAULT_PROVIDER;
     $model_configured = $model !== '';
+    $runtime_ready = $enabled && $provider_is_cohere && $model_configured && $key_present;
+    $generation_enabled = (bool) ($config->get('llm.generation.enabled') ?? FALSE);
 
     return [
       'enabled' => $enabled,
@@ -44,15 +46,26 @@ final class LlmRuntimeConfigResolver {
       'provider_is_cohere' => $provider_is_cohere,
       'model_configured' => $model_configured,
       'key_present' => $key_present,
-      'runtime_ready' => $enabled && $provider_is_cohere && $model_configured && $key_present,
+      'runtime_ready' => $runtime_ready,
+      'generation_enabled' => $generation_enabled,
+      'generation_runtime_ready' => $runtime_ready && $generation_enabled,
       'sources' => [
         'enabled' => $this->enabledSource(),
         'provider' => $provider_config !== '' ? 'config export llm.provider' : 'code default',
         'model' => $model_config !== '' ? 'config export llm.model' : 'code default',
         'key_present' => 'settings.php runtime site setting ILAS_COHERE_API_KEY -> getenv/pantheon_get_secret',
         'runtime_ready' => 'llm.enabled + llm.provider + llm.model + runtime Cohere key',
+        'generation_enabled' => $this->generationEnabledSource(),
+        'generation_runtime_ready' => 'llm.runtime_ready + llm.generation.enabled',
       ],
     ];
+  }
+
+  /**
+   * Returns TRUE when grounded answer generation is fully runtime-ready.
+   */
+  public function isGenerationRuntimeReady(): bool {
+    return (bool) ($this->resolve()['generation_runtime_ready'] ?? FALSE);
   }
 
   /**
@@ -100,6 +113,18 @@ final class LlmRuntimeConfigResolver {
     }
 
     return 'config export llm.enabled';
+  }
+
+  /**
+   * Returns the source label for the effective generation enablement value.
+   */
+  private function generationEnabledSource(): string {
+    $override = Settings::get('ilas_llm_generation_override_channel');
+    if (is_string($override) && trim($override) !== '') {
+      return trim($override);
+    }
+
+    return 'config export llm.generation.enabled';
   }
 
 }

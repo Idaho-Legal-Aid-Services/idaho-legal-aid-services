@@ -86,6 +86,13 @@ function ilas_site_assistant_governance_schema(): array {
         'unsigned' => TRUE,
         'not null' => FALSE,
       ],
+      'has_negative_feedback' => [
+        'description' => 'Any assistant turn in this conversation received not-helpful feedback.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'is_held' => [
         'type' => 'int',
         'size' => 'tiny',
@@ -203,6 +210,17 @@ function ilas_site_assistant_governance_schema(): array {
         'unsigned' => TRUE,
         'not null' => FALSE,
       ],
+      'feedback_value' => [
+        'description' => 'helpful / not_helpful feedback on an assistant turn.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+      ],
+      'feedback_at' => [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ],
       'created' => [
         'type' => 'int',
         'unsigned' => TRUE,
@@ -291,10 +309,18 @@ function ilas_site_assistant_governance_schema(): array {
         'length' => 64,
         'not null' => FALSE,
       ],
+      'trigger_code' => [
+        'description' => 'Why this occurrence was recorded (GapReviewDecider::TRIGGER_*).',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'no_match_fallback',
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
       'gap_item_occurred' => ['gap_item_id', 'occurred_at'],
+      'trigger_occurred' => ['trigger_code', 'occurred_at'],
       'topic_occurred' => ['observed_topic_tid', 'occurred_at'],
       'service_area_occurred' => ['observed_service_area_tid', 'occurred_at'],
       'conversation_id' => ['conversation_id'],
@@ -571,6 +597,126 @@ function ilas_site_assistant_governance_update_11005(): void {
       ->condition('conversation_id', $chunk, 'IN')
       ->execute();
   }
+}
+
+/**
+ * Adds trigger codes to gap items and gap-hit evidence rows.
+ */
+function ilas_site_assistant_governance_update_11007(): string {
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $entity_type = $entity_type_manager->getDefinition('assistant_gap_item');
+  $field_definitions = AssistantGapItem::baseFieldDefinitions($entity_type);
+  $entity_definition_update_manager = \Drupal::entityDefinitionUpdateManager();
+  $installed_field_definitions = \Drupal::service('entity.last_installed_schema.repository')
+    ->getLastInstalledFieldStorageDefinitions('assistant_gap_item');
+
+  $installed = [];
+  foreach (['trigger_code', 'latest_trigger_code'] as $field_name) {
+    if (!isset($installed_field_definitions[$field_name])) {
+      $entity_definition_update_manager->installFieldStorageDefinition(
+        $field_name,
+        'assistant_gap_item',
+        'ilas_site_assistant_governance',
+        $field_definitions[$field_name],
+      );
+      $installed[] = $field_name;
+    }
+  }
+
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('assistant_gap_item')) {
+    // Pre-existing items were all created by the no-match trigger.
+    foreach (['trigger_code', 'latest_trigger_code'] as $field_name) {
+      if ($schema->fieldExists('assistant_gap_item', $field_name)) {
+        $database->update('assistant_gap_item')
+          ->fields([$field_name => AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK])
+          ->isNull($field_name)
+          ->execute();
+      }
+    }
+    if (!$schema->indexExists('assistant_gap_item', 'assistant_gap_item__trigger_last_seen')
+      && $schema->fieldExists('assistant_gap_item', 'trigger_code')
+      && $schema->fieldExists('assistant_gap_item', 'last_seen')) {
+      $schema->addIndex('assistant_gap_item', 'assistant_gap_item__trigger_last_seen', ['trigger_code', 'last_seen'], [
+        'fields' => [
+          'trigger_code' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => 'no_match_fallback'],
+          'last_seen' => ['type' => 'int', 'not null' => FALSE],
+        ],
+      ]);
+    }
+  }
+
+  $hit_table = 'ilas_site_assistant_gap_hit';
+  if ($schema->tableExists($hit_table)) {
+    if (!$schema->fieldExists($hit_table, 'trigger_code')) {
+      $schema->addField($hit_table, 'trigger_code', [
+        'description' => 'Why this occurrence was recorded (GapReviewDecider::TRIGGER_*).',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => 'no_match_fallback',
+      ]);
+    }
+    if (!$schema->indexExists($hit_table, 'trigger_occurred')) {
+      $schema->addIndex($hit_table, 'trigger_occurred', ['trigger_code', 'occurred_at'], [
+        'fields' => [
+          'trigger_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'no_match_fallback'],
+          'occurred_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        ],
+      ]);
+    }
+  }
+
+  return $installed === []
+    ? (string) t('Trigger code fields were already installed.')
+    : (string) t('Installed gap item trigger fields: @fields.', ['@fields' => implode(', ', $installed)]);
+}
+
+/**
+ * Adds per-turn feedback columns and the session negative-feedback flag.
+ */
+function ilas_site_assistant_governance_update_11008(): string {
+  $schema = \Drupal::database()->schema();
+  $added = [];
+
+  $turn_table = 'ilas_site_assistant_conversation_turn';
+  if ($schema->tableExists($turn_table)) {
+    if (!$schema->fieldExists($turn_table, 'feedback_value')) {
+      $schema->addField($turn_table, 'feedback_value', [
+        'description' => 'helpful / not_helpful feedback on an assistant turn.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => FALSE,
+      ]);
+      $added[] = 'turn.feedback_value';
+    }
+    if (!$schema->fieldExists($turn_table, 'feedback_at')) {
+      $schema->addField($turn_table, 'feedback_at', [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ]);
+      $added[] = 'turn.feedback_at';
+    }
+  }
+
+  $session_table = 'ilas_site_assistant_conversation_session';
+  if ($schema->tableExists($session_table) && !$schema->fieldExists($session_table, 'has_negative_feedback')) {
+    $schema->addField($session_table, 'has_negative_feedback', [
+      'description' => 'Any assistant turn in this conversation received not-helpful feedback.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+    $added[] = 'session.has_negative_feedback';
+  }
+
+  return $added === []
+    ? (string) t('Feedback columns were already present.')
+    : (string) t('Added feedback columns: @columns.', ['@columns' => implode(', ', $added)]);
 }
 
 /**

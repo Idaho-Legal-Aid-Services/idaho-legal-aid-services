@@ -187,12 +187,6 @@ parameters:
 		-
 			message: '#^\\Drupal calls should be avoided in classes, use dependency injection instead$#'
 			identifier: globalDrupalDependencyInjection.useDependencyInjection
-			count: 2
-			path: web/modules/custom/ilas_site_assistant/src/Commands/KbImportCommands.php
-
-		-
-			message: '#^\\Drupal calls should be avoided in classes, use dependency injection instead$#'
-			identifier: globalDrupalDependencyInjection.useDependencyInjection
 			count: 1
 			path: web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php
 
@@ -211,12 +205,6 @@ parameters:
 		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
 			identifier: new.static
-			count: 1
-			path: web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
-
-		-
-			message: '#^Variable \$request_id on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.variable
 			count: 1
 			path: web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
 
@@ -927,30 +915,6 @@ parameters:
 			identifier: new.static
 			count: 1
 			path: web/modules/custom/ilas_site_assistant_governance/src/Plugin/Action/ReleaseAssistantGapItemLegalHold.php
-
-		-
-			message: '#^Call to an undefined method Drupal\\Core\\Entity\\EntityInterface\:\:get\(\)\.$#'
-			identifier: method.notFound
-			count: 5
-			path: web/modules/custom/ilas_site_assistant_governance/src/Service/GapItemManager.php
-
-		-
-			message: '#^Call to an undefined method Drupal\\Core\\Entity\\EntityInterface\:\:set\(\)\.$#'
-			identifier: method.notFound
-			count: 6
-			path: web/modules/custom/ilas_site_assistant_governance/src/Service/GapItemManager.php
-
-		-
-			message: '#^Call to an undefined method Drupal\\Core\\Entity\\EntityInterface\:\:setNewRevision\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: web/modules/custom/ilas_site_assistant_governance/src/Service/GapItemManager.php
-
-		-
-			message: '#^Call to an undefined method Drupal\\Core\\Entity\\EntityInterface\:\:setRevisionLogMessage\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: web/modules/custom/ilas_site_assistant_governance/src/Service/GapItemManager.php
 
 		-
 			message: '#^Call to an undefined method GuzzleHttp\\ClientInterface\:\:get\(\)\.$#'

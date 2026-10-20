@@ -164,6 +164,7 @@ class FallbackGate {
     'topic_family_protection_order',
     'topic_housing_eviction',
     'topic_housing_foreclosure',
+    'topic_housing_landlord_tenant',
     'topic_consumer_debt_collection',
     'topic_consumer_bankruptcy',
   ];
@@ -580,8 +581,13 @@ class FallbackGate {
     // Adjust based on message characteristics.
     $word_count = str_word_count($message);
 
+    // Top Intents pack matches are exact synonym/alias hits that carry a
+    // deterministic answer ("tenant rights" -> topic_housing_landlord_tenant);
+    // a two-word query is not less certain for being short in that case.
+    $is_pack_backed = !empty($intent['pack_entry']) && is_array($intent['pack_entry']);
+
     // Very short messages get lower confidence.
-    if ($word_count < 3) {
+    if ($word_count < 3 && !$is_pack_backed) {
       $base_conf -= 0.15;
     }
     // Medium length messages get a boost.

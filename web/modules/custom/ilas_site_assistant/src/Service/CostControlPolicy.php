@@ -24,6 +24,16 @@ class CostControlPolicy {
   const STATE_KEY_CACHE_STATS = 'ilas_site_assistant.cost_control.cache_stats';
   const STATE_KEY_KILL_SWITCH = 'ilas_site_assistant.cost_control.kill_switch';
 
+  /**
+   * Admission option carrying the operation label for per-operation counters.
+   */
+  const OPTION_OPERATION = 'operation';
+
+  /**
+   * Default operation label (bounded intent classification).
+   */
+  const OPERATION_DEFAULT = 'intent_classification';
+
   protected StateInterface $state;
   protected ConfigFactoryInterface $configFactory;
   protected LoggerInterface $logger;
@@ -123,11 +133,40 @@ class CostControlPolicy {
   /**
    * Records a successful LLM API call against budget counters.
    *
+   * Compatibility path for callers that admit through isRequestAllowed()
+   * (which does NOT reserve budget). Callers that admitted through
+   * beginRequest() already spent the call budget at admission and must use
+   * recordUsage() instead, otherwise the call is counted twice.
+   *
    * @param array|null $tokenUsage
    *   Optional token usage array with 'input' and 'output' keys.
+   * @param string $operation
+   *   Operation label for per-operation counters.
    */
-  public function recordCall(?array $tokenUsage = NULL): void {
-    $this->admissionCoordinator->recordCostControlCall();
+  public function recordCall(?array $tokenUsage = NULL, string $operation = self::OPERATION_DEFAULT): void {
+    $this->admissionCoordinator->recordCostControlCall(
+      $operation,
+      $tokenUsage !== NULL ? $this->estimateCost($tokenUsage) : 0.0,
+      $tokenUsage ?? [],
+    );
+  }
+
+  /**
+   * Records token usage and estimated cost for an already-reserved call.
+   *
+   * Does not touch the call counters: beginRequest() reserved them.
+   *
+   * @param array|null $tokenUsage
+   *   Optional token usage array with 'input' and 'output' keys.
+   * @param string $operation
+   *   Operation label for per-operation cost attribution.
+   */
+  public function recordUsage(?array $tokenUsage = NULL, string $operation = self::OPERATION_DEFAULT): void {
+    $this->admissionCoordinator->recordCostControlUsage(
+      $operation,
+      $tokenUsage !== NULL ? $this->estimateCost($tokenUsage) : 0.0,
+      $tokenUsage ?? [],
+    );
   }
 
   /**
@@ -331,6 +370,14 @@ class CostControlPolicy {
       'sample_rate' => $this->getConfigFloat('sample_rate'),
       'per_ip_hourly_call_limit' => $this->getConfig('per_ip_hourly_call_limit'),
       'per_ip_window_seconds' => $this->getConfig('per_ip_window_seconds'),
+      'calls_by_operation' => is_array($daily['by_operation'] ?? NULL) ? $daily['by_operation'] : [],
+      'monthly_calls_by_operation' => is_array($monthly['by_operation'] ?? NULL) ? $monthly['by_operation'] : [],
+      'estimated_cost_usd_daily' => round((float) ($daily['estimated_cost_usd'] ?? 0.0), 6),
+      'estimated_cost_usd_monthly' => round((float) ($monthly['estimated_cost_usd'] ?? 0.0), 6),
+      'tokens_daily' => [
+        'input' => (int) ($daily['tokens']['input'] ?? 0),
+        'output' => (int) ($daily['tokens']['output'] ?? 0),
+      ],
     ];
   }
 

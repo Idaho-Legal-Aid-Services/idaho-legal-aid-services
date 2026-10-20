@@ -27,6 +27,13 @@ Aila is a Drupal custom-module assistant exposed as `/assistant` and `/assistant
 3. `ilas:runtime-truth` and `ilas:vector-status` are the canonical verification surfaces for live enablement and rollback.
 4. TOVR-13 remains the historical blocked live-readiness baseline, and TOVR-17 supersedes it for the current live Pinecone contract.
 
+### 2026-09-15 grounded-answer generation (TOVR-18) contract note
+
+1. Request-time LLM scope is now two operations behind the same Cohere transport and admission stack: bounded ambiguous-intent classification (unchanged) and, when `llm.generation.enabled` is effective, grounded answer generation for `faq`, `resources`, `search_results`, and `eligibility` replies with citations mapped to `results[]`.
+2. Live enablement of generation is runtime-only through `ILAS_LLM_GENERATION_ENABLED`, dependent on `ILAS_LLM_ENABLED` + `ILAS_COHERE_API_KEY`; stored Drupal config remains `false` and the live admin form stays disabled. `ilas:runtime-truth` (`llm.generation.enabled`, `llm.generation.runtime_ready`) and `ilas:cohere-probe --grounded` are the canonical verification surfaces.
+3. Every response exposes `meta.generation.operation` (`intent_classification` | `grounded_answer` | null) and `meta.generation.operations`; a generated reply carries a public `generation` block with `used` and trimmed `citations` (`result_index`, `url`, `title`).
+4. Cost accounting now counts a successful provider call once (admission reservation) and attributes token usage and estimated USD per operation.
+
 ### Audit metadata and context
 
 | Field | Current value | Evidence |

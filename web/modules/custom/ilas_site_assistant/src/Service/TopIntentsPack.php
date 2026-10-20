@@ -238,6 +238,29 @@ class TopIntentsPack {
   }
 
   /**
+   * Fingerprint of every intent's answer_text, for the recorded sign-off.
+   *
+   * `answer_text_review.digest` in top_intents.yml must equal this value;
+   * TopIntentsPackTest fails otherwise, so an answer_text cannot change
+   * without the reviewer re-recording their sign-off (see
+   * docs/GOVERNANCE.md, "Pack answer text is content too").
+   *
+   * @param array $intents
+   *   The `intents` map of the pack YAML.
+   *
+   * @return string
+   *   sha256 hex digest of the sorted key => answer_text map.
+   */
+  public static function answerTextDigest(array $intents): string {
+    $texts = [];
+    foreach ($intents as $key => $entry) {
+      $texts[(string) $key] = is_array($entry) ? (string) ($entry['answer_text'] ?? '') : '';
+    }
+    ksort($texts, SORT_STRING);
+    return hash('sha256', (string) json_encode($texts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+  }
+
+  /**
    * Loads and caches the YAML data.
    *
    * @return array

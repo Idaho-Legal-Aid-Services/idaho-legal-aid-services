@@ -116,6 +116,16 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
   public const RESOLUTION_OTHER = 'other';
 
   /**
+   * Trigger codes (mirror of GapReviewDecider::TRIGGER_* in the runtime).
+   */
+  public const TRIGGER_NO_MATCH_FALLBACK = 'no_match_fallback';
+  public const TRIGGER_CLARIFY_UNKNOWN_INTENT = 'clarify_unknown_intent';
+  public const TRIGGER_CLARIFY_LOOP_BREAK = 'clarify_loop_break';
+  public const TRIGGER_CLARIFY_NO_GROUNDING = 'clarify_no_grounding';
+  public const TRIGGER_NEGATIVE_FEEDBACK = 'negative_feedback';
+  public const TRIGGER_REVIEWER_FLAGGED = 'reviewer_flagged';
+
+  /**
    * Returns allowed review states.
    */
   public static function stateOptions(): array {
@@ -126,6 +136,28 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
       self::STATE_RESOLVED => (string) t('Resolved'),
       self::STATE_ARCHIVED => (string) t('Archived'),
     ];
+  }
+
+  /**
+   * Returns allowed trigger codes (why an item entered the queue).
+   */
+  public static function triggerCodeOptions(): array {
+    return [
+      self::TRIGGER_NO_MATCH_FALLBACK => (string) t('No-match fallback'),
+      self::TRIGGER_CLARIFY_UNKNOWN_INTENT => (string) t('Generic clarify (unknown intent)'),
+      self::TRIGGER_CLARIFY_LOOP_BREAK => (string) t('Clarify loop'),
+      self::TRIGGER_CLARIFY_NO_GROUNDING => (string) t('Grounding refusal'),
+      self::TRIGGER_NEGATIVE_FEEDBACK => (string) t('Not-helpful feedback'),
+      self::TRIGGER_REVIEWER_FLAGGED => (string) t('Flagged by reviewer'),
+    ];
+  }
+
+  /**
+   * Normalizes a trigger code to a known value.
+   */
+  public static function normalizeTriggerCode(?string $trigger_code): string {
+    $trigger_code = trim((string) $trigger_code);
+    return isset(self::triggerCodeOptions()[$trigger_code]) ? $trigger_code : self::TRIGGER_NO_MATCH_FALLBACK;
   }
 
   /**
@@ -647,6 +679,30 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
         ],
       ]);
 
+    $fields['trigger_code'] = BaseFieldDefinition::create('list_string')
+      ->setLabel(t('Trigger'))
+      ->setDescription(t('Why this item first entered the review queue.'))
+      ->setRequired(TRUE)
+      ->setDefaultValue(self::TRIGGER_NO_MATCH_FALLBACK)
+      ->setSetting('allowed_values', self::triggerCodeOptions())
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'list_default',
+        'weight' => -5,
+      ]);
+
+    $fields['latest_trigger_code'] = BaseFieldDefinition::create('list_string')
+      ->setLabel(t('Latest trigger'))
+      ->setDescription(t('Why the most recent occurrence was recorded.'))
+      ->setRequired(TRUE)
+      ->setDefaultValue(self::TRIGGER_NO_MATCH_FALLBACK)
+      ->setSetting('allowed_values', self::triggerCodeOptions())
+      ->setDisplayOptions('view', [
+        'label' => 'above',
+        'type' => 'list_default',
+        'weight' => -4,
+      ]);
+
     $fields['topic_assignment_source'] = BaseFieldDefinition::create('list_string')
       ->setLabel(t('Topic assignment source'))
       ->setRequired(TRUE)
@@ -831,6 +887,12 @@ class AssistantGapItem extends RevisionableContentEntityBase implements EntityOw
         'weight' => 8,
       ]);
 
+    // Views: not mapped in ilas_site_assistant_governance_views_data_alter().
+    // Being multi-value it lives in its own table, so a Views filter on it
+    // needs a many_to_one handler with the options callback (in_operator,
+    // used for the single-value list fields, is wrong here). Until that
+    // mapping exists Views falls back to the plain string filter, which
+    // silently ignores "in"/"or" — map it before adding any such filter.
     $fields['secondary_flags'] = BaseFieldDefinition::create('list_string')
       ->setLabel(t('Secondary flags'))
       ->setSetting('allowed_values', self::secondaryFlagOptions())

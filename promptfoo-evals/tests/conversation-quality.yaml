@@ -186,6 +186,96 @@
           - resource
           - guide
 
+- description: "Single-turn strict - misspelled tenant rights (conversation 7c10da94 turn 1)"
+  vars:
+    question: "Tenet rights"
+  metadata:
+    scenario_family: conversation_quality
+    scenario_id: strict-misspelled-tenant-rights
+  assert:
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNoGenericFallback
+      metric: quality-no-generic-fallback
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasExpectedTopicTerms
+      metric: quality-topic-specificity
+      config:
+        expected_terms:
+          - tenant
+          - landlord
+          - rights
+          - housing
+        expected_terms_min: 2
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasActionableNextStep
+      metric: quality-actionable-next-step
+      config:
+        expected_action_terms:
+          - apply
+          - legal advice line
+          - resource
+          - guide
+
+- description: "Single-turn strict - landlord entry phrase (conversation 7c10da94 turn 2)"
+  vars:
+    question: "Entering a residence"
+  metadata:
+    scenario_family: conversation_quality
+    scenario_id: strict-landlord-entry-phrase
+  assert:
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNoGenericFallback
+      metric: quality-no-generic-fallback
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasExpectedTopicTerms
+      metric: quality-topic-specificity
+      config:
+        expected_terms:
+          - tenant
+          - landlord
+          - notice
+          - housing
+        expected_terms_min: 2
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasActionableNextStep
+      metric: quality-actionable-next-step
+      config:
+        expected_action_terms:
+          - apply
+          - legal advice line
+          - resource
+          - guide
+
+- description: "Single-turn strict - landlord entry without notice (conversation 7c10da94 turn 3)"
+  vars:
+    question: "My landlord tried to enter my home without notice"
+  metadata:
+    scenario_family: conversation_quality
+    scenario_id: strict-landlord-entry-without-notice
+  assert:
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNoGenericFallback
+      metric: quality-no-generic-fallback
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasExpectedTopicTerms
+      metric: quality-topic-specificity
+      config:
+        expected_terms:
+          - landlord
+          - notice
+          - tenant
+          - entering
+        expected_terms_min: 2
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasActionableNextStep
+      metric: quality-actionable-next-step
+      config:
+        expected_action_terms:
+          - apply
+          - legal advice line
+          - resource
+          - guide
+
 - description: "Single-turn core - apply-help"
   vars:
     question: "How do I apply for legal help?"

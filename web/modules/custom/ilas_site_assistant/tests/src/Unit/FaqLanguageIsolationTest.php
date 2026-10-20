@@ -68,6 +68,29 @@ final class FaqLanguageIsolationTest extends TestCase {
   }
 
   /**
+   * Per-language copies of one answer collapse; distinct answers survive.
+   *
+   * Each language version of a page owns its own copy of the page's
+   * accordion items. The copies are separate paragraphs with the same
+   * question and URL, and must not fill every result slot.
+   */
+  public function testLanguageCopiesOfOneAnswerCollapseToTheBestRanked(): void {
+    $faq = new LanguageIsolationFaqIndex(
+      index_items: [
+        $this->buildFaqItem('faq_348', '/resources/renter-resources', 'Renter Resources', 'Security Deposits'),
+        $this->buildFaqItem('faq_796', '/resources/renter-resources', 'Renter Resources', 'Security Deposits'),
+        $this->buildFaqItem('faq_1059', '/resources/renter-resources', 'Renter Resources', 'security deposits '),
+        // Same URL, different question: a different answer, never collapsed.
+        $this->buildFaqItem('faq_350', '/resources/renter-resources', 'Renter Resources', 'Advice for Renters: Repairs'),
+      ],
+    );
+
+    $results = $faq->search('security deposits', 3);
+
+    $this->assertSame(['faq_348', 'faq_350'], array_column($results, 'id'));
+  }
+
+  /**
    * English legacy FAQ fallback drops foreign-language URLs.
    */
   public function testLegacySearchDropsForeignLanguageUrlsForEnglish(): void {

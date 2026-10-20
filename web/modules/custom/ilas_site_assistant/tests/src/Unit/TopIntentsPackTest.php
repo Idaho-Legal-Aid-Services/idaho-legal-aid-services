@@ -5,6 +5,7 @@ namespace Drupal\Tests\ilas_site_assistant\Unit;
 use Drupal\ilas_site_assistant\Service\TopIntentsPack;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Tests for TopIntentsPack — unified intents config loader.
@@ -45,6 +46,43 @@ class TopIntentsPackTest extends TestCase {
     $keys = $this->pack->getAllKeys();
     $this->assertNotEmpty($keys);
     $this->assertGreaterThanOrEqual(30, count($keys));
+  }
+
+  /**
+   * Every answer_text is covered by the reviewer's recorded sign-off.
+   *
+   * The answer_text field is served verbatim to visitors, so it is reviewed
+   * content. The digest pins the exact wording that was signed off: change any
+   * answer_text and this fails until the reviewer re-records reviewed_on
+   * and the new digest in answer_text_review (see docs/GOVERNANCE.md).
+   */
+  public function testAnswerTextMatchesRecordedSignOff(): void {
+    $data = Yaml::parseFile(dirname(__DIR__, 3) . '/config/intents/top_intents.yml');
+    $review = $data['answer_text_review'] ?? NULL;
+    $this->assertIsArray($review, 'top_intents.yml has no answer_text_review block.');
+    $this->assertNotEmpty(trim((string) ($review['reviewed_by'] ?? '')), 'answer_text_review.reviewed_by is empty.');
+
+    $reviewed_on = (string) ($review['reviewed_on'] ?? '');
+    $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $reviewed_on, new \DateTimeZone('UTC'));
+    $this->assertNotFalse($date, 'answer_text_review.reviewed_on must be a quoted YYYY-MM-DD date.');
+    $this->assertSame($reviewed_on, $date->format('Y-m-d'));
+    $this->assertLessThanOrEqual(new \DateTimeImmutable('now', new \DateTimeZone('UTC')), $date, 'reviewed_on is in the future.');
+
+    $this->assertSame(
+      TopIntentsPack::answerTextDigest($data['intents']),
+      $review['digest'] ?? NULL,
+      'An answer_text changed since the recorded sign-off. Have the reviewer approve the new wording, then update answer_text_review.reviewed_on and digest (recipe in top_intents.yml).',
+    );
+  }
+
+  /**
+   * The digest depends only on answer_text, not on ordering or other keys.
+   */
+  public function testAnswerTextDigestIgnoresOrderAndOtherFields(): void {
+    $a = ['x' => ['answer_text' => 'One', 'label' => 'A'], 'y' => ['answer_text' => 'Two']];
+    $b = ['y' => ['answer_text' => 'Two', 'chips' => []], 'x' => ['answer_text' => 'One']];
+    $this->assertSame(TopIntentsPack::answerTextDigest($a), TopIntentsPack::answerTextDigest($b));
+    $this->assertNotSame(TopIntentsPack::answerTextDigest($a), TopIntentsPack::answerTextDigest(['x' => ['answer_text' => 'One.'], 'y' => ['answer_text' => 'Two']]));
   }
 
   /**
@@ -107,6 +145,18 @@ class TopIntentsPackTest extends TestCase {
 
   /**
    * MatchSynonyms finds "eviction" -> topic_housing_eviction.
+   */
+  public function testLandlordTenantSynonymsRouteToSubTopic(): void {
+    $this->assertSame('topic_housing_landlord_tenant', $this->pack->matchSynonyms('what are my tenant rights'));
+    $this->assertSame('topic_housing_landlord_tenant', $this->pack->matchSynonyms('landlord entry rules'));
+    // Bare "landlord" stays an area-level synonym; IntentRouter's sub-topic
+    // carry-through (SUBTOPIC_PRIORITY) is what promotes this to eviction.
+    $this->assertSame('topic_housing', $this->pack->matchSynonyms('my landlord gave me an eviction notice'));
+    $this->assertSame('/resources/landlord-and-tenant', $this->pack->lookup('topic_housing_landlord_tenant')['primary_action']['url'] ?? NULL);
+  }
+
+  /**
+   *
    */
   public function testMatchSynonymsEviction(): void {
     $result = $this->pack->matchSynonyms('eviction');
@@ -306,6 +356,31 @@ class TopIntentsPackTest extends TestCase {
       $this->assertNotEmpty($entry['chips'], "Inventory intent '$key' should have chips");
       $this->assertNotEmpty($entry['primary_action'], "Inventory intent '$key' should have primary_action");
     }
+  }
+
+  /**
+   * No chip or clarifier option points back at the entry that offers it.
+   *
+   * A self-referential chip ("Guardianship" on the seniors card routing to
+   * the seniors card) is a dead end: the user taps a specific topic and gets
+   * the same generic answer again. Sub-topics without their own pack entry
+   * must link to a forms/guides selection or a contact action instead.
+   */
+  public function testNoChipPointsBackAtItsOwnEntry(): void {
+    $self_references = [];
+    foreach ($this->pack->getAllKeys() as $key) {
+      $options = array_merge(
+        $this->pack->getChips($key),
+        $this->pack->getClarifier($key)['options'] ?? [],
+      );
+      foreach ($options as $option) {
+        if (($option['intent'] ?? NULL) === $key) {
+          $self_references[] = $key . ' -> "' . ($option['label'] ?? '?') . '"';
+        }
+      }
+    }
+
+    $this->assertSame([], $self_references);
   }
 
 }

@@ -3155,6 +3155,109 @@ terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
     smoke output, rollback notes, and residual risks in
     `docs/aila/runtime/tovr-17-pinecone-live-enablement.txt`.
 
+### TOVR-18 Cohere grounded-answer generation runtime-toggle enablement verification
+
+- What it is: when `llm.generation.enabled` is effective, the assistant asks
+  Cohere (`command-a-03-2025`) to write a short plain-language answer strictly
+  from the retrieved FAQ/resource documents for `faq`, `resources`,
+  `search_results`, and `eligibility` replies, with provider citations mapped
+  back to `results[]`. Every guard failure (no citations, refusal sentinel,
+  legal-advice phrasing, invented contact details, URLs, length, timeout,
+  budget, breaker) keeps the deterministic template. Classification-only
+  request-time LLM behaviour is unchanged.
+- Contract summary:
+  - Exported config must remain safe-by-default with
+    `llm.generation.enabled=false`.
+  - Live enablement is runtime-only. Set `ILAS_LLM_GENERATION_ENABLED=1`,
+    clear caches, and verify with runtime truth plus the grounded probe
+    instead of saving Drupal config.
+  - It has no effect unless `ILAS_LLM_ENABLED=1` and `ILAS_COHERE_API_KEY`
+    are also present (`llm.generation.runtime_ready` in runtime truth).
+  - The live admin form keeps the grounded-generation checkbox disabled,
+    validation rejects it on `live`, and submit coerces stored config back to
+    `false`.
+  - Generation shares the classification admission stack (kill switch,
+    breaker, global 500/h, daily 5000, monthly 100000, per-IP 30/h). A
+    successful call is counted once at admission; `/assistant/api/metrics`
+    `metrics.cost_control.calls_by_operation` and
+    `estimated_cost_usd_daily` split classification from grounded answers.
+  - Public proof on every response: `generation.used` / `generation.reason`
+    and `meta.generation.operation == "grounded_answer"`,
+    `meta.generation.operations.grounded_answer.{used,reason,citation_count}`.
+    Authorized diagnostics additionally carry
+    `diagnostics.generation.template_message` (the template the answer
+    replaced).
+  - Emergency generation-only kill switch (no cache clear):
+    `drush state:set ilas_site_assistant.llm_generation.kill_switch 1`.
+- Required validation commands:
+  - `VC-RUNTIME-PANTHEON-SAFE` (`ilas:runtime-truth`, generation rows)
+  - `VC-GENERATION-PROBE` (`ilas:cohere-probe --grounded`)
+  - `VC-COHERE-PROBE` (classification probe still passes)
+  - grounded generation promptfoo suite (`promptfooconfig.generation.yaml`)
+- Local (DDEV):
+
+```bash
+cd /home/evancurry/idaho-legal-aid-services
+# .ddev/.env: ILAS_LLM_ENABLED=1 ILAS_LLM_GENERATION_ENABLED=1 ILAS_COHERE_API_KEY=<runtime key>
+ddev restart && ddev drush cr
+ddev drush ilas:runtime-truth | jq '.effective_runtime.llm | {generation_enabled, generation_runtime_ready}'
+ddev drush ilas:cohere-probe --grounded
+vendor/bin/phpunit -c phpunit.pure.xml
+vendor/bin/phpunit -c phpunit.xml --testsuite drupal-unit
+node web/modules/custom/ilas_site_assistant/tests/js/run-assistant-widget-generation-sources.mjs
+```
+
+- Hosted `dev` (then `test` after the dev soak):
+
+```bash
+terminus secret:site:set idaho-legal-aid-services.dev ILAS_LLM_GENERATION_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.dev
+terminus remote:drush idaho-legal-aid-services.dev -- cr
+terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth
+#   expect llm.generation.enabled stored=false effective=true
+#   source="settings.php runtime toggle ILAS_LLM_GENERATION_ENABLED -> getenv/pantheon_get_secret"
+terminus remote:drush idaho-legal-aid-services.dev -- ilas:cohere-probe --grounded
+ILAS_EVAL_GENERATION_MODE=on bash scripts/ci/run-promptfoo-gate.sh --env dev --mode advisory --threshold 85 --config promptfooconfig.generation.yaml --no-deep-eval
+ILAS_EVAL_GENERATION_MODE=on bash scripts/ci/run-promptfoo-gate.sh --env dev --mode advisory --config promptfooconfig.deploy.yaml --no-deep-eval
+# Nightly: set repository variable ILAS_GENERATION_EVAL=1 to enable the
+# hosted-generation-quality job. Go/no-go for live: three consecutive green
+# runs, Langfuse llm.grounded_answer p95 < 6 s, fallback rate < 30 %, zero
+# post_gen_generation_reverted analytics events.
+```
+
+- Hosted `live` enablement:
+
+```bash
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+#   pre: llm.generation.enabled effective=false
+terminus secret:site:set idaho-legal-aid-services.live ILAS_LLM_GENERATION_ENABLED 1
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+terminus remote:drush idaho-legal-aid-services.live -- ilas:cohere-probe --grounded
+# One authorized proof request (X-ILAS-Observability-Key) on an FAQ question
+# must return meta.generation.operation == "grounded_answer" and
+# generation.used == true with citations inside results[].
+# Watch for 60 minutes: Langfuse llm.grounded_answer latency/usage and
+# generation_reason distribution, Sentry ilas_site_assistant warnings,
+# /assistant/api/metrics cost_control.calls_by_operation.
+```
+
+- Rollback (secret-only, symmetric with enablement):
+
+```bash
+terminus secret:site:set idaho-legal-aid-services.live ILAS_LLM_GENERATION_ENABLED 0
+terminus env:clear-cache idaho-legal-aid-services.live
+terminus remote:drush idaho-legal-aid-services.live -- cr
+terminus remote:drush idaho-legal-aid-services.live -- ilas:runtime-truth
+# Emergency, generation only, no cache clear needed:
+terminus remote:drush idaho-legal-aid-services.live -- state:set ilas_site_assistant.llm_generation.kill_switch 1
+# Nuclear (also stops classification):
+terminus remote:drush idaho-legal-aid-services.live -- state:set ilas_site_assistant.cost_control.kill_switch 1
+```
+
+- Evidence archive: `docs/aila/runtime/tovr-18-grounded-generation-enablement.txt`.
+
 ### AFRP-01 FAQ language-isolation verification
 
 - Baseline before the remediation:

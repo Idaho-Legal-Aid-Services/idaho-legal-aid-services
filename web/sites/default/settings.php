@@ -714,6 +714,22 @@ if (
   $settings['ilas_llm_override_channel'] = 'settings.php runtime toggle ILAS_LLM_ENABLED -> getenv/pantheon_get_secret';
 }
 
+/**
+ * ILAS Site Assistant grounded answer generation rollout toggle (TOVR-18).
+ *
+ * Runtime-only toggle. Exported config keeps llm.generation.enabled FALSE.
+ * Hosted environments opt in by providing ILAS_LLM_GENERATION_ENABLED; it has
+ * no effect unless ILAS_LLM_ENABLED and the Cohere runtime key are also set.
+ */
+$ilas_llm_generation_enabled_raw = _ilas_get_secret('ILAS_LLM_GENERATION_ENABLED');
+if (
+  _ilas_read_boolean($ilas_llm_generation_enabled_raw)
+  && in_array($ilas_vector_search_environment, ['local', 'dev', 'test', 'live'], TRUE)
+) {
+  $config['ilas_site_assistant.settings']['llm']['generation']['enabled'] = TRUE;
+  $settings['ilas_llm_generation_override_channel'] = 'settings.php runtime toggle ILAS_LLM_GENERATION_ENABLED -> getenv/pantheon_get_secret';
+}
+
 if (
   !$ilas_vector_search_enabled &&
   in_array($ilas_vector_search_environment, ['dev', 'test'], TRUE) &&

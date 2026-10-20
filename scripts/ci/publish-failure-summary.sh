@@ -212,6 +212,12 @@ repro_for_phase() {
     vc_pure)
       echo "vendor/bin/phpunit -c phpunit.pure.xml"
       ;;
+    vc_custom_unit)
+      echo "vendor/bin/phpunit -c phpunit.xml --testsuite custom-unit"
+      ;;
+    theme_css_drift)
+      echo "cd web/themes/custom/b5subtheme && npm ci --omit=optional && npm run build   # see BUILD.md"
+      ;;
     vc_unit)
       echo "bash web/modules/custom/ilas_site_assistant/tests/run-quality-gate.sh --profile basic"
       ;;
@@ -252,6 +258,8 @@ phase_label() {
   case "$1" in
     composer_dry_run)            echo "composer_dry_run (pre-push parity)" ;;
     vc_pure)                     echo "vc_pure (VC-PURE)" ;;
+    vc_custom_unit)              echo "vc_custom_unit (VC-PURE, other custom modules)" ;;
+    theme_css_drift)             echo "theme_css_drift (theme SCSS changed, CSS not rebuilt)" ;;
     vc_unit)                     echo "vc_unit (Phase 1)" ;;
     vc_drupal_unit)              echo "vc_drupal_unit (Phase 1b)" ;;
     vc_kernel)                   echo "vc_kernel (Phase 1c)" ;;

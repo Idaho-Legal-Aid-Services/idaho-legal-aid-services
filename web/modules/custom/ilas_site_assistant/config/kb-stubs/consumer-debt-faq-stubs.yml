@@ -6,6 +6,15 @@
 # paragraph entity in Drupal, hosted on the consumer legal help page
 # or the main FAQ page.
 #
+# REVIEW STATUS: each stub records its own sign-off. `ilas:kb-import` imports
+# only stubs with review_status: approved, reviewed_by: "Name" and
+# reviewed_on: "YYYY-MM-DD"; it reports and skips the rest. A stub marked
+# review_status: needs_changes or revised stays blocked, and its review_notes
+# list what the reviewer wants changed or that it awaits re-approval. Every
+# stub in this file was approved by the reviewer on 2026-09-22 (rounds 1 and
+# 2 of the ILAS FAQ Sign-off Sheet; see KbStubValidator and
+# docs/GOVERNANCE.md, "Content authoring path").
+#
 # To implement:
 # 1. Create or identify the appropriate node (e.g., /legal-help/consumer or /faq)
 # 2. Add these as faq_item paragraphs with the specified fields
@@ -20,6 +29,9 @@ faq_stubs:
 
   - id: faq_debt_collection_rights
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-are-my-rights-when-a-debt-collector-contacts-me
     question: "What are my rights when a debt collector contacts me?"
@@ -72,6 +84,9 @@ faq_stubs:
 
   - id: faq_debt_dispute
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: how-do-i-dispute-a-debt
     question: "How do I dispute a debt I don't think I owe?"
@@ -80,25 +95,31 @@ faq_stubs:
       you have the right to dispute it:
 
       1. Send a written dispute letter within 30 days of the collector's first
-         notice. State that you dispute the debt and request verification.
+         notice. State that you dispute the debt and request verification. Your
+         verification right is strongest within those 30 days, but you can still
+         dispute a debt later.
 
       2. Send the letter by certified mail with return receipt so you have proof.
 
-      3. Once the collector receives your dispute, they must stop collection
-         until they provide written verification of the debt.
+      3. Once the collector receives your dispute, it must stop collecting,
+         including credit reporting, until it mails you written verification of
+         the debt. A collector also generally may not report a debt to the credit
+         bureaus before it has contacted you about it.
 
       4. Common reasons to dispute:
          - The debt is not yours (wrong person or identity theft)
          - The amount is wrong
          - You already paid the debt
          - The debt is past the statute of limitations
-         - The original creditor never notified you
+         - You never received the collector's validation notice
+         - The collector cannot show it owns the debt
 
       5. Check your credit reports for the disputed debt at
-         AnnualCreditReport.com (free once per year from each bureau).
+         AnnualCreditReport.com (free every week from each bureau).
 
-      If the collector cannot verify the debt, they must stop trying to collect
-      and remove it from your credit report.
+      If the collector cannot verify the debt, it must stop collecting, including
+      credit reporting, until it does. You can separately dispute the item with
+      the credit bureaus under the Fair Credit Reporting Act.
 
       Idaho Legal Aid may help with debt disputes for eligible clients.
     keywords:
@@ -123,6 +144,9 @@ faq_stubs:
 
   - id: faq_wage_garnishment
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-wage-garnishment
     question: "What can I do about wage garnishment?"
@@ -133,9 +157,11 @@ faq_stubs:
 
       Key facts about Idaho wage garnishment:
 
-      1. Limits - Federal law limits garnishment to 25% of your disposable
-         earnings, or the amount by which your weekly earnings exceed 30 times
-         the federal minimum wage, whichever is less.
+      1. Limits - Idaho follows the federal formula: a creditor can take no more
+         than 25% of your disposable earnings, or the amount by which your weekly
+         earnings exceed 30 times the federal minimum wage, whichever is less.
+         Only one continuing wage garnishment runs at a time, and federal law
+         bars your employer from firing you over a single garnishment.
 
       2. Exempt income - Some income cannot be garnished:
          - Social Security benefits
@@ -144,20 +170,28 @@ faq_stubs:
          - Unemployment benefits
          - Workers' compensation
          - Child support payments you receive
+         Social Security and VA benefits deposited directly into your bank
+         account get automatic protection at the bank for two months' worth of
+         benefits.
 
-      3. Head of household exemption - Idaho law provides an additional
-         exemption if you are the head of household and earn below a
-         certain threshold.
+      3. Different rules for some debts - The 25% cap does not apply to child
+         support (up to 50-65% of disposable earnings, depending on your
+         situation). Support orders, tax debt, and bankruptcy court orders bypass
+         the ordinary cap. Federal student loans can be garnished at 15% without
+         a court judgment, and IRS levies follow their own rules.
 
-      4. What you can do:
-         - File a claim of exemption with the court if protected income
-           is being garnished
+      4. The deadline - To claim an exemption, your Claim of Exemption must be
+         delivered or mailed to the sheriff and received within 14 days after the
+         garnishment papers are served on you (Idaho Code 11-203). The deadline is
+         strict. The court's Notice of Exemptions form explains how.
+
+      5. What you can do:
+         - File a claim of exemption if protected income is being garnished
          - Negotiate a payment plan with the creditor
          - Consider whether bankruptcy may be appropriate
          - Check whether the judgment is valid and current
 
-      If your wages are being garnished, act quickly. You generally have a
-      limited time to file a claim of exemption. Idaho Legal Aid may be able
+      If your wages are being garnished, act quickly. Idaho Legal Aid may be able
       to help you challenge an improper garnishment.
     keywords:
       - garnishment
@@ -181,6 +215,9 @@ faq_stubs:
 
   - id: faq_credit_report_errors
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: how-do-i-fix-errors-on-my-credit-report
     question: "How do I fix errors on my credit report?"
@@ -190,9 +227,9 @@ faq_stubs:
 
       Steps to fix credit report errors:
 
-      1. Get your free reports - You are entitled to one free credit report
-         per year from each of the three bureaus (Equifax, Experian, TransUnion)
-         at AnnualCreditReport.com.
+      1. Get your free reports - You can get a free credit report every week
+         from each of the three bureaus (Equifax, Experian, TransUnion) at
+         AnnualCreditReport.com.
 
       2. Identify errors - Common errors include:
          - Accounts that are not yours
@@ -202,13 +239,16 @@ faq_stubs:
          - Same debt listed multiple times
 
       3. File a dispute - Write to the credit bureau reporting the error.
-         Include copies of supporting documents. Send by certified mail.
+         Include copies of supporting documents. Send by certified mail, or use
+         the bureau's free online dispute process. You can also send the dispute
+         to the company that reported the information (the "furnisher").
 
-      4. Bureau investigation - The bureau must investigate within 30 days
-         and correct or remove inaccurate information.
+      4. Bureau investigation - The bureau must investigate within 30 days (up
+         to 45 in some situations) and correct or remove inaccurate information.
 
       5. If the dispute is denied - You can:
-         - Add a 100-word statement to your report
+         - Add a brief statement (about 100 words) to your report explaining
+           your side
          - File a complaint with the Consumer Financial Protection Bureau
          - Contact Idaho Legal Aid for possible legal assistance
 
@@ -240,6 +280,9 @@ faq_stubs:
 
   - id: faq_medical_debt
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-medical-debt
     question: "What can I do about medical debt?"
@@ -250,25 +293,42 @@ faq_stubs:
       1. Review your bills carefully - Request an itemized bill and check for
          errors. Medical billing mistakes are common.
 
-      2. Ask about financial assistance - Most hospitals are required to have
-         charity care or financial assistance programs. Ask the billing
-         department about these even if you have already received a bill.
+      2. Ask about financial assistance - Nonprofit hospitals are required to
+         have charity care or financial assistance programs, and many other
+         providers offer them voluntarily. Ask the billing department even if
+         you have already received a bill. (Idaho's old county indigent program
+         was repealed in 2022; if you remember "county assistance", apply for
+         Medicaid instead.)
 
       3. Negotiate the bill - You can often negotiate a lower amount or set
          up a payment plan directly with the provider. Many will reduce the
          total if you can pay a lump sum.
 
-      4. Know the protections:
-         - Medical debt under $500 cannot appear on your credit report
-         - Paid medical debt must be removed from your credit report
-         - Medical debt cannot appear on your report until at least one year
-           after it was sent to collections
-         - You can still dispute medical debt with collectors
+      4. Idaho has special rules for medical debt collection - Under the Idaho
+         Patient Act (Idaho Code 48-301 through 48-312), before a provider or
+         collector can take "extraordinary collection actions" (reporting you to
+         a credit bureau, sending the debt to a third-party collector, suing,
+         placing a lien, or garnishing wages), the provider must:
+         - Submit the charges to your insurance within 45 days
+         - Send you a consolidated summary of services within 60 days
+         - Wait 60 days after the final statement before charging interest
+         - Wait 90 days after the final statement before any extraordinary
+           collection action
+         If you are sued, the attorney fees that can be charged to you are
+         capped at $350 if you do not contest the case and $750 if you do.
 
-      5. Apply for Medicaid - If you are low-income, you may qualify for
-         Idaho Medicaid, which can cover some bills retroactively.
+      5. Know the credit reporting policies - Under the credit bureaus' current
+         voluntary policies, medical debt under $500 generally will not appear
+         on your credit report, paid medical debt is removed, and unpaid medical
+         debt is not reported until at least one year after it went to
+         collections. These are industry policies, not laws, and they can
+         change. You can still dispute medical debt with collectors.
 
-      6. Consider bankruptcy - Medical debt can be discharged in bankruptcy
+      6. Apply for Medicaid - If you are low-income, you may qualify for
+         Idaho Medicaid, which can cover bills from up to 3 months before the
+         month you apply.
+
+      7. Consider bankruptcy - Medical debt can be discharged in bankruptcy
          if you have no other options.
 
       Idaho Legal Aid may be able to help with medical debt issues for
@@ -297,6 +357,9 @@ faq_stubs:
 
   - id: faq_consumer_scam_recovery
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-should-i-do-if-i-was-scammed
     question: "What should I do if I was scammed?"
@@ -355,6 +418,9 @@ faq_stubs:
 
   - id: faq_identity_theft
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-do-i-do-if-someone-stole-my-identity
     question: "What do I do if someone stole my identity?"
@@ -409,6 +475,9 @@ faq_stubs:
 
   - id: faq_debt_lawsuit
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-do-i-do-if-im-sued-for-a-debt
     question: "What do I do if I'm sued for a debt?"
@@ -420,7 +489,9 @@ faq_stubs:
       Steps to take:
 
       1. Read the papers carefully - Note the deadline to respond. In Idaho,
-         you typically have 21 days to file an answer with the court.
+         you typically have 21 days to file an answer with the court. Small
+         claims cases work differently: there is no formal written answer, and
+         you make your case by appearing at the hearing.
 
       2. Do NOT ignore the lawsuit - If you do not respond, the creditor will
          get a default judgment, which allows them to garnish your wages, take
@@ -429,8 +500,8 @@ faq_stubs:
       3. File an answer - In your answer, you can raise defenses such as:
          - The debt is not yours
          - The amount is wrong
-         - The statute of limitations has expired (typically 5 years in Idaho
-           for most debts)
+         - The statute of limitations has expired (4 or 5 years for most
+           consumer debts in Idaho, depending on the type of debt)
          - The creditor does not have proper documentation
 
       4. Consider your options:
@@ -464,6 +535,9 @@ faq_stubs:
 
   - id: faq_bankruptcy_basics
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: should-i-consider-bankruptcy
     question: "Should I consider bankruptcy?"
@@ -525,6 +599,9 @@ faq_stubs:
 
   - id: faq_car_repossession
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-are-my-rights-if-my-car-is-repossessed
     question: "What are my rights if my car is repossessed?"
@@ -579,6 +656,9 @@ faq_stubs:
 
   - id: faq_payday_loans
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-can-i-do-about-payday-loan-debt
     question: "What can I do about payday loan debt?"
@@ -589,22 +669,35 @@ faq_stubs:
       Idaho payday loan laws:
       - Idaho does not cap interest rates on payday loans, so rates can
         exceed 400% APR
+      - A payday loan cannot exceed $1,000 or 25% of your gross monthly income,
+        whichever is lower, and a loan can be renewed (rolled over) no more than
+        three times
       - Lenders must be licensed by the Idaho Department of Finance
       - Loans must include written disclosure of all fees and terms
 
       Your rights and options:
       1. You can revoke ACH authorization - If you gave the lender
          permission to withdraw from your bank account, you can revoke that
-         authorization in writing to your bank.
+         authorization in writing. Send the revocation to both the lender and
+         your bank.
 
-      2. Extended payment plan - Idaho law requires payday lenders to offer
-         a one-time extended payment plan if you cannot repay on time.
+      2. Extended payment plan - Idaho law (Idaho Code 28-46-414) requires a
+         payday lender to let you enter an extended payment plan, on request,
+         once in any 12-month period. You must ask before the loan is due;
+         waiting until you have defaulted forfeits the right. The plan must be
+         in writing, must allow at least four equal payments over at least 60
+         days, cannot increase what you owe, and cannot add interest or fees.
+         While you are keeping up with the plan, the lender may not start
+         collection activity against you.
 
       3. You cannot be jailed - It is illegal for a lender to threaten you
          with jail for not paying a payday loan.
 
-      4. Debt collection rules still apply - Payday lenders and their
-         collectors must follow the same FDCPA rules as other debt collectors.
+      4. Debt collection rules - Third-party collectors hired by a payday lender,
+         or that bought the debt from one, must follow the federal Fair Debt
+         Collection Practices Act. The lender itself, when collecting its own
+         loan, is instead subject to the Idaho Credit Code, oversight by the
+         Idaho Department of Finance, and the Idaho Consumer Protection Act.
 
       5. Consider alternatives:
          - Community Action Agency emergency assistance
@@ -637,6 +730,11 @@ faq_stubs:
 
   - id: faq_debt_statute_limitations
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
+    review_notes:
+      - "Credit-card limitation period: the reviewer approved the \"4 or 5 years depending on how the account is documented\" wording on 2026-09-22 and referred the underlying question (Idaho Code 5-216 vs 5-217) for an attorney's sign-off."
     category: Consumer
     anchor_id: can-a-creditor-still-collect-on-old-debt
     question: "Can a creditor still collect on an old debt?"
@@ -646,22 +744,33 @@ faq_stubs:
       to collect the debt (though they may still try to contact you).
 
       Idaho statutes of limitations for common debts:
-      - Written contracts (loans, credit cards): 5 years
+      - Written contracts (loans): 5 years
       - Oral contracts (verbal agreements): 4 years
       - Promissory notes: 5 years
-      - Open accounts (revolving credit): 4 years
-      - Judgments: 5 years (but renewable)
+      - Open accounts: 4 years
+      - Credit cards: 4 or 5 years, depending on how the account is documented.
+        If you are being sued on a credit card debt, the shorter period may be
+        an available defense; get legal advice.
+      - Judgments: 10 years, and a creditor can renew a judgment in 10-year
+        increments, so a judgment can effectively last indefinitely if the
+        creditor keeps renewing it
       - Medical debt: 5 years
 
       Important warnings:
-      - Making a payment or acknowledging the debt in writing can restart
-        the clock on the statute of limitations
+      - Even a small payment on an old debt can restart, or revive, the clock.
+        A signed written acknowledgment of the debt restarts the statute of
+        limitations, and so does any payment of principal or interest, even
+        without a signature. Idaho courts have held that a payment can revive a
+        debt whose time limit had already fully run. Get advice before paying
+        anything on a debt you think is time-barred.
       - Even if a debt is too old to sue on, it may still appear on your
         credit report for up to 7 years
       - A creditor can still contact you about old debt; they just cannot
         sue you for it
-      - If you are sued on an expired debt, you must raise the statute of
-        limitations as a defense in your answer
+      - Federal rules bar a debt collector from suing, or threatening to sue,
+        on a time-barred debt, but some do anyway. If you are sued on an
+        expired debt, you must raise the statute of limitations as a defense in
+        your answer; the court will not raise it for you.
 
       Idaho Legal Aid may be able to help you determine whether a debt is
       time-barred.
@@ -687,6 +796,9 @@ faq_stubs:
 
   - id: faq_bank_account_levy
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: can-a-creditor-take-money-from-my-bank-account
     question: "Can a creditor take money from my bank account?"
@@ -746,6 +858,9 @@ faq_stubs:
 
   - id: faq_predatory_lending
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: what-is-predatory-lending
     question: "What is predatory lending and what can I do about it?"
@@ -801,6 +916,9 @@ faq_stubs:
 
   - id: faq_debt_after_death
     type: faq_item
+    review_status: approved
+    reviewed_by: "Evan Curry"
+    reviewed_on: "2026-09-22"
     category: Consumer
     anchor_id: am-i-responsible-for-a-family-members-debt
     question: "Am I responsible for a family member's debt after they die?"

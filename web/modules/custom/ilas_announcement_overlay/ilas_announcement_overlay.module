@@ -71,6 +71,10 @@ function ilas_announcement_overlay_preprocess_page(&$variables) {
     return;
   }
 
+  // Always tag the page with the bundle list tag, even when no announcement is
+  // active, so creating or enabling one invalidates cached copies of the page.
+  $variables['#cache']['tags'][] = 'block_content_list:homepage_announcement';
+
   // Get the active announcement.
   $announcement = _ilas_announcement_overlay_get_active_announcement();
   if (!$announcement) {
@@ -145,6 +149,10 @@ function ilas_announcement_overlay_preprocess_node(&$variables) {
   if ($variables['view_mode'] !== 'full') {
     return;
   }
+
+  // Always tag the node render with the bundle list tag, even when no
+  // announcement is active, so enabling one invalidates the cached node.
+  $variables['#cache']['tags'][] = 'block_content_list:homepage_announcement';
 
   // Get the active announcement.
   $announcement = _ilas_announcement_overlay_get_active_announcement();

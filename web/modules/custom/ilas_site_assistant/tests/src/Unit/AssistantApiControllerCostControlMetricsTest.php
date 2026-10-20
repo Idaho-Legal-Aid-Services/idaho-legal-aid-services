@@ -87,6 +87,9 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       'sample_rate' => 1.0,
       'per_ip_hourly_call_limit' => 10,
       'per_ip_window_seconds' => 3600,
+      'calls_by_operation' => ['intent_classification' => 5, 'grounded_answer' => 2],
+      'estimated_cost_usd_daily' => 0.0123,
+      'estimated_cost_usd_monthly' => 0.05,
     ]);
 
     $controller = $this->buildController($llmEnhancer, $performanceMonitor);
@@ -104,6 +107,9 @@ final class AssistantApiControllerCostControlMetricsTest extends TestCase {
       'cache_hit_rate' => 0.9,
       'kill_switch_active' => FALSE,
       'sample_rate' => 1,
+      'calls_by_operation' => ['intent_classification' => 5, 'grounded_answer' => 2],
+      'estimated_cost_usd_daily' => 0.0123,
+      'estimated_cost_usd_monthly' => 0.05,
     ], $body['metrics']['cost_control']);
     $this->assertSame([
       'daily_call_limit' => 5000,

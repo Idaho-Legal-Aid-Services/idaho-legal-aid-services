@@ -16,6 +16,10 @@
 #   term_uuid:      UUID of the topics taxonomy term (null until populated via drush)
 #   term_name:      Exact Drupal term name (for verification against DB)
 #   aliases:        Topic-specific aliases (Spanish, typos, colloquial terms)
+#   pack_intent:    Optional Top Intents pack key when it differs from
+#                   'topic_' + canonical_key (see config/intents/top_intents.yml).
+#                   IntentRouter uses aliases + pack_intent to refine an area match
+#                   to a concrete sub-topic answer (sub-topic carry-through).
 #
 # Matching priority (service-area level):
 #   1. Exact token match (highest confidence: 0.88)
@@ -101,6 +105,7 @@ family:
         - disolucion
     custody_parenting:
       canonical_key: family_custody_parenting
+      pack_intent: topic_family_custody
       term_uuid: d483a5ee-6d7a-411e-b08d-aed0d7cad600  # TID:39 "Custody"; also: Parenting Time (TID:40), Visitation (TID:41)
       term_name: "Custody"
       aliases:
@@ -226,6 +231,13 @@ housing:
     - move-out
     - property management
     - homeowners association
+    - entering a residence
+    - landlord entry
+    - enter my home
+    - enter my apartment
+    - enter my house
+    - tenant rights
+    - renter rights
   topics:
     eviction:
       canonical_key: housing_eviction
@@ -236,6 +248,16 @@ housing:
         - eviccion
         - kicked out
         - locked out
+        - evict
+        - evicted
+        - evicting
+        - evictions
+        - eviction notice
+        - notice to vacate
+        - notice to quit
+        - 3 day notice
+        - three day notice
+        - pay or quit
     landlord_tenant:
       canonical_key: housing_landlord_tenant
       term_uuid: 7e0a3c90-a732-4a7b-a0cf-10d60306b13b  # TID:84 "Tenant Rights"; also: Repairs (TID:78), Renter Safety (TID:85)
@@ -248,6 +270,24 @@ housing:
         - repair issues
         - habitability
         - sublease
+        - landlord
+        - landlords
+        - tenant
+        - tenants
+        - tenants rights
+        - renter
+        - renters
+        - renter rights
+        - lease
+        - landlord entry
+        - entering a residence
+        - enter my home
+        - entering my home
+        - enter my apartment
+        - entering my apartment
+        - enter my house
+        - without notice
+        - without permission
     foreclosure:
       canonical_key: housing_foreclosure
       term_uuid: f9517584-fc2d-43fe-a849-44ef9e5da6c8  # TID:92
@@ -269,6 +309,7 @@ housing:
       term_uuid: 7aa78dca-07b9-4b00-808d-90b233e29329  # TID:89
       term_name: "Mobile Home Issues"
       aliases:
+        - mobile home
         - trailer park
         - manufactured home
         - casa movil
@@ -277,6 +318,7 @@ housing:
       term_uuid: 15faea60-f071-4d30-a0e0-7ac90490180b  # TID:80
       term_name: "Security Deposits"
       aliases:
+        - security deposit
         - deposit return
         - deposito de seguridad
         - move out
@@ -722,6 +764,7 @@ health:
       term_uuid: bc0a299d-4819-48a9-96d0-1d306b944a30  # TID:71 "SNAP"; also: TANF (TID:72). No general "Public Benefits" term
       term_name: "SNAP"
       aliases:
+        - public benefits
         - beneficios publicos
         - food stamps
         - estampillas
@@ -850,6 +893,7 @@ employment:
       term_uuid: 0dd85706-39aa-46ad-a8a9-b7b75b8d1bf8  # TID:58
       term_name: "Workplace Safety"
       aliases:
+        - workplace rights
         - derechos en el trabajo
         - hostile work environment
         - fmla

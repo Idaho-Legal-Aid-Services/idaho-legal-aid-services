@@ -49,6 +49,7 @@ use Drupal\ilas_site_assistant\Service\LangfuseTracer;
 use Drupal\ilas_site_assistant\Service\SourceGovernanceService;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Drupal\ilas_site_assistant\Service\RetrievalAugmenter;
+use Drupal\ilas_site_assistant\Service\GroundedAnswerGenerator;
 use Drupal\ilas_site_assistant\Service\VectorIndexHygieneService;
 use Drupal\ilas_site_assistant\Service\VoyageReranker;
 use Drupal\Component\Uuid\Php as UuidGenerator;
@@ -216,6 +217,13 @@ class AssistantApiController extends ControllerBase {
    * @var \Drupal\ilas_site_assistant\Service\RetrievalAugmenter|null
    */
   protected $retrievalAugmenter;
+
+  /**
+   * Grounded answer generator (TOVR-18), optional.
+   *
+   * @var \Drupal\ilas_site_assistant\Service\GroundedAnswerGenerator|null
+   */
+  protected ?GroundedAnswerGenerator $groundedAnswerGenerator = NULL;
 
   /**
    * The safety classifier service.
@@ -459,6 +467,7 @@ class AssistantApiController extends ControllerBase {
     ?HousingEvictionContinuityDecider $housing_eviction_continuity_decider = NULL,
     ?OfficeDirectory $office_directory = NULL,
     ?RetrievalAugmenter $retrieval_augmenter = NULL,
+    ?GroundedAnswerGenerator $grounded_answer_generator = NULL,
   ) {
     $this->configFactory = $config_factory;
     $this->intentRouter = $intent_router;
@@ -499,6 +508,7 @@ class AssistantApiController extends ControllerBase {
     $this->housingEvictionContinuityDecider = $housing_eviction_continuity_decider;
     $this->officeDirectory = $office_directory;
     $this->retrievalAugmenter = $retrieval_augmenter;
+    $this->groundedAnswerGenerator = $grounded_answer_generator;
   }
 
   /**
@@ -561,6 +571,7 @@ class AssistantApiController extends ControllerBase {
       $container->has('ilas_site_assistant.housing_eviction_continuity_decider') ? $container->get('ilas_site_assistant.housing_eviction_continuity_decider') : NULL,
       $container->has('ilas_site_assistant.office_directory') ? $container->get('ilas_site_assistant.office_directory') : NULL,
       $container->has('ilas_site_assistant.retrieval_augmenter') ? $container->get('ilas_site_assistant.retrieval_augmenter') : NULL,
+      $container->has('ilas_site_assistant.grounded_answer_generator') ? $container->get('ilas_site_assistant.grounded_answer_generator') : NULL,
     );
   }
 
@@ -578,6 +589,17 @@ class AssistantApiController extends ControllerBase {
    *   The JSON response with security headers.
    */
   protected function jsonResponse(array $data, int $status = 200, array $extra_headers = [], string $request_id = ''): JsonResponse {
+    // Keys starting with "_" are pipeline bookkeeping (_grounded,
+    // _hard_route_enforced, _all_citations_stale, ...). Per-path unset lists
+    // kept missing some (the safety-escalation path skips them entirely), so
+    // drop them at the single exit point. "_debug" is the one public
+    // exception: it is only attached for authorized debug requests.
+    foreach (array_keys($data) as $key) {
+      if (is_string($key) && $key !== '_debug' && str_starts_with($key, '_')) {
+        unset($data[$key]);
+      }
+    }
+
     $headers = array_merge(self::SECURITY_HEADERS, $extra_headers);
     if ($request_id !== '') {
       $headers['X-Correlation-ID'] = $request_id;
@@ -3348,6 +3370,89 @@ class AssistantApiController extends ControllerBase {
         }
       }
 
+      // TOVR-18: grounded answer generation. Runs after grounding (results
+      // are injection-scrubbed and reranked) and before post-generation
+      // safety, so the legal-advice scan and the Spanish postscript cover
+      // generated text. Any guard failure keeps the deterministic template.
+      $grounded_generation = NULL;
+      $grounded_template_message = NULL;
+      if ($this->groundedAnswerGenerator
+        && $this->groundedAnswerGenerator->isEnabled()
+        && $this->groundedAnswerGenerator->applies($response)) {
+        $this->langfuseTracer?->startSpan('generation.grounded_answer', [
+          'result_count' => count($response['results']),
+        ]);
+        $this->langfuseTracer?->startGeneration('llm.grounded_answer', $this->groundedAnswerGenerator->getModelId(), [
+          'provider' => $this->groundedAnswerGenerator->getProviderId(),
+          'temperature' => (float) ($config->get('llm.generation.temperature') ?? 0.2),
+          'max_tokens' => (int) ($config->get('llm.generation.max_tokens') ?? 220),
+          'citation_mode' => (string) ($config->get('llm.generation.citation_mode') ?? 'FAST'),
+        ], [
+          'user_message_redacted' => $this->buildLangfuseBoundedRedactedText("User question:\n" . $user_message, 600),
+          'result_ids' => $this->extractRetrievalResultIds($response['results']),
+        ]);
+        $grounded_generation = $this->groundedAnswerGenerator->generate($user_message, $response, [
+          GroundedAnswerGenerator::OPTION_USER_IDENTIFIER => $ip ?: NULL,
+          GroundedAnswerGenerator::OPTION_ELAPSED_MS => (microtime(TRUE) - $start_time) * 1000,
+          GroundedAnswerGenerator::OPTION_EVAL_OVERRIDE => $this->resolveEvalGenerationOverride($request, is_array($data) ? $data : []),
+          LlmEvalTrafficPolicy::OPTION_PER_IP_EXEMPT => LlmEvalTrafficPolicy::isPerIpBudgetExempt(
+            $request,
+            is_array($data) ? $data : [],
+            $this->environmentDetector,
+          ),
+        ]);
+        $generation_used = !empty($grounded_generation['used']);
+        $this->langfuseTracer?->endGeneration([
+          'used' => $generation_used,
+          'reason' => (string) ($grounded_generation['reason'] ?? 'unknown'),
+          'cache_hit' => !empty($grounded_generation['cache_hit']),
+          'citation_count' => count($grounded_generation['citations'] ?? []),
+          'documents_count' => (int) ($grounded_generation['documents_count'] ?? 0),
+          'output_redacted' => $generation_used
+            ? $this->buildLangfuseBoundedRedactedText((string) $grounded_generation['message'], 600)
+            : NULL,
+        ], is_array($grounded_generation['usage'] ?? NULL) ? $grounded_generation['usage'] : []);
+        if ($generation_used) {
+          $grounded_template_message = (string) $response['message'];
+          $response['_message_template'] = $grounded_template_message;
+          $response['message'] = (string) $grounded_generation['message'];
+          $response['generation'] = [
+            'used' => TRUE,
+            'provider' => (string) ($grounded_generation['provider'] ?? ''),
+            'model' => (string) ($grounded_generation['model'] ?? ''),
+            'citations' => array_values(array_map(
+              static fn(array $citation): array => [
+                'result_index' => (int) ($citation['result_index'] ?? 0),
+                'url' => (string) ($citation['url'] ?? ''),
+                'title' => (string) ($citation['title'] ?? ''),
+              ],
+              array_filter($grounded_generation['citations'] ?? [], 'is_array'),
+            )),
+          ];
+        }
+        else {
+          $response['generation'] = [
+            'used' => FALSE,
+            'reason' => (string) ($grounded_generation['reason'] ?? 'unknown'),
+          ];
+        }
+        $this->langfuseTracer?->endSpan([
+          'generation_used' => $generation_used,
+          'generation_reason' => (string) ($grounded_generation['reason'] ?? 'unknown'),
+          'latency_ms' => $grounded_generation['latency_ms'] ?? NULL,
+        ]);
+        $this->langfuseTracer?->appendTraceMetadata([
+          'generation_used' => $generation_used,
+          'generation_reason' => (string) ($grounded_generation['reason'] ?? 'unknown'),
+          'generation_citation_count' => count($grounded_generation['citations'] ?? []),
+        ]);
+        if ($debug_mode) {
+          $debug_meta['processing_stages'][] = $generation_used
+            ? 'grounded_answer_generated'
+            : 'grounded_answer_fallback:' . (string) ($grounded_generation['reason'] ?? 'unknown');
+        }
+      }
+
       if ($this->sourceGovernance && !empty($response['results']) && is_array($response['results'])) {
         try {
           $this->sourceGovernance->recordObservationBatch($response['results']);
@@ -3455,6 +3560,12 @@ class AssistantApiController extends ControllerBase {
       : NULL;
       $response_menu_signature = $this->buildMenuSignature($response);
 
+      // PHARD-03: decide the grounding refusal before anything is persisted,
+      // so the gap trigger, transcript, history, and telemetry all record the
+      // message the user actually receives.
+      $is_eval_traffic = GapReviewDecider::isPromptfooEvalRequest($request, is_array($data) ? $data : []);
+      $response = $this->applyGroundingRefusal($response, $gate_decision, $user_message, (string) $request_id, $is_eval_traffic);
+
       // Log the interaction.
       $analytics_events = [];
       $this->langfuseTracer?->startSpan('analytics.persist', [
@@ -3474,6 +3585,7 @@ class AssistantApiController extends ControllerBase {
       }
 
       $gap_item_id = NULL;
+      $gap_trigger_code = GapReviewDecider::resolveTriggerCode($response, $intent, $user_message);
       $governance_context = GapReviewDecider::buildGovernanceContext(
       $intent,
       $response,
@@ -3483,11 +3595,12 @@ class AssistantApiController extends ControllerBase {
       ) + [
         'conversation_id' => $conversation_id ?? '',
         'request_id' => $request_id,
+        'trigger_code' => $gap_trigger_code,
       ];
 
       if (GapReviewDecider::shouldRecordGapItem($response, $intent, $governance_context, $request, $data)) {
         $gap_item_id = $this->analyticsLogger->logNoAnswer($user_message, $governance_context);
-        $analytics_events[] = 'no_answer';
+        $analytics_events[] = $gap_trigger_code === GapReviewDecider::TRIGGER_NO_MATCH_FALLBACK ? 'no_answer' : 'gap_review_' . $gap_trigger_code;
 
         if ($debug_mode) {
           $debug_meta['reason_code'] = (string) ($response['reason_code'] ?? 'no_match_fallback');
@@ -3606,7 +3719,9 @@ class AssistantApiController extends ControllerBase {
         $request_id,
         $governance_context + [
           'gap_item_id' => $gap_item_id,
-          'is_no_answer' => $gap_item_id !== NULL,
+          // is_no_answer keeps its historical meaning (true dead end);
+          // clarify/loop/grounding triggers only link the gap item.
+          'is_no_answer' => $gap_item_id !== NULL && $gap_trigger_code === GapReviewDecider::TRIGGER_NO_MATCH_FALLBACK,
         ],
         );
         $conversation_logger_written = TRUE;
@@ -3671,17 +3786,11 @@ class AssistantApiController extends ControllerBase {
         $response['governance'] = $this->sourceGovernance->getGovernanceSummary();
       }
 
-      // PHARD-03: Refuse when answerable + low confidence + no citations.
-      $is_citation_required = in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE);
-      if ($is_citation_required && empty($response['citations']) && ($response['confidence'] ?? 0) <= 0.5) {
-        $response['message'] = ResponseBuilder::looksLikeSpanish($user_message)
-          ? (string) $this->t('No encontré información específica sobre ese tema. Para ayuda con su situación, llame a nuestra Línea de Consejos Legales o solicite ayuda legal gratuita. / For help, please call our Legal Advice Line or apply for help.')
-          : (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
-        $response['type'] = 'clarify_no_grounding';
-        $response['confidence'] = 0.0;
-        $response['decision_reason'] = 'answerable_type_no_citations_low_confidence';
-        $this->analyticsLogger->log('grounding_refusal', $request_id ?? '');
-      }
+      // PHARD-03 backstop: the refusal is normally decided before persistence
+      // (see applyGroundingRefusal() above); re-check in case a later stage
+      // dropped the evidence. No-op for an already-refused response.
+      $response = $this->applyGroundingRefusal($response, $gate_decision, $user_message, (string) $request_id, $is_eval_traffic, $response);
+      unset($response['_retrieval_degraded'], $response['_grounding_refusal_reason']);
 
       if (($response['reason_code'] ?? '') === 'resource_results_fallback_index' && empty($response['degraded_notice'])) {
         $response['degraded_notice'] = (string) $this->t('These matches come from our broader site content because the dedicated assistant resource index is unavailable right now.');
@@ -3698,6 +3807,11 @@ class AssistantApiController extends ControllerBase {
       if (!$public_meta['generation']['used'] && $public_meta['generation']['reason'] === 'not_attempted') {
         $public_meta['generation']['reason'] = (string) ($gate_decision['reason_code'] ?? 'deterministic_route');
       }
+      $this->applyGroundedGenerationDiagnostics(
+        $public_meta,
+        $grounded_generation,
+        is_array($response['generation'] ?? NULL) ? $response['generation'] : NULL,
+      );
       $retrieval_used = !empty($early_retrieval) || !empty($response['results']);
       $public_meta['retrieval']['used'] = $retrieval_used;
       $public_meta['retrieval']['attempted'] = $retrieval_used
@@ -3716,6 +3830,11 @@ class AssistantApiController extends ControllerBase {
       $response['meta'] = $public_meta;
       if (is_array($diagnostics_meta)) {
         $diagnostics_meta = array_replace_recursive($diagnostics_meta, $public_meta);
+        if ($grounded_template_message !== NULL) {
+          // Authorized diagnostics only: the deterministic template the
+          // generated answer replaced, for side-by-side review.
+          $diagnostics_meta['generation']['template_message'] = $grounded_template_message;
+        }
         if ($this->conversationContextSummary && $conversation_context_summary !== []) {
           $diagnostics_meta['conversation_context_summary'] = $conversation_context_summary;
         }
@@ -4153,6 +4272,21 @@ class AssistantApiController extends ControllerBase {
       if (
         in_array($event_type, ['feedback_helpful', 'feedback_not_helpful'], TRUE)
         && $this->isUuidV4($response_request_id)
+        && $this->isUuidV4($conversation_id)
+        && $this->conversationLogger
+        && !GapReviewDecider::isPromptfooEvalRequest($request, $data)
+      ) {
+        // Tie the vote to the stored turn; not-helpful votes enter the gap
+        // review queue so reviewers see which answer failed, not a counter.
+        $feedback_correlation = $this->conversationLogger->recordFeedback($conversation_id, $response_request_id, $event_type);
+        if (!empty($feedback_correlation['gap_item_id'])) {
+          $this->analyticsLogger->log('gap_review_negative_feedback', $response_type !== '' ? $response_type : 'unknown');
+        }
+      }
+
+      if (
+        in_array($event_type, ['feedback_helpful', 'feedback_not_helpful'], TRUE)
+        && $this->isUuidV4($response_request_id)
       ) {
         $feedback_metadata = $this->buildLangfuseBaseTraceMetadata(
           $response_request_id,
@@ -4301,6 +4435,7 @@ class AssistantApiController extends ControllerBase {
         'model' => $model_id,
         'used' => FALSE,
         'reason' => 'not_attempted',
+        'operation' => NULL,
       ],
       'retrieval' => [
         'used' => FALSE,
@@ -4396,6 +4531,82 @@ class AssistantApiController extends ControllerBase {
       'used' => $transport_attempted || $cache_hit,
       'reason' => $reason,
     ];
+  }
+
+  /**
+   * Folds grounded-generation results into the public generation envelope.
+   *
+   * Additive to updateGenerationDiagnostics(): classification semantics for
+   * `used`/`reason` are preserved when no grounded attempt happened. When a
+   * grounded attempt happened, `operation` names it, `operations` carries
+   * both outcomes, and `used`/`reason` reflect the final response state
+   * (post-generation safety may have reverted the generated text).
+   *
+   * @param array<string, mixed> $diagnostics
+   *   Public diagnostics envelope (by reference).
+   * @param array<string, mixed>|null $grounded
+   *   GroundedAnswerGenerator::generate() result, if any.
+   * @param array<string, mixed>|null $final_generation
+   *   The response's public `generation` block after safety enforcement.
+   */
+  protected function applyGroundedGenerationDiagnostics(array &$diagnostics, ?array $grounded, ?array $final_generation): void {
+    $classification_used = !empty($diagnostics['generation']['used']);
+    $classification_reason = (string) ($diagnostics['generation']['reason'] ?? 'not_attempted');
+    $diagnostics['generation']['operation'] = $classification_used ? 'intent_classification' : NULL;
+    $diagnostics['generation']['operations'] = [
+      'intent_classification' => [
+        'used' => $classification_used,
+        'reason' => $classification_reason,
+      ],
+    ];
+    if (!is_array($grounded) || empty($grounded['attempted'])) {
+      return;
+    }
+    $final_used = is_array($final_generation) ? !empty($final_generation['used']) : !empty($grounded['used']);
+    $final_reason = is_array($final_generation) && isset($final_generation['reason'])
+      ? (string) $final_generation['reason']
+      : (string) ($grounded['reason'] ?? 'unknown');
+    if ($final_used) {
+      $final_reason = (string) ($grounded['reason'] ?? 'generated');
+    }
+    $diagnostics['generation']['operations']['grounded_answer'] = [
+      'used' => $final_used,
+      'reason' => $final_reason,
+      'citation_count' => $final_used ? count($grounded['citations'] ?? []) : 0,
+      'cache_hit' => !empty($grounded['cache_hit']),
+    ];
+    $diagnostics['generation']['operation'] = 'grounded_answer';
+    $diagnostics['generation']['used'] = $classification_used || $final_used;
+    $diagnostics['generation']['reason'] = $final_used
+      ? $final_reason
+      : ($classification_used ? $classification_reason : $final_reason);
+  }
+
+  /**
+   * Resolves an eval-only generation override from trusted eval traffic.
+   *
+   * Promptfoo suites identify themselves (X-ILAS-Eval-Run-ID / eval_run_id)
+   * and may send `generation_mode: off` so template-wording suites stay
+   * deterministic while a hosted environment has generation switched on.
+   * Never honored on live or for untrusted traffic.
+   *
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   *   The current request.
+   * @param array<string, mixed> $data
+   *   Decoded request payload.
+   *
+   * @return string|null
+   *   'off' to skip generation for this request, otherwise NULL.
+   */
+  protected function resolveEvalGenerationOverride(Request $request, array $data): ?string {
+    $mode = strtolower(trim((string) ($data['generation_mode'] ?? '')));
+    if ($mode !== 'off') {
+      return NULL;
+    }
+    if (!LlmEvalTrafficPolicy::isPerIpBudgetExempt($request, $data, $this->environmentDetector)) {
+      return NULL;
+    }
+    return 'off';
   }
 
   /**
@@ -6097,6 +6308,7 @@ class AssistantApiController extends ControllerBase {
           if ($pack_entry !== NULL) {
             $response['type'] = 'topic';
             $response['response_mode'] = 'topic';
+            $response['reason_code'] = 'intent_pack_' . $original_intent_type;
             $answer_text = (string) ($pack_entry['answer_text'] ?? $response['message']);
             // Echo the user's own topic terms so the answer names what was
             // asked about (SSI, guardianship, custody, ...) instead of only
@@ -6217,9 +6429,16 @@ class AssistantApiController extends ControllerBase {
       'stale_citations_caveat_added' => FALSE,
       'freshness_enforcement_applied' => FALSE,
       'llm_artifacts_stripped' => FALSE,
+      'generation_reverted' => FALSE,
       'enforcement_actions' => [],
     ];
     $safe_fallback = $this->getPostGenerationSafeFallback();
+    // TOVR-18: when a generated answer trips a check, restore the
+    // deterministic template it replaced rather than the generic fallback.
+    if (!empty($response['generation']['used']) && isset($response['_message_template'])
+      && trim((string) $response['_message_template']) !== '') {
+      $safe_fallback = (string) $response['_message_template'];
+    }
 
     // Check 1: _requires_review flag from ResponseGrounder.
     // Enforcement: SOFT — replaces message with safe fallback.
@@ -6253,6 +6472,13 @@ class AssistantApiController extends ControllerBase {
         $response['message'] = $safe_fallback;
         $meta['message_replaced'] = TRUE;
       }
+    }
+
+    if ($meta['message_replaced'] && !empty($response['generation']['used'])) {
+      $response['generation'] = ['used' => FALSE, 'reason' => 'post_generation_safety'];
+      $meta['generation_reverted'] = TRUE;
+      $meta['enforcement_actions'][] = 'generation_reverted';
+      $this->analyticsLogger->log('post_gen_generation_reverted', $request_id);
     }
 
     // Check 2: Weak grounding — answerable type without citations.
@@ -6305,6 +6531,7 @@ class AssistantApiController extends ControllerBase {
 
     // Strip internal flags and legacy response-enhancement artifacts.
     unset($response['llm_summary'], $response['llm_enhanced']);
+    unset($response['_message_template']);
     unset($response['_requires_review']);
     unset($response['_validation_warnings']);
     unset($response['_grounding_version']);
@@ -6511,6 +6738,9 @@ class AssistantApiController extends ControllerBase {
       if ($corrected_entry !== NULL) {
         $response['type'] = 'topic';
         $response['response_mode'] = 'topic';
+        // The clarify this replaces left 'clarification_needed' behind; this
+        // is now a pack answer, and buildPackCitation() keys on the code.
+        $response['reason_code'] = 'intent_pack_' . $corrected['intent_key'];
         $response['message'] = trim(
           (string) ($corrected_entry['answer_text'] ?? '') . ' '
           . $this->t('It includes help with @topic. You can apply for free legal help online, call our Legal Advice Line, or browse our forms and guides.', [
@@ -8065,6 +8295,9 @@ class AssistantApiController extends ControllerBase {
         'cache_hit_rate' => $costControlSummary['cache_hit_rate'] ?? NULL,
         'kill_switch_active' => $costControlSummary['kill_switch_active'] ?? FALSE,
         'sample_rate' => $costControlSummary['sample_rate'] ?? 1.0,
+        'calls_by_operation' => is_array($costControlSummary['calls_by_operation'] ?? NULL) ? $costControlSummary['calls_by_operation'] : [],
+        'estimated_cost_usd_daily' => (float) ($costControlSummary['estimated_cost_usd_daily'] ?? 0.0),
+        'estimated_cost_usd_monthly' => (float) ($costControlSummary['estimated_cost_usd_monthly'] ?? 0.0),
       ];
       $response['thresholds']['cost_control'] = [
         'daily_call_limit' => $costControlSummary['daily_limit'] ?? 0,
@@ -8127,6 +8360,78 @@ class AssistantApiController extends ControllerBase {
       $response['decision_reason'] .= '; citations_unavailable';
     }
 
+    // PHARD-03: a refusal decided upstream keeps its contract values; the
+    // gate decision describes the answer that was withheld, not the refusal.
+    if ($response_type === 'clarify_no_grounding') {
+      $response['confidence'] = 0.0;
+      $response['decision_reason'] = (string) ($response['_grounding_refusal_reason'] ?? 'answerable_type_no_citations_low_confidence');
+      unset($response['_grounding_refusal_reason']);
+    }
+
+    return $response;
+  }
+
+  /**
+   * PHARD-03: refuses an answerable response that has nothing to cite.
+   *
+   * Refuses when the type requires citations, none can be derived, and the
+   * contract confidence is at or below 0.5. Curated pack answers cite their
+   * own canonical page (see buildPackCitation()), so they are only refused
+   * when the pack entry has no usable URL.
+   *
+   * @param array $response
+   *   The response to evaluate and, when refused, rewrite.
+   * @param array|null $gate_decision
+   *   The fallback gate decision (confidence source).
+   * @param string $user_message
+   *   The user's message (selects Spanish refusal copy).
+   * @param string $request_id
+   *   The request ID for analytics/log correlation.
+   * @param bool $is_eval_traffic
+   *   TRUE for promptfoo/eval requests, which must not inflate the counter.
+   * @param array|null $assembled
+   *   The already-assembled contract, when available. Omit to evaluate a
+   *   side-effect-free preview (the response's own internal flags are kept
+   *   for the real assembly).
+   */
+  private function applyGroundingRefusal(array $response, ?array $gate_decision, string $user_message, string $request_id, bool $is_eval_traffic = FALSE, ?array $assembled = NULL): array {
+    if (!in_array($response['type'] ?? '', ResponseGrounder::CITATION_REQUIRED_TYPES, TRUE)) {
+      return $response;
+    }
+
+    $contract = $assembled ?? $this->assembleContractFields($response, $gate_decision, 'normal');
+    if (!empty($contract['citations']) || ($contract['confidence'] ?? 0) > 0.5) {
+      return $response;
+    }
+
+    // Distinguish "retrieval failed" from "retrieval found nothing": an index
+    // outage must not read as a content gap.
+    $retrieval_degraded = !empty($response['_retrieval_degraded']);
+    $refusal_reason = $retrieval_degraded
+      ? 'answerable_type_no_citations_retrieval_degraded'
+      : 'answerable_type_no_citations_low_confidence';
+    if ($retrieval_degraded) {
+      $this->logger->warning('[@request_id] Grounding refusal while retrieval was degraded (@type): @detail', [
+        '@request_id' => $request_id,
+        '@type' => $response['type'] ?? 'unknown',
+        '@detail' => (string) $response['_retrieval_degraded'],
+      ]);
+    }
+
+    $response['message'] = ResponseBuilder::looksLikeSpanish($user_message)
+      ? (string) $this->t('No encontré información específica sobre ese tema. Para ayuda con su situación, llame a nuestra Línea de Consejos Legales o solicite ayuda legal gratuita. / For help, please call our Legal Advice Line or apply for help.')
+      : (string) $this->t("I wasn't able to find specific information on that topic. For help with your situation, please call our Legal Advice Line or apply for help.");
+    $response['type'] = 'clarify_no_grounding';
+    $response['confidence'] = 0.0;
+    $response['decision_reason'] = $refusal_reason;
+    $response['_grounding_refusal_reason'] = $refusal_reason;
+    if (!empty($response['generation']['used'])) {
+      $response['generation'] = ['used' => FALSE, 'reason' => 'grounding_refusal'];
+    }
+    if (!$is_eval_traffic) {
+      $this->analyticsLogger->log('grounding_refusal', $request_id);
+    }
+
     return $response;
   }
 
@@ -8159,6 +8464,52 @@ class AssistantApiController extends ControllerBase {
    * Normalizes citations from sources, with safe fallback derivation.
    */
   private function normalizeContractCitations(array $response): array {
+    $citations = $this->deriveContractCitations($response);
+    if ($citations === []) {
+      $pack_citation = $this->buildPackCitation($response);
+      if ($pack_citation !== NULL) {
+        $citations[] = $pack_citation;
+      }
+    }
+    return $citations;
+  }
+
+  /**
+   * Builds the citation for a curated Top Intents pack answer.
+   *
+   * Pack answer text describes the pack's own canonical page, so that page is
+   * the answer's source even when retrieval returns nothing (empty index,
+   * outage, low vector scores). ResponseBuilder marks pack answers with an
+   * `intent_pack_*` reason code.
+   */
+  private function buildPackCitation(array $response): ?array {
+    if (!str_starts_with((string) ($response['reason_code'] ?? ''), 'intent_pack_')) {
+      return NULL;
+    }
+    $action = $response['primary_action'] ?? NULL;
+    if (!is_array($action)) {
+      return NULL;
+    }
+    $url = $this->sanitizeCitationUrl($action['url'] ?? NULL);
+    if ($url === NULL) {
+      return NULL;
+    }
+
+    $citation = ['url' => $url, 'source' => 'curated_pack'];
+    if (!empty($action['label']) && is_string($action['label'])) {
+      $citation = ['title' => $action['label']] + $citation;
+    }
+    $topic = $this->resolveCitationTopic($citation, $url);
+    if ($topic !== NULL) {
+      $citation['topic'] = $topic;
+    }
+    return $citation;
+  }
+
+  /**
+   * Derives citations from grounded sources, then from retrieval results.
+   */
+  private function deriveContractCitations(array $response): array {
     if (!empty($response['sources']) && is_array($response['sources'])) {
       $citations = [];
       foreach ($response['sources'] as $item) {

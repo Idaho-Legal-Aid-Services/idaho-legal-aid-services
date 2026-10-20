@@ -153,9 +153,10 @@ class ConversationLogger {
     string $requestId = '',
     array $context = [],
   ): void {
-    if (\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+    $governance_logger = $this->governanceLogger();
+    if ($governance_logger !== NULL) {
       try {
-        \Drupal::service('ilas_site_assistant_governance.conversation_logger')->logExchange(
+        $governance_logger->logExchange(
           $conversationId,
           $userMessage,
           $assistantMessage,
@@ -298,6 +299,57 @@ class ConversationLogger {
           '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
         ]);
     }
+  }
+
+  /**
+   * Correlates helpful / not-helpful feedback with the answered turn.
+   *
+   * Delegates to the governance conversation logger, which owns the
+   * canonical turn store. Not-helpful feedback becomes a negative_feedback
+   * gap item built from the already-redacted stored user turn.
+   *
+   * @param string $conversationId
+   *   The conversation the answer belongs to.
+   * @param string $responseRequestId
+   *   Request ID of the answered assistant turn.
+   * @param string $eventType
+   *   feedback_helpful or feedback_not_helpful.
+   *
+   * @return array|null
+   *   Governance correlation result, or NULL when nothing was recorded.
+   */
+  public function recordFeedback(string $conversationId, string $responseRequestId, string $eventType): ?array {
+    $governance_logger = $this->governanceLogger();
+    if ($governance_logger === NULL) {
+      return NULL;
+    }
+    $value = $eventType === 'feedback_helpful' ? 'helpful' : 'not_helpful';
+    try {
+      return $governance_logger->recordFeedback($responseRequestId, $conversationId, $value);
+    }
+    catch (\Throwable $e) {
+      $this->logger->error('Governance feedback correlation failed: @class @error_signature', [
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+      ]);
+      return NULL;
+    }
+  }
+
+  /**
+   * Returns the governance conversation logger when that module is enabled.
+   *
+   * The governance module depends on this one, so the canonical store can
+   * only be reached through the container at runtime.
+   *
+   * @return object|null
+   *   The governance logger service, or NULL when unavailable.
+   */
+  protected function governanceLogger(): ?object {
+    if (!\Drupal::hasService('ilas_site_assistant_governance.conversation_logger')) {
+      return NULL;
+    }
+    return \Drupal::service('ilas_site_assistant_governance.conversation_logger');
   }
 
 }

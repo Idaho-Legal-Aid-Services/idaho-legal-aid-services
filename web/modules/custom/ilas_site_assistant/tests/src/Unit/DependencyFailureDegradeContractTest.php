@@ -205,11 +205,15 @@ class DependencyFailureDegradeContractTest extends TestCase {
     };
 
     $finder = new ContractResourceFinder($index, $legacy);
+    $this->assertNull($finder->getLastRetrievalDegradedReason());
 
     $result = $finder->findResources('housing');
 
     $this->assertSame($legacy, $result);
     $this->assertSame(1, $finder->legacyCallCount);
+    // The failure is swallowed, so the reason is the only way a caller can
+    // tell "search is broken" from "no content" when the fallback is empty.
+    $this->assertSame('lexical_search_failed', $finder->getLastRetrievalDegradedReason());
   }
 
   /**

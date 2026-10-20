@@ -9,6 +9,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountProxy;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\ilas_site_assistant\Service\EnvironmentDetector;
+use Drupal\ilas_site_assistant\Service\LexiconOverrides;
 use Drupal\ilas_site_assistant\Service\RetrievalConfigurationService;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -58,13 +59,22 @@ class AssistantSettingsForm extends ConfigFormBase {
     ?RetrievalConfigurationService $retrieval_configuration = NULL,
     ?LoggerInterface $logger = NULL,
     ?AccountProxyInterface $current_user = NULL,
+    ?LexiconOverrides $lexicon_overrides = NULL,
   ) {
     parent::__construct($config_factory, $typed_config_manager);
     $this->environmentDetector = $environment_detector ?? new EnvironmentDetector();
     $this->retrievalConfiguration = $retrieval_configuration;
     $this->logger = $logger ?? new NullLogger();
     $this->currentUser = $current_user ?? new AccountProxy(new EventDispatcher());
+    $this->lexiconOverrides = $lexicon_overrides;
   }
+
+  /**
+   * Admin lexicon overrides service (typos / topic aliases).
+   *
+   * @var \Drupal\ilas_site_assistant\Service\LexiconOverrides|null
+   */
+  protected ?LexiconOverrides $lexiconOverrides = NULL;
 
   /**
    * {@inheritdoc}
@@ -77,6 +87,7 @@ class AssistantSettingsForm extends ConfigFormBase {
       $container->has('ilas_site_assistant.retrieval_configuration') ? $container->get('ilas_site_assistant.retrieval_configuration') : NULL,
       $container->get('logger.factory')->get('ilas_site_assistant'),
       $container->get('current_user'),
+      $container->has('ilas_site_assistant.lexicon_overrides') ? $container->get('ilas_site_assistant.lexicon_overrides') : NULL,
     );
   }
 
@@ -403,6 +414,27 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('faq_node_path') ?? '/faq',
     ];
 
+    $form['lexicon'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Lexicon overrides (no deploy needed)'),
+      '#open' => FALSE,
+      '#description' => $this->t('Teach the assistant new spellings and wording without a code change. Entries here are merged on top of the shipped lexicon (config/routing/typos.yml, topic_map.yml). Promote entries that prove useful into those files with fixtures during the weekly gap review so CI covers them.'),
+    ];
+    $form['lexicon']['lexicon_typos'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Typo corrections'),
+      '#description' => $this->t('One per line: <code>misspelling =&gt; canonical</code> (e.g. <code>tenet =&gt; tenant</code>). The canonical word must already be a vocabulary word.'),
+      '#default_value' => LexiconOverrides::formatTypoLines(is_array($config->get('lexicon_overrides.typos')) ? $config->get('lexicon_overrides.typos') : []),
+      '#rows' => 6,
+    ];
+    $form['lexicon']['lexicon_topic_aliases'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Topic aliases'),
+      '#description' => $this->t('One per line: <code>phrase =&gt; topic_intent</code> (e.g. <code>entering a residence =&gt; topic_housing_landlord_tenant</code>). The target must be a Top Intents pack key; a message containing the phrase gets that answer.'),
+      '#default_value' => LexiconOverrides::formatAliasLines(is_array($config->get('lexicon_overrides.topic_aliases')) ? $config->get('lexicon_overrides.topic_aliases') : []),
+      '#rows' => 6,
+    ];
+
     $form['retrieval'] = [
       '#type' => 'details',
       '#title' => $this->t('Retrieval Index Identifiers'),
@@ -532,7 +564,7 @@ class AssistantSettingsForm extends ConfigFormBase {
     $form['llm'] = [
       '#type' => 'details',
       '#title' => $this->t('Request-time LLM'),
-      '#description' => $this->t('Use Cohere only for bounded ambiguous-intent classification. Assistant responses remain deterministic, safety-gated, and grounded in site content.'),
+      '#description' => $this->t('Use Cohere for bounded ambiguous-intent classification and, when grounded generation is enabled, for short cited answers written strictly from retrieved site content. Assistant responses remain safety-gated and fall back to deterministic templates.'),
       '#open' => FALSE,
     ];
 
@@ -607,6 +639,48 @@ class AssistantSettingsForm extends ConfigFormBase {
       '#max' => 5,
     ];
 
+    $generation_config = is_array($llm_config['generation'] ?? NULL) ? $llm_config['generation'] : [];
+    $form['llm']['generation'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Grounded answer generation'),
+      '#description' => $this->t('When enabled, Cohere writes a short answer strictly from the retrieved FAQ/resource documents with citations. Any guard failure (no citations, legal-advice phrasing, invented contact details, timeout, budget) falls back to the deterministic template.'),
+      '#open' => FALSE,
+    ];
+
+    $form['llm']['generation']['llm_generation_enabled'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable grounded answer generation'),
+      '#description' => $is_live_environment
+        ? $this->t('Live enablement is runtime-only. Set <code>ILAS_LLM_GENERATION_ENABLED</code> and clear caches instead of saving this checkbox.')
+        : $this->t('Requires request-time LLM classification to be enabled and the Cohere runtime key to be present.'),
+      '#default_value' => (bool) ($generation_config['enabled'] ?? FALSE),
+      '#disabled' => $is_live_environment,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_tokens'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Generation Maximum Tokens'),
+      '#default_value' => (int) ($generation_config['max_tokens'] ?? 220),
+      '#min' => 64,
+      '#max' => 400,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_documents'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Documents Sent'),
+      '#default_value' => (int) ($generation_config['max_documents'] ?? 4),
+      '#min' => 1,
+      '#max' => 6,
+    ];
+
+    $form['llm']['generation']['llm_generation_max_words'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum Answer Words'),
+      '#default_value' => (int) ($generation_config['max_words'] ?? 120),
+      '#min' => 40,
+      '#max' => 250,
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -614,10 +688,36 @@ class AssistantSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
+    $typos = LexiconOverrides::parseTypoLines((string) $form_state->getValue('lexicon_typos'));
+    $aliases = LexiconOverrides::parseAliasLines((string) $form_state->getValue('lexicon_topic_aliases'));
+    $typo_errors = array_values($typos['errors']);
+    $alias_errors = array_values($aliases['errors']);
+    if ($this->lexiconOverrides !== NULL) {
+      $typo_errors = array_merge($typo_errors, $this->lexiconOverrides->validateTypos($typos['entries']));
+      $alias_errors = array_merge($alias_errors, $this->lexiconOverrides->validateAliases($aliases['entries']));
+    }
+    if ($typo_errors !== []) {
+      $form_state->setErrorByName('lexicon_typos', $this->t('Typo corrections: @errors', ['@errors' => implode(' ', $typo_errors)]));
+    }
+    if ($alias_errors !== []) {
+      $form_state->setErrorByName('lexicon_topic_aliases', $this->t('Topic aliases: @errors', ['@errors' => implode(' ', $alias_errors)]));
+    }
+    $form_state->set('lexicon_overrides_parsed', [
+      'typos' => $typos['entries'],
+      'topic_aliases' => $aliases['entries'],
+    ]);
+
     if ($this->isLiveEnvironment() && (bool) $form_state->getValue('llm_enabled')) {
       $form_state->setErrorByName(
         'llm_enabled',
         $this->t('Live request-time LLM rollout is runtime-only. Set <code>ILAS_LLM_ENABLED</code> and clear caches instead of saving this checkbox.'),
+      );
+    }
+
+    if ($this->isLiveEnvironment() && (bool) $form_state->getValue('llm_generation_enabled')) {
+      $form_state->setErrorByName(
+        'llm_generation_enabled',
+        $this->t('Live grounded generation rollout is runtime-only. Set <code>ILAS_LLM_GENERATION_ENABLED</code> and clear caches instead of saving this checkbox.'),
       );
     }
 
@@ -772,6 +872,17 @@ class AssistantSettingsForm extends ConfigFormBase {
     $llm_config['cache_ttl'] = (int) $form_state->getValue('llm_cache_ttl');
     $llm_config['max_retries'] = (int) $form_state->getValue('llm_max_retries');
 
+    $llm_generation_enabled = (bool) $form_state->getValue('llm_generation_enabled');
+    if ($this->isLiveEnvironment()) {
+      $llm_generation_enabled = FALSE;
+    }
+    $generation_config = is_array($llm_config['generation'] ?? NULL) ? $llm_config['generation'] : [];
+    $generation_config['enabled'] = $llm_generation_enabled;
+    $generation_config['max_tokens'] = (int) $form_state->getValue('llm_generation_max_tokens');
+    $generation_config['max_documents'] = (int) $form_state->getValue('llm_generation_max_documents');
+    $generation_config['max_words'] = (int) $form_state->getValue('llm_generation_max_words');
+    $llm_config['generation'] = $generation_config;
+
     // Build conversation logging config array.
     $conversation_logging_config = [
       'enabled' => (bool) $form_state->getValue('conversation_logging_enabled'),
@@ -797,7 +908,11 @@ class AssistantSettingsForm extends ConfigFormBase {
       ->set('vector_search', $vector_search_config)
       ->set('llm', $llm_config)
       ->set('conversation_logging', $conversation_logging_config)
+      ->set('lexicon_overrides', $form_state->get('lexicon_overrides_parsed') ?? ['typos' => [], 'topic_aliases' => []])
       ->save();
+
+    // Routing services cache the vocabulary and topic map for an hour.
+    $this->lexiconOverrides?->invalidateCaches();
 
     // Audit log: record which security-sensitive settings changed.
     $changes = [];

@@ -9,6 +9,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityFormBuilderInterface;
 use Drupal\Core\Url;
+use Drupal\ilas_site_assistant\Service\LexiconOverrides;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -25,6 +26,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
     protected Connection $database,
     protected DateFormatterInterface $dateFormatter,
     protected EntityFormBuilderInterface $reviewEntityFormBuilder,
+    protected ?LexiconOverrides $lexiconOverrides = NULL,
   ) {}
 
   /**
@@ -35,6 +37,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
       $container->get('database'),
       $container->get('date.formatter'),
       $container->get('entity.form_builder'),
+      $container->has('ilas_site_assistant.lexicon_overrides') ? $container->get('ilas_site_assistant.lexicon_overrides') : NULL,
     );
   }
 
@@ -70,6 +73,26 @@ final class AssistantGapItemReviewController extends ControllerBase {
       'technical' => $this->buildTechnicalDetails($assistant_gap_item),
     ];
 
+    if ($assistant_gap_item->access('update', $this->currentUser())
+      && $this->currentUser()->hasPermission('edit assistant gap items')
+      && $this->lexiconOverrides !== NULL) {
+      $build['lexicon'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Fix routing now'),
+        '#open' => TRUE,
+        '#weight' => 12,
+        'help' => [
+          '#markup' => '<p>' . $this->t('If the assistant should have answered this with an existing topic, add the wording as a topic alias. It takes effect immediately, no deploy needed.') . '</p>',
+        ],
+        'link' => [
+          '#type' => 'link',
+          '#title' => $this->t('Add exemplar as topic alias'),
+          '#url' => Url::fromRoute('ilas_site_assistant_governance.gap_add_topic_alias', ['assistant_gap_item' => $assistant_gap_item->id()]),
+          '#attributes' => ['class' => ['button', 'button--small']],
+        ],
+      ];
+    }
+
     if ($assistant_gap_item->access('update', $this->currentUser())) {
       $build['review_form'] = [
         '#type' => 'details',
@@ -99,6 +122,8 @@ final class AssistantGapItemReviewController extends ControllerBase {
     $rows = [
       [$this->t('Redacted exemplar'), (string) ($assistant_gap_item->get('exemplar_redacted_query')->value ?? $this->t('None available'))],
       [$this->t('Status'), AssistantGapItem::stateOptions()[$assistant_gap_item->getReviewState()] ?? $assistant_gap_item->getReviewState()],
+      [$this->t('Trigger'), $this->triggerLabel($assistant_gap_item, 'trigger_code')],
+      [$this->t('Latest trigger'), $this->triggerLabel($assistant_gap_item, 'latest_trigger_code')],
       [$this->t('Next action'), $assistant_gap_item->getNextActionLabel()],
       [$this->t('Assigned reviewer'), $assistant_gap_item->get('assigned_uid')->entity?->label() ?? $this->t('Unassigned')],
       [$this->t('Identity context'), (string) ($assistant_gap_item->get('identity_context_key')->value ?? 'legacy:unknown')],
@@ -144,14 +169,19 @@ final class AssistantGapItemReviewController extends ControllerBase {
     }
 
     $query = $this->database->select('ilas_site_assistant_gap_hit', 'h');
-    $query->fields('h', [
+    $hit_fields = [
       'conversation_id',
       'occurred_at',
       'language_hint',
       'assignment_source',
       'intent',
       'active_selection_key',
-    ]);
+    ];
+    $has_trigger_column = $this->database->schema()->fieldExists('ilas_site_assistant_gap_hit', 'trigger_code');
+    if ($has_trigger_column) {
+      $hit_fields[] = 'trigger_code';
+    }
+    $query->fields('h', $hit_fields);
     $query->condition('h.gap_item_id', (int) $assistant_gap_item->id());
     $query->leftJoin('taxonomy_term_field_data', 'topic_term', 'topic_term.tid = h.observed_topic_tid');
     $query->leftJoin('taxonomy_term_field_data', 'service_area_term', 'service_area_term.tid = h.observed_service_area_tid');
@@ -175,6 +205,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
 
       $rows[] = [
         $this->formatTimestamp((int) $row->occurred_at),
+        AssistantGapItem::triggerCodeOptions()[(string) ($row->trigger_code ?? '')] ?? ($row->trigger_code ?? '-'),
         $row->language_hint ?: '-',
         $row->intent ?: '-',
         $row->assignment_source ?: '-',
@@ -194,6 +225,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         '#type' => 'table',
         '#header' => [
           $this->t('When'),
+          $this->t('Trigger'),
           $this->t('Language'),
           $this->t('Intent'),
           $this->t('Source'),
@@ -206,6 +238,17 @@ final class AssistantGapItemReviewController extends ControllerBase {
         '#empty' => $this->t('No evidence rows are available for this gap item yet.'),
       ],
     ];
+  }
+
+  /**
+   * Returns the human label for a trigger field on the gap item.
+   */
+  protected function triggerLabel(AssistantGapItem $assistant_gap_item, string $field_name): string {
+    if (!$assistant_gap_item->hasField($field_name)) {
+      return (string) $this->t('Unknown');
+    }
+    $code = (string) ($assistant_gap_item->get($field_name)->value ?? AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK);
+    return AssistantGapItem::triggerCodeOptions()[$code] ?? $code;
   }
 
   /**
@@ -232,14 +275,19 @@ final class AssistantGapItemReviewController extends ControllerBase {
       return $build;
     }
 
+    $excerpt_fields = [
+      'turn_sequence',
+      'direction',
+      'message_redacted',
+      'intent',
+      'response_type',
+    ];
+    $has_feedback = $this->database->schema()->fieldExists('ilas_site_assistant_conversation_turn', 'feedback_value');
+    if ($has_feedback) {
+      $excerpt_fields[] = 'feedback_value';
+    }
     $turns = $this->database->select('ilas_site_assistant_conversation_turn', 't')
-      ->fields('t', [
-        'turn_sequence',
-        'direction',
-        'message_redacted',
-        'intent',
-        'response_type',
-      ])
+      ->fields('t', $excerpt_fields)
       ->condition('conversation_id', $conversation_id)
       ->orderBy('turn_sequence', 'DESC')
       ->range(0, 6)
@@ -259,6 +307,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         $turn->message_redacted,
         $turn->intent ?: '-',
         $turn->response_type ?: '-',
+        $has_feedback && !empty($turn->feedback_value) ? str_replace('_', ' ', (string) $turn->feedback_value) : '-',
       ];
     }
 
@@ -278,6 +327,7 @@ final class AssistantGapItemReviewController extends ControllerBase {
         $this->t('Redacted message'),
         $this->t('Intent'),
         $this->t('Response type'),
+        $this->t('Feedback'),
       ],
       '#rows' => $rows,
     ];

@@ -1,0 +1,47 @@
+description: "ILAS Site Assistant — Grounded answer generation suite (TOVR-18)"
+
+# Run against a hosted environment with ILAS_LLM_GENERATION_ENABLED=1 and
+# ILAS_EVAL_GENERATION_MODE=on. Advisory until two clean nightlies, then
+# blocking at threshold 90 (see docs/aila/runbook.md, TOVR-18).
+
+prompts:
+  - file://prompts/ilas-thread.yaml
+
+providers:
+  - file://providers/ilas-live.js
+
+evaluateOptions:
+  maxConcurrency: 1
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasProviderMetadata
+      metric: generation-provider-metadata-present
+    - type: javascript
+      value: file://lib/ilas-assertions.js:isLiveProviderMode
+      metric: generation-provider-live-mode
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNonEmptyAssistantResponse
+      metric: generation-non-empty-response
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasReadableContractMeta
+      metric: generation-contract-meta-readable
+    - type: javascript
+      value: file://lib/ilas-assertions.js:respectsMustNotSafetyLayer
+      metric: generation-must-not-safety
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNoLegalAdvicePhrasing
+      metric: generation-no-legal-advice
+    - type: javascript
+      value: file://lib/ilas-assertions.js:hasNoMarkdownOrUrls
+      metric: generation-plain-text
+    - type: javascript
+      value: file://lib/ilas-assertions.js:isWithinWordBudget
+      metric: generation-word-budget
+    - type: javascript
+      value: file://lib/ilas-assertions.js:citationsWithinResults
+      metric: generation-citations-within-results
+
+tests:
+  - file://tests/grounded-generation.yaml

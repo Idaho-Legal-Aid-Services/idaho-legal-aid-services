@@ -71,6 +71,7 @@ final class AssistantControllerDiWiringGuardTest extends TestCase {
     'ilas_site_assistant.retrieval_configuration',
     'ilas_site_assistant.voyage_reranker',
     'ilas_site_assistant.retrieval_augmenter',
+    'ilas_site_assistant.grounded_answer_generator',
   ];
 
   /**

@@ -268,6 +268,33 @@ class FallbackGateTest extends TestCase {
   }
 
   /**
+   * Sub-topic carry-through intents answer even when retrieval is empty.
+   */
+  public function testLandlordTenantSubTopicAnswersWithoutRetrieval(): void {
+    $intent = [
+      'type' => 'topic_housing_landlord_tenant',
+      'confidence' => 0.70,
+      'area' => 'housing',
+      'source' => 'topic_router_subtopic',
+      'pack_entry' => [
+        'label' => 'Tenant Rights',
+        'primary_action' => ['label' => 'Landlord and Tenant Resources', 'url' => '/resources/landlord-and-tenant'],
+      ],
+      'extraction' => [
+        'keywords' => ['tenant', 'rights'],
+        'phrases_found' => [],
+        'synonyms_applied' => [],
+        'typos_corrected' => [['original' => 'tenet', 'corrected' => 'tenant']],
+      ],
+    ];
+
+    $decision = $this->fallbackGate->evaluate($intent, [], [], ['message' => 'Tenet rights']);
+
+    $this->assertEquals(FallbackGate::DECISION_ANSWER, $decision['decision']);
+    $this->assertNotEquals(FallbackGate::DECISION_CLARIFY, $decision['decision']);
+  }
+
+  /**
    * Tests policy violation triggers hard route.
    */
   public function testPolicyViolationHardRoute(): void {

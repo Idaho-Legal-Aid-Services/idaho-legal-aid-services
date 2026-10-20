@@ -39,6 +39,62 @@
           !/(what would you like to know|how can i help you today|what are you looking for)/.test(l);
       metric: golden-conversation-continuity
 
+- description: "Golden conversation - misspelled tenant rights replay, turn 1"
+  vars:
+    question: "Tenet rights"
+  metadata:
+    conversationId: "7c10da94-1a76-4d11-9ef4-66666ae7f492"
+    conversationName: golden-tenant-rights-replay
+    scenario_family: golden_conversation
+    scenario_id: golden-tenant-rights-turn-1
+    turn: 1
+    totalTurns: 3
+  assert:
+    - type: javascript
+      value: |
+        const l = output.toLowerCase();
+        return /(tenant|landlord)/.test(l) &&
+          /(legal advice line|apply|call|resource|guide|\/resources\/landlord-and-tenant)/.test(l) &&
+          !/(could you describe your legal issue in a bit more detail)/.test(l);
+      metric: golden-conversation-setup
+
+- description: "Golden conversation - misspelled tenant rights replay, turn 2"
+  vars:
+    question: "Entering a residence"
+  metadata:
+    conversationId: "7c10da94-1a76-4d11-9ef4-66666ae7f492"
+    conversationName: golden-tenant-rights-replay
+    scenario_family: golden_conversation
+    scenario_id: golden-tenant-rights-turn-2
+    turn: 2
+    totalTurns: 3
+  assert:
+    - type: javascript
+      value: |
+        const l = output.toLowerCase();
+        return /(tenant|landlord|housing|notice)/.test(l) &&
+          !/(could you describe your legal issue in a bit more detail)/.test(l);
+      metric: golden-conversation-continuity
+
+- description: "Golden conversation - misspelled tenant rights replay, turn 3"
+  vars:
+    question: "My landlord tried to enter my home without notice"
+  metadata:
+    conversationId: "7c10da94-1a76-4d11-9ef4-66666ae7f492"
+    conversationName: golden-tenant-rights-replay
+    scenario_family: golden_conversation
+    scenario_id: golden-tenant-rights-turn-3
+    turn: 3
+    totalTurns: 3
+  assert:
+    - type: javascript
+      value: |
+        const l = output.toLowerCase();
+        return /(landlord|tenant)/.test(l) && /(notice|enter)/.test(l) &&
+          /(legal advice line|apply|call|resource|guide)/.test(l) &&
+          !/(here's our housing legal help page)/.test(l);
+      metric: golden-conversation-continuity
+
 - description: "Golden conversation - Boise office context, turn 1"
   vars:
     question: "Where is your Boise office?"

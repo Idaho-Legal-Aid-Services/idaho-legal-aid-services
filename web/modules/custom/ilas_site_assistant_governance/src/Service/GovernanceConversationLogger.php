@@ -18,6 +18,9 @@ class GovernanceConversationLogger {
   public const RETENTION_DAYS = 90;
   public const REDACTION_VERSION = 'v1';
 
+  public const FEEDBACK_HELPFUL = 'helpful';
+  public const FEEDBACK_NOT_HELPFUL = 'not_helpful';
+
   /**
    * Constructs the logger.
    */
@@ -25,7 +28,183 @@ class GovernanceConversationLogger {
     protected Connection $database,
     protected TimeInterface $time,
     protected LoggerInterface $logger,
+    protected ?GapItemManager $gapItemManager = NULL,
   ) {}
+
+  /**
+   * Correlates thumbs-up/down feedback with the answered turn.
+   *
+   * Updates the assistant turn matching BOTH the request ID and the
+   * conversation ID (so a spoofed request ID from another conversation is
+   * ignored), records the value once (first vote wins), and for not-helpful
+   * feedback creates or increments a negative_feedback gap item from the
+   * paired user turn's already-redacted text. No raw user text is read.
+   *
+   * @return array|null
+   *   ['feedback_value' => ..., 'gap_item_id' => int|null,
+   *    'user_turn' => array|null] when a turn was updated, NULL when the
+   *   request/conversation pair is unknown or feedback was already recorded.
+   */
+  public function recordFeedback(string $requestId, string $conversationId, string $value): ?array {
+    $value = $value === self::FEEDBACK_HELPFUL ? self::FEEDBACK_HELPFUL : self::FEEDBACK_NOT_HELPFUL;
+    $requestId = mb_substr(trim($requestId), 0, 36);
+    $conversationId = mb_substr(trim($conversationId), 0, 36);
+    if (!preg_match('/^[a-f0-9\-]{36}$/i', $requestId) || !preg_match('/^[a-f0-9\-]{36}$/i', $conversationId)) {
+      return NULL;
+    }
+
+    $schema = $this->database->schema();
+    if (
+      !$schema->tableExists('ilas_site_assistant_conversation_turn')
+      || !$schema->fieldExists('ilas_site_assistant_conversation_turn', 'feedback_value')
+    ) {
+      return NULL;
+    }
+
+    try {
+      $now = $this->time->getRequestTime();
+      $updated = $this->database->update('ilas_site_assistant_conversation_turn')
+        ->fields(['feedback_value' => $value, 'feedback_at' => $now])
+        ->condition('conversation_id', $conversationId)
+        ->condition('request_id', $requestId)
+        ->condition('direction', 'assistant')
+        ->isNull('feedback_value')
+        ->execute();
+      if ((int) $updated === 0) {
+        return NULL;
+      }
+
+      $result = ['feedback_value' => $value, 'gap_item_id' => NULL, 'user_turn' => NULL];
+      if ($value !== self::FEEDBACK_NOT_HELPFUL) {
+        return $result;
+      }
+
+      if ($schema->fieldExists('ilas_site_assistant_conversation_session', 'has_negative_feedback')) {
+        $this->database->update('ilas_site_assistant_conversation_session')
+          ->fields(['has_negative_feedback' => 1])
+          ->condition('conversation_id', $conversationId)
+          ->execute();
+      }
+
+      $user_turn = $this->database->select('ilas_site_assistant_conversation_turn', 't')
+        ->fields('t', [
+          'id',
+          'turn_sequence',
+          'message_redacted',
+          'message_hash',
+          'message_length_bucket',
+          'redaction_profile',
+          'language_hint',
+          'intent',
+          'gap_item_id',
+        ])
+        ->condition('conversation_id', $conversationId)
+        ->condition('request_id', $requestId)
+        ->condition('direction', 'user')
+        ->orderBy('turn_sequence', 'ASC')
+        ->range(0, 1)
+        ->execute()
+        ->fetchAssoc() ?: NULL;
+      $result['user_turn'] = $user_turn;
+
+      if ($user_turn === NULL || $this->gapItemManager === NULL) {
+        return $result;
+      }
+
+      $gap_item_id = $this->recordTurnGapItem($user_turn, $conversationId, $requestId, 'negative_feedback');
+      $result['gap_item_id'] = $gap_item_id;
+      return $result;
+    }
+    catch (\Throwable $e) {
+      $this->logger->error('Governance feedback correlation failed: @class @error_signature', [
+        '@class' => get_class($e),
+        '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+      ]);
+      return NULL;
+    }
+  }
+
+  /**
+   * Pushes a stored user turn into the gap review queue.
+   *
+   * Used by the transcript "Flag for review" action; clusters with runtime
+   * hits for the same message via the stored text hash.
+   *
+   * @return int|null
+   *   The gap item ID, or NULL when the turn is unknown or already linked.
+   */
+  public function flagUserTurn(string $conversationId, int $turnSequence): ?int {
+    $conversationId = mb_substr(trim($conversationId), 0, 36);
+    if ($conversationId === '' || $this->gapItemManager === NULL) {
+      return NULL;
+    }
+
+    $user_turn = $this->database->select('ilas_site_assistant_conversation_turn', 't')
+      ->fields('t', [
+        'id',
+        'turn_sequence',
+        'request_id',
+        'direction',
+        'message_redacted',
+        'message_hash',
+        'message_length_bucket',
+        'redaction_profile',
+        'language_hint',
+        'intent',
+        'gap_item_id',
+      ])
+      ->condition('conversation_id', $conversationId)
+      ->condition('turn_sequence', $turnSequence)
+      ->execute()
+      ->fetchAssoc() ?: NULL;
+
+    if ($user_turn === NULL || ($user_turn['direction'] ?? '') !== 'user') {
+      return NULL;
+    }
+    if (!empty($user_turn['gap_item_id'])) {
+      return (int) $user_turn['gap_item_id'];
+    }
+
+    return $this->recordTurnGapItem($user_turn, $conversationId, (string) ($user_turn['request_id'] ?? ''), 'reviewer_flagged');
+  }
+
+  /**
+   * Records a gap item from a stored (already redacted) user turn row.
+   */
+  protected function recordTurnGapItem(array $user_turn, string $conversationId, string $requestId, string $trigger_code): ?int {
+    $gap_item_id = $this->gapItemManager->recordNoAnswer((string) ($user_turn['message_redacted'] ?? ''), [
+      'trigger_code' => $trigger_code,
+      'conversation_id' => $conversationId,
+      'request_id' => $requestId,
+      'intent_type' => (string) ($user_turn['intent'] ?? 'unknown'),
+      'text_metadata' => [
+        'text_hash' => (string) ($user_turn['message_hash'] ?? ''),
+        'language_hint' => (string) ($user_turn['language_hint'] ?? 'unknown'),
+        'length_bucket' => (string) ($user_turn['message_length_bucket'] ?? ''),
+        'redaction_profile' => (string) ($user_turn['redaction_profile'] ?? 'none'),
+      ],
+    ]);
+    if ($gap_item_id === NULL) {
+      return NULL;
+    }
+
+    // Link the item to the turn and to the session, like a runtime hit.
+    $this->database->update('ilas_site_assistant_conversation_turn')
+      ->fields(['gap_item_id' => $gap_item_id])
+      ->condition('id', (int) $user_turn['id'])
+      ->isNull('gap_item_id')
+      ->execute();
+    $session_fields = ['latest_gap_item_id' => $gap_item_id];
+    if ($this->database->schema()->fieldExists('ilas_site_assistant_conversation_session', 'has_unresolved_gap')) {
+      $session_fields['has_unresolved_gap'] = 1;
+    }
+    $this->database->update('ilas_site_assistant_conversation_session')
+      ->fields($session_fields)
+      ->condition('conversation_id', $conversationId)
+      ->execute();
+
+    return $gap_item_id;
+  }
 
   /**
    * Writes a canonical session row plus two redacted turn rows.
@@ -119,7 +298,10 @@ class GovernanceConversationLogger {
         'purge_after' => $now + (self::RETENTION_DAYS * 86400),
       ];
       if ($supports_unresolved_gap) {
-        $session_fields['has_unresolved_gap'] = !empty($context['is_no_answer']) || !empty($session['has_unresolved_gap']) ? 1 : 0;
+        // Any linked gap item (no-match, clarify, loop, grounding refusal)
+        // means a reviewer may still need to follow up on this conversation.
+        $has_open_gap = !empty($context['is_no_answer']) || !empty($context['gap_item_id']);
+        $session_fields['has_unresolved_gap'] = $has_open_gap || !empty($session['has_unresolved_gap']) ? 1 : 0;
       }
 
       if ($session) {

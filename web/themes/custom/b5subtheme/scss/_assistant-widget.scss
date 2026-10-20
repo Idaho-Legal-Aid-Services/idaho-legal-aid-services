@@ -611,6 +611,118 @@
   }
 }
 
+// Sources list under a generated (grounded) answer (TOVR-18)
+.assistant-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $spacer-xs;
+  margin: 0 0 $spacer-sm 0;
+  font-size: 0.8rem;
+  color: $color-gray-text;
+}
+
+.assistant-sources__label {
+  font-weight: $weight-button;
+}
+
+.assistant-sources__list {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant-sources__item {
+  display: inline;
+
+  &:not(:last-child)::after {
+    content: '\00b7';
+    margin: 0 $spacer-xs;
+  }
+}
+
+.assistant-sources__link {
+  color: $color-primary;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: none;
+  }
+}
+
+// Thumbs up / down under an answer (assistant-widget.js renders these;
+// ported from the module's unused css/assistant-widget.css so they ship).
+.feedback-controls {
+  display: flex;
+  align-items: center;
+  gap: $spacer-xs * 1.5;
+  padding: $spacer-xs $spacer-sm;
+  margin-top: $spacer-xs;
+  font-size: 0.8rem;
+  color: $color-gray-text;
+
+  &--submitted {
+    .feedback-btn {
+      display: none;
+    }
+
+    .feedback-btn--selected {
+      display: inline-flex;
+      pointer-events: none;
+    }
+
+    .feedback-label {
+      font-style: italic;
+    }
+  }
+}
+
+.feedback-label {
+  margin-right: $spacer-xs;
+}
+
+.feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: $spacer-xs $spacer-sm;
+  background: transparent;
+  border: 1px solid $color-gray-border-light;
+  border-radius: $border-radius-sm;
+  color: $color-gray-text;
+  font-size: 0.85rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: $transition-fast;
+
+  &:hover,
+  &--selected {
+    background: rgba($color-primary, 0.1);
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
 // Best-match FAQ card
 .faq-result--best {
   background: $color-white;
@@ -1332,7 +1444,8 @@
   .resource-result--best,
   .ilas-assistant-page .suggestion-btn,
   .recovery-btn--retry,
-  .recovery-btn--refresh {
+  .recovery-btn--refresh,
+  .feedback-btn {
     animation: none;
     transition: $transition-fade;
   }

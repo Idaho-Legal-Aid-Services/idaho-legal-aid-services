@@ -68,6 +68,27 @@ class GovernanceModuleContractTest extends TestCase {
     }
 
     $this->assertStringContainsString("'is_unresolved'", $source);
+    $this->assertStringContainsString("'trigger_code'", $source);
+    $this->assertStringContainsString('function ilas_site_assistant_governance_update_11007', $source);
+  }
+
+  /**
+   * Trigger codes stay in sync between the runtime decider and the entity.
+   */
+  public function testTriggerCodesMirrorRuntimeDecider(): void {
+    $decider = self::readFile('web/modules/custom/ilas_site_assistant/src/Service/GapReviewDecider.php');
+    $entity = self::readFile('web/modules/custom/ilas_site_assistant_governance/src/Entity/AssistantGapItem.php');
+    foreach ([
+      'no_match_fallback',
+      'clarify_unknown_intent',
+      'clarify_loop_break',
+      'clarify_no_grounding',
+      'negative_feedback',
+      'reviewer_flagged',
+    ] as $code) {
+      $this->assertStringContainsString("'{$code}'", $decider);
+      $this->assertStringContainsString("'{$code}'", $entity);
+    }
   }
 
   /**
@@ -89,7 +110,37 @@ class GovernanceModuleContractTest extends TestCase {
     $this->assertArrayHasKey('page_queue', $install_view['display']);
     $this->assertArrayHasKey('page_new', $install_view['display']);
     $this->assertArrayHasKey('page_needs_review', $install_view['display']);
+    $this->assertArrayHasKey('page_clarify', $install_view['display']);
+    $this->assertArrayHasKey('page_top_misses', $install_view['display']);
     $this->assertArrayHasKey('page_all', $install_view['display']);
+    $this->assertArrayHasKey('trigger_code', $fields);
+    $this->assertSame('Trigger', $fields['trigger_code']['label']);
+    $this->assertArrayHasKey('trigger_code', $style_options['columns']);
+    // The main queue hides generic-clarify items; they get their own tab.
+    $queue_trigger_filter = $install_view['display']['page_queue']['display_options']['filters']['trigger_code'];
+    $this->assertSame('not in', $queue_trigger_filter['operator']);
+    $this->assertSame('in', $install_view['display']['page_queue']['display_options']['filters']['review_state']['operator']);
+    $this->assertStringContainsString("['options callback'] = \$callback", self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.views.inc'));
+    $this->assertSame(['clarify_unknown_intent' => 'clarify_unknown_intent'], $queue_trigger_filter['value']);
+    $clarify_display = $install_view['display']['page_clarify']['display_options'];
+    $this->assertSame('admin/reports/ilas-assistant/gaps/clarify', $clarify_display['path']);
+    $this->assertSame([
+      'clarify_unknown_intent' => 'clarify_unknown_intent',
+      'clarify_loop_break' => 'clarify_loop_break',
+      'clarify_no_grounding' => 'clarify_no_grounding',
+    ], $clarify_display['filters']['trigger_code']['value']);
+    $this->assertSame('DESC', $clarify_display['sorts']['occurrence_count_unresolved']['order']);
+    $top_display = $install_view['display']['page_top_misses']['display_options'];
+    $this->assertSame('admin/reports/ilas-assistant/gaps/top-misses', $top_display['path']);
+    $this->assertSame('-30 days', $top_display['filters']['last_seen']['value']['value']);
+    $this->assertSame('offset', $top_display['filters']['last_seen']['value']['type']);
+    $this->assertSame('DESC', $top_display['sorts']['occurrence_count_unresolved']['order']);
+    $this->assertSame($fields['trigger_code'], $active_view['display']['default']['display_options']['fields']['trigger_code']);
+    $this->assertSame($clarify_display['filters'], $active_view['display']['page_clarify']['display_options']['filters']);
+    $this->assertSame($top_display['filters'], $active_view['display']['page_top_misses']['display_options']['filters']);
+    $tasks = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.links.task.yml');
+    $this->assertSame('view.assistant_gap_items.page_clarify', $tasks['view.assistant_gap_items.page_clarify_tab']['route_name']);
+    $this->assertSame('view.assistant_gap_items.page_top_misses', $tasks['view.assistant_gap_items.page_top_misses_tab']['route_name']);
     $this->assertArrayHasKey('assistant_gap_item_bulk_form', $fields);
     $this->assertArrayNotHasKey('bulk_form', $fields);
     $this->assertSame('assistant_gap_item_bulk_form', $fields['assistant_gap_item_bulk_form']['field']);
@@ -150,6 +201,79 @@ class GovernanceModuleContractTest extends TestCase {
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_bulk_resolve_confirm', $routes);
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_bulk_archive_confirm', $routes);
     $this->assertArrayHasKey('ilas_site_assistant_governance.gap_start_review', $routes);
+    $this->assertArrayHasKey('ilas_site_assistant_governance.flag_conversation_turn', $routes);
+    $flag_route = $routes['ilas_site_assistant_governance.flag_conversation_turn'];
+    $this->assertSame('/admin/reports/ilas-assistant/governance/conversations/{conversation_id}/turns/{turn_sequence}/flag', $flag_route['path']);
+    $this->assertSame('flag assistant conversation turns', $flag_route['requirements']['_permission']);
+    $this->assertSame('TRUE', $flag_route['requirements']['_csrf_token']);
+    $permissions = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.permissions.yml');
+    $this->assertArrayHasKey('flag assistant conversation turns', $permissions);
+    $this->assertTrue($permissions['flag assistant conversation turns']['restrict access']);
+  }
+
+  /**
+   * The weekly candidate export is wired to cron and exposed as a queue tab.
+   */
+  public function testCandidateExportSurfaceIsWired(): void {
+    $routes = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.routing.yml');
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/export', $routes['ilas_site_assistant_governance.candidate_export']['path']);
+    $this->assertSame('view assistant gap items', $routes['ilas_site_assistant_governance.candidate_export']['requirements']['_permission']);
+    $this->assertSame('TRUE', $routes['ilas_site_assistant_governance.candidate_export_run']['requirements']['_csrf_token']);
+    $this->assertSame('edit assistant gap items', $routes['ilas_site_assistant_governance.candidate_export_run']['requirements']['_permission']);
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/export/download', $routes['ilas_site_assistant_governance.candidate_export_download']['path']);
+
+    $tasks = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.links.task.yml');
+    $this->assertSame('ilas_site_assistant_governance.candidate_export', $tasks['ilas_site_assistant_governance.candidate_export_tab']['route_name']);
+
+    $services = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.services.yml');
+    $this->assertArrayHasKey('ilas_site_assistant_governance.candidate_export_scheduler', $services['services']);
+
+    $module = self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.module');
+    $this->assertStringContainsString("candidate_export_scheduler')->runIfDue()", $module);
+
+    // The drush command and cron share one YAML renderer.
+    $command = self::readFile('web/modules/custom/ilas_site_assistant_governance/src/Commands/ReviewedGapPromptfooExportCommands.php');
+    $this->assertStringContainsString('renderCandidateYaml', $command);
+    $this->assertStringNotContainsString('Yaml::dump', $command);
+  }
+
+  /**
+   * The add-topic-alias reviewer form is routed with entity access.
+   */
+  public function testAddTopicAliasFormIsWired(): void {
+    $routes = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.routing.yml');
+    $route = $routes['ilas_site_assistant_governance.gap_add_topic_alias'];
+    $this->assertSame('/admin/reports/ilas-assistant/gaps/{assistant_gap_item}/add-alias', $route['path']);
+    $this->assertSame('edit assistant gap items', $route['requirements']['_permission']);
+    $this->assertSame('assistant_gap_item.update', $route['requirements']['_entity_access']);
+    $this->assertSame('entity:assistant_gap_item', $route['options']['parameters']['assistant_gap_item']['type']);
+
+    $runtime_services = self::parseYaml('web/modules/custom/ilas_site_assistant/ilas_site_assistant.services.yml');
+    $this->assertArrayHasKey('ilas_site_assistant.lexicon_overrides', $runtime_services['services']);
+    $schema = self::parseYaml('web/modules/custom/ilas_site_assistant/config/schema/ilas_site_assistant.schema.yml');
+    $this->assertArrayHasKey('lexicon_overrides', $schema['ilas_site_assistant.settings']['mapping']);
+    foreach (['web/modules/custom/ilas_site_assistant/config/install/ilas_site_assistant.settings.yml', 'config/ilas_site_assistant.settings.yml'] as $path) {
+      $settings = self::parseYaml($path);
+      $this->assertSame(['typos' => [], 'topic_aliases' => []], $settings['lexicon_overrides'], $path);
+    }
+  }
+
+  /**
+   * Feedback columns are declared in the schema and update hook.
+   */
+  public function testFeedbackColumnsDeclared(): void {
+    $source = self::readFile('web/modules/custom/ilas_site_assistant_governance/ilas_site_assistant_governance.install');
+    $this->assertStringContainsString("'feedback_value'", $source);
+    $this->assertStringContainsString("'feedback_at'", $source);
+    $this->assertStringContainsString("'has_negative_feedback'", $source);
+    $this->assertStringContainsString('function ilas_site_assistant_governance_update_11008', $source);
+
+    $conversations = self::parseYaml('web/modules/custom/ilas_site_assistant_governance/config/install/views.view.assistant_governance_conversations.yml');
+    $fields = $conversations['display']['default']['display_options']['fields'];
+    $this->assertArrayHasKey('has_negative_feedback', $fields);
+    $this->assertSame('Not-helpful feedback', $fields['has_negative_feedback']['label']);
+    $active = self::parseYaml('config/views.view.assistant_governance_conversations.yml');
+    $this->assertSame($fields['has_negative_feedback'], $active['display']['default']['display_options']['fields']['has_negative_feedback']);
   }
 
   /**

@@ -68,6 +68,15 @@ class TypoCorrectorTest extends TestCase {
       ['cusotdy', 'custody', 'transposed letters in custody'],
       ['custidy', 'custody', 'wrong vowel in custody'],
       ['divorse', 'divorce', 'common misspelling of divorce'],
+      // === Dictionary entries (config/routing/typos.yml) beyond fuzzy reach ===
+      ['tenet', 'tenant', 'tenet -> tenant is distance 2 on a 5-letter token'],
+      ['tenet rights', 'tenant', 'dictionary hit inside a two-word query'],
+      ['tenent', 'tenant', 'tenent -> tenant'],
+      ['tennant', 'tenant', 'tennant -> tenant'],
+      ['landlard', 'landlord', 'landlard -> landlord'],
+      ['leese', 'lease', 'leese -> lease'],
+      ['deposite', 'deposit', 'deposite -> deposit'],
+      ['rentor', 'renter', 'rentor -> renter'],
       ['divorec', 'divorce', 'transposed ending in divorce'],
       ['divroce', 'divorce', 'scrambled middle in divorce'],
       ['gaurdianship', 'guardianship', 'transposed letters in guardianship'],
@@ -143,7 +152,31 @@ class TypoCorrectorTest extends TestCase {
       ['the', 'Stop word should not be corrected'],
       ['hi', 'Very short word should not be corrected'],
       ['xyz', 'Short unknown word should not be corrected'],
+      ['renew', 'renew must not drift toward rent/renter'],
+      ['renewal', 'renewal is vocabulary'],
+      ['residence', 'residence is vocabulary'],
+      ['hours', 'hours has no close legal term'],
+      ['teens', 'teens must not become tenant'],
+      ['tents', 'tents must not become tenant'],
+      ['enter', 'enter is a common word'],
     ];
+  }
+
+  /**
+   * Every dictionary target must be a vocabulary word and every entry a hit.
+   */
+  public function testDictionaryTargetsAreVocabulary(): void {
+    $dictionary = $this->corrector->getDictionary();
+    $this->assertArrayHasKey('tenet', $dictionary);
+    $this->assertSame('tenant', $dictionary['tenet']);
+    foreach ($dictionary as $misspelling => $canonical) {
+      $this->assertNotSame($misspelling, $canonical, "Dictionary entry '$misspelling' maps to itself");
+      $result = $this->corrector->correct($misspelling);
+      $this->assertSame($canonical, $result['text'], "Dictionary entry '$misspelling' should correct to '$canonical'");
+      $this->assertSame('dictionary', $result['corrections'][0]['source'] ?? NULL);
+      // The canonical word itself must never be corrected.
+      $this->assertEmpty($this->corrector->correct($canonical)['corrections'], "Canonical '$canonical' must be vocabulary");
+    }
   }
 
   /**

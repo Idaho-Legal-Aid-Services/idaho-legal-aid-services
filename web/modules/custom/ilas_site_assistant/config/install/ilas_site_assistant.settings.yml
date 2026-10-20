@@ -34,8 +34,11 @@ welcome_message: 'Hello! I can help you find information on our website. What ar
 escalation_message: 'For personalized legal assistance, please contact our Legal Advice Line or apply for help.'
 
 # Request-time assistant LLM settings.
-# The assistant path stays deterministic; Cohere is used only for bounded
-# ambiguous-intent classification when operators enable the runtime toggle.
+# The assistant path stays deterministic. Cohere is used for bounded
+# ambiguous-intent classification when operators enable the runtime toggle,
+# and (when llm.generation.enabled is also on) for grounded answer generation
+# from retrieved site content. Hosted enablement is runtime-only via the
+# ILAS_LLM_ENABLED / ILAS_LLM_GENERATION_ENABLED secrets read in settings.php.
 llm:
   enabled: false
   provider: 'cohere'
@@ -53,6 +56,28 @@ llm:
   global_rate_limit:
     max_per_hour: 500           # Maximum LLM API calls per hour (0 = unlimited)
     window_seconds: 3600        # Window size in seconds
+  generation:
+    # Grounded answer generation (TOVR-18). When enabled, Cohere writes a short
+    # answer strictly from the retrieved FAQ/resource documents with citations
+    # for the listed response types; every guard failure falls back to the
+    # deterministic template. Live enablement is runtime-only via the
+    # ILAS_LLM_GENERATION_ENABLED secret read in settings.php; it requires
+    # llm.enabled (ILAS_LLM_ENABLED) plus the Cohere runtime key.
+    enabled: false
+    max_tokens: 220
+    temperature: 0.2
+    timeout_seconds: 8.0
+    max_documents: 4
+    snippet_chars: 1200
+    max_words: 120
+    citation_mode: FAST
+    cache_ttl: 3600
+    max_retries: 0
+    response_types:
+      - faq
+      - resources
+      - search_results
+      - eligibility
 
 # Rate limiting (per IP)
 rate_limit_per_minute: 15
@@ -122,6 +147,9 @@ fallback_gate:
 #   for operator tuning and debugging.
 # - The Pinecone HTTP client uses Guzzle defaults (~30s timeout).
 #   Vector search failures are caught and return empty results gracefully.
+lexicon_overrides:
+  typos: {  }
+  topic_aliases: {  }
 retrieval:
   faq_index_id: 'faq_accordion'
   resource_index_id: 'assistant_resources'
@@ -200,7 +228,6 @@ retrieve_first:
     - navigation
     - topic
     - service_area
-    - disambiguation
     - eligibility
     - apply_cta
     - services
@@ -383,12 +410,12 @@ review_loop:
     - 'Top content gaps from no-answer fingerprints'
     - 'Grounding refusal frequency'
   escalation_path: 'Content Manager -> Drupal Lead -> Product Owner'
-  artifact_location: 'docs/aila/runtime/phard-05-search-quality-review.txt'
+  artifact_location: 'promptfoo-evals/output/reviewed-gaps.candidate.yaml'
 
 cost_control:
   daily_call_limit: 5000
   monthly_call_limit: 100000
-  per_ip_hourly_call_limit: 10
+  per_ip_hourly_call_limit: 30  # Shared by intent classification and grounded generation
   per_ip_window_seconds: 3600
   sample_rate: 1.0
   cache_hit_rate_target: 0.30

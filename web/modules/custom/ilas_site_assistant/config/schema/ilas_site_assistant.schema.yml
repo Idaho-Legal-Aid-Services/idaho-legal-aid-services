@@ -213,6 +213,46 @@ ilas_site_assistant.settings:
             window_seconds:
               type: integer
               label: 'Rate limit window in seconds (default: 3600)'
+        generation:
+          type: mapping
+          label: 'Grounded answer generation settings'
+          mapping:
+            enabled:
+              type: boolean
+              label: 'Enable grounded answer generation from retrieved content'
+            max_tokens:
+              type: integer
+              label: 'Maximum output tokens for a grounded answer'
+            temperature:
+              type: float
+              label: 'Generation temperature (0.0-1.0)'
+            timeout_seconds:
+              type: float
+              label: 'Provider timeout in seconds for a grounded answer request'
+            max_documents:
+              type: integer
+              label: 'Maximum retrieved documents sent to the provider'
+            snippet_chars:
+              type: integer
+              label: 'Maximum characters per document snippet'
+            max_words:
+              type: integer
+              label: 'Maximum words allowed in a generated answer'
+            citation_mode:
+              type: string
+              label: 'Provider citation mode (FAST | ACCURATE)'
+            cache_ttl:
+              type: integer
+              label: 'Generated answer cache TTL in seconds (0 = disabled)'
+            max_retries:
+              type: integer
+              label: 'Max retry attempts for a grounded answer request'
+            response_types:
+              type: sequence
+              label: 'Response types eligible for grounded generation'
+              sequence:
+                type: string
+                label: 'Response type'
     fallback_gate:
       type: mapping
       label: 'Fallback Gate Configuration'
@@ -260,6 +300,36 @@ ilas_site_assistant.settings:
             ambiguous_message_words:
               type: integer
               label: 'Ambiguous message word count threshold (default: 2)'
+    lexicon_overrides:
+      type: mapping
+      label: 'Admin-editable lexicon overrides'
+      mapping:
+        typos:
+          type: sequence
+          label: 'Typo corrections'
+          sequence:
+            type: mapping
+            label: 'Typo correction'
+            mapping:
+              misspelling:
+                type: string
+                label: 'Misspelling'
+              canonical:
+                type: string
+                label: 'Canonical word'
+        topic_aliases:
+          type: sequence
+          label: 'Topic aliases'
+          sequence:
+            type: mapping
+            label: 'Topic alias'
+            mapping:
+              phrase:
+                type: string
+                label: 'Phrase'
+              topic_intent:
+                type: string
+                label: 'Top Intents pack key'
     retrieval:
       type: mapping
       label: 'Retrieval index settings'

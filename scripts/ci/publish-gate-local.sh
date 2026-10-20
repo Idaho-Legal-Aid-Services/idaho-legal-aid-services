@@ -59,6 +59,7 @@ echo "[note] No git push, no Pantheon, no GitHub. Test gates only."
 echo "[note] Branch used for promptfoo policy: ${PROMPTFOO_BRANCH}"
 
 gate_composer_dryrun
+gate_theme_css_drift
 gate_vc_pure
 gate_module_quality
 gate_promptfoo_branch_aware "$PROMPTFOO_BRANCH"

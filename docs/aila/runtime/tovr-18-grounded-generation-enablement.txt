@@ -1,0 +1,52 @@
+# TOVR-18 Cohere Grounded-Answer Generation Runtime-Toggle Enablement (2026-09-15)
+
+- Prior status:
+  - `live` ran with `ILAS_LLM_ENABLED=1` and a present `ILAS_COHERE_API_KEY`
+    (runtime truth 2026-09-15: `llm.enabled=true`, `runtime_ready=true`,
+    `vector_search.enabled=true`, `voyage.enabled=false`).
+  - The only request-time LLM call was `LlmEnhancer::classifyIntent()`
+    (ambiguous-intent relabeling): `cost_control` monthly count 8 for
+    September 2026 against ~110 `/assistant/api/message` requests; 918 of the
+    last 1000 requests were the `retrieval` scenario. No visitor-facing text
+    was ever LLM-generated.
+- Current repo contract:
+  - `llm.generation` config block (exported `enabled: false`), schema, admin
+    form fields (checkbox disabled on `live`, validation rejects, submit
+    coerces `false`).
+  - `settings.php` honors `ILAS_LLM_GENERATION_ENABLED` on `local`, `dev`,
+    `test`, and `live` via `$config['ilas_site_assistant.settings']['llm']['generation']['enabled']`
+    and records `$settings['ilas_llm_generation_override_channel']`.
+  - `LlmRuntimeConfigResolver` reports `generation_enabled` and
+    `generation_runtime_ready` (= classification runtime-ready AND generation
+    enabled); runtime truth and the admin report carry both rows.
+  - `GroundedGenerationTransportInterface` + `CohereLlmTransport::completeGrounded()`
+    (plain-text chat with `documents` and `citation_options`; Cohere rejects
+    `response_format` alongside `documents`).
+  - `LlmRequestPipeline` (shared admission -> cache -> retry -> breaker
+    success) extracted from `LlmEnhancer`; successful calls now record usage
+    and estimated cost once (the previous double count is fixed).
+  - `GroundedAnswerGenerator` (guards before and after the provider, never
+    mutates the response, never throws) wired into
+    `AssistantApiController::message()` after grounding and before
+    post-generation safety; safety trips revert to the deterministic
+    template (`generation.reason=post_generation_safety`).
+  - Public proof: `generation.{used,provider,model,citations}` and
+    `meta.generation.{operation,operations}`; diagnostics-only
+    `template_message`.
+  - Widget: `assistant-sources` list under a generated answer (text-only,
+    deduped, capped at 4, click-tracked).
+  - Operator tooling: `ilas:cohere-probe --grounded`,
+    `ilas:runtime-diagnostics --probe-generation` (`VC-GENERATION-PROBE`),
+    `ilas:providers-health` `grounded_generation` block.
+  - Evals: `promptfooconfig.generation.yaml` + `tests/grounded-generation.yaml`
+    (40 cases), eval-only `generation_mode` override honored for trusted eval
+    traffic on non-live, nightly `hosted-generation-quality` job behind the
+    `ILAS_GENERATION_EVAL` repository variable.
+- Verification level tag:
+  - `repo contract implemented / unit + drupal-unit + JS suites green locally /
+    hosted enablement pending deploy`
+- Pending before live:
+  - Stage 0 API shape spike against Cohere with the dev key (citation source
+    id shape, multi-part content, documents-as-input-tokens).
+  - dev secret flip + grounded probe + generation suite (advisory), then test,
+    then live per docs/aila/runbook.md TOVR-18.

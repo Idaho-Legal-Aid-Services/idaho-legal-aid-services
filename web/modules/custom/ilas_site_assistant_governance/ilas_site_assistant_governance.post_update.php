@@ -8,9 +8,78 @@ declare(strict_types=1);
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Database\Statement\FetchAs;
+use Drupal\Component\Serialization\Yaml;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 use Drupal\ilas_site_assistant_governance\Service\GapItemIdentityBuilder;
 use Drupal\ilas_site_assistant_governance\Service\GovernanceConversationLogger;
+
+/**
+ * Re-imports the gap queue View so trigger tabs and columns are available.
+ *
+ * This replaces the active views.view.assistant_gap_items config with the
+ * module's shipped version (manual edits made in the Views UI are lost).
+ */
+function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_triggers(): string {
+  $path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant_governance')
+    . '/config/install/views.view.assistant_gap_items.yml';
+  if (!is_file($path)) {
+    return (string) t('Shipped gap queue View config was not found; nothing changed.');
+  }
+
+  $data = Yaml::decode((string) file_get_contents($path));
+  if (!is_array($data) || ($data['id'] ?? '') !== 'assistant_gap_items') {
+    return (string) t('Shipped gap queue View config is invalid; nothing changed.');
+  }
+
+  $config = \Drupal::configFactory()->getEditable('views.view.assistant_gap_items');
+  $existing_uuid = $config->get('uuid');
+  if (is_string($existing_uuid) && $existing_uuid !== '') {
+    $data['uuid'] = $existing_uuid;
+  }
+  $config->setData($data)->save(TRUE);
+
+  return (string) t('Re-imported the assistant gap queue View with trigger tabs.');
+}
+
+/**
+ * Re-imports the gap queue View so stored filter plugin IDs match runtime.
+ *
+ * The list filters stored `plugin_id: list_field` while views data maps them
+ * to `in_operator` (see ilas_site_assistant_governance_views_data_alter()).
+ * Views resolves the handler from views data, so behaviour is unchanged, but
+ * the first save in the Views UI would have rewritten the IDs and drifted the
+ * active config away from the shipped file.
+ */
+function ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_in_operator_filters(): string {
+  ilas_site_assistant_governance_post_update_reimport_gap_queue_view_for_triggers();
+
+  return (string) t('Re-imported the assistant gap queue View with in_operator list filters.');
+}
+
+/**
+ * Re-imports the conversation logs View so the feedback column is available.
+ */
+function ilas_site_assistant_governance_post_update_reimport_conversations_view_for_feedback(): string {
+  $path = \Drupal::service('extension.list.module')->getPath('ilas_site_assistant_governance')
+    . '/config/install/views.view.assistant_governance_conversations.yml';
+  if (!is_file($path)) {
+    return (string) t('Shipped conversation logs View config was not found; nothing changed.');
+  }
+
+  $data = Yaml::decode((string) file_get_contents($path));
+  if (!is_array($data) || ($data['id'] ?? '') !== 'assistant_governance_conversations') {
+    return (string) t('Shipped conversation logs View config is invalid; nothing changed.');
+  }
+
+  $config = \Drupal::configFactory()->getEditable('views.view.assistant_governance_conversations');
+  $existing_uuid = $config->get('uuid');
+  if (is_string($existing_uuid) && $existing_uuid !== '') {
+    $data['uuid'] = $existing_uuid;
+  }
+  $config->setData($data)->save(TRUE);
+
+  return (string) t('Re-imported the conversation logs View with the feedback column.');
+}
 
 /**
  * Backfills canonical gap items from legacy no-answer rows.

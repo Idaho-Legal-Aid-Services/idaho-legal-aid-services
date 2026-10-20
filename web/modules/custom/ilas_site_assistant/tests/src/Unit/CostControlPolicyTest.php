@@ -377,6 +377,40 @@ class CostControlPolicyTest extends TestCase {
   }
 
   /**
+   * A reserved call plus recordUsage() is counted exactly once.
+   *
+   * Regression: LlmEnhancer used to call recordCall() after beginRequest(),
+   * double-counting every successful provider call.
+   */
+  public function testReservedCallWithUsageIsCountedOnce(): void {
+    $policy = $this->buildPolicy(configOverrides: [
+      'llm.global_rate_limit.max_per_hour' => 0,
+      'cost_control.pricing.input_per_1m_tokens' => 2.5,
+      'cost_control.pricing.output_per_1m_tokens' => 10.0,
+    ]);
+
+    $this->assertSame(['allowed' => TRUE, 'reason' => 'allowed'], $policy->beginRequest(NULL, [
+      CostControlPolicy::OPTION_OPERATION => 'grounded_answer',
+    ]));
+    $policy->recordUsage(['input' => 1_000_000, 'output' => 100_000], 'grounded_answer');
+
+    $summary = $policy->getSummary();
+    $this->assertSame(1, $summary['daily_calls']);
+    $this->assertSame(1, $summary['monthly_calls']);
+    $this->assertSame(['grounded_answer' => 1], $summary['calls_by_operation']);
+    $this->assertSame(['grounded_answer' => 1], $summary['monthly_calls_by_operation']);
+    $this->assertSame(3.5, $summary['estimated_cost_usd_daily']);
+    $this->assertSame(3.5, $summary['estimated_cost_usd_monthly']);
+    $this->assertSame(['input' => 1_000_000, 'output' => 100_000], $summary['tokens_daily']);
+
+    // Compatibility path still counts and attributes by operation.
+    $policy->recordCall(['input' => 10, 'output' => 0]);
+    $summary = $policy->getSummary();
+    $this->assertSame(2, $summary['daily_calls']);
+    $this->assertSame(['grounded_answer' => 1, 'intent_classification' => 1], $summary['calls_by_operation']);
+  }
+
+  /**
    * Tests that beginRequest spends daily/monthly budget on admission.
    */
   public function testBeginRequestReservesBudgetOnAdmission(): void {

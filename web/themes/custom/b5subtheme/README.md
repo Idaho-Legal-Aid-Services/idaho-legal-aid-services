@@ -155,13 +155,14 @@ js:
 
 ### SCSS Compilation
 
-The theme uses Laravel Mix for asset compilation:
+The theme is built with Laravel Mix and the compiled CSS in `css/` is
+committed (Pantheon never runs npm). **See [BUILD.md](BUILD.md)** for the
+verified command sequence, the byte-diff acceptance gate, the PurgeCSS rule,
+and the pre-push/CI guard that fails when SCSS changes without a rebuild.
 
 ```bash
-npm install
-npm run dev     # Development build
-npm run watch   # Watch for changes
-npm run prod    # Production build
+npm ci --omit=optional && npm run build     # the only committable build
+npm run watch                               # local iteration only; never commit dev output
 ```
 
 ### CSS Variables

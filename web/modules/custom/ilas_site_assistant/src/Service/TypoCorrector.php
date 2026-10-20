@@ -2,11 +2,16 @@
 
 namespace Drupal\ilas_site_assistant\Service;
 
+use Drupal\Component\Serialization\Yaml;
+use Drupal\Core\Config\ConfigFactoryInterface;
+
 /**
  * Lightweight typo correction using Levenshtein distance.
  *
  * Corrects misspellings of terms in the known vocabulary (topic tokens,
- * synonyms, and acronym expansions). Only corrects when:
+ * synonyms, and acronym expansions). An explicit misspelling dictionary
+ * (config/routing/typos.yml) is consulted first; otherwise a token is only
+ * corrected when:
  * - The token is at least 4 characters long
  * - Levenshtein distance is within conservative thresholds
  * - There is a single unambiguous best match (no ties)
@@ -44,6 +49,22 @@ class TypoCorrector {
   protected $vocabulary = [];
 
   /**
+   * Explicit typo dictionary: misspelling => canonical word.
+   *
+   * Loaded from config/routing/typos.yml. Consulted before Levenshtein
+   * matching so known misspellings are corrected even when their edit
+   * distance exceeds the conservative fuzzy thresholds.
+   *
+   * @var array
+   */
+  protected $dictionary = [];
+
+  /**
+   * Cache key for the vocabulary + dictionary bundle.
+   */
+  const CACHE_KEY = 'ilas_typo_corrector_vocab:v2';
+
+  /**
    * Cache backend.
    *
    * @var \Drupal\Core\Cache\CacheBackendInterface|null
@@ -74,12 +95,20 @@ class TypoCorrector {
    * @param \Drupal\ilas_site_assistant\Service\AcronymExpander|null $acronym_expander
    *   Optional acronym expander for vocabulary.
    */
-  public function __construct($cache = NULL, ?TopicRouter $topic_router = NULL, ?AcronymExpander $acronym_expander = NULL) {
+  public function __construct($cache = NULL, ?TopicRouter $topic_router = NULL, ?AcronymExpander $acronym_expander = NULL, ?ConfigFactoryInterface $config_factory = NULL) {
     $this->cache = $cache;
     $this->topicRouter = $topic_router;
     $this->acronymExpander = $acronym_expander;
+    $this->configFactory = $config_factory;
     $this->buildVocabulary();
   }
+
+  /**
+   * Optional config factory for admin lexicon overrides.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface|null
+   */
+  protected ?ConfigFactoryInterface $configFactory = NULL;
 
   /**
    * Corrects typos in the given text.
@@ -111,6 +140,18 @@ class TypoCorrector {
       // Skip if already in vocabulary (no correction needed).
       if (isset($this->vocabulary[$clean_lower])) {
         $result_words[] = $word;
+        continue;
+      }
+
+      // Explicit dictionary hit: known misspelling regardless of distance.
+      if (isset($this->dictionary[$clean_lower])) {
+        $corrections[] = [
+          'original' => $clean_lower,
+          'corrected' => $this->dictionary[$clean_lower],
+          'distance' => levenshtein($clean_lower, $this->dictionary[$clean_lower]),
+          'source' => 'dictionary',
+        ];
+        $result_words[] = $this->dictionary[$clean_lower];
         continue;
       }
 
@@ -225,14 +266,16 @@ class TypoCorrector {
   protected function buildVocabulary(): void {
     // Check cache.
     if ($this->cache) {
-      $cached = $this->cache->get('ilas_typo_corrector_vocab');
-      if ($cached) {
-        $this->vocabulary = $cached->data;
+      $cached = $this->cache->get(self::CACHE_KEY);
+      if ($cached && is_array($cached->data) && isset($cached->data['vocabulary'])) {
+        $this->vocabulary = $cached->data['vocabulary'];
+        $this->dictionary = $cached->data['dictionary'] ?? [];
         return;
       }
     }
 
     $this->vocabulary = [];
+    $this->dictionary = [];
 
     // Add core legal terms (always available, even without TopicRouter).
     $this->addCoreVocabulary();
@@ -263,10 +306,62 @@ class TypoCorrector {
       }
     }
 
-    // Cache the vocabulary.
-    if ($this->cache && !empty($this->vocabulary)) {
-      $this->cache->set('ilas_typo_corrector_vocab', $this->vocabulary, time() + 3600);
+    // Load the explicit typo dictionary (config/routing/typos.yml).
+    $this->loadDictionary();
+
+    // Admin overrides (settings form / gap review) win over the shipped file.
+    if ($this->configFactory !== NULL) {
+      foreach (LexiconOverrides::typosFromConfig($this->configFactory) as $entry) {
+        $this->vocabulary[$entry['canonical']] = $entry['canonical'];
+        $this->dictionary[$entry['misspelling']] = $entry['canonical'];
+      }
     }
+
+    // Cache the vocabulary + dictionary bundle.
+    if ($this->cache && !empty($this->vocabulary)) {
+      $this->cache->set(self::CACHE_KEY, [
+        'vocabulary' => $this->vocabulary,
+        'dictionary' => $this->dictionary,
+      ], time() + 3600);
+    }
+  }
+
+  /**
+   * Loads the explicit misspelling dictionary from config/routing/typos.yml.
+   *
+   * Entries whose canonical word is not in the vocabulary are added to the
+   * vocabulary as well, so a dictionary target is never itself "corrected".
+   */
+  protected function loadDictionary(): void {
+    $yaml_path = __DIR__ . '/../../config/routing/typos.yml';
+    if (!file_exists($yaml_path)) {
+      return;
+    }
+    $data = Yaml::decode((string) file_get_contents($yaml_path)) ?: [];
+    foreach ($data['typos'] ?? [] as $canonical => $misspellings) {
+      $canonical = strtolower(trim((string) $canonical));
+      if ($canonical === '' || !is_array($misspellings)) {
+        continue;
+      }
+      $this->vocabulary[$canonical] = $canonical;
+      foreach ($misspellings as $misspelling) {
+        $misspelling = strtolower(trim((string) $misspelling));
+        if ($misspelling === '' || $misspelling === $canonical) {
+          continue;
+        }
+        $this->dictionary[$misspelling] = $canonical;
+      }
+    }
+  }
+
+  /**
+   * Returns the explicit typo dictionary (for testing/debugging).
+   *
+   * @return array
+   *   Map of misspelling => canonical word.
+   */
+  public function getDictionary(): array {
+    return $this->dictionary;
   }
 
   /**
@@ -283,7 +378,10 @@ class TypoCorrector {
       // Housing.
       'eviction', 'landlord', 'tenant', 'rent', 'lease', 'apartment',
       'foreclosure', 'housing', 'mortgage', 'security', 'deposit',
-      'habitability', 'sublease', 'inspection',
+      'habitability', 'sublease', 'inspection', 'renter',
+      // Known words that sit within edit distance of housing terms and
+      // must never be "corrected" toward them.
+      'renew', 'renewal', 'renewing', 'residence',
       // Consumer.
       'bankruptcy', 'debt', 'collection', 'credit', 'garnishment',
       'repossession', 'consumer', 'fraud', 'scam', 'judgment',

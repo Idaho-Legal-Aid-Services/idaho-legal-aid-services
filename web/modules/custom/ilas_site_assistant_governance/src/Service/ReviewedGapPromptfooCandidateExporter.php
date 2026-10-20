@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Builds privacy-safe Promptfoo candidate cases from reviewed gap items.
@@ -104,6 +105,25 @@ final class ReviewedGapPromptfooCandidateExporter {
     }
 
     return $this->wrapExport($options, $stats, $candidates);
+  }
+
+  /**
+   * Renders an export payload as the untrusted candidate YAML document.
+   *
+   * Shared by the drush command and the weekly cron export so both write
+   * the same file format.
+   */
+  public function renderCandidateYaml(array $export): string {
+    $yaml_flags = Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK;
+    if (defined(Yaml::class . '::DUMP_EMPTY_ARRAY_AS_SEQUENCE')) {
+      $yaml_flags |= constant(Yaml::class . '::DUMP_EMPTY_ARRAY_AS_SEQUENCE');
+    }
+
+    $yaml = "# Generated candidate Promptfoo cases from reviewed Site Assistant gaps.\n";
+    $yaml .= "# Human review is required before moving any case into promptfoo-evals/tests or blocking CI.\n";
+    $yaml .= sprintf("# generated_at: %s\n", (string) ($export['generated_at'] ?? ''));
+    $yaml .= Yaml::dump($export['candidates'] ?? [], 8, 2, $yaml_flags);
+    return $yaml;
   }
 
   /**

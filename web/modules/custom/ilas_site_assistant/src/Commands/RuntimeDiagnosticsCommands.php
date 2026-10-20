@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\ilas_site_assistant\Commands;
 
+use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\ObservabilityProofTaxonomy;
 use Drupal\ilas_site_assistant\Service\CohereGenerationProbe;
 use Drupal\ilas_site_assistant\Service\RuntimeDiagnosticsMatrixBuilder;
@@ -59,6 +60,7 @@ class RuntimeDiagnosticsCommands extends DrushCommands {
    * @aliases runtime-diagnostics
    * @option section Print only a specific section (matrix, integrations, credentials, retrieval, degraded, commands).
    * @option probe-llm Execute one safe active Cohere request-time classification probe.
+   * @option probe-generation Execute one grounded-generation probe (VC-GENERATION-PROBE).
    * @usage ilas:runtime-diagnostics
    *   Print the full diagnostics artifact as JSON.
    * @usage ilas:runtime-diagnostics --probe-llm
@@ -68,7 +70,13 @@ class RuntimeDiagnosticsCommands extends DrushCommands {
    * @usage ilas:runtime-diagnostics | jq '.diagnostics_matrix[] | select(.assertion == "fail")'
    *   List all failing diagnostic facts.
    */
-  public function runtimeDiagnostics(array $options = ['section' => NULL, 'probe-llm' => FALSE]): int {
+  public function runtimeDiagnostics(
+    array $options = [
+      'section' => NULL,
+      'probe-llm' => FALSE,
+      'probe-generation' => FALSE,
+    ],
+  ): int {
     $matrixBuilder = $this->resolveMatrixBuilder();
     if ($matrixBuilder === NULL) {
       return self::EXIT_FAILURE;
@@ -86,6 +94,9 @@ class RuntimeDiagnosticsCommands extends DrushCommands {
 
     if (!empty($options['probe-llm'])) {
       $diagnostics = $this->attachLlmProbe($diagnostics);
+    }
+    if (!empty($options['probe-generation'])) {
+      $diagnostics = $this->attachGenerationProbe($diagnostics);
     }
 
     $section = $options['section'] ?? NULL;
@@ -224,6 +235,48 @@ class RuntimeDiagnosticsCommands extends DrushCommands {
       $diagnostics['integration_status']['llm']['verification_command'] = 'VC-COHERE-PROBE';
     }
 
+    return $diagnostics;
+  }
+
+  /**
+   * Attaches an active grounded-generation probe to the diagnostics payload.
+   *
+   * @param array<string, mixed> $diagnostics
+   *   Existing diagnostics payload.
+   *
+   * @return array<string, mixed>
+   *   Diagnostics with active_probes.grounded_generation.
+   */
+  private function attachGenerationProbe(array $diagnostics): array {
+    $probe = [];
+    try {
+      if ($this->container->has(self::COHERE_PROBE_SERVICE)) {
+        $service = $this->container->get(self::COHERE_PROBE_SERVICE);
+        if ($service instanceof CohereGenerationProbe) {
+          $probe = $service->probeGrounded();
+        }
+      }
+    }
+    catch (\Throwable $e) {
+      $probe = [
+        'success' => FALSE,
+        'grounded_probe_passed' => FALSE,
+        'fallback_reason' => 'exception',
+        'error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+      ];
+    }
+    if ($probe === []) {
+      $probe = [
+        'success' => FALSE,
+        'grounded_probe_passed' => FALSE,
+        'fallback_reason' => 'missing_service',
+      ];
+    }
+    $probe['proof_level'] = !empty($probe['grounded_probe_passed'])
+      ? ObservabilityProofTaxonomy::LEVEL_L3_PAYLOAD_ACCEPTANCE
+      : ObservabilityProofTaxonomy::LEVEL_L0_UNVERIFIED;
+    $diagnostics['active_probes']['grounded_generation'] = $probe;
+    $diagnostics['verification_commands']['VC-GENERATION-PROBE'] = 'drush ilas:cohere-probe --grounded';
     return $diagnostics;
   }
 

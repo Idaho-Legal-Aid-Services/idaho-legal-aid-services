@@ -71,6 +71,17 @@ final class RuntimeTruthSnapshotBuilderTest extends TestCase {
     $this->assertFalse($snapshot['effective_runtime']['llm']['generation_probe_passed'] ?? TRUE);
     $this->assertFalse($snapshot['effective_runtime']['llm']['generation_attempted'] ?? TRUE);
     $this->assertArrayHasKey('sources', $snapshot['effective_runtime']['llm'] ?? []);
+    $this->assertFalse($snapshot['exported_storage']['llm']['generation_enabled'] ?? TRUE);
+    $this->assertFalse($snapshot['effective_runtime']['llm']['generation_enabled'] ?? TRUE);
+    $this->assertFalse($snapshot['effective_runtime']['llm']['generation_runtime_ready'] ?? TRUE);
+    $this->assertSame(
+      'config export llm.generation.enabled',
+      $snapshot['override_channels']['llm.generation.enabled'] ?? NULL,
+    );
+    $this->assertSame(
+      'LlmRuntimeConfigResolver::resolve()',
+      $snapshot['override_channels']['llm.generation.runtime_ready'] ?? NULL,
+    );
     $this->assertSame(
       'CohereGenerationProbe last explicit probe state',
       $snapshot['override_channels']['llm.generation_attempted'] ?? NULL,

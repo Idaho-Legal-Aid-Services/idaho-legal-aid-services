@@ -10,6 +10,7 @@ use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant_governance\Controller\GapReviewWorkflowController;
 use Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem;
 use Drupal\taxonomy\Entity\Term;
+use Drupal\views\Plugin\views\filter\InOperator;
 use Drupal\views\Views;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -244,6 +245,180 @@ final class AssistantGapItemWorkflowKernelTest extends KernelTestBase {
     $this->assertSame('1', (string) $hit['is_unresolved']);
     $this->assertSame('12345678-1234-4123-8123-123456789abc', (string) $hit['conversation_id']);
     $this->assertSame('12345678-1234-4123-8123-123456789abd', (string) $hit['request_id']);
+  }
+
+  /**
+   * Trigger codes are stored on the item and every evidence row.
+   */
+  public function testRecordNoAnswerPersistsTriggerCodes(): void {
+    $manager = $this->container->get('ilas_site_assistant_governance.gap_item_manager');
+    $query = 'Tenet rights';
+
+    $gap_item_id = $manager->recordNoAnswer($query, [
+      'conversation_id' => '12345678-1234-4123-8123-123456789abc',
+      'request_id' => '12345678-1234-4123-8123-123456789abd',
+      'trigger_code' => AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+    ]);
+    $this->assertIsInt($gap_item_id);
+
+    // A later thumbs-down on the same text clusters into the same item.
+    $repeat_id = $manager->recordNoAnswer($query, [
+      'conversation_id' => '12345678-1234-4123-8123-123456789abc',
+      'request_id' => '12345678-1234-4123-8123-123456789abe',
+      'trigger_code' => AssistantGapItem::TRIGGER_NEGATIVE_FEEDBACK,
+    ]);
+    $this->assertSame($gap_item_id, $repeat_id);
+
+    $storage = $this->container->get('entity_type.manager')->getStorage('assistant_gap_item');
+    $storage->resetCache([$gap_item_id]);
+    /** @var \Drupal\ilas_site_assistant_governance\Entity\AssistantGapItem $entity */
+    $entity = $storage->load($gap_item_id);
+    $this->assertSame(AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT, (string) $entity->get('trigger_code')->value);
+    $this->assertSame(AssistantGapItem::TRIGGER_NEGATIVE_FEEDBACK, (string) $entity->get('latest_trigger_code')->value);
+    $this->assertSame('2', (string) $entity->get('occurrence_count_total')->value);
+
+    $triggers = $this->container->get('database')->select('ilas_site_assistant_gap_hit', 'h')
+      ->fields('h', ['trigger_code'])
+      ->condition('gap_item_id', $gap_item_id)
+      ->orderBy('id', 'ASC')
+      ->execute()
+      ->fetchCol();
+    $this->assertSame([
+      AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+      AssistantGapItem::TRIGGER_NEGATIVE_FEEDBACK,
+    ], $triggers);
+
+    // Unknown trigger values are normalised, and the default is no-match.
+    $other_id = $manager->recordNoAnswer('completely different text', ['trigger_code' => 'bogus']);
+    $other = $storage->load($other_id);
+    $this->assertInstanceOf(AssistantGapItem::class, $other);
+    $this->assertSame(AssistantGapItem::TRIGGER_NO_MATCH_FALLBACK, (string) $other->get('trigger_code')->value);
+  }
+
+  /**
+   * Precomputed turn metadata clusters with the runtime hash of the raw text.
+   */
+  public function testRecordNoAnswerHonoursPrecomputedTextMetadata(): void {
+    $manager = $this->container->get('ilas_site_assistant_governance.gap_item_manager');
+    $raw = 'my landlord tried to enter my home without notice';
+    $metadata = ObservabilityPayloadMinimizer::buildTextMetadataWithLanguage($raw);
+
+    $runtime_id = $manager->recordNoAnswer($raw, ['trigger_code' => AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT]);
+    $feedback_id = $manager->recordNoAnswer('[stored redacted text differs]', [
+      'trigger_code' => AssistantGapItem::TRIGGER_NEGATIVE_FEEDBACK,
+      'text_metadata' => [
+        'text_hash' => $metadata['text_hash'],
+        'language_hint' => $metadata['language_hint'],
+        'length_bucket' => $metadata['length_bucket'],
+        'redaction_profile' => $metadata['redaction_profile'],
+      ],
+    ]);
+
+    $this->assertSame($runtime_id, $feedback_id);
+  }
+
+  /**
+   * State and trigger filters must resolve to the in_operator handler.
+   *
+   * The plain string filter ignores the "or" operator and throws on "not"
+   * with a list of values, so without the views_data_alter mapping the queue
+   * tabs never filtered by state.
+   */
+  public function testQueueListFiltersUseListFieldHandler(): void {
+    $view = Views::getView('assistant_gap_items');
+    $view->setDisplay('page_queue');
+    $view->initHandlers();
+
+    $this->assertInstanceOf(InOperator::class, $view->filter['review_state']);
+    $this->assertInstanceOf(InOperator::class, $view->filter['trigger_code']);
+
+    // The state filter really excludes resolved items now.
+    $this->createGapItem('resolved-but-open-count', AssistantGapItem::STATE_RESOLVED, 5);
+    $open = $this->createGapItem('open-item', AssistantGapItem::STATE_NEW, 1);
+    $view = Views::getView('assistant_gap_items');
+    $view->setDisplay('page_queue');
+    $view->execute();
+    $this->assertSame([(int) $open->id()], array_map(static fn(object $row): int => (int) $row->_entity->id(), $view->result));
+  }
+
+  /**
+   * Every single-value list field is list-aware in views data and config.
+   *
+   * Views picks the handler from views data, not from the view's stored
+   * plugin_id, so both must agree: a mismatch is invisible at runtime but
+   * becomes config drift on the first save in the Views UI.
+   */
+  public function testListFieldsAreMappedInViewsDataAndStoredConfig(): void {
+    $views_data = $this->container->get('views.views_data');
+    $callbacks = [
+      'review_state' => 'stateOptions',
+      'trigger_code' => 'triggerCodeOptions',
+      'latest_trigger_code' => 'triggerCodeOptions',
+      'topic_assignment_source' => 'topicAssignmentSourceOptions',
+      'resolution_code' => 'resolutionCodeOptions',
+    ];
+    foreach (['assistant_gap_item', 'assistant_gap_item_revision'] as $table) {
+      $table_data = $views_data->get($table);
+      foreach ($callbacks as $field => $callback) {
+        if (!isset($table_data[$field]['filter'])) {
+          // Non-revisionable fields have no column on the revision table.
+          $this->assertSame('assistant_gap_item_revision', $table, "$field must be filterable on the base table.");
+          continue;
+        }
+        $this->assertSame('in_operator', $table_data[$field]['filter']['id'], "$table.$field");
+        $this->assertSame(AssistantGapItem::class . '::' . $callback, $table_data[$field]['filter']['options callback'], "$table.$field");
+        $this->assertNotEmpty(call_user_func($table_data[$field]['filter']['options callback']));
+      }
+    }
+
+    $list_filters = 0;
+    foreach ($this->config('views.view.assistant_gap_items')->get('display') as $display_id => $display) {
+      foreach ($display['display_options']['filters'] ?? [] as $filter_id => $filter) {
+        if (isset($callbacks[$filter['field'] ?? ''])) {
+          $list_filters++;
+          $this->assertSame('in_operator', $filter['plugin_id'], "$display_id.$filter_id stores a plugin_id that differs from the runtime handler.");
+        }
+      }
+    }
+    $this->assertGreaterThan(0, $list_filters);
+  }
+
+  /**
+   * The clarify and top-misses tabs filter on trigger and recency.
+   */
+  public function testTriggerQueueTabsFilterByTrigger(): void {
+    $now = \Drupal::time()->getRequestTime();
+    $clarify = $this->createGapItem('clarify-item', AssistantGapItem::STATE_NEW, 3, [
+      'trigger_code' => AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+      'latest_trigger_code' => AssistantGapItem::TRIGGER_CLARIFY_UNKNOWN_INTENT,
+      'last_seen' => $now,
+    ]);
+    $no_match = $this->createGapItem('no-match-item', AssistantGapItem::STATE_NEW, 1, [
+      'last_seen' => $now,
+    ]);
+    $stale = $this->createGapItem('stale-item', AssistantGapItem::STATE_NEW, 9, [
+      'last_seen' => $now - (45 * 86400),
+    ]);
+
+    $queue = Views::getView('assistant_gap_items');
+    $queue->setDisplay('page_queue');
+    $queue->execute();
+    $queue_ids = array_map(static fn(object $row): int => (int) $row->_entity->id(), $queue->result);
+    $this->assertContains((int) $no_match->id(), $queue_ids);
+    $this->assertNotContains((int) $clarify->id(), $queue_ids);
+
+    $clarify_view = Views::getView('assistant_gap_items');
+    $clarify_view->setDisplay('page_clarify');
+    $clarify_view->execute();
+    $clarify_ids = array_map(static fn(object $row): int => (int) $row->_entity->id(), $clarify_view->result);
+    $this->assertSame([(int) $clarify->id()], $clarify_ids);
+
+    $top = Views::getView('assistant_gap_items');
+    $top->setDisplay('page_top_misses');
+    $top->execute();
+    $top_ids = array_map(static fn(object $row): int => (int) $row->_entity->id(), $top->result);
+    $this->assertSame([(int) $clarify->id(), (int) $no_match->id()], $top_ids, 'Top misses sorts by open occurrences and excludes items older than 30 days');
+    $this->assertNotContains((int) $stale->id(), $top_ids);
   }
 
   /**

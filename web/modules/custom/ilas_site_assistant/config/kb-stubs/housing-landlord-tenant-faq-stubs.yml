@@ -1,0 +1,91 @@
+# KB Stubs: Landlord / Tenant coverage gap
+# Generated: 2026-09-17 from assistant conversation 7c10da94-1a76-4d11-9ef4-66666ae7f492
+#
+# Measured 2026-09-18 with `drush ilas:kb-coverage` (the first note here said
+# "no faq_item paragraphs mention landlord/tenant" — true, but the faq_item
+# bundle only holds organisational FAQs; legal content is in accordion_item):
+# - Repairs and security deposits ARE covered by existing accordion items
+#   (Advice for Renters: Repairs, Demand for Repairs Notice, Security
+#   Deposits, Tenant Normal Wear and Tear Guide). The two stubs on those
+#   subjects are optional plain-language additions, not gaps.
+# - Landlord ENTRY / notice-to-enter has NO content anywhere on the site. The
+#   three entry stubs below are the real gap; until they exist the assistant
+#   can only route those questions to /resources/landlord-and-tenant.
+#
+# Answers are intentionally left as TODO: they must be written and reviewed by
+# ILAS attorneys. `ilas:kb-import` enforces this: it refuses the whole file
+# while any stub has a TODO answer or lacks an attorney sign-off (see
+# KbStubValidator and docs/GOVERNANCE.md, "Content authoring path").
+#
+# To implement:
+# 1. Fill in each answer (plain language, informational, no legal advice).
+#    The reviewing attorney then records the sign-off on each stub:
+#      review_status: approved
+#      reviewed_by: "Attorney name"
+#      reviewed_on: "2026-10-01"
+# 2. Pick the FAQ host node (faq_node_path is /faq) and run:
+#      ddev drush ilas:kb-import web/modules/custom/ilas_site_assistant/config/kb-stubs/housing-landlord-tenant-faq-stubs.yml --node-id=<nid> --dry-run
+# 3. Re-run without --dry-run; the faq_accordion index picks items up on save.
+
+faq_stubs:
+
+  - id: faq_housing_landlord_entry_notice
+    type: faq_item
+    review_status: unreviewed
+    category: Housing
+    anchor_id: can-my-landlord-enter-without-notice
+    question: "Can my landlord enter my home without notice?"
+    answer: |
+      TODO (attorney review): explain what Idaho law and a typical lease say
+      about landlord entry, notice, and emergencies; point to the Landlord and
+      Tenant resource.
+    keywords: [landlord, entry, enter, notice, privacy, tenant rights]
+    url_destination: /resources/landlord-and-tenant
+
+  - id: faq_housing_landlord_entered_without_permission
+    type: faq_item
+    review_status: unreviewed
+    category: Housing
+    anchor_id: landlord-entered-without-permission
+    question: "What can I do if my landlord entered my home without permission?"
+    answer: |
+      TODO (attorney review): documenting the entry, writing to the landlord,
+      when to apply for help or call the Legal Advice Line.
+    keywords: [landlord, entered, permission, without notice, tenant]
+    url_destination: /resources/landlord-and-tenant
+
+  - id: faq_housing_landlord_notice_period
+    type: faq_item
+    review_status: unreviewed
+    category: Housing
+    anchor_id: how-much-notice-must-a-landlord-give
+    question: "How much notice does a landlord have to give before entering or ending a lease in Idaho?"
+    answer: |
+      TODO (attorney review): distinguish entry notice from notice to vacate /
+      3-day notice; link the Evictions resource for the latter.
+    keywords: [notice, landlord, lease, enter, vacate]
+    url_destination: /resources/landlord-and-tenant
+
+  - id: faq_housing_security_deposit
+    type: faq_item
+    review_status: unreviewed
+    category: Housing
+    anchor_id: can-my-landlord-keep-my-deposit
+    question: "Can my landlord keep my security deposit?"
+    answer: |
+      TODO (attorney review): allowed deductions, itemized statement, return
+      deadline, how to dispute.
+    keywords: [deposit, security deposit, landlord, refund]
+    url_destination: /resources/landlord-and-tenant
+
+  - id: faq_housing_repairs
+    type: faq_item
+    review_status: unreviewed
+    category: Housing
+    anchor_id: landlord-wont-make-repairs
+    question: "My landlord won't make repairs. What are my options?"
+    answer: |
+      TODO (attorney review): written repair request, habitability, what not
+      to do (withholding rent) without advice, when to apply for help.
+    keywords: [repairs, habitability, landlord, tenant, mold, heat]
+    url_destination: /resources/landlord-and-tenant

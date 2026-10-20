@@ -126,6 +126,8 @@ class RuntimeTruthSnapshotBuilder {
         'provider' => $this->stringValue($llm['provider'] ?? LlmRuntimeConfigResolver::DEFAULT_PROVIDER),
         'model' => $this->stringValue($llm['model'] ?? LlmRuntimeConfigResolver::DEFAULT_MODEL),
         'runtime_ready' => $this->buildStoredLlmRuntimeReady($llm),
+        'generation_enabled' => (bool) ($llm['generation']['enabled'] ?? FALSE),
+        'generation_runtime_ready' => FALSE,
         'request_time_generation_reachable' => FALSE,
         'generation_probe_passed' => FALSE,
         'generation_attempted' => FALSE,
@@ -135,6 +137,8 @@ class RuntimeTruthSnapshotBuilder {
           'provider' => array_key_exists('provider', $llm) ? 'config export llm.provider' : 'code default',
           'model' => array_key_exists('model', $llm) ? 'config export llm.model' : 'code default',
           'runtime_ready' => 'stored config cannot prove runtime secrets',
+          'generation_enabled' => 'config export llm.generation.enabled',
+          'generation_runtime_ready' => 'stored config cannot prove runtime secrets',
           'request_time_generation_reachable' => 'explicit Cohere probe only',
           'generation_probe_passed' => 'explicit Cohere probe only',
           'generation_attempted' => 'explicit Cohere probe only',
@@ -239,6 +243,8 @@ class RuntimeTruthSnapshotBuilder {
         'provider' => $llm['provider'] ?? LlmRuntimeConfigResolver::DEFAULT_PROVIDER,
         'model' => $llm['model'] ?? ($this->llmEnhancer?->getModelId() ?? LlmRuntimeConfigResolver::DEFAULT_MODEL),
         'runtime_ready' => $llm['runtime_ready'] ?? FALSE,
+        'generation_enabled' => $llm['generation_enabled'] ?? FALSE,
+        'generation_runtime_ready' => $llm['generation_runtime_ready'] ?? FALSE,
         'request_time_generation_reachable' => $llm['request_time_generation_reachable'] ?? FALSE,
         'generation_probe_passed' => $llm['generation_probe_passed'] ?? FALSE,
         'generation_attempted' => $llm['generation_attempted'] ?? FALSE,
@@ -367,6 +373,8 @@ class RuntimeTruthSnapshotBuilder {
       'llm.provider' => 'config export llm.provider with code default fallback',
       'llm.model' => 'config export llm.model with code default fallback',
       'llm.runtime_ready' => 'LlmRuntimeConfigResolver::resolve()',
+      'llm.generation.enabled' => $this->resolveLlmGenerationEnabledOverrideChannel(),
+      'llm.generation.runtime_ready' => 'LlmRuntimeConfigResolver::resolve()',
       'llm.request_time_generation_reachable' => 'CohereGenerationProbe last explicit probe state',
       'llm.generation_probe_passed' => 'CohereGenerationProbe exact-output proof',
       'llm.generation_attempted' => 'CohereGenerationProbe last explicit probe state',
@@ -495,6 +503,14 @@ class RuntimeTruthSnapshotBuilder {
       'llm.runtime_ready' => [
         'stored' => $exportedStorage['llm']['runtime_ready'] ?? FALSE,
         'effective' => $effectiveRuntime['llm']['runtime_ready'] ?? FALSE,
+      ],
+      'llm.generation.enabled' => [
+        'stored' => $exportedStorage['llm']['generation_enabled'] ?? FALSE,
+        'effective' => $effectiveRuntime['llm']['generation_enabled'] ?? FALSE,
+      ],
+      'llm.generation.runtime_ready' => [
+        'stored' => $exportedStorage['llm']['generation_runtime_ready'] ?? FALSE,
+        'effective' => $effectiveRuntime['llm']['generation_runtime_ready'] ?? FALSE,
       ],
       'llm.request_time_generation_reachable' => [
         'stored' => $exportedStorage['llm']['request_time_generation_reachable'] ?? FALSE,
@@ -731,6 +747,18 @@ class RuntimeTruthSnapshotBuilder {
   }
 
   /**
+   * Resolves the current grounded generation enabled source label.
+   */
+  protected function resolveLlmGenerationEnabledOverrideChannel(): string {
+    $overrideChannel = Settings::get('ilas_llm_generation_override_channel');
+    if (is_string($overrideChannel) && $overrideChannel !== '') {
+      return $overrideChannel;
+    }
+
+    return 'config export llm.generation.enabled';
+  }
+
+  /**
    * Reads an optional config-sync object.
    *
    * @param string $configName
@@ -921,6 +949,9 @@ class RuntimeTruthSnapshotBuilder {
         'provider' => (string) ($summary['provider'] ?? LlmRuntimeConfigResolver::DEFAULT_PROVIDER),
         'model' => (string) ($summary['model'] ?? LlmRuntimeConfigResolver::DEFAULT_MODEL),
         'runtime_ready' => (bool) ($summary['runtime_ready'] ?? FALSE),
+        'generation_enabled' => (bool) ($summary['generation_enabled'] ?? FALSE),
+        'generation_runtime_ready' => (bool) ($summary['generation_runtime_ready'] ?? FALSE),
+        'grounded_probe' => $this->cohereGenerationProbe?->getGroundedReadinessSummary() ?? [],
         'request_time_generation_reachable' => (bool) ($probe['request_time_generation_reachable'] ?? FALSE),
         'generation_probe_passed' => (bool) ($probe['generation_probe_passed'] ?? FALSE),
         'generation_attempted' => (bool) ($probe['generation_attempted'] ?? FALSE),
@@ -943,6 +974,8 @@ class RuntimeTruthSnapshotBuilder {
       'provider' => $this->llmEnhancer?->getProviderId() ?? LlmRuntimeConfigResolver::DEFAULT_PROVIDER,
       'model' => $this->llmEnhancer?->getModelId() ?? LlmRuntimeConfigResolver::DEFAULT_MODEL,
       'runtime_ready' => $this->llmEnhancer?->isEnabled() ?? $this->buildFallbackLlmRuntimeReady($assistant),
+      'generation_enabled' => (bool) ($assistant->get('llm.generation.enabled') ?? FALSE),
+      'generation_runtime_ready' => $this->buildFallbackGenerationRuntimeReady($assistant),
       'request_time_generation_reachable' => FALSE,
       'generation_probe_passed' => FALSE,
       'generation_attempted' => FALSE,
@@ -952,6 +985,8 @@ class RuntimeTruthSnapshotBuilder {
         'provider' => 'code default',
         'model' => 'code default',
         'runtime_ready' => 'fallback llm.enabled + runtime Cohere key check',
+        'generation_enabled' => $this->resolveLlmGenerationEnabledOverrideChannel(),
+        'generation_runtime_ready' => 'fallback llm.generation.enabled + llm runtime ready',
         'request_time_generation_reachable' => 'explicit Cohere probe only',
         'generation_probe_passed' => 'explicit Cohere probe only',
         'generation_attempted' => 'explicit Cohere probe only',
@@ -1341,6 +1376,16 @@ class RuntimeTruthSnapshotBuilder {
    */
   protected function buildStoredLlmRuntimeReady(array $llm): bool {
     return FALSE;
+  }
+
+  /**
+   * Fallback grounded-generation readiness when the resolver is unavailable.
+   */
+  protected function buildFallbackGenerationRuntimeReady(object $assistant): bool {
+    if (!(bool) ($assistant->get('llm.generation.enabled') ?? FALSE)) {
+      return FALSE;
+    }
+    return $this->llmEnhancer?->isEnabled() ?? $this->buildFallbackLlmRuntimeReady($assistant);
   }
 
   /**

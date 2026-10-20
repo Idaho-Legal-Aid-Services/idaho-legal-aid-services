@@ -14,6 +14,13 @@
     <testsuite name="unit">
       <directory>web/modules/custom/*/tests/src/Unit</directory>
     </testsuite>
+    <!-- Unit tests of every custom module except ilas_site_assistant, whose
+         Unit directory is gated separately by phpunit.pure.xml. Run by
+         gate_vc_pure so these modules are covered in CI and pre-push. -->
+    <testsuite name="custom-unit">
+      <directory>web/modules/custom/*/tests/src/Unit</directory>
+      <exclude>web/modules/custom/ilas_site_assistant/tests/src/Unit</exclude>
+    </testsuite>
     <testsuite name="drupal-unit">
       <directory>web/modules/custom/*/tests/src/DrupalUnit</directory>
     </testsuite>

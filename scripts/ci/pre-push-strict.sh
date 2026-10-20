@@ -260,6 +260,16 @@ cd "$REPO_ROOT"
 # §"Wave 2 plan 03 task seed" — closes any leaked-from-parent stdin pipe so a
 # gate child cannot write back into git's pre-push fd.
 _publish_gates_run_with_record gate_composer_dryrun </dev/null
+# Theme CSS drift: runs on every push, including the gate-safe fast path,
+# because theme paths are what that fast path admits. Range = the push's own
+# base..local when computable; the gate falls back to merge-base with master.
+_theme_guard_base=""
+_theme_guard_head=""
+if [[ -n "$PUSH_CHANGED_FILES" ]] && (( ${#PUSH_LINES[@]} == 1 )); then
+  IFS='|' read -r _ _theme_guard_head _ _theme_guard_base <<< "${PUSH_LINES[0]}"
+  [[ "$_theme_guard_base" =~ ^0+$ ]] && _theme_guard_base=""
+fi
+_publish_gates_run_with_record gate_theme_css_drift "$_theme_guard_base" "${_theme_guard_head:-HEAD}" </dev/null
 if [[ "$ASSISTANT_GATES_REQUIRED" == "true" ]]; then
   _publish_gates_run_with_record gate_vc_pure </dev/null
   _publish_gates_run_with_record gate_module_quality </dev/null
