@@ -197,8 +197,11 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
     $this->drupalLogin($this->regularUser);
     $conversation_id = '12345678-1234-4123-8123-123456789abf';
 
+    // A topic-pack question is answered from the pack's own page, so it needs
+    // no indexed content. A retrieval question would hit the grounding
+    // refusal here (the test site has no KB) and log its own gap item.
     $response = $this->postJson('/assistant/api/message', [
-      'message' => 'What are my tenant rights in Idaho?',
+      'message' => 'I need help with housing',
       'conversation_id' => $conversation_id,
     ]);
     $this->assertSame(200, $response->getStatusCode());
@@ -224,7 +227,7 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
       ->fetchAll(\PDO::FETCH_ASSOC);
     $this->assertCount(1, $items);
     $this->assertSame('negative_feedback', $items[0]['trigger_code']);
-    $this->assertSame('What are my tenant rights in Idaho?', $items[0]['exemplar_redacted_query']);
+    $this->assertSame('I need help with housing', $items[0]['exemplar_redacted_query']);
 
     $turns = $database->select('ilas_site_assistant_conversation_turn', 't')
       ->fields('t', ['direction', 'feedback_value', 'gap_item_id'])
@@ -261,7 +264,7 @@ final class GapReviewLoggingFunctionalTest extends BrowserTestBase {
     $this->drupalLogin($this->regularUser);
     $conversation_id = '12345678-1234-4123-8123-123456789ac0';
     $this->postJson('/assistant/api/message', [
-      'message' => 'What are my tenant rights in Idaho?',
+      'message' => 'I need help with housing',
       'conversation_id' => $conversation_id,
     ]);
 
