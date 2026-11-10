@@ -6,6 +6,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use Drupal\ilas_site_assistant\Service\LangfuseTracer;
+use Drupal\ilas_site_assistant\Service\SentryStageSpan;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -91,7 +92,7 @@ class LangfuseTerminateSubscriber implements EventSubscriberInterface {
    * Enqueues trace data during the response event when available.
    */
   public function onResponse(): void {
-    $this->flushTracePayload(FALSE);
+    SentryStageSpan::run('langfuse.enqueue', fn() => $this->flushTracePayload(FALSE));
   }
 
   /**

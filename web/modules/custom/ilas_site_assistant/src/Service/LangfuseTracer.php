@@ -147,6 +147,16 @@ class LangfuseTracer {
   protected array $spanStack = [];
 
   /**
+   * Sentry stage spans mirroring startSpan()/endSpan(), innermost last.
+   *
+   * Kept apart from $spanStack so the Sentry timings exist whether or not
+   * this request is exported to Langfuse.
+   *
+   * @var array<int, array|null>
+   */
+  protected array $sentryStageSpans = [];
+
+  /**
    * Active generation data (only one at a time).
    *
    * @var array|null
@@ -401,6 +411,9 @@ class LangfuseTracer {
    *   Optional input data for the span.
    */
   public function startSpan(string $name, array $metadata = [], mixed $input = NULL): void {
+    // Name only: metadata and input stay out of Sentry.
+    $this->sentryStageSpans[] = SentryStageSpan::start($name);
+
     if (!$this->active) {
       return;
     }
@@ -432,6 +445,10 @@ class LangfuseTracer {
    *   Additional metadata to merge with the span's initial metadata.
    */
   public function endSpan(mixed $output = NULL, array $metadata = []): void {
+    if ($this->sentryStageSpans !== []) {
+      SentryStageSpan::finish(array_pop($this->sentryStageSpans));
+    }
+
     if (!$this->active || empty($this->spanStack)) {
       return;
     }

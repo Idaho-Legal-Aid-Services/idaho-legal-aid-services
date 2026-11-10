@@ -7,9 +7,11 @@ use GuzzleHttp\Exception\ConnectException;
 use Sentry\Logs\Log;
 use Sentry\EventHint;
 use Sentry\Event;
+use Sentry\Tracing\SamplingContext;
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_site_assistant\Service\PiiRedactor;
+use Drupal\ilas_site_assistant\Service\RetrievalTraceTags;
 use Drupal\ilas_site_assistant\Service\TelemetrySchema;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -52,6 +54,13 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
     'env',
     'scrub_opacity',
     'exception_class',
+    // Retrieval shape of an assistant message: counts and yes/no only.
+    RetrievalTraceTags::TAG_VECTOR_SEARCHES,
+    RetrievalTraceTags::TAG_QUERY_IDENTICAL,
+    RetrievalTraceTags::TAG_VECTOR_FALLBACK,
+    RetrievalTraceTags::TAG_VECTOR_FALLBACK_REASON,
+    RetrievalTraceTags::TAG_VECTOR_BACKOFF,
+    RetrievalTraceTags::TAG_BACKOFF_ACTIVATIONS,
   ];
 
   /**
@@ -141,6 +150,41 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
 
     $previousLog = $event->options['before_send_log'] ?? NULL;
     $event->options['before_send_log'] = static::beforeSendLogCallback($previousLog);
+
+    // Only where tracing is already on: a sampler alone would switch it on.
+    if (isset($event->options['traces_sample_rate'])) {
+      $event->options['traces_sampler'] = static::tracesSamplerCallback((float) $event->options['traces_sample_rate']);
+    }
+  }
+
+  /**
+   * Returns the sampler that traces every assistant message request.
+   *
+   * The message endpoint sees a handful of requests a day; at the site-wide
+   * rate that leaves too few traces to state a P95. Everything else keeps
+   * the previous behaviour: follow the parent trace's decision when there is
+   * one, otherwise use the configured rate.
+   *
+   * @param float $default_rate
+   *   The configured traces_sample_rate.
+   *
+   * @return callable
+   *   A callback compatible with Sentry's traces_sampler option.
+   */
+  public static function tracesSamplerCallback(float $default_rate): callable {
+    return static function (SamplingContext $context) use ($default_rate): float {
+      $name = (string) ($context->getTransactionContext()?->getName() ?? '');
+      if (preg_match('#^POST \S*/assistant/api/message(?:\?\S*)?$#', $name) === 1) {
+        return 1.0;
+      }
+
+      $parent_sampled = $context->getParentSampled();
+      if ($parent_sampled !== NULL) {
+        return $parent_sampled ? 1.0 : 0.0;
+      }
+
+      return $default_rate;
+    };
   }
 
   /**

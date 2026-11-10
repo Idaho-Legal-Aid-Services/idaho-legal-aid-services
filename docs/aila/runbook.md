@@ -504,6 +504,24 @@ Alert policy contract:
   seconds of the previous alert is held back.
 - Recording a request never alerts; the cron check is the only alert path.
 
+Latency attribution for `POST /assistant/api/message` (Sentry traces):
+
+- Every message request is traced (`SentryOptionsSubscriber::tracesSamplerCallback`);
+  other requests keep the configured sample rate.
+- Stage spans use op `assistant.stage`; the description is the stage name:
+  `retrieval.early`, `intent.process`, `faq.lexical_query`,
+  `faq.lexical_result_build`, `faq.vector_query`, `resource.lexical_query`,
+  `resource.vector_query`, `governance.record_observations`,
+  `analytics.persist`, `conversation.persist`, `langfuse.enqueue`,
+  `monitor.record`. A `*.vector_query` span contains the embedding call
+  (`http.client` child), the vector store query and the per-match access
+  checks; the vector store has no span of its own.
+- Transaction tags describe the request shape: `vector_searches`,
+  `faq_resource_query_identical` (yes/no/na), `vector_fallback` (yes/no),
+  `vector_fallback_reason`, `vector_backoff` (none/faq/resource/both),
+  `vector_backoff_activations`. No query text or hash is sent.
+- Judge latency on span P95 with its sample count, not on the alert state.
+
 Verification commands (local):
 
 ```bash

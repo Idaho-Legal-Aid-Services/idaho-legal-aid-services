@@ -40,6 +40,8 @@ use Drupal\ilas_site_assistant\Service\SafetyResponseTemplates;
 use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
+use Drupal\ilas_site_assistant\Service\RetrievalTraceTags;
+use Drupal\ilas_site_assistant\Service\SentryStageSpan;
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
@@ -3467,12 +3469,14 @@ class AssistantApiController extends ControllerBase {
       }
 
       if ($this->sourceGovernance && !empty($response['results']) && is_array($response['results'])) {
+        $governance_span = SentryStageSpan::start('governance.record_observations');
         try {
           $this->sourceGovernance->recordObservationBatch($response['results']);
         }
         catch (\Throwable $e) {
           $this->logger->warning('Source governance observation failed: @class @error_signature', $this->buildExceptionContext($e));
         }
+        SentryStageSpan::finish($governance_span);
       }
 
       if ($debug_mode) {
@@ -4837,6 +4841,22 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Adds tags to the current Sentry scope, and so to this request's trace.
+   *
+   * @param array<string, string> $tags
+   *   Tag values; every key must be in SentryOptionsSubscriber::APPROVED_TAGS
+   *   or the scrubber drops it.
+   */
+  private function tagSentryTransaction(array $tags): void {
+    if ($tags === [] || !function_exists('\Sentry\configureScope')) {
+      return;
+    }
+    \Sentry\configureScope(static function (Scope $scope) use ($tags): void {
+      $scope->setTags($tags);
+    });
+  }
+
+  /**
    * Builds Langfuse-safe retrieval trace metadata for the completed response.
    */
   protected function collectRetrievalTraceMetadata(array $response): array {
@@ -4879,6 +4899,7 @@ class AssistantApiController extends ControllerBase {
     if ($this->resourceFinder && method_exists($this->resourceFinder, 'drainRetrievalTelemetry')) {
       $operations = array_merge($operations, $this->resourceFinder->drainRetrievalTelemetry());
     }
+    $this->tagSentryTransaction(RetrievalTraceTags::fromOperations($operations));
 
     $degraded_reason = NULL;
     $operation_source_classes = [];
