@@ -34,7 +34,7 @@ use Drupal\ilas_site_assistant\Service\AcronymExpander;
 use Drupal\ilas_site_assistant\Service\TopicRouter;
 use Drupal\ilas_site_assistant\Service\TypoCorrector;
 
-$verbose = in_array('--verbose', $argv);
+$verbose = in_array('--verbose', ($_SERVER['argv'] ?? []));
 
 echo "=== ILAS Acronym & Typo Correction Test Suite ===\n\n";
 

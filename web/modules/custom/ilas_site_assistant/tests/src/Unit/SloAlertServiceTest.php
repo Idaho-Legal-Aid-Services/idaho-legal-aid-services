@@ -94,6 +94,36 @@ class SloAlertServiceTest extends TestCase {
   }
 
   /**
+   * Builds a PerformanceMonitor whose whole window and SLO sample differ.
+   *
+   * The whole window always looks broken (P95 9000 ms, 50% errors), so a
+   * check that passes proves the service judged the `slo` sample.
+   *
+   * @param \Closure $slo
+   *   Returns the current [p95, error_rate, sample_size] of the SLO sample.
+   */
+  private function buildSplitPerformanceMonitor(\Closure $slo): PerformanceMonitor {
+    $monitor = $this->createMock(PerformanceMonitor::class);
+    $monitor->method('getSummary')
+      ->willReturnCallback(static function () use ($slo): array {
+        [$p95, $errorRate, $sampleSize] = $slo();
+        return [
+          'p95' => 9000.0,
+          'error_rate' => 50.0,
+          'sample_size' => 1000,
+          'slo' => [
+            'p95' => $p95,
+            'error_rate' => $errorRate,
+            'sample_size' => $sampleSize,
+            'sufficient_sample' => $sampleSize >= PerformanceMonitor::MIN_SLO_SAMPLE_SIZE,
+          ],
+        ];
+      });
+
+    return $monitor;
+  }
+
+  /**
    * Builds a CronHealthTracker that will report the given status.
    */
   private function buildCronTracker(string $cronStatus): CronHealthTracker {
@@ -229,6 +259,104 @@ class SloAlertServiceTest extends TestCase {
     $alert = new SloAlertService($slo, $logger, $state, $perfMonitor);
     $alert->checkLatencySlo();
     // Second call should be suppressed by cooldown.
+    $alert->checkLatencySlo();
+  }
+
+  /**
+   * Tests that the performance SLOs are judged on the SLO sample.
+   */
+  public function testPerformanceSlosUseSloSampleNotWholeWindow(): void {
+    $perfMonitor = $this->buildSplitPerformanceMonitor(static fn(): array => [900.0, 0.0, 80]);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->never())->method('warning');
+
+    $alert = new SloAlertService($this->buildSlo(), $logger, $this->buildState(), $perfMonitor);
+    $alert->checkLatencySlo();
+    $alert->checkAvailabilitySlo();
+    $alert->checkErrorRateSlo();
+  }
+
+  /**
+   * Tests that a thin SLO sample neither alerts nor clears a breach.
+   */
+  public function testInsufficientSloSampleDoesNotAlertOrRecover(): void {
+    $sample = [3000.0, 0.0, 80];
+    $perfMonitor = $this->buildSplitPerformanceMonitor(static function () use (&$sample): array {
+      return $sample;
+    });
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())->method('warning');
+    $logger->expects($this->never())->method('notice');
+
+    $alert = new SloAlertService($this->buildSlo(), $logger, $this->buildState(), $perfMonitor);
+    $alert->checkLatencySlo();
+
+    // A quiet week: three fast requests are not evidence of recovery.
+    $sample = [500.0, 0.0, 3];
+    $alert->checkLatencySlo();
+    $this->assertTrue($this->stateStore[SloAlertService::STATE_BREACH_PREFIX . 'latency']);
+
+    // And three slow ones are not evidence of a breach.
+    $this->stateStore = [];
+    $sample = [9000.0, 0.0, 3];
+    $alert->checkLatencySlo();
+    $this->assertSame([], $this->stateStore);
+  }
+
+  /**
+   * Tests that a sustained breach is re-reported daily, not on every check.
+   */
+  public function testSustainedBreachRemindsOncePerDay(): void {
+    $state = $this->buildState();
+    $perfMonitor = $this->buildPerformanceMonitor(3000, 0.0);
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->exactly(2))->method('warning');
+
+    $alert = new SloAlertService($this->buildSlo(), $logger, $state, $perfMonitor);
+    $alert->checkLatencySlo();
+
+    // An hour later (next cron): past the cooldown, still the same breach.
+    $this->stateStore[SloAlertService::STATE_PREFIX . 'latency'] = time() - 3600;
+    $alert->checkLatencySlo();
+
+    // A day later: one reminder.
+    $this->stateStore[SloAlertService::STATE_PREFIX . 'latency'] = time() - SloAlertService::REMINDER_SECONDS;
+    $alert->checkLatencySlo();
+  }
+
+  /**
+   * Tests that recovery is logged once and a later breach alerts again.
+   */
+  public function testRecoveryIsLoggedOnceAndRearmsTheAlert(): void {
+    $sample = [3000.0, 0.0, 80];
+    $perfMonitor = $this->buildSplitPerformanceMonitor(static function () use (&$sample): array {
+      return $sample;
+    });
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->exactly(2))
+      ->method('warning')
+      ->with($this->stringContains('P95 latency'), $this->anything());
+    $logger->expects($this->once())
+      ->method('notice')
+      ->with(
+        $this->stringContains('SLO recovered'),
+        $this->callback($this->hasSloDimension('latency'))
+      );
+
+    $alert = new SloAlertService($this->buildSlo(), $logger, $this->buildState(), $perfMonitor);
+    $alert->checkLatencySlo();
+
+    $sample = [1200.0, 0.0, 80];
+    $alert->checkLatencySlo();
+    $alert->checkLatencySlo();
+
+    // Breaches again after the cooldown has passed.
+    $this->stateStore[SloAlertService::STATE_PREFIX . 'latency'] = time() - SloAlertService::COOLDOWN_SECONDS;
+    $sample = [3000.0, 0.0, 80];
     $alert->checkLatencySlo();
   }
 
