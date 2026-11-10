@@ -8095,7 +8095,12 @@ class AssistantApiController extends ControllerBase {
 
     if ($this->performanceMonitor) {
       $summary = $this->performanceMonitor->getSummary();
-      $status = $summary['status'];
+      // Judge health on the SLO sample (time-bounded, denials left out), the
+      // same sample SloAlertService alerts on.
+      $summary = is_array($summary['slo'] ?? NULL) ? $summary['slo'] : $summary;
+      $sloSampleSufficient = (bool) ($summary['sufficient_sample'] ?? TRUE);
+      $status = $summary['status'] === 'insufficient_sample' ? 'healthy' : $summary['status'];
+      $checks['slo_sample_size'] = $summary['sample_size'] ?? 0;
       $checks['latency_p95_ms'] = $summary['p95'];
       $checks['error_rate_pct'] = $summary['error_rate'];
       $checks['availability_pct'] = $summary['availability_pct'] ?? max(0, 100 - (float) $summary['error_rate']);
@@ -8112,7 +8117,7 @@ class AssistantApiController extends ControllerBase {
           'latency_p95_target_ms' => $sloDefinitions->getLatencyP95TargetMs(),
           'error_rate_target_pct' => $sloDefinitions->getErrorRateTargetPct(),
         ];
-        if ($checks['availability_pct'] < $checks['slo_targets']['availability_target_pct']) {
+        if ($sloSampleSufficient && $checks['availability_pct'] < $checks['slo_targets']['availability_target_pct']) {
           $status = 'degraded';
           $httpCode = 503;
         }

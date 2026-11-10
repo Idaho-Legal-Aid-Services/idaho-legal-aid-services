@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Tests for PerformanceMonitor: single state write, no race, cooldown preserved.
+ * Tests for PerformanceMonitor: single state write and the SLO sample.
  */
 #[CoversClass(PerformanceMonitor::class)]
 #[Group('ilas_site_assistant')]
@@ -18,8 +18,7 @@ class PerformanceMonitorTest extends TestCase {
   /**
    * Tests that recordRequest only writes to state once.
    *
-   * Previously checkThresholds() also called state->set(), causing a
-   * double-write race where the last_alert cooldown could be lost.
+   * A second write per request would reopen the lost-update race.
    */
   public function testSingleStateWrite(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
@@ -45,138 +44,159 @@ class PerformanceMonitorTest extends TestCase {
   }
 
   /**
-   * Tests that cooldown is preserved through the single state write.
+   * Tests that recording a request never alerts, however bad the window is.
    *
-   * When a threshold is exceeded, checkThresholds() sets last_alert on
-   * the metrics array by reference. The single state->set() in
-   * recordRequest() persists it.
+   * Alerting belongs to SloAlertService on cron. The in-request warning it
+   * replaces re-reported the same sustained breach on every later message.
    */
-  public function testCooldownPreservedInSingleWrite(): void {
+  public function testRecordingNeverLogsWarnings(): void {
     $state = $this->createMock('Drupal\Core\State\StateInterface');
     $logger = $this->createMock('Drupal\Core\Logger\LoggerChannelInterface');
 
-    // Build a metrics array with high-latency requests to trigger threshold.
     $requests = [];
-    for ($i = 0; $i < 20; $i++) {
-      $requests[] = [
-        'time' => time() - 10,
-      // Above 2000ms P95 threshold.
-        'duration' => 3000.0,
-        'success' => TRUE,
-        'scenario' => 'retrieval',
-      ];
-    }
-
-    $state->method('get')
-      ->willReturn([
-        'requests' => $requests,
-        'total_requests' => 20,
-        'total_errors' => 0,
-    // No recent alert — threshold will fire.
-        'last_alert' => 0,
-      ]);
-
-    // The logger should receive a warning about degraded latency.
-    $logger->expects($this->atLeastOnce())
-      ->method('warning');
-
-    // The state should be written exactly once, and the written value
-    // should include an updated last_alert.
-    $state->expects($this->once())
-      ->method('set')
-      ->with(
-        PerformanceMonitor::STATE_KEY,
-        $this->callback(function ($metrics) {
-          // last_alert should be set to a recent timestamp.
-          return $metrics['last_alert'] > 0
-            && $metrics['last_alert'] >= time() - 5;
-        })
-      );
-
-    $monitor = new PerformanceMonitor($state, $logger);
-    $monitor->recordRequest(3000.0, TRUE, 'retrieval');
-  }
-
-  /**
-   * Tests that cooldown suppresses repeated alerts.
-   */
-  public function testCooldownSuppressesAlerts(): void {
-    $state = $this->createMock('Drupal\Core\State\StateInterface');
-    $logger = $this->createMock('Drupal\Core\Logger\LoggerChannelInterface');
-
-    // Build metrics with recent alert (within 5-minute cooldown).
-    $requests = [];
-    for ($i = 0; $i < 20; $i++) {
+    for ($i = 0; $i < 30; $i++) {
       $requests[] = [
         'time' => time() - 10,
         'duration' => 3000.0,
-        'success' => TRUE,
-        'scenario' => 'retrieval',
-      ];
-    }
-
-    $state->method('get')
-      ->willReturn([
-        'requests' => $requests,
-        'total_requests' => 20,
-        'total_errors' => 0,
-    // Alert 60 seconds ago (within 300s cooldown).
-        'last_alert' => time() - 60,
-      ]);
-
-    // No warning should be logged due to cooldown.
-    $logger->expects($this->never())->method('warning');
-
-    $state->expects($this->once())->method('set');
-
-    $monitor = new PerformanceMonitor($state, $logger);
-    $monitor->recordRequest(3000.0, TRUE, 'retrieval');
-  }
-
-  /**
-   * Tests that error rate threshold triggers alert.
-   */
-  public function testErrorRateThresholdTriggersAlert(): void {
-    $state = $this->createMock('Drupal\Core\State\StateInterface');
-    $logger = $this->createMock('Drupal\Core\Logger\LoggerChannelInterface');
-
-    // Build metrics with high error rate (>5%).
-    $requests = [];
-    for ($i = 0; $i < 18; $i++) {
-      $requests[] = [
-        'time' => time() - 10,
-        'duration' => 100.0,
-        'success' => TRUE,
-        'scenario' => 'short',
-      ];
-    }
-    // Add errors (2/20 = 10% > 5% threshold).
-    for ($i = 0; $i < 2; $i++) {
-      $requests[] = [
-        'time' => time() - 10,
-        'duration' => 100.0,
         'success' => FALSE,
-        'scenario' => 'error',
+        'scenario' => 'retrieval',
       ];
     }
 
     $state->method('get')
       ->willReturn([
         'requests' => $requests,
-        'total_requests' => 20,
-        'total_errors' => 2,
-        'last_alert' => 0,
+        'total_requests' => 30,
+        'total_errors' => 30,
       ]);
 
-    // Should warn about error rate.
-    $logger->expects($this->atLeastOnce())
-      ->method('warning')
-      ->with($this->stringContains('error rate'), $this->anything());
-
+    $logger->expects($this->never())->method('warning');
     $state->expects($this->once())->method('set');
 
     $monitor = new PerformanceMonitor($state, $logger);
-    $monitor->recordRequest(100.0, FALSE, 'error');
+    $monitor->recordRequest(3000.0, FALSE, 'retrieval');
+  }
+
+  /**
+   * Tests that the SLO sample drops requests older than the budget window.
+   */
+  public function testSloSampleIsBoundedByErrorBudgetWindow(): void {
+    $state = $this->createMock('Drupal\Core\State\StateInterface');
+    $logger = $this->createStub('Drupal\Core\Logger\LoggerChannelInterface');
+    $slo = $this->createMock(SloDefinitions::class);
+    $slo->method('getLatencyP95TargetMs')->willReturn(2000);
+    $slo->method('getErrorRateTargetPct')->willReturn(5.0);
+    $slo->method('getErrorBudgetWindowHours')->willReturn(168);
+
+    $requests = [];
+    // Slow requests from 30 days ago: outside the 168 h window.
+    for ($i = 0; $i < 40; $i++) {
+      $requests[] = [
+        'time' => time() - 30 * 86400,
+        'duration' => 3000.0,
+        'success' => TRUE,
+        'scenario' => 'retrieval',
+      ];
+    }
+    // Fast requests from the last day.
+    for ($i = 0; $i < 25; $i++) {
+      $requests[] = [
+        'time' => time() - 3600,
+        'duration' => 800.0,
+        'success' => TRUE,
+        'scenario' => 'retrieval',
+      ];
+    }
+
+    $state->method('get')->willReturn(['requests' => $requests]);
+
+    $monitor = new PerformanceMonitor($state, $logger, $slo);
+    $summary = $monitor->getSummary();
+
+    // The whole rolling window still reports the old slow tail.
+    $this->assertSame(65, $summary['sample_size']);
+    $this->assertSame(3000.0, $summary['p95']);
+
+    $this->assertSame(25, $summary['slo']['sample_size']);
+    $this->assertSame(800.0, $summary['slo']['p95']);
+    $this->assertSame(168, $summary['slo']['window_hours']);
+    $this->assertTrue($summary['slo']['sufficient_sample']);
+    $this->assertSame('healthy', $summary['slo']['status']);
+  }
+
+  /**
+   * Tests that denied requests count toward neither SLO latency nor errors.
+   */
+  public function testSloSampleExcludesDeniedRequests(): void {
+    $state = $this->createMock('Drupal\Core\State\StateInterface');
+    $logger = $this->createStub('Drupal\Core\Logger\LoggerChannelInterface');
+
+    $requests = [];
+    for ($i = 0; $i < 20; $i++) {
+      $requests[] = [
+        'time' => time() - 60,
+        'duration' => 1500.0,
+        'success' => TRUE,
+        'scenario' => 'retrieval',
+        'outcome' => 'message.success',
+        'status_code' => 200,
+        'denied' => FALSE,
+      ];
+    }
+    // Rate-limited requests: fast, unsuccessful, denied.
+    for ($i = 0; $i < 20; $i++) {
+      $requests[] = [
+        'time' => time() - 60,
+        'duration' => 5.0,
+        'success' => FALSE,
+        'scenario' => 'unknown',
+        'outcome' => 'message.rate_limit_minute',
+        'status_code' => 429,
+        'denied' => TRUE,
+      ];
+    }
+
+    $state->method('get')->willReturn(['requests' => $requests]);
+
+    $monitor = new PerformanceMonitor($state, $logger);
+    $summary = $monitor->getSummary();
+
+    $this->assertSame(40, $summary['sample_size']);
+    $this->assertSame(20, $summary['denied_count']);
+    $this->assertSame(50.0, $summary['error_rate']);
+
+    $this->assertSame(20, $summary['slo']['sample_size']);
+    $this->assertSame(0, $summary['slo']['denied_count']);
+    $this->assertSame(0.0, $summary['slo']['error_rate']);
+    $this->assertSame(100.0, $summary['slo']['availability_pct']);
+    $this->assertSame(1500.0, $summary['slo']['p50']);
+  }
+
+  /**
+   * Tests that a thin SLO sample is flagged instead of judged.
+   */
+  public function testSloSampleBelowMinimumIsFlaggedInsufficient(): void {
+    $state = $this->createMock('Drupal\Core\State\StateInterface');
+    $logger = $this->createStub('Drupal\Core\Logger\LoggerChannelInterface');
+
+    $requests = [];
+    for ($i = 0; $i < PerformanceMonitor::MIN_SLO_SAMPLE_SIZE - 1; $i++) {
+      $requests[] = [
+        'time' => time() - 60,
+        'duration' => 4000.0,
+        'success' => TRUE,
+        'scenario' => 'retrieval',
+      ];
+    }
+
+    $state->method('get')->willReturn(['requests' => $requests]);
+
+    $monitor = new PerformanceMonitor($state, $logger);
+    $summary = $monitor->getSummary();
+
+    $this->assertFalse($summary['slo']['sufficient_sample']);
+    $this->assertSame('insufficient_sample', $summary['slo']['status']);
+    $this->assertSame('degraded_latency', $summary['status']);
   }
 
   /**

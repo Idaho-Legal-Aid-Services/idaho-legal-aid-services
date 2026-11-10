@@ -493,7 +493,16 @@ Alert policy contract:
   `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` secret.[^CLAIM-212]
 - `SloAlertService` emits structured watchdog warnings (`SLO violation: ...`)
   for availability, latency, error-rate, cron, and queue breaches.
-- Alert cooldown is 900 seconds per SLO dimension to reduce noise.
+- Availability, latency and error rate are judged on the SLO sample
+  (`metrics.slo` on `/assistant/api/metrics`): `/assistant/api/message`
+  requests from the last `error_budget_window_hours`, with denied requests
+  (rate limit, CSRF, validation) left out, and at least 20 requests. A thinner
+  sample neither alerts nor clears a breach.
+- Alerts fire on state change: once when a dimension starts breaching, one
+  reminder every 24 hours while it stays breached, and a notice
+  (`SLO recovered: ...`) when it returns to target. A new breach within 900
+  seconds of the previous alert is held back.
+- Recording a request never alerts; the cron check is the only alert path.
 
 Verification commands (local):
 
