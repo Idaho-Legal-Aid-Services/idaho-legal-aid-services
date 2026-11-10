@@ -163,6 +163,13 @@ class AssistantApiController extends ControllerBase {
   protected $faqIndex;
 
   /**
+   * FAQ search results for the message being handled, keyed by limit + query.
+   *
+   * @var array<string, array>
+   */
+  private array $faqSearchMemo = [];
+
+  /**
    * The most recent Voyage rerank meta payload (per-request).
    *
    * @var array<string, mixed>|null
@@ -1857,6 +1864,18 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Runs an FAQ search at most once per message for a given query and limit.
+   *
+   * The early retrieval pass and the FAQ / last-resort branches of
+   * processIntent() search the same text. FaqIndex only caches results that
+   * carry no vector matches, so without this the second call repeats the
+   * whole lexical + embedding + vector round trip.
+   */
+  private function searchFaqOnce(string $query, int $limit): array {
+    return $this->faqSearchMemo[$limit . '|' . $query] ??= $this->faqIndex->search($query, $limit);
+  }
+
+  /**
    * Handles incoming chat messages.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
@@ -1869,6 +1888,7 @@ class AssistantApiController extends ControllerBase {
     // Resolve correlation ID: accept inbound header or generate new UUID.
     $request_id = $this->resolveCorrelationId($request);
     $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_MESSAGE);
+    $this->faqSearchMemo = [];
     $start_time = microtime(TRUE);
     $runtime_context = $this->buildLangfuseRuntimeContext();
     $langfuse_base_metadata = $this->buildLangfuseBaseTraceMetadata($request_id, NULL, [
@@ -3069,7 +3089,7 @@ class AssistantApiController extends ControllerBase {
       $config = $this->configFactory->get('ilas_site_assistant.settings');
       $skip_retrieval_intents = ['greeting', 'thanks', 'apply_for_help', 'apply'];
       if ($config->get('enable_faq') && !in_array($intent['type'], $skip_retrieval_intents)) {
-        $early_retrieval = $this->faqIndex->search($user_message, 3);
+        $early_retrieval = $this->searchFaqOnce($user_message, 3);
       }
       $top_score = !empty($early_retrieval) ? ($early_retrieval[0]['score'] ?? NULL) : NULL;
       $this->langfuseTracer?->endSpan([
@@ -5567,7 +5587,7 @@ class AssistantApiController extends ControllerBase {
           $response['message'] = $this->t('You can find frequently asked questions on our FAQ page.');
           break;
         }
-        $results = $this->faqIndex->search($message, 3);
+        $results = $this->searchFaqOnce($message, 3);
         $response['fallback_url'] = $canonical_urls['faq'];
 
         // FAQ-miss → grounded retrieval fallthrough.
@@ -6338,7 +6358,7 @@ class AssistantApiController extends ControllerBase {
 
         // Before returning fallback, try searching FAQs as a last resort.
         if ($config->get('enable_faq')) {
-          $faq_results = $this->faqIndex->search($message, 3);
+          $faq_results = $this->searchFaqOnce($message, 3);
           if (!empty($faq_results)) {
             $response['type'] = 'faq';
             $response['message'] = $this->t('I found some information that might help:');
