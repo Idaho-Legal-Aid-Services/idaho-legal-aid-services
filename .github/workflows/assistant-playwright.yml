@@ -21,7 +21,7 @@ concurrency:
 jobs:
   journeys:
     name: Full Assistant Playwright Journeys
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.59 has no Chromium build for ubuntu-26.04 (ubuntu-latest since 2026-10)
     env:
       INPUT_BASE_URL: ${{ inputs.base_url || '' }}
       CONFIGURED_BASE_URL: ${{ vars.ILAS_PLAYWRIGHT_BASE_URL || '' }}
