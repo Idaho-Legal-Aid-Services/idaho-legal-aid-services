@@ -1470,11 +1470,7 @@ class AssistantApiController extends ControllerBase {
         $is_guides
           ? '[@request_id] Scoped guide search exhausted without broad fallback: query_hash=@query_hash scope=@scope'
           : '[@request_id] Scoped form search exhausted without broad fallback: query_hash=@query_hash scope=@scope',
-        [
-          '@request_id' => $request_id,
-          '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
-          '@scope' => $scope_label,
-        ]
+        $this->buildFinderQueryLogContext($request_id, $normalized_query) + ['@scope' => $scope_label]
       );
 
       return $response;
@@ -1541,11 +1537,8 @@ class AssistantApiController extends ControllerBase {
 
     $this->logger->info(
       '[@request_id] Structured selection recovery exhausted: resource=@resource topic_hash=@query_hash length=@query_length_bucket area=@area',
-      [
-        '@request_id' => $request_id,
+      $this->buildFinderQueryLogContext($request_id, $normalized_query) + [
         '@resource' => $resource_plural,
-        '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
-        '@query_length_bucket' => ObservabilityPayloadMinimizer::lengthBucket($normalized_query),
         '@area' => $intent_area !== '' ? $intent_area : 'none',
       ]
     );

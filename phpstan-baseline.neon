@@ -191,18 +191,6 @@ parameters:
 			path: web/modules/custom/ilas_site_assistant/src/Commands/SentryProbeCommands.php
 
 		-
-			message: '#^Call to an undefined static method Drupal\\ilas_site_assistant\\Service\\ObservabilityPayloadMinimizer\:\:hashText\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 2
-			path: web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
-
-		-
-			message: '#^Call to an undefined static method Drupal\\ilas_site_assistant\\Service\\ObservabilityPayloadMinimizer\:\:lengthBucket\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: web/modules/custom/ilas_site_assistant/src/Controller/AssistantApiController.php
-
-		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
 			identifier: new.static
 			count: 1
