@@ -38,7 +38,7 @@ $mockConfig = new class {
 };
 
 $classifier = new SafetyClassifier($mockConfig);
-$verbose = in_array('--verbose', $argv);
+$verbose = in_array('--verbose', ($_SERVER['argv'] ?? []));
 
 // Test results tracking.
 $passed = 0;
