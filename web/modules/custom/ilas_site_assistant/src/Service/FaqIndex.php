@@ -481,23 +481,25 @@ class FaqIndex {
       }
 
       // Execute search.
-      $results = $search_query->execute();
+      $results = SentryStageSpan::run('faq.lexical_query', static fn() => $search_query->execute());
 
-      $items = [];
-      foreach ($results->getResultItems() as $result_item) {
-        try {
-          $item = $this->buildResultItem($result_item);
-          if ($item) {
-            $items[] = $item;
+      $items = SentryStageSpan::run('faq.lexical_result_build', function () use ($results, $limit): array {
+        $items = [];
+        foreach ($results->getResultItems() as $result_item) {
+          try {
+            $item = $this->buildResultItem($result_item);
+            if ($item) {
+              $items[] = $item;
+            }
+          }
+          catch (\Exception $e) {
+            // Skip items that fail to load.
+            continue;
           }
         }
-        catch (\Exception $e) {
-          // Skip items that fail to load.
-          continue;
-        }
-      }
-      $items = array_values($this->filterItemsByCurrentLanguage($items));
-      $items = array_slice($this->collapseLanguageCopies($items), 0, $limit);
+        $items = array_values($this->filterItemsByCurrentLanguage($items));
+        return array_slice($this->collapseLanguageCopies($items), 0, $limit);
+      });
 
       // Supplement with vector search if lexical results are sparse.
       $supplement = $this->supplementWithVectorResultsDetailed($items, $query, $limit, $type);
@@ -1667,7 +1669,9 @@ class FaqIndex {
       }
 
       $start_time = microtime(TRUE);
-      $results = $search_query->execute();
+      // Covers the embedding call (its own http.client child span), the
+      // vector store query and the backend's per-match access checks.
+      $results = SentryStageSpan::run('faq.vector_query', static fn() => $search_query->execute());
       $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
 
       if ($elapsed_ms > self::MAX_VECTOR_MS) {

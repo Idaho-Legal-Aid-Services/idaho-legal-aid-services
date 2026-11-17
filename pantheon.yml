@@ -16,3 +16,8 @@ object_cache:
 # web/sites/default/settings.solr.php.
 search:
   version: 8
+
+# PHP runtime. Overrides the 8.3 default in pantheon.upstream.yml (which is
+# left untouched so reverting this key rolls the site back to 8.3). Drupal 12
+# requires 8.5. Deploys with code; Pantheon ignores this change in hotfixes.
+php_version: 8.5

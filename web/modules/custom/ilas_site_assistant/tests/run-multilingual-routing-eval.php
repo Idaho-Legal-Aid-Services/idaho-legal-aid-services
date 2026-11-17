@@ -11,7 +11,7 @@ use Drupal\Tests\ilas_site_assistant\Support\MultilingualRoutingEvalRunner;
 require dirname(__DIR__, 5) . '/vendor/autoload.php';
 
 $reportPath = NULL;
-foreach (array_slice($argv, 1) as $arg) {
+foreach (array_slice(($_SERVER['argv'] ?? []), 1) as $arg) {
   if (str_starts_with($arg, '--report=')) {
     $reportPath = substr($arg, 9);
   }

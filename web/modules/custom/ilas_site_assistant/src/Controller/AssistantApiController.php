@@ -40,6 +40,8 @@ use Drupal\ilas_site_assistant\Service\SafetyResponseTemplates;
 use Drupal\ilas_site_assistant\Service\OutOfScopeClassifier;
 use Drupal\ilas_site_assistant\Service\OutOfScopeResponseTemplates;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
+use Drupal\ilas_site_assistant\Service\RetrievalTraceTags;
+use Drupal\ilas_site_assistant\Service\SentryStageSpan;
 use Drupal\ilas_site_assistant\Service\SafetyViolationTracker;
 use Drupal\ilas_site_assistant\Service\ConversationLogger;
 use Drupal\ilas_site_assistant\Service\AbTestingService;
@@ -161,6 +163,13 @@ class AssistantApiController extends ControllerBase {
    * @var \Drupal\ilas_site_assistant\Service\FaqIndex
    */
   protected $faqIndex;
+
+  /**
+   * FAQ search results for the message being handled, keyed by limit + query.
+   *
+   * @var array<string, array>
+   */
+  private array $faqSearchMemo = [];
 
   /**
    * The most recent Voyage rerank meta payload (per-request).
@@ -1463,11 +1472,7 @@ class AssistantApiController extends ControllerBase {
         $is_guides
           ? '[@request_id] Scoped guide search exhausted without broad fallback: query_hash=@query_hash scope=@scope'
           : '[@request_id] Scoped form search exhausted without broad fallback: query_hash=@query_hash scope=@scope',
-        [
-          '@request_id' => $request_id,
-          '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
-          '@scope' => $scope_label,
-        ]
+        $this->buildFinderQueryLogContext($request_id, $normalized_query) + ['@scope' => $scope_label]
       );
 
       return $response;
@@ -1534,11 +1539,8 @@ class AssistantApiController extends ControllerBase {
 
     $this->logger->info(
       '[@request_id] Structured selection recovery exhausted: resource=@resource topic_hash=@query_hash length=@query_length_bucket area=@area',
-      [
-        '@request_id' => $request_id,
+      $this->buildFinderQueryLogContext($request_id, $normalized_query) + [
         '@resource' => $resource_plural,
-        '@query_hash' => ObservabilityPayloadMinimizer::hashText($normalized_query),
-        '@query_length_bucket' => ObservabilityPayloadMinimizer::lengthBucket($normalized_query),
         '@area' => $intent_area !== '' ? $intent_area : 'none',
       ]
     );
@@ -1857,6 +1859,18 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Runs an FAQ search at most once per message for a given query and limit.
+   *
+   * The early retrieval pass and the FAQ / last-resort branches of
+   * processIntent() search the same text. FaqIndex only caches results that
+   * carry no vector matches, so without this the second call repeats the
+   * whole lexical + embedding + vector round trip.
+   */
+  private function searchFaqOnce(string $query, int $limit): array {
+    return $this->faqSearchMemo[$limit . '|' . $query] ??= $this->faqIndex->search($query, $limit);
+  }
+
+  /**
    * Handles incoming chat messages.
    *
    * @param \Symfony\Component\HttpFoundation\Request $request
@@ -1869,6 +1883,7 @@ class AssistantApiController extends ControllerBase {
     // Resolve correlation ID: accept inbound header or generate new UUID.
     $request_id = $this->resolveCorrelationId($request);
     $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_MESSAGE);
+    $this->faqSearchMemo = [];
     $start_time = microtime(TRUE);
     $runtime_context = $this->buildLangfuseRuntimeContext();
     $langfuse_base_metadata = $this->buildLangfuseBaseTraceMetadata($request_id, NULL, [
@@ -3069,7 +3084,7 @@ class AssistantApiController extends ControllerBase {
       $config = $this->configFactory->get('ilas_site_assistant.settings');
       $skip_retrieval_intents = ['greeting', 'thanks', 'apply_for_help', 'apply'];
       if ($config->get('enable_faq') && !in_array($intent['type'], $skip_retrieval_intents)) {
-        $early_retrieval = $this->faqIndex->search($user_message, 3);
+        $early_retrieval = $this->searchFaqOnce($user_message, 3);
       }
       $top_score = !empty($early_retrieval) ? ($early_retrieval[0]['score'] ?? NULL) : NULL;
       $this->langfuseTracer?->endSpan([
@@ -3454,12 +3469,14 @@ class AssistantApiController extends ControllerBase {
       }
 
       if ($this->sourceGovernance && !empty($response['results']) && is_array($response['results'])) {
+        $governance_span = SentryStageSpan::start('governance.record_observations');
         try {
           $this->sourceGovernance->recordObservationBatch($response['results']);
         }
         catch (\Throwable $e) {
           $this->logger->warning('Source governance observation failed: @class @error_signature', $this->buildExceptionContext($e));
         }
+        SentryStageSpan::finish($governance_span);
       }
 
       if ($debug_mode) {
@@ -4824,6 +4841,22 @@ class AssistantApiController extends ControllerBase {
   }
 
   /**
+   * Adds tags to the current Sentry scope, and so to this request's trace.
+   *
+   * @param array<string, string> $tags
+   *   Tag values; every key must be in SentryOptionsSubscriber::APPROVED_TAGS
+   *   or the scrubber drops it.
+   */
+  private function tagSentryTransaction(array $tags): void {
+    if ($tags === [] || !function_exists('\Sentry\configureScope')) {
+      return;
+    }
+    \Sentry\configureScope(static function (Scope $scope) use ($tags): void {
+      $scope->setTags($tags);
+    });
+  }
+
+  /**
    * Builds Langfuse-safe retrieval trace metadata for the completed response.
    */
   protected function collectRetrievalTraceMetadata(array $response): array {
@@ -4866,6 +4899,7 @@ class AssistantApiController extends ControllerBase {
     if ($this->resourceFinder && method_exists($this->resourceFinder, 'drainRetrievalTelemetry')) {
       $operations = array_merge($operations, $this->resourceFinder->drainRetrievalTelemetry());
     }
+    $this->tagSentryTransaction(RetrievalTraceTags::fromOperations($operations));
 
     $degraded_reason = NULL;
     $operation_source_classes = [];
@@ -5567,7 +5601,7 @@ class AssistantApiController extends ControllerBase {
           $response['message'] = $this->t('You can find frequently asked questions on our FAQ page.');
           break;
         }
-        $results = $this->faqIndex->search($message, 3);
+        $results = $this->searchFaqOnce($message, 3);
         $response['fallback_url'] = $canonical_urls['faq'];
 
         // FAQ-miss → grounded retrieval fallthrough.
@@ -6338,7 +6372,7 @@ class AssistantApiController extends ControllerBase {
 
         // Before returning fallback, try searching FAQs as a last resort.
         if ($config->get('enable_faq')) {
-          $faq_results = $this->faqIndex->search($message, 3);
+          $faq_results = $this->searchFaqOnce($message, 3);
           if (!empty($faq_results)) {
             $response['type'] = 'faq';
             $response['message'] = $this->t('I found some information that might help:');
@@ -8095,7 +8129,12 @@ class AssistantApiController extends ControllerBase {
 
     if ($this->performanceMonitor) {
       $summary = $this->performanceMonitor->getSummary();
-      $status = $summary['status'];
+      // Judge health on the SLO sample (time-bounded, denials left out), the
+      // same sample SloAlertService alerts on.
+      $summary = is_array($summary['slo'] ?? NULL) ? $summary['slo'] : $summary;
+      $sloSampleSufficient = (bool) ($summary['sufficient_sample'] ?? TRUE);
+      $status = $summary['status'] === 'insufficient_sample' ? 'healthy' : $summary['status'];
+      $checks['slo_sample_size'] = $summary['sample_size'] ?? 0;
       $checks['latency_p95_ms'] = $summary['p95'];
       $checks['error_rate_pct'] = $summary['error_rate'];
       $checks['availability_pct'] = $summary['availability_pct'] ?? max(0, 100 - (float) $summary['error_rate']);
@@ -8112,7 +8151,7 @@ class AssistantApiController extends ControllerBase {
           'latency_p95_target_ms' => $sloDefinitions->getLatencyP95TargetMs(),
           'error_rate_target_pct' => $sloDefinitions->getErrorRateTargetPct(),
         ];
-        if ($checks['availability_pct'] < $checks['slo_targets']['availability_target_pct']) {
+        if ($sloSampleSufficient && $checks['availability_pct'] < $checks['slo_targets']['availability_target_pct']) {
           $status = 'degraded';
           $httpCode = 503;
         }

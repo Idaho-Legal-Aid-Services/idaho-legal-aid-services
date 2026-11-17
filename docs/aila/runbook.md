@@ -493,7 +493,34 @@ Alert policy contract:
   `ILAS_ASSISTANT_DIAGNOSTICS_TOKEN` secret.[^CLAIM-212]
 - `SloAlertService` emits structured watchdog warnings (`SLO violation: ...`)
   for availability, latency, error-rate, cron, and queue breaches.
-- Alert cooldown is 900 seconds per SLO dimension to reduce noise.
+- Availability, latency and error rate are judged on the SLO sample
+  (`metrics.slo` on `/assistant/api/metrics`): `/assistant/api/message`
+  requests from the last `error_budget_window_hours`, with denied requests
+  (rate limit, CSRF, validation) left out, and at least 20 requests. A thinner
+  sample neither alerts nor clears a breach.
+- Alerts fire on state change: once when a dimension starts breaching, one
+  reminder every 24 hours while it stays breached, and a notice
+  (`SLO recovered: ...`) when it returns to target. A new breach within 900
+  seconds of the previous alert is held back.
+- Recording a request never alerts; the cron check is the only alert path.
+
+Latency attribution for `POST /assistant/api/message` (Sentry traces):
+
+- Every message request is traced (`SentryOptionsSubscriber::tracesSamplerCallback`);
+  other requests keep the configured sample rate.
+- Stage spans use op `assistant.stage`; the description is the stage name:
+  `retrieval.early`, `intent.process`, `faq.lexical_query`,
+  `faq.lexical_result_build`, `faq.vector_query`, `resource.lexical_query`,
+  `resource.vector_query`, `governance.record_observations`,
+  `analytics.persist`, `conversation.persist`, `langfuse.enqueue`,
+  `monitor.record`. A `*.vector_query` span contains the embedding call
+  (`http.client` child), the vector store query and the per-match access
+  checks; the vector store has no span of its own.
+- Transaction tags describe the request shape: `vector_searches`,
+  `faq_resource_query_identical` (yes/no/na), `vector_fallback` (yes/no),
+  `vector_fallback_reason`, `vector_backoff` (none/faq/resource/both),
+  `vector_backoff_activations`. No query text or hash is sent.
+- Judge latency on span P95 with its sample count, not on the alert state.
 
 Verification commands (local):
 

@@ -9,7 +9,7 @@ use Drupal\Core\Logger\LoggerChannelInterface;
  * Tracks chatbot API performance metrics for monitoring.
  *
  * Stores rolling metrics in Drupal state for lightweight monitoring.
- * Use with an external alerting system or expose via /admin endpoint.
+ * Recording never alerts; SloAlertService judges the `slo` summary on cron.
  */
 class PerformanceMonitor {
 
@@ -59,6 +59,16 @@ class PerformanceMonitor {
    */
   const THRESHOLD_P95_MS = 2000;
   const THRESHOLD_ERROR_RATE = 0.05;
+
+  /**
+   * Fallback SLO evaluation window when no SLO definitions are injected.
+   */
+  const SLO_WINDOW_HOURS = 168;
+
+  /**
+   * Minimum SLO-eligible requests before the SLO sample can be judged.
+   */
+  const MIN_SLO_SAMPLE_SIZE = 20;
 
   /**
    * The state service.
@@ -199,9 +209,6 @@ class PerformanceMonitor {
       }
     }
 
-    // Check thresholds and log warnings.
-    $this->checkThresholds($metrics);
-
     $this->state->set(self::STATE_KEY, $metrics);
   }
 
@@ -221,7 +228,6 @@ class PerformanceMonitor {
       'total_requests_all' => 0,
       'total_errors_all' => 0,
       'totals_by_endpoint' => [],
-      'last_alert' => 0,
     ];
 
     $stored = $this->state->get(self::STATE_KEY, $default);
@@ -276,11 +282,14 @@ class PerformanceMonitor {
    * Calculates summary statistics.
    *
    * @return array
-   *   Summary with p50, p95, p99, error_rate, availability, throughput.
+   *   Summary with p50, p95, p99, error_rate, availability, throughput. The
+   *   top-level keys describe the whole /message rolling window; `slo` is the
+   *   sample the SLO targets are judged against.
    */
   public function getSummary(): array {
     $metrics = $this->getMetrics();
     $summary = $this->buildSummary($metrics['requests']);
+    $summary['slo'] = $this->buildSloSummary($metrics['requests']);
     $summary['all_endpoints'] = $this->buildSummary($metrics['all_requests']);
     $summary['by_endpoint'] = [];
     foreach (self::ENDPOINTS as $endpoint) {
@@ -289,47 +298,6 @@ class PerformanceMonitor {
     $summary['by_outcome'] = $this->buildOutcomeSummary($metrics['all_requests']);
 
     return $summary;
-  }
-
-  /**
-   * Checks thresholds and logs warnings.
-   *
-   * Uses the in-memory $metrics array (which includes the current request)
-   * instead of re-reading state. Mutates $metrics['last_alert'] by reference
-   * so the single state->set() in recordRequest() persists the cooldown.
-   */
-  protected function checkThresholds(array &$metrics): void {
-    // Only alert once per 5 minutes to avoid log spam.
-    if (time() - $metrics['last_alert'] < 300) {
-      return;
-    }
-
-    $summary = $this->buildSummary($metrics['requests']);
-    if (($summary['sample_size'] ?? 0) === 0) {
-      return;
-    }
-
-    $alerted = FALSE;
-
-    if (($summary['p95'] ?? 0) > $this->getLatencyThresholdMs()) {
-      $this->logger->warning('Chatbot API latency degraded: P95 = @p95ms (threshold: @threshold ms)', [
-        '@p95' => $summary['p95'],
-        '@threshold' => $this->getLatencyThresholdMs(),
-      ]);
-      $alerted = TRUE;
-    }
-
-    if ((($summary['error_rate'] ?? 0) / 100) > $this->getErrorRateThresholdRatio()) {
-      $this->logger->warning('Chatbot API error rate elevated: @rate% (threshold: @threshold%)', [
-        '@rate' => $summary['error_rate'],
-        '@threshold' => $this->getErrorRateThresholdRatio() * 100,
-      ]);
-      $alerted = TRUE;
-    }
-
-    if ($alerted) {
-      $metrics['last_alert'] = time();
-    }
   }
 
   /**
@@ -346,6 +314,53 @@ class PerformanceMonitor {
     return $this->sloDefinitions
       ? $this->sloDefinitions->getLatencyP95TargetMs()
       : self::THRESHOLD_P95_MS;
+  }
+
+  /**
+   * Returns the SLO evaluation window in seconds.
+   */
+  private function getSloWindowSeconds(): int {
+    $hours = $this->sloDefinitions
+      ? $this->sloDefinitions->getErrorBudgetWindowHours()
+      : self::SLO_WINDOW_HOURS;
+
+    return max(1, $hours) * 3600;
+  }
+
+  /**
+   * Builds the summary the SLO targets are judged against.
+   *
+   * The rolling window is count-based, so on a low-traffic site it can span
+   * months and blend several releases. The SLO sample keeps only requests
+   * inside the error budget window, and leaves out denied requests (rate
+   * limits, CSRF, validation): those are the controls working, they return
+   * in milliseconds, and counting them skews both latency and availability.
+   *
+   * @param array $requests
+   *   The /message request window.
+   *
+   * @return array
+   *   Summary metrics plus `window_hours`, `min_sample_size` and
+   *   `sufficient_sample`.
+   */
+  private function buildSloSummary(array $requests): array {
+    $window_seconds = $this->getSloWindowSeconds();
+    $cutoff = time() - $window_seconds;
+    $eligible = array_values(array_filter(
+      $requests,
+      static fn(array $request): bool => (int) ($request['time'] ?? 0) >= $cutoff
+        && !($request['denied'] ?? FALSE),
+    ));
+
+    $summary = $this->buildSummary($eligible);
+    $summary['window_hours'] = intdiv($window_seconds, 3600);
+    $summary['min_sample_size'] = self::MIN_SLO_SAMPLE_SIZE;
+    $summary['sufficient_sample'] = $summary['sample_size'] >= self::MIN_SLO_SAMPLE_SIZE;
+    if (!$summary['sufficient_sample'] && $summary['sample_size'] > 0) {
+      $summary['status'] = 'insufficient_sample';
+    }
+
+    return $summary;
   }
 
   /**

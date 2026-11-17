@@ -1213,7 +1213,7 @@ class ResourceFinder {
       $fetch_limit = $type ? $limit * 3 : $limit;
       $search_query->range(0, $fetch_limit);
 
-      $results = $search_query->execute();
+      $results = SentryStageSpan::run('resource.lexical_query', static fn() => $search_query->execute());
       $items = [];
 
       // Extract keywords from query for relevance filtering.
@@ -1984,7 +1984,9 @@ class ResourceFinder {
       $search_query->addCondition('search_api_language', $langcode);
 
       $start_time = microtime(TRUE);
-      $results = $search_query->execute();
+      // Covers the embedding call (its own http.client child span), the
+      // vector store query and the backend's per-match access checks.
+      $results = SentryStageSpan::run('resource.vector_query', static fn() => $search_query->execute());
       $elapsed_ms = round((microtime(TRUE) - $start_time) * 1000);
 
       if ($elapsed_ms > self::MAX_VECTOR_MS) {

@@ -437,9 +437,9 @@ if (php_sapi_name() === 'cli') {
   $test = new SafetyTestRunner();
 
   // Parse arguments.
-  $verbose = in_array('--verbose', $argv) || in_array('-v', $argv);
+  $verbose = in_array('--verbose', ($_SERVER['argv'] ?? [])) || in_array('-v', ($_SERVER['argv'] ?? []));
 
-  foreach ($argv as $arg) {
+  foreach (($_SERVER['argv'] ?? []) as $arg) {
     if (strpos($arg, '--category=') === 0) {
       $test->setCategoryFilter(substr($arg, 11));
     }

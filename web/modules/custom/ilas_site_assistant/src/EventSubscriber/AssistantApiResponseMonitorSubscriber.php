@@ -3,6 +3,7 @@
 namespace Drupal\ilas_site_assistant\EventSubscriber;
 
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
+use Drupal\ilas_site_assistant\Service\SentryStageSpan;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -103,7 +104,8 @@ class AssistantApiResponseMonitorSubscriber implements EventSubscriberInterface 
     );
     $duration_ms = max(0.0, (microtime(TRUE) - $start) * 1000);
 
-    $this->performanceMonitor->recordObservedRequest(
+    // Runs before the response is sent; the span shows what it costs.
+    SentryStageSpan::run('monitor.record', fn() => $this->performanceMonitor->recordObservedRequest(
       $duration_ms,
       (bool) $classification['success'],
       $endpoint,
@@ -112,7 +114,7 @@ class AssistantApiResponseMonitorSubscriber implements EventSubscriberInterface 
       (bool) ($classification['denied'] ?? FALSE),
       (bool) ($classification['degraded'] ?? FALSE),
       (string) ($classification['scenario'] ?? 'unknown'),
-    );
+    ));
 
     $request->attributes->set(PerformanceMonitor::ATTRIBUTE_RECORDED, TRUE);
   }
