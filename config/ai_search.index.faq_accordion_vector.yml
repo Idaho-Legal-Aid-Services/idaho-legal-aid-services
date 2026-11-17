@@ -23,3 +23,4 @@ indexing_options:
   paragraph_type:
     indexing_option: attributes
     max: -1
+results_cache_mode: per_role
