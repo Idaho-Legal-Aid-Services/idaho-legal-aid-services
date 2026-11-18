@@ -13,7 +13,12 @@ MASTER_RUN_POLL_SECONDS=5
 MASTER_RUN_POLL_ATTEMPTS=24
 ARTIFACT_POLL_SECONDS=3
 ARTIFACT_POLL_ATTEMPTS=10
-PROMPTFOO_ARTIFACT_NAME="promptfoo-gate-artifacts"
+# Job and artifact names from .github/workflows/quality-gate.yml. These must
+# match the workflow exactly: this script once kept waiting for two job names
+# after the jobs had been renamed, and so timed out on every run. FinishHelperWorkflowNamesTest fails if they drift again.
+BASIC_GATE_CHECK_NAME="Basic Quality Gate"
+ASSISTANT_GATE_CHECK_NAME="Assistant PR Quality Gate"
+PROMPTFOO_ARTIFACT_NAME="assistant-pr-quality-artifacts"
 GATE_SUMMARY_ARTIFACT_NAME="gate-summary"
 PROTECTED_PUSH_PROMPTFOO_CONFIG="promptfooconfig.protected-push.yaml"
 PROTECTED_PUSH_RAG_MIN_COUNT="${PROTECTED_PUSH_RAG_MIN_COUNT:-2}"
@@ -100,13 +105,12 @@ quality_checks_visible() {
     $data = json_decode(stream_get_contents(STDIN), true);
     $checks = $data["statusCheckRollup"] ?? [];
     foreach ($checks as $check) {
-      $name = $check["name"] ?? "";
-      if ($name === "PHPUnit Quality Gate" || $name === "Promptfoo Gate") {
+      if (($check["name"] ?? "") === $argv[1]) {
         exit(0);
       }
     }
     exit(1);
-  ' <<< "$pr_json"
+  ' -- "$BASIC_GATE_CHECK_NAME" <<< "$pr_json"
 }
 
 wait_for_quality_checks() {
@@ -136,8 +140,13 @@ find_promptfoo_check_run_id() {
     $data = json_decode(stream_get_contents(STDIN), true);
     $checks = $data["statusCheckRollup"] ?? [];
     foreach ($checks as $check) {
-      if (($check["name"] ?? "") !== "Promptfoo Gate") {
+      if (($check["name"] ?? "") !== $argv[1]) {
         continue;
+      }
+      // The assistant gate only runs when assistant paths changed; a
+      // skipped job uploads no artifact to check.
+      if (strtoupper((string) ($check["conclusion"] ?? "")) === "SKIPPED") {
+        exit(2);
       }
 
       $detailsUrl = (string) ($check["detailsUrl"] ?? "");
@@ -146,8 +155,8 @@ find_promptfoo_check_run_id() {
         exit(0);
       }
     }
-    exit(1);
-  ' <<< "$pr_json"
+    exit(2);
+  ' -- "$ASSISTANT_GATE_CHECK_NAME" <<< "$pr_json"
 }
 
 download_run_artifact() {
@@ -170,7 +179,7 @@ download_run_artifact() {
       return 1
     fi
 
-    info "Waiting for $artifact_name artifact from Promptfoo Gate run $run_id..."
+    info "Waiting for $artifact_name artifact from $ASSISTANT_GATE_CHECK_NAME run $run_id..."
     sleep "$ARTIFACT_POLL_SECONDS"
   done
 }
@@ -216,8 +225,14 @@ require_publish_pr_promptfoo_artifact_pass() {
     return 0
   fi
 
-  if ! promptfoo_run_id="$(find_promptfoo_check_run_id "$pr_number")"; then
-    err "Unable to resolve the Promptfoo Gate workflow run for PR #$pr_number."
+  local lookup_status=0
+  promptfoo_run_id="$(find_promptfoo_check_run_id "$pr_number")" || lookup_status=$?
+  if (( lookup_status == 2 )); then
+    info "$ASSISTANT_GATE_CHECK_NAME did not run on PR #$pr_number (no assistant paths changed); no gate summary to verify."
+    return 0
+  fi
+  if (( lookup_status != 0 )) || [[ -z "$promptfoo_run_id" ]]; then
+    err "Unable to resolve the $ASSISTANT_GATE_CHECK_NAME workflow run for PR #$pr_number."
     err "Inspect with: gh pr view $pr_number --json statusCheckRollup,url"
     exit 1
   fi
@@ -247,7 +262,7 @@ require_publish_pr_promptfoo_artifact_pass() {
 
   if [[ -z "$mode" || -z "$eval_execution_mode" || -z "$eval_exit" ]]; then
     rm -rf "$artifact_dir"
-    err "gate-summary artifact from Promptfoo Gate run $promptfoo_run_id is missing required fields."
+    err "gate-summary artifact from $ASSISTANT_GATE_CHECK_NAME run $promptfoo_run_id is missing required fields."
     err "Inspect with: gh run download $promptfoo_run_id --name gate-summary"
     exit 1
   fi
