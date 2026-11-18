@@ -21,7 +21,7 @@ on:
           - test
           - live
       assistant_base_url:
-        description: Optional base URL for manual smoke checks, for example https://dev-idaholegalaid.pantheonsite.io
+        description: Optional base URL for manual smoke checks, for example https://dev-idaho-legal-aid-services.pantheonsite.io
         required: false
         default: ''
       run_assistant_path_gate:

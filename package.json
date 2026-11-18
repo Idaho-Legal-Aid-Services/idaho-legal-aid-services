@@ -20,6 +20,7 @@
     "test:assistant:playwright:install": "playwright install chromium",
     "test:assistant:playwright:mocked-smoke": "playwright test --config=playwright.config.js web/modules/custom/ilas_site_assistant/tests/playwright/assistant.mocked.spec.js --grep \"rapid double click|widget assistant buttons\"",
     "test:assistant:smoke": "node scripts/smoke/assistant-smoke.mjs",
+    "test:site:smoke": "node scripts/smoke/site-smoke.mjs",
     "test:a11y": "playwright test --config=playwright.a11y.config.js",
     "test:a11y:headed": "playwright test --config=playwright.a11y.config.js --headed",
     "test:a11y:install": "playwright install chromium",
@@ -40,7 +41,7 @@
     "eval:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action eval",
     "eval:promptfoo:live": "ILAS_ASSISTANT_URL=https://idaholegalaid.org/assistant/api/message bash promptfoo-evals/scripts/run-promptfoo.sh eval",
     "test:promptfoo:runtime": "node --test promptfoo-evals/tests/node/*.test.js",
-    "test:assistant:js": "node --test web/modules/custom/ilas_site_assistant/tests/js/node/*.test.mjs web/modules/custom/ilas_seo/tests/js/node/*.test.mjs",
+    "test:assistant:js": "node --test web/modules/custom/ilas_site_assistant/tests/js/node/*.test.mjs web/modules/custom/ilas_seo/tests/js/node/*.test.mjs scripts/smoke/tests/*.test.mjs",
     "view:promptfoo": "bash promptfoo-evals/scripts/run-promptfoo.sh view",
     "view:promptfoo:win": "powershell -ExecutionPolicy Bypass -File promptfoo-evals/scripts/run-promptfoo.ps1 -Action view"
   },

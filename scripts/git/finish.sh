@@ -395,6 +395,16 @@ run_post_deploy_pantheon_verification() {
   info "Running post-deploy Pantheon dev hosted verification..."
   info "$assistant_url"
 
+  # Fast, and it covers the non-assistant pages the promptfoo gate never
+  # requests, so it runs first and fails early.
+  local site_base_url="${assistant_url%/assistant/api/message}"
+  info "Running site smoke against $site_base_url ..."
+  if ! node "$REPO_ROOT/scripts/smoke/site-smoke.mjs" --base-url "$site_base_url" --env dev; then
+    err "Post-deploy site smoke failed for $site_base_url."
+    return 1
+  fi
+  ok "Post-deploy site smoke passed."
+
   if (
     cd "$REPO_ROOT"
     ILAS_ASSISTANT_URL="$assistant_url" \

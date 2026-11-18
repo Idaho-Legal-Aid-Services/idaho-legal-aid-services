@@ -9,11 +9,13 @@ ENV_NAME=""
 DRY_RUN=false
 YES_LIVE=false
 SKIP_LIVE_BACKUP=false
+SKIP_SMOKE=false
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  pantheon-deploy.sh --env <dev|test|live> [--site <machine-name>] [--dry-run] [--yes-live] [--skip-live-backup]
+  pantheon-deploy.sh --env <dev|test|live> [--site <machine-name>] [--dry-run] [--yes-live] [--skip-live-backup] [--skip-smoke]
 
 Options:
   --env <env>            Target Pantheon environment (dev|test|live). Required.
@@ -21,6 +23,7 @@ Options:
   --dry-run              Print commands without executing remote operations.
   --yes-live             Skip live confirmation prompt.
   --skip-live-backup     Skip automatic live backup creation.
+  --skip-smoke           Skip the post-deploy site smoke and Langfuse export probe.
   -h, --help             Show this help output.
 USAGE
 }
@@ -106,6 +109,10 @@ parse_args() {
         ;;
       --skip-live-backup)
         SKIP_LIVE_BACKUP=true
+        shift
+        ;;
+      --skip-smoke)
+        SKIP_SMOKE=true
         shift
         ;;
       -h|--help)
@@ -264,6 +271,66 @@ check_config_drift() {
   fi
 }
 
+# Requests one of each kind of public page on the environment just deployed.
+#
+# Dev and test get no organic traffic, so without this a deploy there is only
+# exercised by the assistant checks. The pantheonsite.io host is used for every
+# environment: Cloudflare challenges scripted clients on the public live host.
+run_site_smoke() {
+  local base_url="https://${ENV_NAME}-${SITE_NAME}.pantheonsite.io"
+
+  info "Running site smoke against $base_url ..."
+  if ! run_cmd node "$REPO_ROOT/scripts/smoke/site-smoke.mjs" --base-url "$base_url" --env "$ENV_NAME"; then
+    err "Site smoke failed for $base_url."
+    return 1
+  fi
+  ok "Site smoke passed."
+}
+
+# Proves the Langfuse export path end to end where Langfuse is enabled.
+#
+# Sends one synthetic trace directly and reads it back from Langfuse. Skipped
+# when Langfuse is not enabled on the environment (the default off live).
+# Not run on live: live exports real traces and alerts on its own failures.
+run_langfuse_export_probe() {
+  local site_env="$1"
+
+  if [[ "$ENV_NAME" == "live" ]]; then
+    return 0
+  fi
+  if "$DRY_RUN"; then
+    print_cmd terminus drush "$site_env" -- ilas:langfuse-probe --direct
+    return 0
+  fi
+
+  local diagnosis=""
+  diagnosis="$(terminus drush "$site_env" -- ilas:langfuse-probe --diagnose 2>/dev/null || true)"
+  if [[ "$diagnosis" != *'"verdict": "READY"'* ]]; then
+    info "Langfuse is not enabled on $site_env; skipping the export probe."
+    return 0
+  fi
+
+  info "Sending a Langfuse export probe from $site_env ..."
+  local output="" trace_id=""
+  if ! output="$(terminus drush "$site_env" -- ilas:langfuse-probe --direct 2>&1)"; then
+    printf '%s\n' "$output"
+    err "Langfuse export probe was not accepted."
+    return 1
+  fi
+  trace_id="$(printf '%s\n' "$output" | grep -oE 'Trace ID: [0-9a-f-]{36}' | head -n 1 | cut -d' ' -f3)"
+  if [[ -z "$trace_id" ]]; then
+    printf '%s\n' "$output"
+    err "Could not read the probe trace ID."
+    return 1
+  fi
+
+  if ! terminus drush "$site_env" -- ilas:langfuse-lookup "$trace_id" --attempts=10 --delay-ms=2000 >/dev/null 2>&1; then
+    err "Langfuse accepted probe $trace_id but it could not be read back."
+    return 1
+  fi
+  ok "Langfuse export probe $trace_id was stored and read back."
+}
+
 main() {
   parse_args "$@"
   validate_args
@@ -302,6 +369,13 @@ main() {
   ok "No pending database updates remain."
 
   check_config_drift "$site_env"
+
+  if "$SKIP_SMOKE"; then
+    warn "Skipping the post-deploy smoke due to --skip-smoke."
+  else
+    run_site_smoke || exit 1
+    run_langfuse_export_probe "$site_env" || exit 1
+  fi
 
   ok "Deployment workflow completed for $site_env."
 }
