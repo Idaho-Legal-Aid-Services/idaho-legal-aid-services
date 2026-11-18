@@ -44,8 +44,71 @@ class LangfuseTraceLookupServiceTest extends TestCase {
     return new LangfuseTraceLookupService($configFactory, $httpClient);
   }
 
+  private const TRACE_UUID = '06999e10-1f0b-4be8-b574-71abd2864da4';
+
+  private const TRACE_HEX = '06999e101f0b4be8b57471abd2864da4';
+
+  private const URL = 'https://us.cloud.langfuse.com/api/public/v2/observations';
+
   /**
-   * Tests success against the current top-level trace response shape.
+   * Observation rows as GET /api/public/v2/observations returns them.
+   *
+   * Shape recorded from Langfuse Cloud on 2026-11-18 for an OTLP trace sent
+   * by LangfuseOtlpPayloadBuilder.
+   */
+  private function observationRows(): array {
+    return [
+      [
+        'id' => '3fd7d162c5614978',
+        'traceId' => self::TRACE_HEX,
+        'type' => 'EVENT',
+        'name' => 'feedback.received',
+        'startTime' => '2026-03-18T00:00:05.000Z',
+        'parentObservationId' => '5181590e55d80a76',
+        'isRootObservation' => FALSE,
+        'environment' => 'local',
+        'sessionId' => 'session-001',
+      ],
+      [
+        'id' => '661395f2118f4749',
+        'traceId' => self::TRACE_HEX,
+        'type' => 'SPAN',
+        'name' => 'retrieval',
+        'startTime' => '2026-03-18T00:00:01.000Z',
+        'parentObservationId' => '5181590e55d80a76',
+        'isRootObservation' => FALSE,
+        'environment' => 'local',
+        'sessionId' => 'session-001',
+      ],
+      [
+        'id' => '5181590e55d80a76',
+        'traceId' => self::TRACE_HEX,
+        'type' => 'SPAN',
+        'name' => 'assistant.message',
+        'startTime' => '2026-03-18T00:00:00.000Z',
+        'parentObservationId' => NULL,
+        'isRootObservation' => TRUE,
+        'environment' => 'local',
+        'sessionId' => 'session-001',
+        'input' => 'preview="My email is [REDACTED-EMAIL]" hash=abc len=25-99 redact=email',
+        'output' => 'type=navigation reason=navigation_page_match',
+        'metadata' => [
+          'response_type' => 'navigation',
+          'reason_code' => 'navigation_page_match',
+          'input_preview_redacted' => 'My email is [REDACTED-EMAIL]',
+          'vector_status' => 'enabled_not_needed',
+          'vector_attempted' => FALSE,
+          'scope.name' => 'ilas-langfuse-tracer',
+          'resourceAttributes.service.name' => 'ilas-site-assistant',
+          'attributes.langfuse.trace.name' => 'assistant.message',
+          'attributes.langfuse.trace.tags' => ['assistant', 'aila', 'message'],
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Tests a trace is rebuilt from its v2 observation rows.
    */
   public function testLookupReturnsSanitizedTraceOnSuccess(): void {
     $httpClient = $this->createMock(ClientInterface::class);
@@ -53,44 +116,32 @@ class LangfuseTraceLookupServiceTest extends TestCase {
       ->method('request')
       ->with(
         'GET',
-        'https://us.cloud.langfuse.com/api/public/traces/trace-001',
+        self::URL,
         $this->callback(function (array $options): bool {
-          return ($options['timeout'] ?? NULL) === 5.0
-            && ($options['connect_timeout'] ?? NULL) === 5.0
-            && ($options['auth'] ?? NULL) === ['pk-test-123', 'sk-test-456'];
+          $this->assertSame(5.0, $options['timeout']);
+          $this->assertSame(['pk-test-123', 'sk-test-456'], $options['auth']);
+          // The request UUID is sent as the hyphen-free Langfuse trace id.
+          $this->assertSame(self::TRACE_HEX, $options['query']['traceId']);
+          $this->assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/', $options['query']['fromStartTime']);
+          $this->assertGreaterThan($options['query']['fromStartTime'], $options['query']['toStartTime']);
+          $this->assertStringContainsString('metadata', $options['query']['fields']);
+          return TRUE;
         }),
       )
-      ->willReturn(new Response(200, [], json_encode([
-        'id' => 'trace-001',
-        'name' => 'assistant.message',
-        'timestamp' => '2026-03-18T00:00:00.000Z',
-        'createdAt' => '2026-03-18T00:00:01.000Z',
-        'updatedAt' => '2026-03-18T00:00:02.000Z',
-        'environment' => 'local',
-        'sessionId' => 'session-001',
-        'tags' => ['assistant', 'aila', 'message'],
-        'input' => 'preview="My email is [REDACTED-EMAIL]" hash=abc len=25-99 redact=email',
-        'output' => 'type=navigation reason=navigation_page_match preview="Call [REDACTED-PHONE] for help." hash=def len=25-99 redact=phone',
-        'metadata' => [
-          'response_type' => 'navigation',
-          'reason_code' => 'navigation_page_match',
-          'input_preview_redacted' => 'My email is [REDACTED-EMAIL]',
-          'output_preview_redacted' => 'Call [REDACTED-PHONE] for help.',
-          'vector_status' => 'enabled_not_needed',
-          'vector_attempted' => FALSE,
-        ],
-        'observations' => [
-          ['id' => 'obs-1'],
-          ['id' => 'obs-2'],
-        ],
-      ], JSON_THROW_ON_ERROR)));
+      ->willReturn(new Response(200, [], json_encode(['data' => $this->observationRows(), 'meta' => []], JSON_THROW_ON_ERROR)));
 
-    $service = $this->buildService($httpClient);
-    $result = $service->lookupTrace('trace-001', 1, 0);
+    $result = $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 1, 0);
 
     $this->assertTrue($result['found']);
     $this->assertSame(200, $result['http_status']);
+    $this->assertSame(self::TRACE_UUID, $result['trace_id']);
+    $this->assertSame(self::TRACE_HEX, $result['langfuse_trace_id']);
+    $this->assertSame('/api/public/v2/observations?traceId={trace_id}', $result['api_path']);
     $this->assertSame('assistant.message', $result['trace']['name']);
+    $this->assertSame('2026-03-18T00:00:00.000Z', $result['trace']['timestamp']);
+    $this->assertSame('local', $result['trace']['environment']);
+    $this->assertTrue($result['trace']['root_observation_found']);
+    // The root span stands in for the trace and is not counted.
     $this->assertSame(2, $result['trace']['observation_count']);
     $this->assertSame('session-001', $result['trace']['session_id']);
     $this->assertSame(['assistant', 'aila', 'message'], $result['trace']['tags']);
@@ -98,149 +149,82 @@ class LangfuseTraceLookupServiceTest extends TestCase {
     $this->assertTrue($result['trace']['request_path_fields']['vector_status']['present']);
     $this->assertSame('enabled_not_needed', $result['trace']['request_path_fields']['vector_status']['value']);
     $this->assertSame('My email is [REDACTED-EMAIL]', $result['trace']['request_path_fields']['input_preview_redacted']['value']);
-    $this->assertSame('Call [REDACTED-PHONE] for help.', $result['trace']['request_path_fields']['output_preview_redacted']['value']);
     $this->assertContains('response_type', $result['trace']['metadata_keys']);
+    // OTLP transport keys are not reported as trace metadata.
+    $this->assertNotContains('scope.name', $result['trace']['metadata_keys']);
+    $this->assertNotContains('attributes.langfuse.trace.tags', $result['trace']['metadata_keys']);
   }
 
   /**
-   * Tests 404 lookup retries can recover on a later success.
+   * Tests an empty result is retried until the trace has been ingested.
    */
-  public function testLookupRetriesEventualNotFoundUntilSuccess(): void {
+  public function testLookupRetriesUntilObservationsAppear(): void {
     $httpClient = $this->createMock(ClientInterface::class);
-    $request = new Request('GET', 'https://us.cloud.langfuse.com/api/public/traces/trace-002');
-    $notFound = new ClientException('not found', $request, new Response(404, [], '{"message":"not found"}'));
-
-    $attempt = 0;
     $httpClient->expects($this->exactly(2))
       ->method('request')
-      ->willReturnCallback(function () use (&$attempt, $notFound) {
-        $attempt++;
-        if ($attempt === 1) {
-          throw $notFound;
-        }
+      ->willReturnOnConsecutiveCalls(
+        new Response(200, [], '{"data":[],"meta":{}}'),
+        new Response(200, [], json_encode(['data' => $this->observationRows()], JSON_THROW_ON_ERROR)),
+      );
 
-        return new Response(200, [], json_encode([
-          'id' => 'trace-002',
-          'name' => 'assistant.message',
-          'metadata' => [],
-          'observations' => [],
-        ], JSON_THROW_ON_ERROR));
-      });
-
-    $service = $this->buildService($httpClient);
-    $result = $service->lookupTrace('trace-002', 2, 0);
+    $result = $this->buildService($httpClient)->lookupTrace(self::TRACE_HEX, 3, 0);
 
     $this->assertTrue($result['found']);
     $this->assertSame(2, $result['attempts']);
   }
 
   /**
-   * Tests fallback to the recent trace list when detail lookup still 404s.
-   */
-  public function testLookupFallsBackToRecentTraceList(): void {
-    $httpClient = $this->createMock(ClientInterface::class);
-    $detailRequest = new Request('GET', 'https://us.cloud.langfuse.com/api/public/traces/trace-002b');
-    $notFound = new ClientException('not found', $detailRequest, new Response(404, [], '{"message":"not found"}'));
-
-    $httpClient->expects($this->exactly(3))
-      ->method('request')
-      ->willReturnCallback(function (string $method, string $url, array $options) use ($notFound) {
-        if ($url === 'https://us.cloud.langfuse.com/api/public/traces/trace-002b') {
-          throw $notFound;
-        }
-
-        $this->assertSame('https://us.cloud.langfuse.com/api/public/traces', $url);
-        $this->assertSame(['limit' => 25], $options['query'] ?? []);
-
-        return new Response(200, [], json_encode([
-          'data' => [
-            [
-              'id' => 'trace-002b',
-              'name' => 'assistant.message',
-              'input' => 'preview="Need help with [REDACTED-CASE]" hash=abc len=25-99 redact=case',
-              'output' => 'type=navigation reason=navigation_page_match preview="Visit the office page." hash=def len=25-99 redact=none',
-              'metadata' => [
-                'response_type' => 'navigation',
-                'input_preview_redacted' => 'Need help with [REDACTED-CASE]',
-              ],
-              'observations' => ['obs-1'],
-            ],
-          ],
-        ], JSON_THROW_ON_ERROR));
-      });
-
-    $service = $this->buildService($httpClient);
-    $result = $service->lookupTrace('trace-002b', 2, 0);
-
-    $this->assertTrue($result['found']);
-    $this->assertSame('/api/public/traces?limit=25', $result['api_path']);
-    $this->assertSame(1, $result['trace']['observation_count']);
-    $this->assertSame('navigation', $result['trace']['request_path_fields']['response_type']['value']);
-    $this->assertSame('Need help with [REDACTED-CASE]', $result['trace']['request_path_fields']['input_preview_redacted']['value']);
-  }
-
-  /**
-   * Tests timeout fallback can still succeed through the recent trace list.
-   */
-  public function testLookupFallsBackToRecentTraceListAfterTimeout(): void {
-    $httpClient = $this->createMock(ClientInterface::class);
-    $timeout = new ConnectException(
-      'timeout',
-      new Request('GET', 'https://us.cloud.langfuse.com/api/public/traces/trace-002c'),
-    );
-
-    $httpClient->expects($this->exactly(2))
-      ->method('request')
-      ->willReturnCallback(function (string $method, string $url) use ($timeout) {
-        if ($url === 'https://us.cloud.langfuse.com/api/public/traces/trace-002c') {
-          throw $timeout;
-        }
-
-        return new Response(200, [], json_encode([
-          'data' => [
-            [
-              'id' => 'trace-002c',
-              'name' => 'assistant.message',
-              'metadata' => [],
-              'observations' => [],
-            ],
-          ],
-        ], JSON_THROW_ON_ERROR));
-      });
-
-    $service = $this->buildService($httpClient);
-    $result = $service->lookupTrace('trace-002c', 2, 0);
-
-    $this->assertTrue($result['found']);
-    $this->assertSame('/api/public/traces?limit=25', $result['api_path']);
-  }
-
-  /**
-   * Tests repeated 404 responses return a not-found result instead of throwing.
+   * Tests a trace that never appears is reported as not found.
    */
   public function testLookupReturnsNotFoundAfterExhaustingRetries(): void {
     $httpClient = $this->createMock(ClientInterface::class);
-    $request = new Request('GET', 'https://us.cloud.langfuse.com/api/public/traces/trace-003');
-    $notFound = new ClientException('not found', $request, new Response(404, [], '{"message":"not found"}'));
-
-    $httpClient->expects($this->exactly(3))
+    $httpClient->expects($this->exactly(2))
       ->method('request')
-      ->willReturnCallback(function (string $method, string $url) use ($notFound) {
-        if ($url === 'https://us.cloud.langfuse.com/api/public/traces/trace-003') {
-          throw $notFound;
-        }
+      ->willReturn(new Response(200, [], '{"data":[],"meta":{}}'));
 
-        return new Response(200, [], json_encode([
-          'data' => [],
-        ], JSON_THROW_ON_ERROR));
-      });
-
-    $service = $this->buildService($httpClient);
-    $result = $service->lookupTrace('trace-003', 2, 0);
+    $result = $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 2, 0);
 
     $this->assertFalse($result['found']);
-    $this->assertSame(404, $result['http_status']);
     $this->assertSame(2, $result['attempts']);
+    $this->assertArrayNotHasKey('trace', $result);
+  }
+
+  /**
+   * Tests rows without a root span are still described by the first one.
+   */
+  public function testLookupWithoutRootObservationUsesEarliestRow(): void {
+    $rows = array_slice($this->observationRows(), 0, 2);
+    $httpClient = $this->createStub(ClientInterface::class);
+    $httpClient->method('request')
+      ->willReturn(new Response(200, [], json_encode(['data' => $rows], JSON_THROW_ON_ERROR)));
+
+    $result = $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 1, 0);
+
+    $this->assertTrue($result['found']);
+    $this->assertFalse($result['trace']['root_observation_found']);
+    $this->assertSame('retrieval', $result['trace']['name']);
+    $this->assertSame(2, $result['trace']['observation_count']);
+  }
+
+  /**
+   * Tests an HTTP error surfaces with its status instead of being retried.
+   *
+   * The removed v3 read endpoints answer 410; a retry loop there would only
+   * hide the cause.
+   */
+  public function testLookupThrowsOnHttpError(): void {
+    $httpClient = $this->createMock(ClientInterface::class);
+    $httpClient->expects($this->once())
+      ->method('request')
+      ->willThrowException(new ClientException(
+        'gone',
+        new Request('GET', self::URL),
+        new Response(410, [], '{"error":"LANGFUSE_V3_API_REMOVED"}'),
+      ));
+
+    $this->expectException(\RuntimeException::class);
+    $this->expectExceptionMessage('Langfuse trace lookup failed with HTTP 410');
+    $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 3, 0);
   }
 
   /**
@@ -248,20 +232,25 @@ class LangfuseTraceLookupServiceTest extends TestCase {
    */
   public function testLookupThrowsOnTransportFailure(): void {
     $httpClient = $this->createMock(ClientInterface::class);
-    $httpClient->expects($this->exactly(2))
+    $httpClient->expects($this->once())
       ->method('request')
-      ->willReturnCallback(function (string $method, string $url) {
-        throw new ConnectException(
-          'timeout',
-          new Request($method, $url),
-        );
-      });
-
-    $service = $this->buildService($httpClient);
+      ->willThrowException(new ConnectException('timeout', new Request('GET', self::URL)));
 
     $this->expectException(\RuntimeException::class);
-    $this->expectExceptionMessage('Langfuse trace list fallback failed: timeout');
-    $service->lookupTrace('trace-004', 1, 0);
+    $this->expectExceptionMessage('Langfuse trace lookup failed with HTTP 0: timeout');
+    $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 1, 0);
+  }
+
+  /**
+   * Tests an unexpected body is an error, not a silent "not found".
+   */
+  public function testLookupThrowsOnUnexpectedShape(): void {
+    $httpClient = $this->createStub(ClientInterface::class);
+    $httpClient->method('request')->willReturn(new Response(200, [], '{"message":"nope"}'));
+
+    $this->expectException(\RuntimeException::class);
+    $this->expectExceptionMessage('unexpected response shape');
+    $this->buildService($httpClient)->lookupTrace(self::TRACE_UUID, 1, 0);
   }
 
 }

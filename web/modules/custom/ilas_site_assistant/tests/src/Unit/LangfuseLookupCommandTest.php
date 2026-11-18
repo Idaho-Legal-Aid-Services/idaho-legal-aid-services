@@ -32,7 +32,7 @@ class LangfuseLookupCommandTest extends TestCase {
     $service = $this->createMock(LangfuseTraceLookupService::class);
     $service->expects($this->once())
       ->method('lookupTrace')
-      ->with('trace-001', 3, 0)
+      ->with('trace-001', 3, 0, 168)
       ->willReturn([
         'found' => TRUE,
         'trace_id' => 'trace-001',

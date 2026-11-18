@@ -19,9 +19,24 @@ class LangfuseTraceLookupService {
   private const MAX_ATTEMPTS = 30;
 
   /**
-   * Maximum traces fetched when falling back to list lookup.
+   * Path of the v2 observations read API, relative to langfuse.host.
    */
-  private const LIST_FALLBACK_LIMIT = 25;
+  private const OBSERVATIONS_PATH = '/api/public/v2/observations';
+
+  /**
+   * Maximum observation rows read for one trace.
+   */
+  private const OBSERVATION_LIMIT = 100;
+
+  /**
+   * Default search window: one week back.
+   */
+  public const DEFAULT_LOOKBACK_HOURS = 168;
+
+  /**
+   * Largest search window accepted.
+   */
+  private const MAX_LOOKBACK_HOURS = 2160;
 
   /**
    * Request-path metadata keys surfaced in lookup output.
@@ -95,10 +110,24 @@ class LangfuseTraceLookupService {
   /**
    * Looks up a trace by ID with bounded retries for eventual consistency.
    *
+   * Reads GET /api/public/v2/observations filtered by trace id. Langfuse
+   * removed GET /api/public/traces/{id} and the trace list on 2026-11-16
+   * (HTTP 410), and the v4 data model has no trace object: a trace is the set
+   * of its observation rows, with the trace-level fields on the root one.
+   *
+   * @param string $traceId
+   *   The request UUID or the 32-hex Langfuse trace id; both are accepted.
+   * @param int $attempts
+   *   Lookup attempts before returning not found.
+   * @param int $delayMs
+   *   Delay between attempts in milliseconds.
+   * @param int $lookbackHours
+   *   How far back to search. The v2 API requires a start-time window.
+   *
    * @return array<string, mixed>
    *   Sanitized lookup result.
    */
-  public function lookupTrace(string $traceId, int $attempts = 30, int $delayMs = 2000): array {
+  public function lookupTrace(string $traceId, int $attempts = 30, int $delayMs = 2000, int $lookbackHours = self::DEFAULT_LOOKBACK_HOURS): array {
     $traceId = trim($traceId);
     if ($traceId === '') {
       throw new \InvalidArgumentException('Trace ID must not be empty.');
@@ -119,63 +148,43 @@ class LangfuseTraceLookupService {
     $timeout = (float) ($config->get('langfuse.timeout') ?? 5.0);
     $requestAttempts = max(1, min($attempts, self::MAX_ATTEMPTS));
     $delayMs = max(0, min($delayMs, 10000));
-    $url = $host . '/api/public/traces/' . rawurlencode($traceId);
+    $lookbackHours = max(1, min($lookbackHours, self::MAX_LOOKBACK_HOURS));
+    $langfuseTraceId = LangfuseOtlpPayloadBuilder::traceId($traceId);
+    $url = $host . self::OBSERVATIONS_PATH;
 
-    $lastNotFound = [
+    $result = [
       'found' => FALSE,
       'trace_id' => $traceId,
-      'http_status' => 404,
+      'langfuse_trace_id' => $langfuseTraceId,
+      'http_status' => 200,
       'attempts' => 0,
-      'api_path' => '/api/public/traces/{trace_id}',
+      'api_path' => self::OBSERVATIONS_PATH . '?traceId={trace_id}',
     ];
 
     for ($attempt = 1; $attempt <= $requestAttempts; $attempt++) {
+      $now = time();
       try {
         $response = $this->httpClient->request('GET', $url, [
           'auth' => [$publicKey, $secretKey],
           'timeout' => $timeout,
           'connect_timeout' => $timeout,
+          'query' => [
+            'traceId' => $langfuseTraceId,
+            'fromStartTime' => gmdate('Y-m-d\TH:i:s\Z', $now - $lookbackHours * 3600),
+            // Allow for clock skew between this host and Langfuse.
+            'toStartTime' => gmdate('Y-m-d\TH:i:s\Z', $now + 600),
+            'fields' => 'core,basic,io,metadata',
+            'limit' => self::OBSERVATION_LIMIT,
+          ],
           'headers' => [
             'Accept' => 'application/json',
           ],
         ]);
-
-        $decoded = json_decode((string) $response->getBody(), TRUE);
-        $trace = $this->extractTrace(is_array($decoded) ? $decoded : []);
-
-        return [
-          'found' => TRUE,
-          'trace_id' => $traceId,
-          'http_status' => $response->getStatusCode(),
-          'attempts' => $attempt,
-          'api_path' => '/api/public/traces/{trace_id}',
-          'trace' => $this->sanitizeTrace($trace),
-        ];
       }
       catch (GuzzleException $e) {
         $statusCode = 0;
         if (method_exists($e, 'getResponse') && $e->getResponse()) {
           $statusCode = $e->getResponse()->getStatusCode();
-        }
-
-        if ($statusCode === 404) {
-          $lastNotFound['attempts'] = $attempt;
-          if ($attempt < $requestAttempts && $delayMs > 0) {
-            usleep($delayMs * 1000);
-          }
-          continue;
-        }
-
-        $fallbackTrace = $this->lookupTraceFromList($traceId, $host, $publicKey, $secretKey, $timeout);
-        if ($fallbackTrace !== NULL) {
-          return [
-            'found' => TRUE,
-            'trace_id' => $traceId,
-            'http_status' => 200,
-            'attempts' => $attempt,
-            'api_path' => '/api/public/traces?limit=' . self::LIST_FALLBACK_LIMIT,
-            'trace' => $this->sanitizeTrace($fallbackTrace),
-          ];
         }
 
         throw new \RuntimeException(sprintf(
@@ -184,91 +193,82 @@ class LangfuseTraceLookupService {
           $e->getMessage(),
         ), 0, $e);
       }
-    }
 
-    $fallbackTrace = $this->lookupTraceFromList($traceId, $host, $publicKey, $secretKey, $timeout);
-    if ($fallbackTrace !== NULL) {
-      return [
-        'found' => TRUE,
-        'trace_id' => $traceId,
-        'http_status' => 200,
-        'attempts' => $requestAttempts,
-        'api_path' => '/api/public/traces?limit=' . self::LIST_FALLBACK_LIMIT,
-        'trace' => $this->sanitizeTrace($fallbackTrace),
-      ];
-    }
+      $decoded = json_decode((string) $response->getBody(), TRUE);
+      if (!is_array($decoded) || !is_array($decoded['data'] ?? NULL)) {
+        throw new \RuntimeException('Langfuse trace lookup returned an unexpected response shape.');
+      }
 
-    return $lastNotFound;
-  }
+      $rows = array_values(array_filter($decoded['data'], 'is_array'));
+      $result['attempts'] = $attempt;
+      $result['http_status'] = $response->getStatusCode();
 
-  /**
-   * Attempts an exact-ID match through the recent trace list endpoint.
-   *
-   * @return array<string, mixed>|null
-   *   Matching trace payload, or NULL when not found.
-   */
-  protected function lookupTraceFromList(
-    string $traceId,
-    string $host,
-    string $publicKey,
-    string $secretKey,
-    float $timeout,
-  ): ?array {
-    try {
-      $response = $this->httpClient->request('GET', $host . '/api/public/traces', [
-        'auth' => [$publicKey, $secretKey],
-        'timeout' => $timeout,
-        'connect_timeout' => $timeout,
-        'query' => [
-          'limit' => self::LIST_FALLBACK_LIMIT,
-        ],
-        'headers' => [
-          'Accept' => 'application/json',
-        ],
-      ]);
-    }
-    catch (GuzzleException $e) {
-      throw new \RuntimeException(sprintf(
-        'Langfuse trace list fallback failed: %s',
-        $e->getMessage(),
-      ), 0, $e);
-    }
+      if ($rows !== []) {
+        $result['found'] = TRUE;
+        $result['trace'] = $this->sanitizeTrace($this->traceFromObservations($rows));
+        return $result;
+      }
 
-    $decoded = json_decode((string) $response->getBody(), TRUE);
-    $traces = is_array($decoded['data'] ?? NULL) ? $decoded['data'] : [];
-
-    foreach ($traces as $trace) {
-      if (is_array($trace) && (string) ($trace['id'] ?? '') === $traceId) {
-        return $trace;
+      // Not ingested yet: OTLP is processed asynchronously.
+      if ($attempt < $requestAttempts && $delayMs > 0) {
+        usleep($delayMs * 1000);
       }
     }
 
-    return NULL;
+    return $result;
   }
 
   /**
-   * Extracts the trace object from the decoded API response.
+   * Rebuilds a trace-shaped array from v2 observation rows.
    *
-   * @param array<string, mixed> $decoded
-   *   Decoded API response.
+   * @param array<int, array<string, mixed>> $rows
+   *   Observation rows of one trace, non-empty.
    *
    * @return array<string, mixed>
-   *   Trace object.
+   *   Trace payload in the shape sanitizeTrace() reads.
    */
-  protected function extractTrace(array $decoded): array {
-    if (isset($decoded['id'])) {
-      return $decoded;
+  protected function traceFromObservations(array $rows): array {
+    $root = NULL;
+    foreach ($rows as $row) {
+      if (!empty($row['isRootObservation'])) {
+        $root = $row;
+        break;
+      }
+    }
+    // A trace whose root span has not arrived yet (or a feedback event read
+    // on its own) still has a first observation to describe it by.
+    if ($root === NULL) {
+      usort($rows, static fn(array $a, array $b): int => strcmp((string) ($a['startTime'] ?? ''), (string) ($b['startTime'] ?? '')));
+      $root = $rows[0];
     }
 
-    if (is_array($decoded['data'] ?? NULL)) {
-      return $decoded['data'];
-    }
+    $rawMetadata = is_array($root['metadata'] ?? NULL) ? $root['metadata'] : [];
+    $tags = $rawMetadata['attributes.langfuse.trace.tags'] ?? [];
+    $name = $rawMetadata['attributes.langfuse.trace.name'] ?? ($root['name'] ?? NULL);
 
-    if (is_array($decoded['trace'] ?? NULL)) {
-      return $decoded['trace'];
-    }
+    // Langfuse files unmapped OTLP attributes, the scope and the resource
+    // under prefixed keys next to the trace metadata; they are transport
+    // detail, not request-path fields.
+    $metadata = array_filter(
+      $rawMetadata,
+      static fn($key): bool => preg_match('/^(attributes|resourceAttributes|scope)\./', (string) $key) !== 1,
+      ARRAY_FILTER_USE_KEY,
+    );
 
-    throw new \RuntimeException('Langfuse trace lookup returned an unexpected response shape.');
+    return [
+      'name' => $name,
+      'timestamp' => $root['startTime'] ?? NULL,
+      'environment' => $root['environment'] ?? NULL,
+      'sessionId' => $root['sessionId'] ?? NULL,
+      'tags' => is_array($tags) ? $tags : [],
+      'input' => $root['input'] ?? NULL,
+      'output' => $root['output'] ?? NULL,
+      'metadata' => $metadata,
+      'root_observation_found' => !empty($root['isRootObservation']),
+      // The root span stands in for the trace itself, as the trace object
+      // did before; count only what happened inside it.
+      'observations' => array_values(array_filter($rows, static fn(array $row): bool => empty($row['isRootObservation']))),
+    ];
   }
 
   /**
@@ -289,6 +289,7 @@ class LangfuseTraceLookupService {
       'timestamp' => $trace['timestamp'] ?? NULL,
       'created_at' => $trace['createdAt'] ?? NULL,
       'updated_at' => $trace['updatedAt'] ?? NULL,
+      'root_observation_found' => (bool) ($trace['root_observation_found'] ?? FALSE),
       'environment' => $trace['environment'] ?? NULL,
       'session_id' => $trace['sessionId'] ?? NULL,
       'tags' => is_array($trace['tags'] ?? NULL) ? array_values($trace['tags']) : [],

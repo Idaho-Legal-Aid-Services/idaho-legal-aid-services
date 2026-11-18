@@ -7,6 +7,8 @@ namespace Drupal\ilas_site_assistant\Commands;
 use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\ilas_site_assistant\Service\LangfuseOtlpPayloadBuilder;
+use Drupal\ilas_site_assistant\Service\LangfusePayloadContract;
 use Drupal\ilas_site_assistant\Service\ObservabilityProofTaxonomy;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
@@ -229,24 +231,29 @@ class LangfuseProbeCommands extends DrushCommands {
     $publicKey = $config->get('langfuse.public_key');
     $secretKey = $config->get('langfuse.secret_key');
     $timeout = (float) ($config->get('langfuse.timeout') ?? 5.0);
-    $url = $host . '/api/public/ingestion';
+    $url = $host . LangfusePayloadContract::OTLP_TRACES_PATH;
+    $otlp = LangfuseOtlpPayloadBuilder::build(
+      $payload['batch'] ?? [],
+      (string) ($config->get('langfuse.environment') ?? ''),
+    );
 
     try {
       $response = $this->httpClient->request('POST', $url, [
-        'json' => $payload,
+        'json' => $otlp,
         'auth' => [$publicKey, $secretKey],
         'headers' => [
           'Content-Type' => 'application/json',
+          LangfusePayloadContract::INGESTION_VERSION_HEADER => LangfusePayloadContract::INGESTION_VERSION,
         ],
         'timeout' => $timeout,
         'connect_timeout' => $timeout,
       ]);
 
       $statusCode = $response->getStatusCode();
-      if ($statusCode === 207) {
-        $summary = $this->decodeIngestionResponse((string) $response->getBody());
+      $rejected = $this->decodeRejectedSpans((string) $response->getBody());
+      if ($statusCode >= 200 && $statusCode < 300 && $rejected > 0) {
         $this->logger()?->success(sprintf('Langfuse probe sent directly. Trace ID: %s, HTTP status: %d', $traceId, $statusCode));
-        $this->logger()?->notice(sprintf('Langfuse direct probe partial success: %d succeeded, %d errors', $summary['successes'], $summary['errors']));
+        $this->logger()?->notice(sprintf('Langfuse direct probe partial success: %d spans rejected', $rejected));
       }
       elseif ($statusCode >= 200 && $statusCode < 300) {
         $this->logger()?->success(sprintf('Langfuse probe sent directly. Trace ID: %s, HTTP status: %d', $traceId, $statusCode));
@@ -297,18 +304,12 @@ class LangfuseProbeCommands extends DrushCommands {
   }
 
   /**
-   * Extracts success and error counts from a Langfuse ingestion response body.
-   *
-   * @return array{successes:int,errors:int}
-   *   Count summary for a probe response.
+   * Returns the rejected span count from an OTLP export response body.
    */
-  private function decodeIngestionResponse(string $body): array {
+  private function decodeRejectedSpans(string $body): int {
     $decoded = json_decode($body, TRUE);
 
-    return [
-      'successes' => is_array($decoded['successes'] ?? NULL) ? count($decoded['successes']) : 0,
-      'errors' => is_array($decoded['errors'] ?? NULL) ? count($decoded['errors']) : 0,
-    ];
+    return is_array($decoded) ? (int) ($decoded['partialSuccess']['rejectedSpans'] ?? 0) : 0;
   }
 
   /**

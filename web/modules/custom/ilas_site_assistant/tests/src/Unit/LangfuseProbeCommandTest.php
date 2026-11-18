@@ -228,18 +228,21 @@ class LangfuseProbeCommandTest extends TestCase {
       ->method('request')
       ->with(
         'POST',
-        'https://us.cloud.langfuse.com/api/public/ingestion',
+        'https://us.cloud.langfuse.com/api/public/otel/v1/traces',
         $this->callback(function (array $options): bool {
           $this->assertSame(7.5, $options['timeout']);
           $this->assertSame(7.5, $options['connect_timeout']);
           $this->assertSame(['pk-test-123', 'sk-test-456'], $options['auth']);
-          $this->assertArrayHasKey('json', $options);
+          $this->assertSame('4', $options['headers']['x-langfuse-ingestion-version']);
+          // Trace root span, one span and one event, all on one trace.
+          $spans = $options['json']['resourceSpans'][0]['scopeSpans'][0]['spans'];
+          $this->assertCount(3, $spans);
+          $this->assertCount(1, array_unique(array_column($spans, 'traceId')));
           return TRUE;
         }),
       )
-      ->willReturn(new Response(207, [], json_encode([
-        'successes' => [['id' => 'ok-1']],
-        'errors' => [['id' => 'err-1'], ['id' => 'err-2']],
+      ->willReturn(new Response(200, [], json_encode([
+        'partialSuccess' => ['rejectedSpans' => 2],
       ], JSON_THROW_ON_ERROR)));
 
     $logger = $this->createMock(DrushLoggerManager::class);
@@ -269,8 +272,8 @@ class LangfuseProbeCommandTest extends TestCase {
 
     $this->assertSame(0, $result);
     $this->assertCount(1, $successMessages);
-    $this->assertStringContainsString('HTTP status: 207', $successMessages[0]);
-    $this->assertContains('Langfuse direct probe partial success: 1 succeeded, 2 errors', $noticeMessages);
+    $this->assertStringContainsString('HTTP status: 200', $successMessages[0]);
+    $this->assertContains('Langfuse direct probe partial success: 2 spans rejected', $noticeMessages);
     $this->assertCount(4, $noticeMessages);
     $this->assertStringContainsString('Proof level: L3:PayloadAcceptance', $noticeMessages[3]);
   }

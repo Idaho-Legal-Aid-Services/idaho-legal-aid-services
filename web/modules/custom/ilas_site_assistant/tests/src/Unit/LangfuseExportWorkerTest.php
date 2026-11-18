@@ -129,16 +129,86 @@ class LangfuseExportWorkerTest extends TestCase {
   }
 
   /**
-   * Tests that a 207 response is treated as partial success, not generic 2xx.
+   * Tests that the batch is sent to the OTLP endpoint as OTLP spans.
+   *
+   * Langfuse removed POST /api/public/ingestion for traces on 2026-11-16
+   * (HTTP 410, Sentry PHP-C5), so the URL, the v4 header and the body shape
+   * are pinned here.
+   */
+  public function testBatchIsExportedAsOtlpToTheOtelEndpoint(): void {
+    $mocks = $this->buildWorker();
+
+    $mocks['httpClient']->expects($this->once())
+      ->method('request')
+      ->with(
+        'POST',
+        'https://us.cloud.langfuse.com/api/public/otel/v1/traces',
+        $this->callback(function (array $options): bool {
+          $this->assertSame('4', $options['headers']['x-langfuse-ingestion-version'] ?? NULL);
+          $this->assertArrayNotHasKey('batch', $options['json']);
+          $spans = $options['json']['resourceSpans'][0]['scopeSpans'][0]['spans'] ?? [];
+          $this->assertCount(1, $spans);
+          $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $spans[0]['traceId']);
+          $this->assertMatchesRegularExpression('/^[0-9a-f]{16}$/', $spans[0]['spanId']);
+          return TRUE;
+        }),
+      )
+      ->willReturn(new Response(200, [], '{"name":"otel-ingestion-job"}'));
+
+    $mocks['worker']->processItem($this->buildPayload(time() - 60));
+  }
+
+  /**
+   * Tests that a batch with nothing exportable is discarded without a request.
+   */
+  public function testBatchWithoutExportableEventsIsDiscarded(): void {
+    $mocks = $this->buildWorker();
+    $mocks['httpClient']->expects($this->never())->method('request');
+
+    $monitor = $this->createMock(QueueHealthMonitor::class);
+    $monitor->expects($this->once())
+      ->method('recordOutcome')
+      ->with('discard_invalid_shape', $this->anything());
+
+    $payload = $this->buildPayload(time() - 60);
+    $payload['batch'] = [['type' => 'score-create', 'body' => ['id' => 'x']]];
+
+    $this->withQueueHealthMonitor($monitor, function () use ($mocks, $payload): void {
+      $mocks['worker']->processItem($payload);
+    });
+  }
+
+  /**
+   * Tests that the Langfuse error code of a rejected batch reaches the log.
+   */
+  public function testNonRetryableErrorLogsTheProviderErrorCode(): void {
+    $mocks = $this->buildWorker();
+
+    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/otel/v1/traces');
+    $response = new Response(410, [], '{"error":"LANGFUSE_V3_API_REMOVED","message":"long provider text <b>"}');
+    $mocks['httpClient']->method('request')
+      ->willThrowException(new ClientException('gone', $request, $response));
+
+    $mocks['logger']->expects($this->once())
+      ->method('error')
+      ->with(
+        $this->stringContains('@reason'),
+        $this->callback(fn(array $context): bool => $context['@reason'] === 'LANGFUSE_V3_API_REMOVED' && $context['@code'] === 410),
+      );
+
+    $mocks['worker']->processItem($this->buildPayload(time() - 60));
+  }
+
+  /**
+   * Tests that an OTLP partialSuccess is recorded as a partial send.
    */
   public function testPartialSuccessResponseLoggedAsNotice(): void {
     $mocks = $this->buildWorker();
 
     $mocks['httpClient']->expects($this->once())
       ->method('request')
-      ->willReturn(new Response(207, [], json_encode([
-        'successes' => [['id' => 'ok-1']],
-        'errors' => [['id' => 'err-1']],
+      ->willReturn(new Response(200, [], json_encode([
+        'partialSuccess' => ['rejectedSpans' => 1, 'errorMessage' => 'bad span'],
       ], JSON_THROW_ON_ERROR)));
 
     $mocks['logger']->expects($this->once())
@@ -153,9 +223,9 @@ class LangfuseExportWorkerTest extends TestCase {
       ->with(
         'send_partial_207',
         $this->callback(function (array $metadata): bool {
-          return ($metadata['http_status'] ?? NULL) === 207
+          return ($metadata['http_status'] ?? NULL) === 200
             && ($metadata['event_count'] ?? NULL) === 1
-            && ($metadata['success_count'] ?? NULL) === 1
+            && ($metadata['success_count'] ?? NULL) === 0
             && ($metadata['error_count'] ?? NULL) === 1;
         }),
       );
@@ -423,7 +493,7 @@ class LangfuseExportWorkerTest extends TestCase {
   public function testNonRetryableHttpErrorRecordsDiscardOutcome(): void {
     $mocks = $this->buildWorker();
 
-    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/ingestion');
+    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/otel/v1/traces');
     $response = new Response(400, [], '{"message":"bad request"}');
     $exception = new ClientException('bad request', $request, $response);
 
@@ -457,7 +527,7 @@ class LangfuseExportWorkerTest extends TestCase {
   public function testRetryableTransportFailureRecordsSuspendOutcome(): void {
     $mocks = $this->buildWorker();
 
-    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/ingestion');
+    $request = new Request('POST', 'https://us.cloud.langfuse.com/api/public/otel/v1/traces');
     $exception = new ConnectException('timeout', $request);
 
     $mocks['httpClient']->expects($this->once())
