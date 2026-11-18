@@ -395,15 +395,16 @@ run_post_deploy_pantheon_verification() {
   info "Running post-deploy Pantheon dev hosted verification..."
   info "$assistant_url"
 
-  # Fast, and it covers the non-assistant pages the promptfoo gate never
-  # requests, so it runs first and fails early.
-  local site_base_url="${assistant_url%/assistant/api/message}"
-  info "Running site smoke against $site_base_url ..."
-  if ! node "$REPO_ROOT/scripts/smoke/site-smoke.mjs" --base-url "$site_base_url" --env dev; then
-    err "Post-deploy site smoke failed for $site_base_url."
+  # A git push only moves code to dev. The deploy command applies it (database
+  # updates, config import, cache rebuild) and then requests the public pages
+  # and the assistant endpoints; it runs first because it is fast and covers
+  # everything the promptfoo gate never requests.
+  info "Applying and checking the dev deploy ..."
+  if ! bash "$REPO_ROOT/scripts/deploy/pantheon-deploy.sh" --env dev; then
+    err "Post-deploy dev deploy steps or smoke checks failed."
     return 1
   fi
-  ok "Post-deploy site smoke passed."
+  ok "Dev deploy applied and smoke checks passed."
 
   if (
     cd "$REPO_ROOT"

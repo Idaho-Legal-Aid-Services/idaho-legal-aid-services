@@ -5,6 +5,9 @@
   "scripts": {
     "cf:seo-observe": "bash scripts/observability/cloudflare-seo-bot-observation.sh",
     "cf:seo-rollback": "bash scripts/observability/cloudflare-seo-bot-rollback.sh",
+    "deploy:dev": "bash scripts/deploy/pantheon-deploy.sh --env dev",
+    "deploy:test": "bash scripts/deploy/pantheon-deploy.sh --env test",
+    "deploy:live": "bash scripts/deploy/pantheon-deploy.sh --env live",
     "git:finish": "bash scripts/git/finish.sh",
     "git:publish": "bash scripts/git/publish.sh",
     "git:reconcile-origin": "bash scripts/git/reconcile-origin.sh",

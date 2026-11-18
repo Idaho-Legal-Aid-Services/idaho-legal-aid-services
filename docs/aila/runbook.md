@@ -74,6 +74,40 @@ The response contract still emits provider identity (so dashboards stay
 stable); `vector_status` flips to `disabled` and `rerank.used` stays
 `false`.
 
+## Deploying (dev, test, live)
+
+One command per environment. Each one applies the code, then checks the
+result, and exits non-zero if any step fails:
+
+```bash
+npm run deploy:dev     # code arrives by git push (npm run git:finish runs this for you)
+npm run deploy:test    # promotes dev -> test
+npm run deploy:live    # backs up (kept 7 days), asks for a typed confirmation, promotes test -> live
+```
+
+What `scripts/deploy/pantheon-deploy.sh` does, in order:
+
+1. test/live only: `terminus env:deploy --updatedb --cc`.
+2. `drush deploy` (database updates, config import, cache rebuild).
+3. Fails if database updates are still pending, or (test/live) if config
+   differs from the repository after the import.
+4. Site smoke (`scripts/smoke/site-smoke.mjs`, 18 public-page checks).
+5. Assistant smoke (`scripts/smoke/assistant-smoke.mjs`, production-safe mode).
+6. dev/test, when Langfuse is enabled there: a trace export probe, read back.
+
+Useful flags: `--dry-run` prints every command; `--skip-promote` re-runs the
+apply and check steps on code that is already on test or live;
+`--note "<text>"` sets the Pantheon deploy note.
+
+Do not type `terminus env:deploy` by hand for a normal deploy: that skips
+steps 2 to 6, which is how dev ran without database updates and how a broken
+site search on dev and test went unnoticed until 2026-11-18.
+
+Independently of any deploy, `.github/workflows/site-smoke.yml` runs the same
+smoke against all three environments every day and opens a GitHub issue
+labelled `smoke-failure` when it fails. It is also the check for code that
+reaches Pantheon by another route.
+
 ## 1) Safety rules (must follow)
 
 - Never print secrets/tokens/keys. Redact all sensitive values before saving artifacts.
@@ -2992,9 +3026,7 @@ terminus remote:drush idaho-legal-aid-services.dev -- php:eval '$path = \Drupal:
 terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth
 
 # Promote code to test only after dev passes.
-terminus env:deploy idaho-legal-aid-services.test --updatedb --cc --note="TOVR-12 dev to test" -y
-terminus remote:drush idaho-legal-aid-services.test -- config:import -y
-terminus remote:drush idaho-legal-aid-services.test -- cr
+npm run deploy:test -- --note "TOVR-12 dev to test"
 
 TEST_BASE_URL="$(terminus env:view idaho-legal-aid-services.test --print)"
 env NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" \
