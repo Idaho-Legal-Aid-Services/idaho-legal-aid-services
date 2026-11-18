@@ -30,6 +30,88 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Tells the maintainer when code reached Pantheon from someone else.
+  #
+  # Code is meant to arrive through GitHub: a pull request, CI, then a push to
+  # Pantheon by the maintainer. Another party with access to the Pantheon
+  # remote can push there directly, and those changes are otherwise only
+  # discovered when the next publish refuses to overwrite them. The Pantheon
+  # hook reports who triggered each code sync or deploy; when that is not one
+  # of the expected deployers, this opens an issue (or adds to the open one)
+  # whether or not anything broke.
+  #
+  # vars.PANTHEON_EXPECTED_DEPLOYER holds the name(s) Pantheon reports for
+  # the maintainer, comma separated. Workflows Pantheon starts itself report
+  # "Pantheon" and are not flagged.
+  external-change-notice:
+    name: Flag code changed on Pantheon by someone else
+    if: ${{ github.event_name == 'repository_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      EXPECTED_DEPLOYERS: ${{ vars.PANTHEON_EXPECTED_DEPLOYER || '' }}
+      DEPLOY_ENV: ${{ github.event.client_payload.environment || 'unknown' }}
+      DEPLOY_WORKFLOW: ${{ github.event.client_payload.workflow || 'unknown' }}
+      DEPLOY_USER: ${{ github.event.client_payload.user || 'unknown' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Compare the deployer with the expected ones
+        id: who
+        run: |
+          normalize() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g'; }
+          user="$(normalize "$DEPLOY_USER")"
+          external=true
+          if [[ "$user" == "pantheon" ]]; then
+            external=false
+          fi
+          IFS=',' read -r -a expected <<< "$EXPECTED_DEPLOYERS"
+          for name in "${expected[@]}"; do
+            if [[ -n "$(normalize "$name")" && "$user" == "$(normalize "$name")" ]]; then
+              external=false
+            fi
+          done
+          if [[ -z "$(normalize "$EXPECTED_DEPLOYERS")" ]]; then
+            echo "::warning::PANTHEON_EXPECTED_DEPLOYER is not set, so every code change on Pantheon is flagged. Set it to the name Pantheon reports for the maintainer."
+          fi
+          echo "external=${external}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pantheon ${DEPLOY_WORKFLOW} on ${DEPLOY_ENV}"
+            echo ""
+            echo "- Triggered by: \`${DEPLOY_USER}\`"
+            echo "- Outside the GitHub flow: \`${external}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the notice
+        if: ${{ steps.who.outputs.external == 'true' }}
+        run: |
+          gh label create external-push --color D93F0B \
+            --description "Code reached Pantheon from someone other than the maintainer" --force
+
+          when="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          {
+            echo "**${DEPLOY_USER}** triggered \`${DEPLOY_WORKFLOW}\` on Pantheon **${DEPLOY_ENV}** at ${when}."
+            echo ""
+            echo "This did not come through the GitHub pull-request flow, so it had no CI and no review, and GitHub \`master\` may now be behind Pantheon."
+            echo ""
+            echo "To see and adopt the change:"
+            echo '```bash'
+            echo 'terminus env:code-log idaho-legal-aid-services.dev --format=table'
+            echo 'npm run git:reconcile-origin -- --dry-run'
+            echo '```'
+            echo ""
+            echo "The site smoke for this change: ${RUN_URL}"
+          } > body.md
+
+          title="Code changed on Pantheon outside the GitHub flow"
+          existing="$(gh issue list --state open --label external-push --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "$title" --label external-push --body-file body.md
+          fi
+
   smoke:
     name: Smoke (${{ matrix.environment }})
     runs-on: ubuntu-latest

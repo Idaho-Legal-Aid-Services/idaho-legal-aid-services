@@ -327,6 +327,9 @@ cost_control:
     input_per_1m_tokens: 2.5
     output_per_1m_tokens: 10.0
   alert_cooldown_minutes: 60
+vendor_contract_check:
+  enabled: false
+  interval_hours: 168
 langfuse:
   enabled: false
   host: 'https://us.cloud.langfuse.com'
@@ -339,9 +342,6 @@ langfuse:
   timeout: 5.0
   max_queue_depth: 10000
   max_item_age_seconds: 7200
-vendor_contract_check:
-  enabled: false
-  interval_hours: 168
 review_loop:
   owner_role: 'Content Manager + SRE/Platform Engineer'
   cadence: Weekly

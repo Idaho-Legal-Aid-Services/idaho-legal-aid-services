@@ -214,4 +214,22 @@ class TelemetryCredentialGateTest extends TestCase {
     $this->assertStringNotContainsString("['source_governance']['stale_ratio_alert_pct']", $settings);
   }
 
+  /**
+   * Tests non-live environments prefer the dedicated Langfuse key pair.
+   *
+   * The dedicated pair must never be used on live, and having it must not
+   * by itself turn export on anywhere.
+   */
+  public function testSettingsPhpPrefersDedicatedLangfuseKeysOutsideLive(): void {
+    $settings = self::readFile('web/sites/default/settings.php');
+
+    $guard = strpos($settings, "if (\$langfuse_environment !== 'live') {\n  \$langfuse_test_pk = _ilas_get_secret('LANGFUSE_TEST_PUBLIC_KEY');");
+    $toggle = strpos($settings, "\$langfuse_enabled_raw = _ilas_get_secret('ILAS_LANGFUSE_ENABLED');");
+    $this->assertNotFalse($guard);
+    $this->assertNotFalse($toggle);
+    // The key swap happens before, and independently of, the enable decision.
+    $this->assertLessThan($toggle, $guard);
+    $this->assertStringContainsString("_ilas_get_secret('LANGFUSE_TEST_SECRET_KEY')", $settings);
+  }
+
 }

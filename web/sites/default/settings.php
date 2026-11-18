@@ -630,6 +630,18 @@ $langfuse_environment = _ilas_raw_pantheon_environment();
 $langfuse_environment = $langfuse_environment !== FALSE
   ? mb_strtolower(trim($langfuse_environment))
   : 'local';
+// Outside live, a dedicated key pair is used when one is provided, so
+// synthetic traces from test and dev can be kept apart from production
+// traces (and revoked) without touching live's credentials. Its presence
+// alone does not enable export; the toggle below still decides that.
+if ($langfuse_environment !== 'live') {
+  $langfuse_test_pk = _ilas_get_secret('LANGFUSE_TEST_PUBLIC_KEY');
+  $langfuse_test_sk = _ilas_get_secret('LANGFUSE_TEST_SECRET_KEY');
+  if ($langfuse_test_pk && $langfuse_test_sk) {
+    $langfuse_pk = $langfuse_test_pk;
+    $langfuse_sk = $langfuse_test_sk;
+  }
+}
 $langfuse_enabled_raw = _ilas_get_secret('ILAS_LANGFUSE_ENABLED');
 $langfuse_enabled = _ilas_read_boolean($langfuse_enabled_raw, $langfuse_environment === 'live');
 $langfuse_toggle_set = is_string($langfuse_enabled_raw) && trim($langfuse_enabled_raw) !== '';

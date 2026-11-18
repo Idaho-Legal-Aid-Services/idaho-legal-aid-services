@@ -204,7 +204,7 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('gh run list --workflow "Quality Gate" --event push', $finishHelper);
     $this->assertStringContainsString('gh run watch', $finishHelper);
     $this->assertStringContainsString('gate-summary.txt', $finishHelper);
-    $this->assertStringContainsString('promptfoo-gate-artifacts', $finishHelper);
+    $this->assertStringContainsString('assistant-pr-quality-artifacts', $finishHelper);
     $this->assertStringContainsString('structured-error-summary.txt', $finishHelper);
     $this->assertStringContainsString('failure_kind', $finishHelper);
     $this->assertStringContainsString('eval_execution_mode', $finishHelper);
