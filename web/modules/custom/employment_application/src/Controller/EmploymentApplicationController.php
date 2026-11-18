@@ -23,6 +23,7 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableJsonResponse;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Flood\FloodInterface;
+use Drupal\employment_application\RequestInput;
 use Drupal\employment_application\Service\ApplicationValidator;
 use Drupal\file\Entity\File;
 use Drupal\node\Entity\Node;
@@ -666,10 +667,11 @@ class EmploymentApplicationController extends ControllerBase {
       $jsonData = NULL;
 
       if ($isFormData) {
-        $honeypotValue = $request->request->get('fax_number', '');
-        $formToken = $request->request->get('form_token');
-        $formNonce = $request->request->get('form_nonce');
-        $formStartTime = (int) $request->request->get('form_start_time', 0);
+        // Raw on purpose: an array here is still a filled honeypot.
+        $honeypotValue = RequestInput::raw($request->request, 'fax_number', '');
+        $formToken = RequestInput::stringOrNull($request->request, 'form_token');
+        $formNonce = RequestInput::stringOrNull($request->request, 'form_nonce');
+        $formStartTime = (int) RequestInput::string($request->request, 'form_start_time', '0');
       }
       else {
         $content = $request->getContent();
@@ -790,7 +792,7 @@ class EmploymentApplicationController extends ControllerBase {
       // JOB + DATA + FILE VALIDATION (per content type)
       // =================================================================
       if ($isFormData) {
-        $jobUuid = $request->request->get('job_uuid', '');
+        $jobUuid = RequestInput::string($request->request, 'job_uuid');
         $jobData = $this->validateJobUuid($jobUuid);
         if (!$jobData) {
           $this->appLogger->warning('[@cid] Invalid job_uuid from @ip: @uuid', [
@@ -1082,7 +1084,7 @@ class EmploymentApplicationController extends ControllerBase {
     ];
 
     foreach ($requiredFields as $field => $label) {
-      $value = $request->request->get($field);
+      $value = RequestInput::string($request->request, $field);
       if (empty($value)) {
         $errors[] = "$label is required.";
         continue;
@@ -1101,7 +1103,8 @@ class EmploymentApplicationController extends ControllerBase {
     }
 
     // Address data.
-    $address = $request->request->get('address');
+    // Raw on purpose: the form may send the address as JSON or as fields.
+    $address = RequestInput::raw($request->request, 'address');
     if (!empty($address)) {
       if (is_string($address)) {
         $addressArray = json_decode($address, TRUE);
@@ -1124,7 +1127,7 @@ class EmploymentApplicationController extends ControllerBase {
       ];
 
       foreach ($attorneyFields as $field => $label) {
-        $value = $request->request->get($field);
+        $value = RequestInput::string($request->request, $field);
         if (empty($value)) {
           $errors[] = "$label is required for attorney positions.";
           continue;
@@ -1141,8 +1144,8 @@ class EmploymentApplicationController extends ControllerBase {
     ];
 
     foreach ($optionalScalarFields as $field) {
-      $value = $request->request->get($field);
-      if (!empty($value) && is_scalar($value)) {
+      $value = RequestInput::string($request->request, $field);
+      if (!empty($value)) {
         $data[$field] = $this->validator->sanitizeInput($value);
       }
     }
@@ -2246,12 +2249,12 @@ class EmploymentApplicationController extends ControllerBase {
    * Updates application status.
    */
   public function updateStatus(int $id, Request $request): Response {
-    $csrfToken = $request->request->get('csrf_token', '');
+    $csrfToken = RequestInput::string($request->request, 'csrf_token');
     if (!$this->csrfToken->validate($csrfToken, 'employment_application_admin')) {
       throw new AccessDeniedHttpException('Invalid CSRF token.');
     }
 
-    $newStatus = $request->request->get('status', '');
+    $newStatus = RequestInput::string($request->request, 'status');
     if (!isset(self::ALLOWED_STATUSES[$newStatus])) {
       $this->messenger()->addError('Invalid status value.');
       return new RedirectResponse('/admin/employment-applications/' . $id);
