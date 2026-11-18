@@ -182,4 +182,36 @@ class TelemetryCredentialGateTest extends TestCase {
     $this->assertStringContainsString('phase1-observability-gates.txt', $evidenceIndex);
   }
 
+  /**
+   * Tests settings.php keeps routine 403s out of Sentry.
+   *
+   * Core logs every access-denied response at warning. On a public site that
+   * is anonymous traffic to protected paths; sent to Sentry it formed one
+   * permanently open issue (PHP-8J) that hid nothing and taught nobody.
+   */
+  public function testSettingsPhpDoesNotSendAccessDeniedChannelToSentry(): void {
+    $settings = self::readFile('web/sites/default/settings.php');
+
+    $this->assertStringContainsString(
+      "\$config['raven.settings']['ignored_channels'] = ['access denied'];",
+      $settings,
+    );
+  }
+
+  /**
+   * Tests the stale-ratio warning is switched off everywhere except live.
+   *
+   * The threshold must not be what changes: the alert stays as strict as it
+   * is on live, where content review actually happens (PHP-AR).
+   */
+  public function testSettingsPhpDisablesStaleRatioAlertOutsideLive(): void {
+    $settings = self::readFile('web/sites/default/settings.php');
+
+    $this->assertStringContainsString(
+      "if (_ilas_observability_environment_name() !== 'pantheon-live') {\n  \$config['ilas_site_assistant.settings']['source_governance']['stale_ratio_alert_enabled'] = FALSE;",
+      $settings,
+    );
+    $this->assertStringNotContainsString("['source_governance']['stale_ratio_alert_pct']", $settings);
+  }
+
 }

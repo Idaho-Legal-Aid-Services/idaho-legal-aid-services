@@ -599,6 +599,9 @@ ilas_site_assistant.settings:
         stale_ratio_alert_pct:
           type: float
           label: 'Stale-source ratio alert threshold percent'
+        stale_ratio_alert_enabled:
+          type: boolean
+          label: 'Raise the stale-source ratio alert at warning level (off outside live, where content is not reviewed)'
         min_observations:
           type: integer
           label: 'Minimum observation count before unknown/missing ratio degradation'

@@ -846,6 +846,13 @@ if ($sentry_enabled) {
     'debug' => FALSE,
   ];
   $config['raven.settings']['logs_log_levels'] = $config['raven.settings']['log_levels'];
+  // 403s are not sent to Sentry, for the same reason 404s are not
+  // (redirect_404 suppress_404): on a public site they are almost entirely
+  // anonymous requests for /admin and other protected paths, which is access
+  // control working. Core logs every one to the 'access denied' channel at
+  // warning, and Sentry grouped them all into one permanently open issue
+  // (PHP-8J). They remain in Drupal's own log.
+  $config['raven.settings']['ignored_channels'] = ['access denied'];
   // CSP violation reports are NOT routed to Sentry (reversal of the PHP-12
   // decision): browsers POST them straight to Sentry's security endpoint,
   // bypassing all before_send scrubbing (client IPs stored), and they consumed
@@ -861,6 +868,15 @@ if ($sentry_enabled) {
 $sentry_cron_monitor_id = _ilas_get_secret('SENTRY_CRON_MONITOR_ID');
 if ($sentry_cron_monitor_id && in_array($observability_environment ?? '', ['pantheon-live', 'pantheon-test'], TRUE)) {
   $config['raven.settings']['cron_monitor_id'] = $sentry_cron_monitor_id;
+}
+
+// The source-governance stale-ratio alert asks content ops to review sources.
+// That review happens on live only; dev and test hold an unreviewed copy of
+// live content and are queried by eval traffic, so the alert there is always
+// firing and never actionable (Sentry PHP-AR). Outside live it is logged at
+// notice instead of warning. The threshold itself is unchanged everywhere.
+if (_ilas_observability_environment_name() !== 'pantheon-live') {
+  $config['ilas_site_assistant.settings']['source_governance']['stale_ratio_alert_enabled'] = FALSE;
 }
 
 $settings['ilas_observability'] = _ilas_observability_settings();
