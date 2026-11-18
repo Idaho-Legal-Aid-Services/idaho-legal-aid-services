@@ -68,6 +68,13 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The Pantheon hook fires as the platform workflow finishes, while
+      # database updates and the config import from the deploy script may
+      # still be running. Give them time before judging the environment.
+      - name: Wait for the deploy to settle
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        run: sleep 180
+
       - name: Site smoke
         id: site
         run: |

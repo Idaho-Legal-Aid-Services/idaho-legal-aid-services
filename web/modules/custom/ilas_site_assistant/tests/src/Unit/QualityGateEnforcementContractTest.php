@@ -221,6 +221,39 @@ final class QualityGateEnforcementContractTest extends TestCase {
   }
 
   /**
+   * Tests the Pantheon hooks that run whoever deploys remain registered.
+   *
+   * Checks in the deploy script only run when that script is used. These
+   * hooks are what covers a dashboard deploy, a direct push to the Pantheon
+   * remote, and a database clone.
+   */
+  public function testPantheonHooksCoverCodeChangesAndDatabaseClones(): void {
+    $pantheon = self::readFile('pantheon.yml');
+
+    foreach (['clone_database:', 'sync_code:', 'deploy:'] as $workflow) {
+      $this->assertStringContainsString("\n  " . $workflow, $pantheon);
+    }
+    foreach (['reindex_search_after_clone.php', 'dispatch_site_smoke.php'] as $script) {
+      $this->assertStringContainsString('script: private/scripts/' . $script, $pantheon);
+      $this->assertFileExists(self::repoRoot() . '/web/private/scripts/' . $script);
+    }
+    // The scripts must not be reachable over the web.
+    $this->assertStringContainsString('- /private/', self::readFile('pantheon.upstream.yml'));
+
+    $dispatch = self::readFile('web/private/scripts/dispatch_site_smoke.php');
+    $this->assertStringContainsString("'event_type' => 'pantheon-deploy'", $dispatch);
+    $this->assertStringContainsString('types: [pantheon-deploy]', self::readFile('.github/workflows/site-smoke.yml'));
+    // Who deployed is sent by name; the address stays on Pantheon.
+    $this->assertStringNotContainsString('user_email', $dispatch);
+
+    // A database clone must not be able to change the Solr site hash.
+    $this->assertMatchesRegularExpression(
+      "/if \\(_ilas_raw_pantheon_environment\\(\\)\\) \\{\\s+\\\$settings\\['search_api_solr\\.site_hash'\\] = '[a-z0-9]{6}';/",
+      self::readFile('web/sites/default/settings.php'),
+    );
+  }
+
+  /**
    * Package scripts must expose mocked smoke and full journey commands.
    */
   public function testPackageScriptsExposeAssistantPlaywrightSmokeAndJourneys(): void {

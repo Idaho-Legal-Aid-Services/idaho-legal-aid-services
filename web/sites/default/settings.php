@@ -870,6 +870,20 @@ if ($sentry_cron_monitor_id && in_array($observability_environment ?? '', ['pant
   $config['raven.settings']['cron_monitor_id'] = $sentry_cron_monitor_id;
 }
 
+// Pin the Search API Solr site hash on Pantheon.
+//
+// search_api_solr stamps every Solr document with this hash and, when it is
+// not set here, keeps it in Drupal state, which lives in the database. A
+// database clone therefore replaced an environment's hash with the source
+// environment's, while its Solr core still held documents under the old one;
+// results with a foreign hash are dropped, so site search on dev and test
+// returned nothing (found 2026-11-18). With the hash in settings a clone can
+// no longer change it. The value is the one live has always used, so live's
+// existing documents stay valid. Local development keeps its own hash.
+if (_ilas_raw_pantheon_environment()) {
+  $settings['search_api_solr.site_hash'] = '5vu4cl';
+}
+
 // The weekly vendor contract check sends one real request to each outside API
 // (Langfuse, Cohere, Voyage, Pinecone) and logs an error for any that no
 // longer accepts it. It runs from cron on live only, where the provider keys

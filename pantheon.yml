@@ -21,3 +21,30 @@ search:
 # left untouched so reverting this key rolls the site back to 8.3). Drupal 12
 # requires 8.5. Deploys with code; Pantheon ignores this change in hotfixes.
 php_version: 8.5
+
+# Quicksilver hooks. Scripts live in web/private/scripts (paths here are
+# relative to the docroot); /private/ is a protected web path.
+#
+# These fire for every code change and database clone on the platform, no
+# matter who triggers it or how, which is the point: the deploy script's own
+# checks only run when someone uses the deploy script.
+workflows:
+  # A cloned database carries a Search API tracker that no longer matches
+  # this environment's Solr core. Rebuild the index so search keeps working.
+  clone_database:
+    after:
+      - type: webphp
+        description: Rebuild the Solr content index after a database clone
+        script: private/scripts/reindex_search_after_clone.php
+  # Code reached dev or a Multidev (git push, dashboard commit, upstream).
+  sync_code:
+    after:
+      - type: webphp
+        description: Start the GitHub site smoke after a code sync
+        script: private/scripts/dispatch_site_smoke.php
+  # Code was deployed to test or live.
+  deploy:
+    after:
+      - type: webphp
+        description: Start the GitHub site smoke after a deploy
+        script: private/scripts/dispatch_site_smoke.php
