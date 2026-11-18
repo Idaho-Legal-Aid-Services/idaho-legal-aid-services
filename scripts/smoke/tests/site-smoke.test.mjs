@@ -44,8 +44,10 @@ function healthyRoutes() {
  *   count for that URL, to model a response that changes between attempts.
  */
 async function runSmoke(overrides = {}, args = []) {
-  const routes = { ...healthyRoutes(), ...overrides };
-  const hits = {};
+  // Maps, not plain objects: the keys come from request URLs, and a lookup on
+  // an object would also resolve inherited names such as "constructor".
+  const routes = new Map(Object.entries({ ...healthyRoutes(), ...overrides }));
+  const hitCounts = new Map();
   const requested = [];
   const busters = [];
   const server = http.createServer((req, res) => {
@@ -54,12 +56,13 @@ async function runSmoke(overrides = {}, args = []) {
     // Routes are keyed without the per-run cache-busting parameter.
     const url = raw.replace(/[?&]smoke=[a-z0-9]+$/, '');
     requested.push(url);
-    hits[url] = (hits[url] || 0) + 1;
-    let route = routes[url];
-    if (typeof route === 'function') {
-      route = route(hits[url]);
-    }
-    const [status, body, headers = {}] = route || [500, 'unexpected request'];
+    const hit = (hitCounts.get(url) || 0) + 1;
+    hitCounts.set(url, hit);
+    const entry = routes.get(url);
+    // A route is either a fixed response or a function of the hit count, for
+    // a response that changes between attempts.
+    const route = typeof entry === 'function' ? entry(hit) : entry;
+    const [status, body, headers = {}] = Array.isArray(route) ? route : [500, 'unexpected request'];
     res.writeHead(status, headers);
     res.end(body);
   });
@@ -72,7 +75,7 @@ async function runSmoke(overrides = {}, args = []) {
         process.execPath,
         [SCRIPT, '--base-url', baseUrl, '--retry-delay-ms', '10', ...args],
         { env: { PATH: process.env.PATH } },
-        (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr, requested, hits, busters }),
+        (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr, requested, hits: Object.fromEntries(hitCounts), busters }),
       );
     });
   }
