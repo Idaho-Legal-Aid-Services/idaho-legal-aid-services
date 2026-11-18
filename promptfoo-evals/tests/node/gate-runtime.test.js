@@ -484,6 +484,58 @@ test('IlasLiveTransport handles invalid JSON as structured failure', async () =>
   assert.equal(result.error.code, 'invalid_json');
   assert.equal(result.error.message.includes('not-json'), false);
   assert.equal(result.transport.errors[0].code, 'invalid_json');
+  // What came back is described by shape only; the body text is never kept.
+  assert.equal(result.error.body_kind, 'text');
+  assert.equal(result.error.body_bytes, 8);
+  assert.equal(JSON.stringify(result.error).includes('not-json'), false);
+});
+
+test('IlasLiveTransport says what kind of non-JSON body came back', async () => {
+  const bodyKindFor = async (response) => {
+    const transport = new IlasLiveTransport({
+      assistantUrl: 'https://example.test/assistant/api/message',
+      pacer: async () => {},
+      silent: true,
+      fetchImpl: async (url) => {
+        if (url.endsWith('/assistant/api/session/bootstrap')) {
+          return createResponse({
+            status: 200,
+            body: 'csrf-token',
+            headers: { 'set-cookie': 'SSESS=abc123; Path=/; HttpOnly' },
+          });
+        }
+        return response;
+      },
+    });
+    const result = await transport.callMessageApi({
+      question: 'Where is your Boise office?',
+      conversationId: 'conversation-one',
+      history: [],
+    });
+    assert.equal(result.error.code, 'invalid_json');
+    return result.error;
+  };
+
+  const html = await bodyKindFor(createResponse({
+    status: 200,
+    body: '<!DOCTYPE html><html><body>Site under maintenance</body></html>',
+    headers: { 'content-type': 'text/html; charset=UTF-8' },
+  }));
+  assert.equal(html.body_kind, 'html');
+  assert.equal(html.content_type, 'text/html; charset=UTF-8');
+  assert.equal(JSON.stringify(html).includes('maintenance'), false);
+
+  assert.equal((await bodyKindFor(createResponse({ status: 200, body: '' }))).body_kind, 'empty');
+  assert.equal((await bodyKindFor(createResponse({ status: 200, body: '{"type":"faq","mess' }))).body_kind, 'truncated_json');
+
+  // A connection cut while the body is being read.
+  const cut = createResponse({ status: 200, body: '' });
+  cut.text = async () => {
+    const err = new TypeError('terminated');
+    err.cause = { code: 'UND_ERR_SOCKET' };
+    throw err;
+  };
+  assert.equal((await bodyKindFor(cut)).body_kind, 'unreadable:UND_ERR_SOCKET');
 });
 
 test('citation metadata is parsed as supported grounding only when explicit source metadata exists', () => {
