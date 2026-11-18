@@ -43,6 +43,11 @@ services:
     arguments: ['@ilas_site_assistant.provider_health_check']
     tags:
       - { name: drush.command }
+  ilas_site_assistant.vendor_contract_commands:
+    class: \Drupal\ilas_site_assistant\Commands\VendorContractCommands
+    arguments: ['@ilas_site_assistant.vendor_contract_monitor']
+    tags:
+      - { name: drush.command }
   ilas_site_assistant.vector_maintenance_commands:
     class: \Drupal\ilas_site_assistant\Commands\VectorMaintenanceCommands
     arguments: ['@ilas_site_assistant.vector_index_hygiene']

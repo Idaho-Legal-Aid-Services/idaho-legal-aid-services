@@ -165,6 +165,95 @@ final class QualityGateEnforcementContractTest extends TestCase {
   }
 
   /**
+   * Tests the deploy script remains the whole deploy for every environment.
+   *
+   * Deploys used to be typed by hand, which is how dev came to run without
+   * database updates or a config import, and how a broken site search went
+   * unnoticed on dev and test. The script is only worth having as the single
+   * path if none of its steps can be dropped quietly.
+   */
+  public function testDeployScriptPromotesAppliesAndChecks(): void {
+    $script = self::readFile('scripts/deploy/pantheon-deploy.sh');
+
+    // Promote (test/live), apply, and refuse to finish with pending updates.
+    $this->assertStringContainsString('terminus env:deploy "$site_env" --updatedb --cc', $script);
+    $this->assertStringContainsString('terminus drush "$site_env" -- deploy -y', $script);
+    $this->assertStringContainsString('Post-deploy pending database updates remain', $script);
+    // Config drift is fatal off dev, and both smokes gate success.
+    $this->assertStringContainsString('check_config_drift "$site_env" || exit 1', $script);
+    $this->assertStringContainsString('run_site_smoke || exit 1', $script);
+    $this->assertStringContainsString('run_assistant_smoke || exit 1', $script);
+    $this->assertStringContainsString('scripts/smoke/site-smoke.mjs', $script);
+    $this->assertStringContainsString('scripts/smoke/assistant-smoke.mjs', $script);
+    // Live keeps its backup and its typed confirmation.
+    $this->assertStringContainsString('backup:create "$site_env" --keep-for=7', $script);
+    $this->assertStringContainsString('Type this exact token to continue', $script);
+
+    $package = self::readFile('package.json');
+    foreach (['dev', 'test', 'live'] as $environment) {
+      $this->assertStringContainsString(
+        '"deploy:' . $environment . '": "bash scripts/deploy/pantheon-deploy.sh --env ' . $environment . '"',
+        $package,
+      );
+    }
+
+    // Publishing to dev goes through the same script.
+    $this->assertStringContainsString(
+      'scripts/deploy/pantheon-deploy.sh" --env dev',
+      self::readFile('scripts/git/finish.sh'),
+    );
+  }
+
+  /**
+   * Tests the scheduled smoke covers every environment and reports failure.
+   */
+  public function testScheduledSiteSmokeWorkflowCoversEveryEnvironment(): void {
+    $workflow = self::readFile('.github/workflows/site-smoke.yml');
+
+    $this->assertStringContainsString('schedule:', $workflow);
+    $this->assertStringContainsString('workflow_dispatch:', $workflow);
+    $this->assertStringContainsString('types: [pantheon-deploy]', $workflow);
+    $this->assertStringContainsString('environment: [dev, test, live]', $workflow);
+    $this->assertStringContainsString('scripts/smoke/site-smoke.mjs', $workflow);
+    // A failed run must tell someone; no other workflow here does.
+    $this->assertStringContainsString('gh issue create', $workflow);
+    $this->assertStringContainsString('issues: write', $workflow);
+  }
+
+  /**
+   * Tests the Pantheon hooks that run whoever deploys remain registered.
+   *
+   * Checks in the deploy script only run when that script is used. These
+   * hooks are what covers a dashboard deploy, a direct push to the Pantheon
+   * remote, and a database clone.
+   */
+  public function testPantheonHooksCoverCodeChangesAndDatabaseClones(): void {
+    $pantheon = self::readFile('pantheon.yml');
+
+    foreach (['clone_database:', 'sync_code:', 'deploy:'] as $workflow) {
+      $this->assertStringContainsString("\n  " . $workflow, $pantheon);
+    }
+    foreach (['reindex_search_after_clone.php', 'dispatch_site_smoke.php'] as $script) {
+      $this->assertStringContainsString('script: private/scripts/' . $script, $pantheon);
+      $this->assertFileExists(self::repoRoot() . '/web/private/scripts/' . $script);
+    }
+    // The scripts must not be reachable over the web.
+    $this->assertStringContainsString('- /private/', self::readFile('pantheon.upstream.yml'));
+
+    $dispatch = self::readFile('web/private/scripts/dispatch_site_smoke.php');
+    $this->assertStringContainsString("'event_type' => 'pantheon-deploy'", $dispatch);
+    $this->assertStringContainsString('types: [pantheon-deploy]', self::readFile('.github/workflows/site-smoke.yml'));
+    // Who deployed is sent by name; the address stays on Pantheon.
+    $this->assertStringNotContainsString('user_email', $dispatch);
+
+    // A database clone must not be able to change the Solr site hash.
+    $this->assertMatchesRegularExpression(
+      "/if \\(_ilas_raw_pantheon_environment\\(\\)\\) \\{\\s+\\\$settings\\['search_api_solr\\.site_hash'\\] = '[a-z0-9]{6}';/",
+      self::readFile('web/sites/default/settings.php'),
+    );
+  }
+
+  /**
    * Package scripts must expose mocked smoke and full journey commands.
    */
   public function testPackageScriptsExposeAssistantPlaywrightSmokeAndJourneys(): void {

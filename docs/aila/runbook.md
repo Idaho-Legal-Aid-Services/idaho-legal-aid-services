@@ -74,6 +74,40 @@ The response contract still emits provider identity (so dashboards stay
 stable); `vector_status` flips to `disabled` and `rerank.used` stays
 `false`.
 
+## Deploying (dev, test, live)
+
+One command per environment. Each one applies the code, then checks the
+result, and exits non-zero if any step fails:
+
+```bash
+npm run deploy:dev     # code arrives by git push (npm run git:finish runs this for you)
+npm run deploy:test    # promotes dev -> test
+npm run deploy:live    # backs up (kept 7 days), asks for a typed confirmation, promotes test -> live
+```
+
+What `scripts/deploy/pantheon-deploy.sh` does, in order:
+
+1. test/live only: `terminus env:deploy --updatedb --cc`.
+2. `drush deploy` (database updates, config import, cache rebuild).
+3. Fails if database updates are still pending, or (test/live) if config
+   differs from the repository after the import.
+4. Site smoke (`scripts/smoke/site-smoke.mjs`, 18 public-page checks).
+5. Assistant smoke (`scripts/smoke/assistant-smoke.mjs`, production-safe mode).
+6. dev/test, when Langfuse is enabled there: a trace export probe, read back.
+
+Useful flags: `--dry-run` prints every command; `--skip-promote` re-runs the
+apply and check steps on code that is already on test or live;
+`--note "<text>"` sets the Pantheon deploy note.
+
+Do not type `terminus env:deploy` by hand for a normal deploy: that skips
+steps 2 to 6, which is how dev ran without database updates and how a broken
+site search on dev and test went unnoticed until 2026-11-18.
+
+Independently of any deploy, `.github/workflows/site-smoke.yml` runs the same
+smoke against all three environments every day and opens a GitHub issue
+labelled `smoke-failure` when it fails. It is also the check for code that
+reaches Pantheon by another route.
+
 ## 1) Safety rules (must follow)
 
 - Never print secrets/tokens/keys. Redact all sensitive values before saving artifacts.
@@ -2425,6 +2459,34 @@ stored config files.
 5. The `langfuse.environment` label is always overridden to `local` or
    `pantheon-{env}` regardless of what stored config says.
 
+**Enabling Langfuse on test (so the export path is proven before live):**
+
+As of 2026-11-18 test reports `DISABLED_NO_SECRETS`: `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY` hold a value for live only, so the toggle alone does
+nothing there. Test needs all three, set as environment overrides of the
+existing runtime/web secrets:
+
+```bash
+terminus secret:site:set idaho-legal-aid-services.test LANGFUSE_PUBLIC_KEY <pk> --type=runtime --scope=web
+terminus secret:site:set idaho-legal-aid-services.test LANGFUSE_SECRET_KEY <sk> --type=runtime --scope=web
+terminus secret:site:set idaho-legal-aid-services.test ILAS_LANGFUSE_ENABLED 1 --type=runtime --scope=web
+terminus env:clear-cache idaho-legal-aid-services.test
+terminus drush idaho-legal-aid-services.test -- cr
+terminus drush idaho-legal-aid-services.test -- ilas:langfuse-probe --diagnose   # expect "verdict": "READY"
+```
+
+Once the verdict is `READY`, `scripts/deploy/pantheon-deploy.sh --env test`
+sends a direct probe after every deploy and reads it back with
+`ilas:langfuse-lookup`; a failure fails the deploy script. Traces from test
+carry environment `pantheon-test`. Off switch: set `ILAS_LANGFUSE_ENABLED` to
+`0` on test. Do this only after the OTLP exporter is deployed to test; the v3
+endpoint the older code used answers HTTP 410.
+
+Queued traces on test are discarded after `max_item_age_seconds` (2 h) if cron
+has not run, which raises a queue-loss warning. If that appears, drain the
+queue at the end of the smoke (`drush queue:run ilas_langfuse_export`); do not
+raise the age limit.
+
 **Verification commands:**
 
 ```bash
@@ -2964,9 +3026,7 @@ terminus remote:drush idaho-legal-aid-services.dev -- php:eval '$path = \Drupal:
 terminus remote:drush idaho-legal-aid-services.dev -- ilas:runtime-truth
 
 # Promote code to test only after dev passes.
-terminus env:deploy idaho-legal-aid-services.test --updatedb --cc --note="TOVR-12 dev to test" -y
-terminus remote:drush idaho-legal-aid-services.test -- config:import -y
-terminus remote:drush idaho-legal-aid-services.test -- cr
+npm run deploy:test -- --note "TOVR-12 dev to test"
 
 TEST_BASE_URL="$(terminus env:view idaho-legal-aid-services.test --print)"
 env NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem" \
@@ -5070,6 +5130,12 @@ sed -E \
   ddev drush ilas:langfuse-status
   ddev drush ilas:langfuse-lookup <trace_id>
   ```
+- Langfuse transport since 2026-11-18: batches are exported as OTLP to
+  `POST /api/public/otel/v1/traces` and looked up through
+  `GET /api/public/v2/observations` (Langfuse removed the v3 ingestion and
+  trace endpoints on 2026-11-16; they answer HTTP 410). The Langfuse trace id
+  is the request UUID without hyphens; `ilas:langfuse-lookup` accepts either
+  form and searches the last 168 hours unless `--lookback-hours` is given.
 - Hosted runtime/status commands:
   ```bash
   for ENV in dev test live; do

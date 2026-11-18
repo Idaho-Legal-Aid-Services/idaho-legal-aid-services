@@ -2,6 +2,7 @@
 
 namespace Drupal\ilas_site_assistant\EventSubscriber;
 
+use Drupal\ilas_site_assistant\RequestInput;
 use Drupal\ilas_site_assistant\Service\PerformanceMonitor;
 use Drupal\ilas_site_assistant\Service\SentryStageSpan;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -258,7 +259,7 @@ class AssistantApiResponseMonitorSubscriber implements EventSubscriberInterface 
       return $this->classification(FALSE, 'suggest.rate_limit', $status, TRUE);
     }
 
-    $query = (string) $request->query->get('q', '');
+    $query = RequestInput::string($request->query, 'q');
     if (strlen($query) < 2) {
       return $this->classification(TRUE, 'suggest.short_query_empty', $status);
     }
@@ -278,7 +279,7 @@ class AssistantApiResponseMonitorSubscriber implements EventSubscriberInterface 
 
     $mode = $request->query->has('id')
       ? 'id'
-      : ((strlen((string) $request->query->get('q', '')) >= 2) ? 'query' : 'categories');
+      : ((strlen(RequestInput::string($request->query, 'q')) >= 2) ? 'query' : 'categories');
     $degraded = $this->isDegradedCacheFallback($response);
 
     return match ($mode) {

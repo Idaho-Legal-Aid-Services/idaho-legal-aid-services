@@ -9,11 +9,21 @@ ENV_NAME=""
 DRY_RUN=false
 YES_LIVE=false
 SKIP_LIVE_BACKUP=false
+SKIP_SMOKE=false
+SKIP_PROMOTE=false
+DEPLOY_NOTE=""
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  pantheon-deploy.sh --env <dev|test|live> [--site <machine-name>] [--dry-run] [--yes-live] [--skip-live-backup]
+  pantheon-deploy.sh --env <dev|test|live> [--site <machine-name>] [--dry-run] [--yes-live] [--skip-live-backup] [--skip-promote] [--note <text>] [--skip-smoke]
+
+This is the one deploy command for every environment:
+  dev   code arrives by git push; this applies it (database updates, config
+        import, cache rebuild) and checks the result.
+  test  promotes the code from dev, applies it and checks the result.
+  live  backs up, asks for confirmation, promotes from test, applies, checks.
 
 Options:
   --env <env>            Target Pantheon environment (dev|test|live). Required.
@@ -21,6 +31,9 @@ Options:
   --dry-run              Print commands without executing remote operations.
   --yes-live             Skip live confirmation prompt.
   --skip-live-backup     Skip automatic live backup creation.
+  --skip-promote         test/live: do not run terminus env:deploy (code is already there).
+  --note <text>          test/live: note recorded on the Pantheon deploy. Default: the local commit.
+  --skip-smoke           Skip the post-deploy site smoke, assistant smoke and Langfuse probe.
   -h, --help             Show this help output.
 USAGE
 }
@@ -108,6 +121,27 @@ parse_args() {
         SKIP_LIVE_BACKUP=true
         shift
         ;;
+      --skip-smoke)
+        SKIP_SMOKE=true
+        shift
+        ;;
+      --skip-promote)
+        SKIP_PROMOTE=true
+        shift
+        ;;
+      --note)
+        if (($# < 2)); then
+          err "Missing value for --note"
+          usage
+          exit 1
+        fi
+        DEPLOY_NOTE="$2"
+        shift 2
+        ;;
+      --note=*)
+        DEPLOY_NOTE="${1#*=}"
+        shift
+        ;;
       -h|--help)
         usage
         exit 0
@@ -166,7 +200,7 @@ live_guardrails() {
     warn "Skipping live backup due to --skip-live-backup."
   else
     info "Creating live backup before deployment..."
-    run_cmd terminus backup:create "$site_env" --keep-for=1
+    run_cmd terminus backup:create "$site_env" --keep-for=7
     if ! "$DRY_RUN"; then
       ok "Live backup created for $site_env."
     fi
@@ -243,7 +277,10 @@ pending_update_count() {
 
 check_config_drift() {
   local site_env="$1"
-  info "Config drift status (informational only):"
+  # After the config import, active config must equal the repository on test
+  # and live; a difference there means the import did not apply or someone
+  # changed config by hand. Dev is allowed to differ (work in progress).
+  info "Config drift status:"
 
   if "$DRY_RUN"; then
     run_cmd terminus drush "$site_env" -- config:status
@@ -255,13 +292,121 @@ check_config_drift() {
     printf '%s\n' "$status_output"
     if printf '%s\n' "$status_output" | grep -Eq 'No differences|No config changes|No changes'; then
       ok "No config drift reported."
+    elif [[ "$ENV_NAME" == "dev" ]]; then
+      warn "Config status reported differences on dev. Review output above."
     else
-      warn "Config status reported differences. Review output above."
+      err "Config on $site_env differs from the repository after the import."
+      return 1
     fi
   else
-    warn "Unable to fetch config:status (non-fatal)."
     printf '%s\n' "$status_output"
+    if [[ "$ENV_NAME" == "dev" ]]; then
+      warn "Unable to fetch config:status (non-fatal on dev)."
+    else
+      err "Unable to fetch config:status for $site_env."
+      return 1
+    fi
   fi
+}
+
+# Moves code to test (from dev) or live (from test).
+#
+# Dev receives code by git push, so there is nothing to promote there.
+promote_code() {
+  local site_env="$1"
+
+  if [[ "$ENV_NAME" == "dev" ]]; then
+    return 0
+  fi
+  if "$SKIP_PROMOTE"; then
+    warn "Skipping terminus env:deploy due to --skip-promote."
+    return 0
+  fi
+
+  local note="$DEPLOY_NOTE"
+  if [[ -z "$note" ]]; then
+    note="$(git -C "$REPO_ROOT" log -1 --format='%h %s' 2>/dev/null || true)"
+    note="${note:-Deploy via pantheon-deploy.sh}"
+  fi
+
+  info "Promoting code to $site_env ..."
+  run_cmd terminus env:deploy "$site_env" --updatedb --cc --note="$note" -y
+}
+
+# Checks the assistant endpoints with the read-mostly smoke.
+run_assistant_smoke() {
+  local base_url="https://${ENV_NAME}-${SITE_NAME}.pantheonsite.io"
+
+  info "Running assistant smoke against $base_url ..."
+  if "$DRY_RUN"; then
+    print_cmd node "$REPO_ROOT/scripts/smoke/assistant-smoke.mjs" --base-url "$base_url" --mode production-safe --env "$ENV_NAME"
+    return 0
+  fi
+  if ! node "$REPO_ROOT/scripts/smoke/assistant-smoke.mjs" --base-url "$base_url" --mode production-safe --env "$ENV_NAME"; then
+    err "Assistant smoke failed for $base_url."
+    return 1
+  fi
+  ok "Assistant smoke passed."
+}
+
+# Requests one of each kind of public page on the environment just deployed.
+#
+# Dev and test get no organic traffic, so without this a deploy there is only
+# exercised by the assistant checks. The pantheonsite.io host is used for every
+# environment: Cloudflare challenges scripted clients on the public live host.
+run_site_smoke() {
+  local base_url="https://${ENV_NAME}-${SITE_NAME}.pantheonsite.io"
+
+  info "Running site smoke against $base_url ..."
+  if ! run_cmd node "$REPO_ROOT/scripts/smoke/site-smoke.mjs" --base-url "$base_url" --env "$ENV_NAME"; then
+    err "Site smoke failed for $base_url."
+    return 1
+  fi
+  ok "Site smoke passed."
+}
+
+# Proves the Langfuse export path end to end where Langfuse is enabled.
+#
+# Sends one synthetic trace directly and reads it back from Langfuse. Skipped
+# when Langfuse is not enabled on the environment (the default off live).
+# Not run on live: live exports real traces and alerts on its own failures.
+run_langfuse_export_probe() {
+  local site_env="$1"
+
+  if [[ "$ENV_NAME" == "live" ]]; then
+    return 0
+  fi
+  if "$DRY_RUN"; then
+    print_cmd terminus drush "$site_env" -- ilas:langfuse-probe --direct
+    return 0
+  fi
+
+  local diagnosis=""
+  diagnosis="$(terminus drush "$site_env" -- ilas:langfuse-probe --diagnose 2>/dev/null || true)"
+  if [[ "$diagnosis" != *'"verdict": "READY"'* ]]; then
+    info "Langfuse is not enabled on $site_env; skipping the export probe."
+    return 0
+  fi
+
+  info "Sending a Langfuse export probe from $site_env ..."
+  local output="" trace_id=""
+  if ! output="$(terminus drush "$site_env" -- ilas:langfuse-probe --direct 2>&1)"; then
+    printf '%s\n' "$output"
+    err "Langfuse export probe was not accepted."
+    return 1
+  fi
+  trace_id="$(printf '%s\n' "$output" | grep -oE 'Trace ID: [0-9a-f-]{36}' | head -n 1 | cut -d' ' -f3)"
+  if [[ -z "$trace_id" ]]; then
+    printf '%s\n' "$output"
+    err "Could not read the probe trace ID."
+    return 1
+  fi
+
+  if ! terminus drush "$site_env" -- ilas:langfuse-lookup "$trace_id" --attempts=10 --delay-ms=2000 >/dev/null 2>&1; then
+    err "Langfuse accepted probe $trace_id but it could not be read back."
+    return 1
+  fi
+  ok "Langfuse export probe $trace_id was stored and read back."
 }
 
 main() {
@@ -280,6 +425,8 @@ main() {
   run_cmd terminus env:wake "$site_env"
 
   live_guardrails "$site_env"
+
+  promote_code "$site_env"
 
   show_pending_updates "$site_env" "before deploy"
 
@@ -301,7 +448,15 @@ main() {
   fi
   ok "No pending database updates remain."
 
-  check_config_drift "$site_env"
+  check_config_drift "$site_env" || exit 1
+
+  if "$SKIP_SMOKE"; then
+    warn "Skipping the post-deploy smoke due to --skip-smoke."
+  else
+    run_site_smoke || exit 1
+    run_assistant_smoke || exit 1
+    run_langfuse_export_probe "$site_env" || exit 1
+  fi
 
   ok "Deployment workflow completed for $site_env."
 }

@@ -514,6 +514,7 @@ class SourceGovernanceService {
       'policy_version' => 'p2_obj_03_v1',
       'observation_window_hours' => 24,
       'stale_ratio_alert_pct' => 18.0,
+      'stale_ratio_alert_enabled' => TRUE,
       'min_observations' => 20,
       'unknown_ratio_degrade_pct' => 22.0,
       'missing_source_url_ratio_degrade_pct' => 9.0,
@@ -829,7 +830,13 @@ class SourceGovernanceService {
     // never_reviewed and the per-class breakdown tell content ops what to
     // review (PHP-9Z): a class with nr == stale has never been attested.
     $message = 'Source governance stale ratio @ratio% exceeds threshold @threshold% (stale @stale / total @total, min_observations @min; never_reviewed @never_reviewed; by class: @by_class).';
-    if ($total >= $min_observations) {
+    // The alert asks content ops to review sources, which only happens on
+    // live: dev and test hold a copy of live content that nobody attests, and
+    // their observations come from eval traffic, so there the ratio is always
+    // over threshold and never actionable (Sentry PHP-AR). settings.php turns
+    // the warning off outside live; the record stays in the log at notice.
+    $alert_enabled = (bool) ($policy['stale_ratio_alert_enabled'] ?? TRUE);
+    if ($alert_enabled && $total >= $min_observations) {
       $this->logger->warning($message, $context);
     }
     else {

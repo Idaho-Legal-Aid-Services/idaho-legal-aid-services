@@ -599,6 +599,9 @@ ilas_site_assistant.settings:
         stale_ratio_alert_pct:
           type: float
           label: 'Stale-source ratio alert threshold percent'
+        stale_ratio_alert_enabled:
+          type: boolean
+          label: 'Raise the stale-source ratio alert at warning level (off outside live, where content is not reviewed)'
         min_observations:
           type: integer
           label: 'Minimum observation count before unknown/missing ratio degradation'
@@ -878,6 +881,16 @@ ilas_site_assistant.settings:
         alert_cooldown_minutes:
           type: integer
           label: 'Minimum minutes between cost alerts'
+    vendor_contract_check:
+      type: mapping
+      label: 'Scheduled real-request checks against outside APIs'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'Run the checks from cron (settings.php enables this on live only)'
+        interval_hours:
+          type: integer
+          label: 'Hours between scheduled runs'
     langfuse:
       type: mapping
       label: 'Langfuse observability settings'

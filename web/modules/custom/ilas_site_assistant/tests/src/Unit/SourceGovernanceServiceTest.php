@@ -717,6 +717,53 @@ final class SourceGovernanceServiceTest extends TestCase {
   }
 
   /**
+   * Tests a disabled stale-ratio alert logs at notice with a full sample.
+   *
+   * Outside live nobody reviews content, so settings.php turns the warning
+   * off there (Sentry PHP-AR). The record must stay in the log, the cooldown
+   * must still apply, and the snapshot must still report the degradation.
+   */
+  public function testDisabledStaleRatioAlertLogsNoticeInsteadOfWarning(): void {
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->never())->method('warning');
+    $logger->expects($this->once())
+      ->method('notice')
+      ->with($this->stringContains('stale ratio'), $this->isArray());
+
+    $service = $this->buildService($logger, [
+      'stale_ratio_alert_pct' => 10.0,
+      'stale_ratio_alert_enabled' => FALSE,
+      'alert_cooldown_minutes' => 60,
+      // Sample size is met, so only the enabled flag holds the warning back.
+      'min_observations' => 2,
+    ]);
+
+    $batch = [
+      [
+        'id' => 'faq_1',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#topic1',
+        'updated_at' => time() - (220 * 86400),
+      ],
+      [
+        'id' => 'faq_2',
+        'source_class' => 'faq_lexical',
+        'source_url' => '/faq#topic2',
+        'updated_at' => time() - (2 * 86400),
+      ],
+    ];
+
+    $service->recordObservationBatch($batch);
+    $snapshot = $service->getSnapshot();
+
+    $this->assertSame('degraded', $snapshot['status']);
+    $this->assertTrue($snapshot['min_observations_met']);
+
+    // Second batch inside the cooldown: still exactly one notice.
+    $service->recordObservationBatch($batch);
+  }
+
+  /**
    * Tests the stale-ratio alert downgrades to notice on thin samples.
    *
    * Below min_observations a high stale ratio is statistically meaningless

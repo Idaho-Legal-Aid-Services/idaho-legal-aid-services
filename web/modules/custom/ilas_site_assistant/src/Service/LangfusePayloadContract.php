@@ -7,9 +7,11 @@ namespace Drupal\ilas_site_assistant\Service;
 /**
  * Approved Langfuse payload shape constants (PHARD-02).
  *
- * Documents and locks the ingestion API event types, required body keys,
- * and SDK metadata that the ilas-langfuse-tracer emits. Contract tests
- * validate that finalized payloads match these constants.
+ * Documents and locks the tracer event types, required body keys, and SDK
+ * metadata that the ilas-langfuse-tracer emits, plus the OTLP endpoint the
+ * batch is exported to. The event types are the tracer's internal model;
+ * LangfuseOtlpPayloadBuilder converts them to OTLP spans at send time.
+ * Contract tests validate that finalized payloads match these constants.
  */
 final class LangfusePayloadContract {
 
@@ -52,5 +54,30 @@ final class LangfusePayloadContract {
    * Required keys in the top-level payload metadata.
    */
   const REQUIRED_METADATA_KEYS = ['batch_size', 'sdk_name', 'sdk_version'];
+
+  /**
+   * Path of the OTLP/HTTP trace endpoint, relative to langfuse.host.
+   *
+   * Replaces /api/public/ingestion, which Langfuse Cloud removed for trace
+   * and observation events on 2026-11-16 (HTTP 410 LANGFUSE_V3_API_REMOVED).
+   */
+  const OTLP_TRACES_PATH = '/api/public/otel/v1/traces';
+
+  /**
+   * Header selecting the Langfuse v4 ingestion path.
+   *
+   * Without it, OTLP data can take up to ten minutes to become readable.
+   */
+  const INGESTION_VERSION_HEADER = 'x-langfuse-ingestion-version';
+
+  /**
+   * Value sent in the ingestion version header.
+   */
+  const INGESTION_VERSION = '4';
+
+  /**
+   * OTLP resource service.name for exported spans.
+   */
+  const OTLP_SERVICE_NAME = 'ilas-site-assistant';
 
 }

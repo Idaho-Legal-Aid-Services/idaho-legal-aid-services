@@ -6,6 +6,8 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\Core\Queue\SuspendQueueException;
+use Drupal\ilas_site_assistant\Service\LangfuseOtlpPayloadBuilder;
+use Drupal\ilas_site_assistant\Service\LangfusePayloadContract;
 use Drupal\ilas_site_assistant\Service\ObservabilityPayloadMinimizer;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
@@ -13,7 +15,12 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Exports trace batches to the Langfuse ingestion API.
+ * Exports trace batches to Langfuse over OTLP/HTTP.
+ *
+ * The queued batch is in the tracer's event model; it is converted to OTLP
+ * spans here because Langfuse removed the v3 batch ingestion API.
+ *
+ * @see \Drupal\ilas_site_assistant\Service\LangfuseOtlpPayloadBuilder
  *
  * @QueueWorker(
  *   id = "ilas_langfuse_export",
@@ -145,12 +152,20 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
       return;
     }
 
-    $url = $host . '/api/public/ingestion';
+    $url = $host . LangfusePayloadContract::OTLP_TRACES_PATH;
 
-    $payload = [
-      'batch' => $data['batch'],
-      'metadata' => $data['metadata'] ?? [],
-    ];
+    $payload = LangfuseOtlpPayloadBuilder::build(
+      $data['batch'],
+      (string) ($config->get('langfuse.environment') ?? ''),
+    );
+    if (LangfuseOtlpPayloadBuilder::spanCount($payload) === 0) {
+      $this->logger->warning('Langfuse export: batch holds no exportable events, discarding.');
+      $this->recordOutcome('discard_invalid_shape', [
+        'event_count' => count($data['batch']),
+      ]);
+      $this->recordDrain(1);
+      return;
+    }
 
     try {
       $response = $this->httpClient->request('POST', $url, [
@@ -160,25 +175,27 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
         'connect_timeout' => $timeout,
         'headers' => [
           'Content-Type' => 'application/json',
+          LangfusePayloadContract::INGESTION_VERSION_HEADER => LangfusePayloadContract::INGESTION_VERSION,
         ],
       ]);
 
       $statusCode = $response->getStatusCode();
+      // Langfuse queues OTLP for asynchronous processing and answers 200
+      // without validating spans. An OTLP partialSuccess is honoured in case
+      // that ever changes.
+      $body = json_decode((string) $response->getBody(), TRUE);
+      $rejected = is_array($body) ? (int) ($body['partialSuccess']['rejectedSpans'] ?? 0) : 0;
 
-      if ($statusCode === 207) {
-        // Partial success — Langfuse returns 207 for batch with some errors.
-        $body = json_decode((string) $response->getBody(), TRUE);
-        $errors = $body['errors'] ?? [];
-        $successes = $body['successes'] ?? [];
+      if ($statusCode >= 200 && $statusCode < 300 && $rejected > 0) {
         $this->logger->notice('Langfuse export: partial success. @ok succeeded, @err errors.', [
-          '@ok' => count($successes),
-          '@err' => count($errors),
+          '@ok' => max(0, count($data['batch']) - $rejected),
+          '@err' => $rejected,
         ]);
         $this->recordOutcome('send_partial_207', [
           'event_count' => count($data['batch']),
           'http_status' => $statusCode,
-          'success_count' => count($successes),
-          'error_count' => count($errors),
+          'success_count' => max(0, count($data['batch']) - $rejected),
+          'error_count' => $rejected,
         ]);
         $this->recordDrain(1);
       }
@@ -202,8 +219,9 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
 
       // Client errors (4xx except 429) are not retryable — discard.
       if ($statusCode >= 400 && $statusCode < 500 && $statusCode !== 429) {
-        $this->logger->error('Langfuse export: non-retryable error (HTTP @code), discarding batch: @class @error_signature', [
+        $this->logger->error('Langfuse export: non-retryable error (HTTP @code @reason), discarding batch: @class @error_signature', [
           '@code' => $statusCode,
+          '@reason' => $this->errorReason($e),
           '@class' => get_class($e),
           '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
         ]);
@@ -238,6 +256,24 @@ class LangfuseExportWorker extends QueueWorkerBase implements ContainerFactoryPl
       ]);
       throw new SuspendQueueException('Langfuse export failed unexpectedly, will retry.');
     }
+  }
+
+  /**
+   * Returns the machine-readable error code from a Langfuse error response.
+   *
+   * Langfuse answers errors as {"error": "CODE", "message": "..."}. Only the
+   * code is logged, reduced to a short token, so the reason for a rejected
+   * batch is visible without storing a provider message verbatim.
+   */
+  private function errorReason(\Throwable $e): string {
+    if (!method_exists($e, 'getResponse') || !$e->getResponse()) {
+      return 'unknown';
+    }
+    $body = json_decode(substr((string) $e->getResponse()->getBody(), 0, 8192), TRUE);
+    $code = is_array($body) && is_string($body['error'] ?? NULL) ? $body['error'] : '';
+    $code = substr(preg_replace('/[^A-Za-z0-9_.-]/', '', $code) ?? '', 0, 64);
+
+    return $code !== '' ? $code : 'unknown';
   }
 
   /**

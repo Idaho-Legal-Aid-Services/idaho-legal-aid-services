@@ -284,7 +284,9 @@ function b5subtheme_preprocess_node(array &$variables): void {
   // Employment application: server-side success page detection.
   if ($variables['content_type'] === 'employment_application' && $variables['view_mode'] === 'full') {
     $request = \Drupal::request();
-    $submitted = $request->query->get('submitted');
+    // query->get() throws on an array value (?submitted[]=x), which would
+    // turn this page into a 400; all() does not.
+    $submitted = $request->query->all()['submitted'] ?? NULL;
     if ($submitted === 'success') {
       $session = $request->getSession();
       $variables['application_submitted'] = TRUE;

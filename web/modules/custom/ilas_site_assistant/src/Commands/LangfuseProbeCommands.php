@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\ilas_site_assistant\Commands;
 
-use Drupal\Component\Uuid\Php as UuidGenerator;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\ilas_site_assistant\Service\LangfuseOtlpPayloadBuilder;
+use Drupal\ilas_site_assistant\Service\LangfusePayloadContract;
+use Drupal\ilas_site_assistant\Service\LangfuseSyntheticTrace;
 use Drupal\ilas_site_assistant\Service\ObservabilityProofTaxonomy;
 use Drupal\ilas_site_assistant\Service\QueueHealthMonitor;
 use Drupal\ilas_site_assistant\Service\RuntimeTruthSnapshotBuilder;
@@ -145,80 +147,7 @@ class LangfuseProbeCommands extends DrushCommands {
    *   Associative array with 'trace_id' and 'payload' keys.
    */
   public function buildSyntheticBatch(): array {
-    $uuidGenerator = new UuidGenerator();
-    $traceId = $uuidGenerator->generate();
-    $spanId = $uuidGenerator->generate();
-    $eventBodyId = $uuidGenerator->generate();
-    $timestamp = gmdate('Y-m-d\TH:i:s.000000\Z');
-
-    $environment = getenv('PANTHEON_ENVIRONMENT') ?: 'local';
-
-    $batch = [
-      [
-        'id' => $uuidGenerator->generate(),
-        'type' => 'trace-create',
-        'timestamp' => $timestamp,
-        'body' => [
-          'id' => $traceId,
-          'timestamp' => $timestamp,
-          'name' => 'phard-02.synthetic_probe',
-          'sessionId' => hash('sha256', 'synthetic-probe-session'),
-          'tags' => ['assistant', 'probe', 'synthetic'],
-          'input' => 'hash=synthetic0001 len=1-24 redact=none',
-          'output' => 'type=probe_complete reason=none hash=synthetic9999 len=1-24',
-          'metadata' => [
-            'environment' => $environment,
-            'surface' => 'assistant',
-            'probe_timestamp' => $timestamp,
-            'input_hash' => str_repeat('1', 64),
-            'input_length_bucket' => '1-24',
-            'input_redaction_profile' => 'none',
-            'output_hash' => str_repeat('9', 64),
-            'output_length_bucket' => '1-24',
-            'output_redaction_profile' => 'none',
-            'response_type' => 'probe_complete',
-            'reason_code' => 'none',
-          ],
-        ],
-      ],
-      [
-        'id' => $uuidGenerator->generate(),
-        'type' => 'span-create',
-        'timestamp' => $timestamp,
-        'body' => [
-          'id' => $spanId,
-          'traceId' => $traceId,
-          'name' => 'probe.synthetic_span',
-          'startTime' => $timestamp,
-          'endTime' => $timestamp,
-        ],
-      ],
-      [
-        'id' => $uuidGenerator->generate(),
-        'type' => 'event-create',
-        'timestamp' => $timestamp,
-        'body' => [
-          'id' => $eventBodyId,
-          'traceId' => $traceId,
-          'name' => 'probe.verification_marker',
-          'startTime' => $timestamp,
-        ],
-      ],
-    ];
-
-    $payload = [
-      'batch' => $batch,
-      'metadata' => [
-        'batch_size' => count($batch),
-        'sdk_name' => 'ilas-langfuse-tracer',
-        'sdk_version' => '1.0.0',
-      ],
-    ];
-
-    return [
-      'trace_id' => $traceId,
-      'payload' => $payload,
-    ];
+    return LangfuseSyntheticTrace::build(getenv('PANTHEON_ENVIRONMENT') ?: 'local');
   }
 
   /**
@@ -229,24 +158,29 @@ class LangfuseProbeCommands extends DrushCommands {
     $publicKey = $config->get('langfuse.public_key');
     $secretKey = $config->get('langfuse.secret_key');
     $timeout = (float) ($config->get('langfuse.timeout') ?? 5.0);
-    $url = $host . '/api/public/ingestion';
+    $url = $host . LangfusePayloadContract::OTLP_TRACES_PATH;
+    $otlp = LangfuseOtlpPayloadBuilder::build(
+      $payload['batch'] ?? [],
+      (string) ($config->get('langfuse.environment') ?? ''),
+    );
 
     try {
       $response = $this->httpClient->request('POST', $url, [
-        'json' => $payload,
+        'json' => $otlp,
         'auth' => [$publicKey, $secretKey],
         'headers' => [
           'Content-Type' => 'application/json',
+          LangfusePayloadContract::INGESTION_VERSION_HEADER => LangfusePayloadContract::INGESTION_VERSION,
         ],
         'timeout' => $timeout,
         'connect_timeout' => $timeout,
       ]);
 
       $statusCode = $response->getStatusCode();
-      if ($statusCode === 207) {
-        $summary = $this->decodeIngestionResponse((string) $response->getBody());
+      $rejected = $this->decodeRejectedSpans((string) $response->getBody());
+      if ($statusCode >= 200 && $statusCode < 300 && $rejected > 0) {
         $this->logger()?->success(sprintf('Langfuse probe sent directly. Trace ID: %s, HTTP status: %d', $traceId, $statusCode));
-        $this->logger()?->notice(sprintf('Langfuse direct probe partial success: %d succeeded, %d errors', $summary['successes'], $summary['errors']));
+        $this->logger()?->notice(sprintf('Langfuse direct probe partial success: %d spans rejected', $rejected));
       }
       elseif ($statusCode >= 200 && $statusCode < 300) {
         $this->logger()?->success(sprintf('Langfuse probe sent directly. Trace ID: %s, HTTP status: %d', $traceId, $statusCode));
@@ -297,18 +231,12 @@ class LangfuseProbeCommands extends DrushCommands {
   }
 
   /**
-   * Extracts success and error counts from a Langfuse ingestion response body.
-   *
-   * @return array{successes:int,errors:int}
-   *   Count summary for a probe response.
+   * Returns the rejected span count from an OTLP export response body.
    */
-  private function decodeIngestionResponse(string $body): array {
+  private function decodeRejectedSpans(string $body): int {
     $decoded = json_decode($body, TRUE);
 
-    return [
-      'successes' => is_array($decoded['successes'] ?? NULL) ? count($decoded['successes']) : 0,
-      'errors' => is_array($decoded['errors'] ?? NULL) ? count($decoded['errors']) : 0,
-    ];
+    return is_array($decoded) ? (int) ($decoded['partialSuccess']['rejectedSpans'] ?? 0) : 0;
   }
 
   /**

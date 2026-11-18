@@ -8,6 +8,7 @@ use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\ilas_site_assistant\Exception\RetrievalDependencyUnavailableException;
+use Drupal\ilas_site_assistant\RequestInput;
 use Drupal\ilas_site_assistant\Service\IntentRouter;
 use Drupal\ilas_site_assistant\Service\FaqIndex;
 use Drupal\ilas_site_assistant\Service\ResourceFinder;
@@ -5131,8 +5132,8 @@ class AssistantApiController extends ControllerBase {
   public function suggest(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
     $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_SUGGEST);
-    $query = (string) $request->query->get('q', '');
-    $type = (string) $request->query->get('type', 'all');
+    $query = RequestInput::string($request->query, 'q');
+    $type = RequestInput::string($request->query, 'type', 'all');
     $faq_retrieval_unavailable = FALSE;
     $cache_meta = new CacheableMetadata();
     $cache_meta->setCacheContexts(['url.query_args:q', 'url.query_args:type']);
@@ -5240,8 +5241,8 @@ class AssistantApiController extends ControllerBase {
   public function faq(Request $request) {
     $request_id = $this->resolveCorrelationId($request);
     $this->primePerformanceMonitoring($request, PerformanceMonitor::ENDPOINT_FAQ);
-    $query = (string) $request->query->get('q', '');
-    $id = $request->query->get('id');
+    $query = RequestInput::string($request->query, 'q');
+    $id = RequestInput::stringOrNull($request->query, 'id');
     $faq_mode = $this->determineFaqReadMode($id, $query);
 
     $cache_meta = new CacheableMetadata();

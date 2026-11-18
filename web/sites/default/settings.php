@@ -846,6 +846,13 @@ if ($sentry_enabled) {
     'debug' => FALSE,
   ];
   $config['raven.settings']['logs_log_levels'] = $config['raven.settings']['log_levels'];
+  // 403s are not sent to Sentry, for the same reason 404s are not
+  // (redirect_404 suppress_404): on a public site they are almost entirely
+  // anonymous requests for /admin and other protected paths, which is access
+  // control working. Core logs every one to the 'access denied' channel at
+  // warning, and Sentry grouped them all into one permanently open issue
+  // (PHP-8J). They remain in Drupal's own log.
+  $config['raven.settings']['ignored_channels'] = ['access denied'];
   // CSP violation reports are NOT routed to Sentry (reversal of the PHP-12
   // decision): browsers POST them straight to Sentry's security endpoint,
   // bypassing all before_send scrubbing (client IPs stored), and they consumed
@@ -861,6 +868,37 @@ if ($sentry_enabled) {
 $sentry_cron_monitor_id = _ilas_get_secret('SENTRY_CRON_MONITOR_ID');
 if ($sentry_cron_monitor_id && in_array($observability_environment ?? '', ['pantheon-live', 'pantheon-test'], TRUE)) {
   $config['raven.settings']['cron_monitor_id'] = $sentry_cron_monitor_id;
+}
+
+// Pin the Search API Solr site hash on Pantheon.
+//
+// search_api_solr stamps every Solr document with this hash and, when it is
+// not set here, keeps it in Drupal state, which lives in the database. A
+// database clone therefore replaced an environment's hash with the source
+// environment's, while its Solr core still held documents under the old one;
+// results with a foreign hash are dropped, so site search on dev and test
+// returned nothing (found 2026-11-18). With the hash in settings a clone can
+// no longer change it. The value is the one live has always used, so live's
+// existing documents stay valid. Local development keeps its own hash.
+if (_ilas_raw_pantheon_environment()) {
+  $settings['search_api_solr.site_hash'] = '5vu4cl';
+}
+
+// The weekly vendor contract check sends one real request to each outside API
+// (Langfuse, Cohere, Voyage, Pinecone) and logs an error for any that no
+// longer accepts it. It runs from cron on live only, where the provider keys
+// are; `drush ilas:vendor-contract-check` runs it anywhere on demand.
+if (_ilas_observability_environment_name() === 'pantheon-live') {
+  $config['ilas_site_assistant.settings']['vendor_contract_check']['enabled'] = TRUE;
+}
+
+// The source-governance stale-ratio alert asks content ops to review sources.
+// That review happens on live only; dev and test hold an unreviewed copy of
+// live content and are queried by eval traffic, so the alert there is always
+// firing and never actionable (Sentry PHP-AR). Outside live it is logged at
+// notice instead of warning. The threshold itself is unchanged everywhere.
+if (_ilas_observability_environment_name() !== 'pantheon-live') {
+  $config['ilas_site_assistant.settings']['source_governance']['stale_ratio_alert_enabled'] = FALSE;
 }
 
 $settings['ilas_observability'] = _ilas_observability_settings();

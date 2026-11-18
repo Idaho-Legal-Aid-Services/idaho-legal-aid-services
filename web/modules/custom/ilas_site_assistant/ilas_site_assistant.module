@@ -226,6 +226,21 @@ function ilas_site_assistant_cron() {
       }
     }
 
+    // Weekly check that outside APIs still accept what this site sends. It
+    // makes real provider calls, so it shares the time budget and never runs
+    // on a cron pass that is already slow.
+    if ((microtime(TRUE) - $start) <= $maxSeconds && \Drupal::hasService('ilas_site_assistant.vendor_contract_monitor')) {
+      try {
+        \Drupal::service('ilas_site_assistant.vendor_contract_monitor')->runIfDue();
+      }
+      catch (\Throwable $e) {
+        \Drupal::logger('ilas_site_assistant')->error('Vendor contract check could not run: @class @error_signature', [
+          '@class' => get_class($e),
+          '@error_signature' => ObservabilityPayloadMinimizer::exceptionSignature($e),
+        ]);
+      }
+    }
+
   }
   catch (\Throwable $e) {
     $success = FALSE;

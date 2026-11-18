@@ -11,7 +11,7 @@
 # so a regression cannot leak file contents through CI logs.
 #
 # Usage:
-#   BASE_URL=https://dev-idaho-legal-aid.pantheonsite.io bash scripts/security/fingerprint-smoke.sh
+#   BASE_URL=https://dev-idaho-legal-aid-services.pantheonsite.io bash scripts/security/fingerprint-smoke.sh
 #
 # Exits non-zero on any failure.
 

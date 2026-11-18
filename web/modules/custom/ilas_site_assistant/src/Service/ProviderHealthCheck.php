@@ -174,7 +174,12 @@ final class ProviderHealthCheck {
       $actualDim = $observed['dimensions'] ?? NULL;
       $probeStatus = $indexSnapshot['probe_status'] ?? 'unknown';
       $hygieneStatus = $indexSnapshot['status'] ?? 'unknown';
-      $reachable = $probeStatus === 'pass' && $hygieneStatus !== 'critical';
+      // VectorIndexHygieneService reports a passing probe as 'healthy'
+      // ('mixed', 'failed', 'skipped' and 'unknown' are the others). This
+      // compared against 'pass', a value the service never emits, so Pinecone
+      // was reported unreachable and ilas:providers-health exited non-zero
+      // even when every index answered.
+      $reachable = $probeStatus === 'healthy' && $hygieneStatus !== 'critical';
 
       if (!$reachable) {
         $allReachable = FALSE;
