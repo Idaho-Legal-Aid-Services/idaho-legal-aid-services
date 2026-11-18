@@ -2461,19 +2461,24 @@ stored config files.
 
 **Enabling Langfuse on test (so the export path is proven before live):**
 
-As of 2026-11-18 test reports `DISABLED_NO_SECRETS`: `LANGFUSE_PUBLIC_KEY` and
-`LANGFUSE_SECRET_KEY` hold a value for live only, so the toggle alone does
-nothing there. Test needs all three, set as environment overrides of the
-existing runtime/web secrets:
+Test and dev use their own key pair, stored as the site-level runtime/web
+secrets `LANGFUSE_TEST_PUBLIC_KEY` and `LANGFUSE_TEST_SECRET_KEY` (added
+2026-11-18). `settings.php` prefers them over the live pair on every
+environment except live. Keys alone do not enable export off live; the
+per-environment toggle does:
 
 ```bash
-terminus secret:site:set idaho-legal-aid-services.test LANGFUSE_PUBLIC_KEY <pk> --type=runtime --scope=web
-terminus secret:site:set idaho-legal-aid-services.test LANGFUSE_SECRET_KEY <sk> --type=runtime --scope=web
 terminus secret:site:set idaho-legal-aid-services.test ILAS_LANGFUSE_ENABLED 1 --type=runtime --scope=web
 terminus env:clear-cache idaho-legal-aid-services.test
 terminus drush idaho-legal-aid-services.test -- cr
 terminus drush idaho-legal-aid-services.test -- ilas:langfuse-probe --diagnose   # expect "verdict": "READY"
 ```
+
+Never set `ILAS_LANGFUSE_ENABLED` to `0` at site level to "tidy up": that is
+the kill switch and it also turns live off. Note that `--diagnose` reports
+the keys as absent whenever export is disabled, because `settings.php` only
+injects them when it is enabled; that output does not mean the secrets are
+missing.
 
 Once the verdict is `READY`, `scripts/deploy/pantheon-deploy.sh --env test`
 sends a direct probe after every deploy and reads it back with

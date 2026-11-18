@@ -215,6 +215,11 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('types: [pantheon-deploy]', $workflow);
     $this->assertStringContainsString('environment: [dev, test, live]', $workflow);
     $this->assertStringContainsString('scripts/smoke/site-smoke.mjs', $workflow);
+    // Code pushed to Pantheon by someone else is reported even when the
+    // smoke passes.
+    $this->assertStringContainsString('external-change-notice:', $workflow);
+    $this->assertStringContainsString('vars.PANTHEON_EXPECTED_DEPLOYER', $workflow);
+    $this->assertStringContainsString('--label external-push', $workflow);
     // A failed run must tell someone; no other workflow here does.
     $this->assertStringContainsString('gh issue create', $workflow);
     $this->assertStringContainsString('issues: write', $workflow);

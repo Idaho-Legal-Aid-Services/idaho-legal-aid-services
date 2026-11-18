@@ -17,7 +17,7 @@
  * Pantheon runtime secret readable by the web scope:
  *
  *   terminus secret:site:set idaho-legal-aid-services \
- *     GITHUB_SMOKE_DISPATCH_TOKEN <token> --type=runtime --scope=web
+ *     pantheon_smoke_dispatch <token> --type=runtime --scope=web
  *
  * Without the secret the hook does nothing and says so. It never fails the
  * Pantheon workflow: the daily scheduled smoke is the backstop.
@@ -33,10 +33,12 @@ if (PHP_SAPI !== 'cli' && empty($_POST['wf_type'])) {
 }
 
 const ILAS_SMOKE_REPOSITORY = 'Idaho-Legal-Aid-Services/idaho-legal-aid-services';
+// Name of the Pantheon runtime secret holding the GitHub token.
+const ILAS_SMOKE_TOKEN_SECRET = 'pantheon_smoke_dispatch';
 
-$token = function_exists('pantheon_get_secret') ? pantheon_get_secret('GITHUB_SMOKE_DISPATCH_TOKEN') : '';
+$token = function_exists('pantheon_get_secret') ? pantheon_get_secret(ILAS_SMOKE_TOKEN_SECRET) : '';
 if (!is_string($token) || trim($token) === '') {
-  echo "GITHUB_SMOKE_DISPATCH_TOKEN is not set; skipping the smoke dispatch.\n";
+  echo ILAS_SMOKE_TOKEN_SECRET . " is not set; skipping the smoke dispatch.\n";
   return;
 }
 
