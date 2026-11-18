@@ -1,0 +1,128 @@
+name: Site Smoke
+
+# Requests the public pages of every Pantheon environment and tells someone
+# when one of them is broken.
+#
+# Deploy-time checks only run when the person deploying uses the deploy
+# script. Code also reaches Pantheon by other routes (the dashboard, direct
+# pushes to the Pantheon remote), and an environment can break with no deploy
+# at all: a database copy, a vendor change, an expired index. This run does
+# not depend on anyone remembering anything.
+#
+# Triggers:
+#   schedule             once a day
+#   workflow_dispatch    by hand
+#   repository_dispatch  type "pantheon-deploy", sent by the Pantheon
+#                        Quicksilver hook after any code sync or deploy
+on:
+  schedule:
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [pantheon-deploy]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: site-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, test, live]
+    env:
+      # The pantheonsite.io host is used for live as well: Cloudflare
+      # challenges scripted clients on the public host.
+      BASE_URL: https://${{ matrix.environment }}-idaho-legal-aid-services.pantheonsite.io
+      SMOKE_ENV: ${{ matrix.environment }}
+      TRIGGER: ${{ github.event_name }}
+      DEPLOY_ENV: ${{ github.event.client_payload.environment || '' }}
+      DEPLOY_WORKFLOW: ${{ github.event.client_payload.workflow || '' }}
+      DEPLOY_USER: ${{ github.event.client_payload.user || '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+
+      - name: Record what triggered this run
+        run: |
+          {
+            echo "### Site smoke: ${SMOKE_ENV}"
+            echo ""
+            echo "- Trigger: \`${TRIGGER}\`"
+            if [[ -n "${DEPLOY_WORKFLOW}" ]]; then
+              echo "- Pantheon workflow: \`${DEPLOY_WORKFLOW}\` on \`${DEPLOY_ENV}\` by \`${DEPLOY_USER:-unknown}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Site smoke
+        id: site
+        run: |
+          set -o pipefail
+          node scripts/smoke/site-smoke.mjs --base-url "$BASE_URL" --env "$SMOKE_ENV" | tee site-smoke.log
+
+      # The assistant smoke posts one message. It runs on dev and test only so
+      # the daily run adds nothing to live's conversation analytics.
+      - name: Assistant smoke
+        id: assistant
+        if: ${{ always() && matrix.environment != 'live' }}
+        run: |
+          set -o pipefail
+          node scripts/smoke/assistant-smoke.mjs --base-url "$BASE_URL" --mode production-safe --env "$SMOKE_ENV" | tee assistant-smoke.log
+
+      - name: Open or update the failure issue
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create smoke-failure --color B60205 \
+            --description "A scheduled or post-deploy smoke check failed" --force
+
+          {
+            echo "The site smoke failed on **${SMOKE_ENV}** (${BASE_URL})."
+            echo ""
+            echo "- Run: ${RUN_URL}"
+            echo "- Trigger: \`${TRIGGER}\`"
+            if [[ -n "${DEPLOY_WORKFLOW}" ]]; then
+              echo "- Pantheon workflow: \`${DEPLOY_WORKFLOW}\` on \`${DEPLOY_ENV}\` by \`${DEPLOY_USER:-unknown}\`"
+            fi
+            echo ""
+            echo "Failed checks:"
+            echo '```'
+            grep -h '^\[FAIL\]' site-smoke.log assistant-smoke.log 2>/dev/null || echo "(no [FAIL] lines captured; see the run log)"
+            echo '```'
+          } > body.md
+
+          title="Site smoke failing on ${SMOKE_ENV}"
+          existing="$(gh issue list --state open --label smoke-failure --search "in:title \"${title}\"" --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "$title" --label smoke-failure --body-file body.md
+          fi
+
+      - name: Note recovery on an open failure issue
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Site smoke failing on ${SMOKE_ENV}"
+          existing="$(gh issue list --state open --label smoke-failure --search "in:title \"${title}\"" --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            gh issue close "$existing" --comment "Passing again: ${RUN_URL}"
+          fi
