@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Ties the names finish.sh waits for to the names the workflow defines.
  *
- * finish.sh merges the publish pull request once CI is green. It finds the
- * checks and the gate-summary artifact by name. The workflow's jobs were
+ * The finish.sh helper merges the publish pull request once CI is green. It
+ * finds the checks and the gate-summary artifact by name. The workflow's jobs were
  * renamed and the script was not, so it waited for checks that no longer
  * existed and timed out on every run; nobody noticed because merges were
  * being done by hand. A rename now fails here instead.
