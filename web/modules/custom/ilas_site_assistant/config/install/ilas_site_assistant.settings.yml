@@ -297,6 +297,9 @@ langfuse:
   timeout: 5.0
   max_queue_depth: 10000
   max_item_age_seconds: 7200
+vendor_contract_check:
+  enabled: false
+  interval_hours: 168
 
 # Audit governance for "no legal advice" compliance reporting
 # See docs/aila/AUDIT_GOVERNANCE_SPEC.md for full specification.

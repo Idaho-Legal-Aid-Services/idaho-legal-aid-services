@@ -870,6 +870,14 @@ if ($sentry_cron_monitor_id && in_array($observability_environment ?? '', ['pant
   $config['raven.settings']['cron_monitor_id'] = $sentry_cron_monitor_id;
 }
 
+// The weekly vendor contract check sends one real request to each outside API
+// (Langfuse, Cohere, Voyage, Pinecone) and logs an error for any that no
+// longer accepts it. It runs from cron on live only, where the provider keys
+// are; `drush ilas:vendor-contract-check` runs it anywhere on demand.
+if (_ilas_observability_environment_name() === 'pantheon-live') {
+  $config['ilas_site_assistant.settings']['vendor_contract_check']['enabled'] = TRUE;
+}
+
 // The source-governance stale-ratio alert asks content ops to review sources.
 // That review happens on live only; dev and test hold an unreviewed copy of
 // live content and are queried by eval traffic, so the alert there is always

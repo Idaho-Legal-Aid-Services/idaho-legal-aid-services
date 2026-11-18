@@ -339,6 +339,9 @@ langfuse:
   timeout: 5.0
   max_queue_depth: 10000
   max_item_age_seconds: 7200
+vendor_contract_check:
+  enabled: false
+  interval_hours: 168
 review_loop:
   owner_role: 'Content Manager + SRE/Platform Engineer'
   cadence: Weekly
