@@ -279,6 +279,12 @@ ab_testing:
         - 50
         - 50
 
+# Weekly real-request checks against outside APIs. settings.php enables this
+# on live only; `drush ilas:vendor-contract-check` runs it anywhere.
+vendor_contract_check:
+  enabled: false
+  interval_hours: 168
+
 # Langfuse observability (default OFF)
 # Credentials should be set via settings.php from environment variables:
 #   Set LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY and use ILAS_LANGFUSE_ENABLED
@@ -297,9 +303,6 @@ langfuse:
   timeout: 5.0
   max_queue_depth: 10000
   max_item_age_seconds: 7200
-vendor_contract_check:
-  enabled: false
-  interval_hours: 168
 
 # Audit governance for "no legal advice" compliance reporting
 # See docs/aila/AUDIT_GOVERNANCE_SPEC.md for full specification.
