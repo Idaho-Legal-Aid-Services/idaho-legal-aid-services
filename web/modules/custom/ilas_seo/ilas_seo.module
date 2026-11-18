@@ -10,6 +10,7 @@ use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\ilas_seo\CanonicalHost;
 use Drupal\ilas_seo\ErrorPage;
+use Drupal\ilas_seo\Pagination;
 use Drupal\node\NodeInterface;
 
 /**
@@ -112,8 +113,7 @@ function ilas_seo_page_attachments_alter(array &$attachments) {
   }
 
   // Check for pagination on any page (page parameter > 0).
-  $page = $request->query->get('page');
-  if (!empty($page) && is_numeric($page) && (int) $page > 0) {
+  if (Pagination::pageNumber($request) > 0) {
     $should_noindex = TRUE;
   }
 
@@ -351,8 +351,7 @@ function ilas_seo_metatags_alter(array &$metatags, array &$context) {
 
   $should_noindex = in_array($route_name, $noindex_routes);
 
-  $page = $request->query->get('page');
-  if (!empty($page) && is_numeric($page) && (int) $page > 0) {
+  if (Pagination::pageNumber($request) > 0) {
     $should_noindex = TRUE;
   }
 
