@@ -287,26 +287,43 @@ check_config_drift() {
     return
   fi
 
+  # config:status can still report an object as Different for a short while
+  # after an import that changed it: on dev it did so 27 seconds after a
+  # successful import and was clean three minutes later with nothing done in
+  # between. A difference is therefore only treated as drift once it has
+  # survived two rechecks a minute apart; real drift does not go away.
+  local attempt=1
+  local max_attempts=3
   local status_output=""
-  if status_output="$(terminus drush "$site_env" -- config:status 2>&1)"; then
-    printf '%s\n' "$status_output"
-    if printf '%s\n' "$status_output" | grep -Eq 'No differences|No config changes|No changes'; then
-      ok "No config drift reported."
-    elif [[ "$ENV_NAME" == "dev" ]]; then
-      warn "Config status reported differences on dev. Review output above."
-    else
-      err "Config on $site_env differs from the repository after the import."
-      return 1
-    fi
-  else
-    printf '%s\n' "$status_output"
-    if [[ "$ENV_NAME" == "dev" ]]; then
-      warn "Unable to fetch config:status (non-fatal on dev)."
-    else
+  while true; do
+    if ! status_output="$(terminus drush "$site_env" -- config:status 2>&1)"; then
+      printf '%s\n' "$status_output"
+      if [[ "$ENV_NAME" == "dev" ]]; then
+        warn "Unable to fetch config:status (non-fatal on dev)."
+        return 0
+      fi
       err "Unable to fetch config:status for $site_env."
       return 1
     fi
-  fi
+
+    printf '%s\n' "$status_output"
+    if printf '%s\n' "$status_output" | grep -Eq 'No differences|No config changes|No changes'; then
+      ok "No config drift reported."
+      return 0
+    fi
+    if [[ "$ENV_NAME" == "dev" ]]; then
+      warn "Config status reported differences on dev. Review output above."
+      return 0
+    fi
+    if (( attempt >= max_attempts )); then
+      err "Config on $site_env still differs from the repository ${max_attempts} checks after the import."
+      return 1
+    fi
+
+    warn "Config status reported differences (check ${attempt} of ${max_attempts}); rechecking in 60 seconds."
+    attempt=$((attempt + 1))
+    sleep 60
+  done
 }
 
 # Moves code to test (from dev) or live (from test).
@@ -377,6 +394,7 @@ run_langfuse_export_probe() {
     return 0
   fi
   if "$DRY_RUN"; then
+    print_cmd terminus drush "$site_env" -- queue:run ilas_langfuse_export
     print_cmd terminus drush "$site_env" -- ilas:langfuse-probe --direct
     return 0
   fi
@@ -386,6 +404,15 @@ run_langfuse_export_probe() {
   if [[ "$diagnosis" != *'"verdict": "READY"'* ]]; then
     info "Langfuse is not enabled on $site_env; skipping the export probe."
     return 0
+  fi
+
+  # The assistant smoke just queued a real trace. Export it now: this
+  # environment may be asleep before cron next runs, and a queued trace that
+  # waits more than two hours is discarded with a stale-queue warning.
+  info "Exporting queued Langfuse traces on $site_env ..."
+  if ! terminus drush "$site_env" -- queue:run ilas_langfuse_export; then
+    err "Could not process the Langfuse export queue on $site_env."
+    return 1
   fi
 
   info "Sending a Langfuse export probe from $site_env ..."

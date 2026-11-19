@@ -14,13 +14,21 @@ interface VendorContractCheckInterface {
   public const SKIPPED = 'skipped';
 
   /**
+   * The request was accepted; whether it took effect is not known yet.
+   *
+   * Only checks implementing VendorContractDeferredCheckInterface return it.
+   */
+  public const PENDING = 'pending';
+
+  /**
    * Runs the check.
    *
    * Must not throw: a transport or provider failure is a FAIL result.
    *
-   * @return array<string, array{status: string, reason: string}>
+   * @return array<string, array{status: string, reason: string, context?: array<string, scalar>}>
    *   One entry per vendor, keyed by vendor name. SKIPPED means the vendor is
-   *   not enabled in this runtime, which is not a failure.
+   *   not enabled in this runtime, which is not a failure. A PENDING entry
+   *   carries the 'context' needed to confirm it later.
    */
   public function run(): array;
 

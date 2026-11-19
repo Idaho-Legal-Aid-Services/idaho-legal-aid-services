@@ -142,6 +142,29 @@ function createStructuredError(kind, code, message, extra = {}) {
   };
 }
 
+/**
+ * Classifies a response body that could not be parsed as JSON.
+ *
+ * Returns a fixed label, not the body: eval output is stored and uploaded as
+ * a CI artifact, and an error page can carry anything.
+ */
+function describeNonJsonBody(bodyText, readError = '') {
+  if (readError) {
+    return `unreadable:${String(readError).replace(/[^A-Za-z0-9_]/g, '').slice(0, 40)}`;
+  }
+  const trimmed = String(bodyText || '').trim();
+  if (trimmed === '') {
+    return 'empty';
+  }
+  if (/^<(!doctype|html|head|body)\b/i.test(trimmed)) {
+    return 'html';
+  }
+  if (/^[\[{]/.test(trimmed)) {
+    return 'truncated_json';
+  }
+  return 'text';
+}
+
 function formatStructuredError(error) {
   return `${STRUCTURED_ERROR_PREFIX}${JSON.stringify(error)}`;
 }
@@ -1685,9 +1708,24 @@ class IlasLiveTransport {
       console.log(`[${requestCount}/${this.options.expectedRequestTotal}] "${shortQ}"`);
     }
 
+    // Read the body as text and parse it here, so a failure can say what
+    // came back. response.json() fails the same way for an HTML page, an empty
+    // body and a connection cut mid-response, and "invalid JSON, status 200"
+    // alone has repeatedly been impossible to diagnose after the fact. Only
+    // the shape of the body is recorded, never its text.
     let data;
+    let bodyText = '';
+    let bodyReadError = '';
     try {
-      data = await response.json();
+      bodyText = await response.text();
+    } catch (err) {
+      bodyReadError = String(err?.cause?.code || err?.code || err?.name || 'read_failed');
+    }
+    try {
+      if (bodyReadError) {
+        throw new Error('body read failed');
+      }
+      data = JSON.parse(bodyText);
     } catch (err) {
       const error = createStructuredError(
         'connectivity',
@@ -1696,6 +1734,9 @@ class IlasLiveTransport {
         {
           phase: 'message_post',
           status: response.status,
+          content_type: String(response.headers?.get?.('content-type') || '').slice(0, 80),
+          body_bytes: Buffer.byteLength(bodyText, 'utf8'),
+          body_kind: describeNonJsonBody(bodyText, bodyReadError),
         }
       );
       transportMeta.errors.push(error);

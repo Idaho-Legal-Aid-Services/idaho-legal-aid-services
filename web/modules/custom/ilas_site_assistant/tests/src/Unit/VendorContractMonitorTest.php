@@ -12,6 +12,7 @@ use Drupal\ilas_site_assistant\Service\LangfuseContractCheck;
 use Drupal\ilas_site_assistant\Service\LangfuseTraceLookupService;
 use Drupal\ilas_site_assistant\Service\ProviderHealthContractCheck;
 use Drupal\ilas_site_assistant\Service\VendorContractCheckInterface;
+use Drupal\ilas_site_assistant\Service\VendorContractDeferredCheckInterface;
 use Drupal\ilas_site_assistant\Service\VendorContractMonitor;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
@@ -28,6 +29,11 @@ use Psr\Log\LoggerInterface;
 final class VendorContractMonitorTest extends TestCase {
 
   private const NOW = 1795000000;
+
+  /**
+   * The current time reported to the monitor.
+   */
+  private int $now = self::NOW;
 
   /**
    * State values written during a test.
@@ -59,7 +65,7 @@ final class VendorContractMonitorTest extends TestCase {
     });
 
     $time = $this->createStub(TimeInterface::class);
-    $time->method('getCurrentTime')->willReturn(self::NOW);
+    $time->method('getCurrentTime')->willReturnCallback(fn(): int => $this->now);
 
     $checks = [];
     foreach ($results as $result) {
@@ -248,10 +254,12 @@ final class VendorContractMonitorTest extends TestCase {
       }))
       ->willReturn(['found' => TRUE]);
 
-    $this->assertSame(
-      ['langfuse' => ['status' => 'pass', 'reason' => 'stored_and_read_back']],
-      $this->buildLangfuseCheck($httpClient, $lookup)->run(),
-    );
+    $result = $this->buildLangfuseCheck($httpClient, $lookup)->run()['langfuse'];
+
+    $this->assertSame('pass', $result['status']);
+    $this->assertSame('stored_and_read_back', $result['reason']);
+    // The trace id is recorded so an alert can be checked against Langfuse.
+    $this->assertSame($sentTraceId, str_replace('-', '', $result['context']['trace_id']));
   }
 
   /**
@@ -271,13 +279,158 @@ final class VendorContractMonitorTest extends TestCase {
     $accepting = $this->createStub(ClientInterface::class);
     $accepting->method('request')->willReturn(new Response(200, [], '{}'));
 
-    $notStored = $this->createStub(LangfuseTraceLookupService::class);
-    $notStored->method('lookupTrace')->willReturn(['found' => FALSE]);
-    $this->assertSame('accepted_but_not_stored', $this->buildLangfuseCheck($accepting, $notStored)->run()['langfuse']['reason']);
-
     $readGone = $this->createStub(LangfuseTraceLookupService::class);
     $readGone->method('lookupTrace')->willThrowException(new \RuntimeException('Langfuse trace lookup failed with HTTP 410: gone'));
     $this->assertSame('read_http_410', $this->buildLangfuseCheck($accepting, $readGone)->run()['langfuse']['reason']);
+  }
+
+  /**
+   * An accepted trace that is not readable yet is pending, not failed.
+   *
+   * Langfuse stores asynchronously. On the first scheduled run on live the
+   * trace was not readable within the ten seconds the check waited, an error
+   * was raised (Sentry PHP-C9), and the trace was in Langfuse all along.
+   */
+  public function testLangfuseCheckIsPendingWhenTheTraceIsNotReadableYet(): void {
+    $accepting = $this->createStub(ClientInterface::class);
+    $accepting->method('request')->willReturn(new Response(200, [], '{}'));
+    $lookedUp = [];
+    $lookup = $this->createStub(LangfuseTraceLookupService::class);
+    $lookup->method('lookupTrace')->willReturnCallback(function (string $id) use (&$lookedUp): array {
+      $lookedUp[] = $id;
+      // Not there on the first read; there when asked again later.
+      return ['found' => count($lookedUp) > 1];
+    });
+    $check = $this->buildLangfuseCheck($accepting, $lookup);
+
+    $result = $check->run()['langfuse'];
+    $this->assertSame('pending', $result['status']);
+    $this->assertSame('awaiting_read_back', $result['reason']);
+    $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/', $result['context']['trace_id']);
+
+    $this->assertSame(['langfuse'], $check->deferredVendors());
+    $confirmed = $check->confirm($result['context']);
+    $this->assertSame(['status' => 'pass', 'reason' => 'stored_and_read_back'], $confirmed);
+    // The confirmation looks for the same trace the run wrote.
+    $this->assertSame([$result['context']['trace_id'], $result['context']['trace_id']], $lookedUp);
+
+    // The read API failing during confirmation is a failure, not a wait.
+    $gone = $this->createStub(LangfuseTraceLookupService::class);
+    $gone->method('lookupTrace')->willThrowException(new \RuntimeException('Langfuse trace lookup failed with HTTP 410: gone'));
+    $this->assertSame('read_http_410', $this->buildLangfuseCheck($accepting, $gone)->confirm($result['context'])['reason']);
+    $this->assertSame('fail', $this->buildLangfuseCheck($accepting, $gone)->confirm([])['status']);
+  }
+
+  /**
+   * Builds a monitor whose single check leaves 'langfuse' pending.
+   *
+   * @param array<int, array{status: string, reason: string}> $confirmations
+   *   What successive confirm() calls return.
+   */
+  private function buildMonitorWithPendingCheck(LoggerInterface $logger, array $confirmations, array $config = []): VendorContractMonitor {
+    $values = $config + [
+      'vendor_contract_check.enabled' => TRUE,
+      'vendor_contract_check.interval_hours' => 168,
+    ];
+    $immutable = $this->createStub(ImmutableConfig::class);
+    $immutable->method('get')->willReturnCallback(fn($key) => $values[$key] ?? NULL);
+    $configFactory = $this->createStub(ConfigFactoryInterface::class);
+    $configFactory->method('get')->willReturn($immutable);
+
+    $state = $this->createStub(StateInterface::class);
+    $state->method('get')->willReturnCallback(fn($key, $default = NULL) => $this->stateStore[$key] ?? $default);
+    $state->method('set')->willReturnCallback(function ($key, $value): void {
+      $this->stateStore[$key] = $value;
+    });
+    $time = $this->createStub(TimeInterface::class);
+    $time->method('getCurrentTime')->willReturnCallback(fn(): int => $this->now);
+
+    $check = $this->createStub(VendorContractDeferredCheckInterface::class);
+    $check->method('run')->willReturn([
+      'langfuse' => ['status' => 'pending', 'reason' => 'awaiting_read_back', 'context' => ['trace_id' => 'trace-1']],
+    ]);
+    $check->method('deferredVendors')->willReturn(['langfuse']);
+    $check->method('confirm')->willReturnOnConsecutiveCalls(...$confirmations);
+
+    return new VendorContractMonitor($configFactory, $state, $time, $logger, [$check]);
+  }
+
+  /**
+   * A pending vendor is not an error, and is confirmed on a later cron run.
+   */
+  public function testPendingResultIsConfirmedOnALaterRunWithoutAnError(): void {
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->never())->method('error');
+    $pending = ['status' => 'pending', 'reason' => 'awaiting_read_back'];
+    $monitor = $this->buildMonitorWithPendingCheck($logger, [$pending, ['status' => 'pass', 'reason' => 'stored_and_read_back']]);
+
+    $report = $monitor->runIfDue();
+    $this->assertTrue($report['ok']);
+    $this->assertSame('pending', $report['vendors']['langfuse']['status']);
+    $this->assertTrue($monitor->hasPending());
+    $this->assertSame('trace-1', $this->stateStore[VendorContractMonitor::STATE_PENDING]['langfuse']['context']['trace_id']);
+
+    // Ten minutes later, inside the grace period and still not visible:
+    // nothing is decided and nothing is logged as an error.
+    $this->now += 600;
+    $this->assertNull($monitor->runIfDue());
+    $this->assertTrue($monitor->hasPending());
+
+    // The next hourly cron run finds it. No new weekly run is due.
+    $this->now += 3000;
+    $this->assertNull($monitor->runIfDue());
+    $this->assertFalse($monitor->hasPending());
+    $this->assertSame('pass', $monitor->lastReport()['vendors']['langfuse']['status']);
+    $this->assertSame('trace-1', $monitor->lastReport()['vendors']['langfuse']['context']['trace_id']);
+    $this->assertTrue($monitor->lastReport()['ok']);
+  }
+
+  /**
+   * A probe still missing after the grace period is a real failure.
+   */
+  public function testPendingResultBecomesAFailureAfterTheGracePeriod(): void {
+    $errors = [];
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())
+      ->method('error')
+      ->willReturnCallback(function (string $message, array $context) use (&$errors): void {
+        $errors[] = [$message, $context['@reason']];
+      });
+    $pending = ['status' => 'pending', 'reason' => 'awaiting_read_back'];
+    $monitor = $this->buildMonitorWithPendingCheck($logger, [$pending, $pending]);
+
+    $monitor->runIfDue();
+    $this->now += VendorContractMonitor::PENDING_GRACE_SECONDS - 1;
+    $monitor->runIfDue();
+    $this->assertSame([], $errors);
+
+    $this->now += 3600;
+    $monitor->runIfDue();
+    $this->assertStringContainsString('Vendor contract check failed: langfuse ', $errors[0][0]);
+    $this->assertSame('accepted_but_not_stored', $errors[0][1]);
+    $this->assertFalse($monitor->hasPending());
+    $this->assertFalse($monitor->lastReport()['ok']);
+    $this->assertSame('fail', $monitor->lastReport()['vendors']['langfuse']['status']);
+
+    // Decided once: later cron runs do not report it again.
+    $this->now += 3600;
+    $monitor->runIfDue();
+    $this->assertCount(1, $errors);
+  }
+
+  /**
+   * An operator can ask for a final answer without waiting out the grace.
+   */
+  public function testFinalConfirmationFailsWhatIsStillPending(): void {
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects($this->once())->method('error');
+    $monitor = $this->buildMonitorWithPendingCheck($logger, [['status' => 'pending', 'reason' => 'awaiting_read_back']]);
+
+    $monitor->run();
+    $outcomes = $monitor->confirmPending(TRUE);
+
+    $this->assertSame('accepted_but_not_stored', $outcomes['langfuse']['reason']);
+    $this->assertFalse($monitor->hasPending());
   }
 
   /**

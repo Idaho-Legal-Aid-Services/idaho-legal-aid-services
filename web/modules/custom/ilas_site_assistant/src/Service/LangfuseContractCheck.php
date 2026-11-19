@@ -15,8 +15,11 @@ use GuzzleHttp\Exception\GuzzleException;
  * validates anything, so only reading the trace back proves it was stored;
  * and the read API is used by nothing but operator tooling, so when Langfuse
  * removed the v3 read endpoints in November 2026 nothing on the site noticed.
+ *
+ * Storage is asynchronous, so a trace that cannot be read back within a few
+ * seconds is reported as PENDING, not failed, and confirmed on a later run.
  */
-final class LangfuseContractCheck implements VendorContractCheckInterface {
+final class LangfuseContractCheck implements VendorContractDeferredCheckInterface {
 
   public function __construct(
     private readonly ConfigFactoryInterface $configFactory,
@@ -74,8 +77,46 @@ final class LangfuseContractCheck implements VendorContractCheckInterface {
       return ['status' => self::FAIL, 'reason' => 'export_exception'];
     }
 
+    // The trace id travels with every outcome: it is what a pending result
+    // is confirmed by, and what lets anyone check an alert against Langfuse.
+    return $this->readBack($synthetic['trace_id'], 6, 2000, 1)
+      + ['context' => ['trace_id' => $synthetic['trace_id']]];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function deferredVendors(): array {
+    return ['langfuse'];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function confirm(array $context): array {
+    $traceId = (string) ($context['trace_id'] ?? '');
+    if ($traceId === '') {
+      return ['status' => self::FAIL, 'reason' => 'no_trace_id_to_confirm'];
+    }
+
     try {
-      $lookup = $this->traceLookup->lookupTrace($synthetic['trace_id'], 6, 2000, 1);
+      return $this->readBack($traceId, 1, 0, 24);
+    }
+    catch (\Throwable $e) {
+      return ['status' => self::FAIL, 'reason' => 'read_exception'];
+    }
+  }
+
+  /**
+   * Looks for a probe trace in Langfuse.
+   *
+   * @return array{status: string, reason: string}
+   *   PASS when found, PENDING when not there (yet), FAIL when the read API
+   *   itself answers with an error.
+   */
+  private function readBack(string $traceId, int $attempts, int $delayMs, int $lookbackHours): array {
+    try {
+      $lookup = $this->traceLookup->lookupTrace($traceId, $attempts, $delayMs, $lookbackHours);
     }
     catch (\Throwable $e) {
       $reason = preg_match('/HTTP (\d{1,3})/', $e->getMessage(), $match) === 1 ? 'read_http_' . $match[1] : 'read_exception';
@@ -83,7 +124,7 @@ final class LangfuseContractCheck implements VendorContractCheckInterface {
     }
 
     if (empty($lookup['found'])) {
-      return ['status' => self::FAIL, 'reason' => 'accepted_but_not_stored'];
+      return ['status' => self::PENDING, 'reason' => 'awaiting_read_back'];
     }
 
     return ['status' => self::PASS, 'reason' => 'stored_and_read_back'];
