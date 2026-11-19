@@ -394,6 +394,7 @@ run_langfuse_export_probe() {
     return 0
   fi
   if "$DRY_RUN"; then
+    print_cmd terminus drush "$site_env" -- queue:run ilas_langfuse_export
     print_cmd terminus drush "$site_env" -- ilas:langfuse-probe --direct
     return 0
   fi
@@ -403,6 +404,15 @@ run_langfuse_export_probe() {
   if [[ "$diagnosis" != *'"verdict": "READY"'* ]]; then
     info "Langfuse is not enabled on $site_env; skipping the export probe."
     return 0
+  fi
+
+  # The assistant smoke just queued a real trace. Export it now: this
+  # environment may be asleep before cron next runs, and a queued trace that
+  # waits more than two hours is discarded with a stale-queue warning.
+  info "Exporting queued Langfuse traces on $site_env ..."
+  if ! terminus drush "$site_env" -- queue:run ilas_langfuse_export; then
+    err "Could not process the Langfuse export queue on $site_env."
+    return 1
   fi
 
   info "Sending a Langfuse export probe from $site_env ..."

@@ -163,11 +163,15 @@ jobs:
           set -o pipefail
           node scripts/smoke/site-smoke.mjs --base-url "$BASE_URL" --env "$SMOKE_ENV" | tee site-smoke.log
 
-      # The assistant smoke posts one message. It runs on dev and test only so
-      # the daily run adds nothing to live's conversation analytics.
+      # The assistant smoke posts one message, so it runs on dev only. On live
+      # it would add to real conversation analytics. On test it queues a
+      # Langfuse trace that nothing exports before the environment goes back to
+      # sleep, and the trace then ages out with a stale-queue warning (Sentry
+      # PHP-CA). Test and live get the assistant smoke from the deploy command,
+      # which drains test's queue straight afterwards.
       - name: Assistant smoke
         id: assistant
-        if: ${{ always() && matrix.environment != 'live' }}
+        if: ${{ always() && matrix.environment == 'dev' }}
         run: |
           set -o pipefail
           node scripts/smoke/assistant-smoke.mjs --base-url "$BASE_URL" --mode production-safe --env "$SMOKE_ENV" | tee assistant-smoke.log

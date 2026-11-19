@@ -7,6 +7,7 @@ use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\ConnectException;
 use Sentry\ExceptionMechanism;
 use Sentry\Frame;
+use Sentry\Severity;
 use Sentry\Stacktrace;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -1301,6 +1302,76 @@ class SentryOptionsSubscriberTest extends TestCase {
     $result = $callback($event, NULL);
 
     $this->assertNull($result, 'Handled legacy aggregate asset BadRequest events should be dropped as stale client/cache noise.');
+  }
+
+  /**
+   * Builds the warning core logs when an extension's code cannot be found.
+   */
+  private function createMissingExtensionWarning(string $kind, string $name, string $requestUri): Event {
+    $event = Event::createEvent();
+    $event->setLogger('php');
+    $event->setLevel(Severity::warning());
+    $event->setMessage(
+      '%type: @message in %function (line %line of %file).',
+      [],
+      "User warning: The following {$kind} is missing from the file system: {$name} in Drupal\\Core\\Extension\\ExtensionPathResolver->getPathname() (line 63 of /code/web/core/lib/Drupal/Core/Extension/ExtensionPathResolver.php).",
+    );
+    $event->setExtra(['request_uri' => $requestUri]);
+
+    return $event;
+  }
+
+  /**
+   * A replayed old-site asset URL naming a retired theme is dropped (PHP-BD).
+   */
+  public function testStaleExtensionAssetWarningIsDroppedForLegacyThemeAssetUrl(): void {
+    $this->requireSentry();
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+
+    $event = $this->createMissingExtensionWarning(
+      'theme',
+      'dlaw_glossary',
+      'https://idaholegalaid.org/sites/default/files/js/js__f3vqYtBjMu0uPCFWYmbBb0rfaZxlPs3tclsu2gcgTs.js?delta=1&include=abc&language=en&scope=footer&theme=dlaw_glossary',
+    );
+
+    $this->assertNull($callback($event, NULL));
+  }
+
+  /**
+   * The same warning for an extension this site should have is kept.
+   */
+  public function testStaleExtensionAssetWarningKeepsUnknownExtension(): void {
+    $this->requireSentry();
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+
+    $event = $this->createMissingExtensionWarning(
+      'theme',
+      'b5subtheme',
+      'https://idaholegalaid.org/sites/default/files/js/js_abc.js?delta=1&theme=b5subtheme',
+    );
+    $this->assertNotNull($callback($event, NULL));
+
+    $module = $this->createMissingExtensionWarning(
+      'module',
+      'ilas_site_assistant',
+      'https://idaholegalaid.org/sites/default/files/css/css_abc.css?delta=0&theme=b5subtheme',
+    );
+    $this->assertNotNull($callback($module, NULL));
+  }
+
+  /**
+   * A retired name on an ordinary page request is kept.
+   *
+   * There it would mean config still references the old extension, which is
+   * a defect in this site and not a stale URL.
+   */
+  public function testStaleExtensionAssetWarningKeepsNonAssetRequest(): void {
+    $this->requireSentry();
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+
+    $event = $this->createMissingExtensionWarning('theme', 'dlaw_glossary', 'https://idaholegalaid.org/legal-help/housing');
+
+    $this->assertNotNull($callback($event, NULL));
   }
 
   /**

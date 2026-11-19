@@ -258,6 +258,13 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
+      // Drop core's "extension is missing from the file system" warning when
+      // it is raised by a request for an aggregate built for the old site's
+      // themes and modules (PHP-BD). Crawlers replay those URLs in bursts.
+      if (static::isStaleExtensionAssetWarning($sentryEvent)) {
+        return NULL;
+      }
+
       // Drop 405 Method Not Allowed client errors (bots GETting POST-only
       // routes, e.g. /donation-inquiry/submit). The router already rejected
       // the request correctly; a 405 is never an application defect (PHP-Z).
@@ -748,6 +755,45 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   }
 
   /**
+   * Checks for a missing-extension warning caused by a stale asset URL.
+   *
+   * Aggregate URLs carry the theme they were built for (?theme=...). When a
+   * crawler replays one from the pre-migration site, core resolves that theme
+   * name, does not find it, and logs "The following theme is missing from the
+   * file system: dlaw_glossary". Nothing is wrong with this site: the URL is
+   * years old.
+   *
+   * Deliberately narrow. The same warning for an extension this site should
+   * have, or on any request that is not an aggregate asset, is a real defect
+   * (an enabled module or theme whose code is gone) and is kept.
+   *
+   * @param \Sentry\Event $sentryEvent
+   *   The Sentry event to inspect.
+   *
+   * @return bool
+   *   TRUE if the event should be dropped as stale asset noise.
+   */
+  public static function isStaleExtensionAssetWarning(Event $sentryEvent): bool {
+    $haystack = ($sentryEvent->getMessage() ?? '') . ' ' . ($sentryEvent->getMessageFormatted() ?? '');
+    if (preg_match('/The following (?:theme|module|profile) is missing from the file system: ([A-Za-z0-9_]+)/', $haystack, $matches) !== 1) {
+      return FALSE;
+    }
+    if (!in_array($matches[1], self::STALE_ASSET_LIBRARY_OWNERS, TRUE)) {
+      return FALSE;
+    }
+
+    // Private helpers are called through self::, not static::, so a subclass
+    // cannot be made to resolve a method it has no access to.
+    foreach (self::assetCandidateUrls($sentryEvent) as $url) {
+      if (self::isDrupalAggregateAssetUrl($url)) {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
    * Checks if the event is a 405 Method Not Allowed client error.
    *
    * A 405 means the router matched an existing route but correctly rejected
@@ -850,7 +896,7 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * Returns candidate URLs from request, trace context, and breadcrumbs.
+   * Returns candidate URLs from request, trace context, extra and breadcrumbs.
    *
    * @return string[]
    *   Unique non-empty URL candidates.
@@ -874,6 +920,12 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         $url .= '?' . $request['query_string'];
       }
       $urls[] = $url;
+    }
+
+    // Raven records the request URI of a logged message as extra data.
+    $extraUri = $sentryEvent->getExtra()['request_uri'] ?? NULL;
+    if (is_string($extraUri)) {
+      $urls[] = $extraUri;
     }
 
     foreach ($sentryEvent->getBreadcrumbs() as $breadcrumb) {
