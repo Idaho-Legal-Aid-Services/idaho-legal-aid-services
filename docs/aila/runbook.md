@@ -101,7 +101,12 @@ What `scripts/deploy/pantheon-deploy.sh` does, in order:
    installed packages do not match `composer.lock`, if `sites/default/files`
    is missing or not writable, or (dev) if the container still names the
    previous deployment. Nothing is applied when this fails.
-3. `drush deploy` (database updates, config import, cache rebuild).
+3. `drush deploy` (database updates, config import, cache rebuild). If that
+   import installed or uninstalled a module, config is imported a second
+   time: Drupal's locale module rewrites translated configuration after a
+   module install, and only a second import puts the repository's Spanish
+   and Dutch config translations back. Prefer adding code to a module that
+   is already installed over enabling a new one.
 4. Fails if database updates are still pending, or (test/live) if config
    differs from the repository after the import.
 5. Site smoke (`scripts/smoke/site-smoke.mjs`: 18 public pages, plus one

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Drupal\Tests\ilas_security\Unit;
+namespace Drupal\Tests\ilas_seo\Unit;
 
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Extension\ThemeHandlerInterface;
 use Drupal\Core\Routing\RouteObjectInterface;
-use Drupal\ilas_security\EventSubscriber\AggregateAssetRequestGuard;
+use Drupal\ilas_seo\EventSubscriber\AggregateAssetRequestGuard;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * them from the names in the URL and warned, on live, that themes such as
  * dlaw_glossary and rate were missing from the file system (Sentry PHP-BD).
  */
-#[Group('ilas_security')]
+#[Group('ilas_seo')]
 final class AggregateAssetRequestGuardTest extends TestCase {
 
   /**
