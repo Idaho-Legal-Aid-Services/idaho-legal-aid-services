@@ -3783,8 +3783,10 @@ git status --short --branch
 npm run git:publish
 ```
 
-If Pantheon `origin/master` moved outside the GitHub PR flow, reconcile before
-you do more work on local `master`:
+If Pantheon `origin/master` moved outside the GitHub PR flow (someone pushed
+straight to Pantheon), merge those commits into local `master` before you do
+more work. See "Recovery when Pantheon `origin/master` drifted" below for the
+full sequence:
 
 ```bash
 npm run git:reconcile-origin -- --dry-run
@@ -3817,8 +3819,9 @@ Notes:
 - `bash scripts/ci/install-pre-push-strict-hook.sh` installs both
   `.git/hooks/pre-commit` and `.git/hooks/pre-push`.
 - The pre-commit hook runs only on local `master`, fetches `github` and
-  `origin`, blocks new commits when `github/master` is ahead or diverged, and
-  also blocks when Pantheon `origin/master` is ahead or diverged. Use
+  `origin`, and blocks new commits when `github/master` is ahead or diverged.
+  It does not block on Pantheon: when Pantheon `origin/master` is ahead or diverged
+  the next `npm run git:publish` refuses instead. Use
   `npm run git:sync-master` for GitHub drift and
   `npm run git:reconcile-origin` for Pantheon drift before starting more work
   on `master`.
@@ -3870,9 +3873,14 @@ Notes:
   workflow.
 - `npm run git:reconcile-origin` is the repeatable recovery path when
   Pantheon `origin/master` receives an unexpected commit outside the GitHub PR
-  flow. The helper creates recovery branches, resets local `master` to
-  `origin/master`, and replays preserved local-only commits in chronological
-  order.
+  flow. It changes only local `master` and pushes nothing: it saves a
+  `backup/recovery-local-<timestamp>` branch and merges `origin/master` into
+  local `master` with a merge commit. No commit is rewritten, so the result
+  publishes as a normal pull request. `--dry-run` lists the Pantheon-only
+  commits, the files they change and whether the merge would conflict. If
+  the merge stops on a conflict, `git merge --abort` undoes it completely.
+  (Until 2026-11-20 this command reset local `master` to `origin/master` and
+  replayed local commits, which failed whenever GitHub also had new work.)
 - `terminus env:code-log idaho-legal-aid-services.dev --format=table` is the
   verification source for unexpected Pantheon-only code movement before you
   reconcile.
@@ -3893,14 +3901,31 @@ npm run git:publish
 Recovery when Pantheon `origin/master` drifted before you published:
 
 ```bash
+# 1. See what was pushed to Pantheon and whether it merges cleanly.
 npm run git:reconcile-origin -- --dry-run
 terminus env:code-log idaho-legal-aid-services.dev --format=table
+
+# 2. Merge it into local master (nothing is pushed).
 npm run git:reconcile-origin
+
+# 3. Make the local site match the merged code. A push to Pantheon that
+#    changed composer.lock usually brings database updates, and those can
+#    change config that then has to be exported and committed.
+ddev composer install            # confirm the patches still apply
+ddev drush updatedb -y
+ddev drush config:status         # export only what an update really changed
 composer install --no-interaction --no-progress --prefer-dist --dry-run
 vendor/bin/phpunit -c phpunit.pure.xml --colors=always
+
+# 4. Publish like any other change, then deploy each environment.
 npm run git:publish
 npm run git:finish
+npm run deploy:test
+npm run deploy:live
 ```
+
+If a patch listed in `composer.json` was removed by the push, check the
+upstream code before accepting the removal.
 
 ### External CI promptfoo gate (Pantheon-derived URL)
 

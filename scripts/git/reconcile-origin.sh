@@ -13,9 +13,14 @@ usage() {
 Usage:
   reconcile-origin.sh [--no-fetch] [--dry-run]
 
-Reconcile local master with Pantheon origin/master by preserving local-only
-commits, resetting local master to origin/master, then replaying the preserved
-commits in chronological order.
+Bring commits that were pushed straight to Pantheon (origin/master) into local
+master with an ordinary merge commit. Nothing is pushed, and no history is
+rewritten: local commits keep their ids, so GitHub stays a plain ancestor of
+local master and the result can be published as a normal pull request.
+
+  --dry-run   Show the Pantheon-only commits, the files they change and
+              whether the merge would conflict. Changes nothing except
+              fetching (add --no-fetch to skip that too).
 
 Examples:
   bash scripts/git/reconcile-origin.sh
@@ -65,17 +70,10 @@ main() {
   local origin_local_only=""
   local timestamp=""
   local backup_local=""
-  local backup_origin=""
   local original_head=""
-  local original_tree=""
-  local origin_tree=""
-  local final_tree=""
-  local cherry_output=""
-  local commit=""
-  local local_commit_count=0
-  local equivalent_commit_count=0
-  local merge_commit_count=0
-  local -a local_commits=()
+  local prediction=""
+  local predicted_conflict=false
+  local conflicted=""
 
   parse_args "$@"
 
@@ -86,7 +84,7 @@ main() {
   fi
 
   ensure_clean_worktree
-  info "Reconciling local master from origin/master"
+  info "Merging Pantheon origin/master into local master"
 
   if "$DO_FETCH"; then
     fetch_remote "github"
@@ -144,97 +142,57 @@ main() {
   esac
 
   original_head="$(git -C "$REPO_ROOT" rev-parse "$branch")"
-  original_tree="$(git -C "$REPO_ROOT" rev-parse "$branch^{tree}")"
-  origin_tree="$(git -C "$REPO_ROOT" rev-parse "origin/$branch^{tree}")"
-  cherry_output="$(git -C "$REPO_ROOT" cherry -v "origin/$branch" "$branch" || true)"
-  if [[ -n "$cherry_output" ]]; then
-    # Replay only commits whose content is not already represented on origin.
-    mapfile -t local_commits < <(printf '%s\n' "$cherry_output" | awk '$1 == "+" { print $2 }')
-    equivalent_commit_count="$(printf '%s\n' "$cherry_output" | awk '$1 == "-" { count += 1 } END { print count + 0 }')"
-  fi
-  local_commit_count="${#local_commits[@]}"
-  merge_commit_count="$(git -C "$REPO_ROOT" rev-list --count --merges "origin/$branch..$branch")"
 
-  if (( merge_commit_count > 0 )) && [[ "$original_tree" != "$origin_tree" ]]; then
-    err "Local master includes $merge_commit_count local-only merge commit(s) with content differences from origin/master."
-    err "Automatic reconciliation would risk dropping merge-resolution changes."
-    err "Create recovery branches and reconcile manually."
-    err "Inspect with: git log --left-right --cherry-pick --oneline origin/master...master"
-    exit 1
-  fi
+  info "Commits on Pantheon that local master does not have:"
+  git -C "$REPO_ROOT" log --format='  %h  %ad  %an  %s' --date=short "$branch..origin/$branch"
+  info "Files they change:"
+  git -C "$REPO_ROOT" diff --stat "$branch...origin/$branch" | sed 's/^/  /'
 
-  if (( equivalent_commit_count > 0 )); then
-    info "Skipping $equivalent_commit_count patch-equivalent local commit(s) already represented on origin/$branch."
-  fi
-
-  if (( merge_commit_count > 0 )); then
-    warn "Skipping $merge_commit_count local-only merge commit(s); local master and origin/$branch already resolve to the same tree."
+  # Predict the merge without touching the worktree or the index.
+  if prediction="$(git -C "$REPO_ROOT" merge-tree --write-tree --name-only --messages "$branch" "origin/$branch" 2>&1)"; then
+    ok "The merge is predicted to apply without conflicts."
+  else
+    predicted_conflict=true
+    warn "The merge is predicted to conflict:"
+    printf '%s\n' "$prediction" | sed '1d' | sed 's/^/  /' >&2
   fi
 
   timestamp="$(date +%Y%m%d-%H%M%S)"
   backup_local="backup/recovery-local-$timestamp"
-  backup_origin="backup/recovery-origin-$timestamp"
-
-  info "Saving recovery branches:"
-  info "  $backup_local -> $original_head"
-  info "  $backup_origin -> origin/$branch"
 
   if "$DRY_RUN"; then
     print_cmd git -C "$REPO_ROOT" branch "$backup_local" "$branch"
-    print_cmd git -C "$REPO_ROOT" branch "$backup_origin" "origin/$branch"
-    print_cmd git -C "$REPO_ROOT" reset --hard "origin/$branch"
-  else
-    git -C "$REPO_ROOT" branch "$backup_local" "$branch"
-    git -C "$REPO_ROOT" branch "$backup_origin" "origin/$branch"
-    git -C "$REPO_ROOT" reset --hard "origin/$branch"
-  fi
-
-  if (( local_commit_count == 0 )); then
-    if "$DRY_RUN"; then
-      ok "Dry-run origin reconciliation plan complete."
-    else
-      ok "Origin reconciliation complete; local master now matches origin/master."
-    fi
+    print_cmd git -C "$REPO_ROOT" merge --no-ff "origin/$branch"
+    ok "Dry run complete; nothing was changed."
     exit 0
   fi
 
-  info "Replaying $local_commit_count local-only commit(s) onto origin/master..."
-  for commit in "${local_commits[@]}"; do
-    info "  $(git -C "$REPO_ROOT" show -s --format='%h %s' "$commit")"
-    if "$DRY_RUN"; then
-      print_cmd git -C "$REPO_ROOT" cherry-pick "$commit"
-      continue
-    fi
+  info "Saving recovery branch $backup_local -> ${original_head:0:10}"
+  git -C "$REPO_ROOT" branch "$backup_local" "$branch"
 
-    if ! git -C "$REPO_ROOT" cherry-pick "$commit"; then
-      err "Cherry-pick failed while replaying $commit."
-      err "Recovery branches:"
-      err "  $backup_local"
-      err "  $backup_origin"
-      err "Inspect with: git log --left-right --cherry-pick --oneline origin/master...$backup_local"
-      exit 1
-    fi
-  done
-
-  if "$DRY_RUN"; then
-    ok "Dry-run origin reconciliation plan complete."
-    exit 0
-  fi
-
-  final_tree="$(git -C "$REPO_ROOT" rev-parse "$branch^{tree}")"
-  if [[ "$final_tree" != "$original_tree" ]]; then
-    err "Origin reconciliation changed the tree compared to the original local master."
-    err "Recovery branches:"
-    err "  $backup_local"
-    err "  $backup_origin"
-    err "Restore local master with: git reset --hard $backup_local"
+  if ! git -C "$REPO_ROOT" merge --no-ff --no-edit \
+    -m "Merge Pantheon origin/$branch: adopt $origin_remote_only commit(s) pushed outside the GitHub flow" \
+    "origin/$branch"; then
+    conflicted="$(git -C "$REPO_ROOT" diff --name-only --diff-filter=U || true)"
+    err "The merge stopped on conflicts in:"
+    printf '%s\n' "$conflicted" | sed 's/^/  /' >&2
+    err "Either resolve each file, 'git add' it and run 'git commit',"
+    err "or undo the merge completely with: git merge --abort"
+    err "Local master before the merge is also saved as $backup_local."
     exit 1
   fi
 
-  ok "Origin reconciliation complete."
-  info "Next steps:"
-  info "  composer install --no-interaction --no-progress --prefer-dist --dry-run"
+  if "$predicted_conflict"; then
+    warn "A conflict was predicted but git merged cleanly; review the result."
+  fi
+
+  ok "Pantheon's commits are merged into local master (nothing has been pushed)."
+  info "Before publishing, make the local site match the merged code:"
+  info "  ddev composer install          # then confirm the patches still apply"
+  info "  ddev drush updatedb -y"
+  info "  ddev drush config:status       # export only what an update really changed"
   info "  vendor/bin/phpunit -c phpunit.pure.xml --colors=always"
+  info "Then publish it like any other change:"
   info "  npm run git:publish"
   info "  npm run git:finish"
 }

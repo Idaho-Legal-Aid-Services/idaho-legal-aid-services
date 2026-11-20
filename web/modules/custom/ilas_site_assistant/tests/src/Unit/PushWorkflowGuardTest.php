@@ -192,9 +192,15 @@ final class PushWorkflowGuardTest extends TestCase {
     $this->assertStringContainsString('describe_remote_status "github" "$branch"', $reconcileHelper);
     $this->assertStringContainsString('describe_remote_status "origin" "$branch"', $reconcileHelper);
     $this->assertStringContainsString('git -C "$REPO_ROOT" branch "$backup_local" "$branch"', $reconcileHelper);
-    $this->assertStringContainsString('git -C "$REPO_ROOT" branch "$backup_origin" "origin/$branch"', $reconcileHelper);
-    $this->assertStringContainsString('git -C "$REPO_ROOT" reset --hard "origin/$branch"', $reconcileHelper);
-    $this->assertStringContainsString('git -C "$REPO_ROOT" cherry-pick "$commit"', $reconcileHelper);
+    // Pantheon-only commits are adopted with a merge, previewed first.
+    // Resetting local master to Pantheon and replaying commits could not
+    // handle a push to Pantheon while GitHub also had new work, and rewrote
+    // local history; ReconcileOriginScriptTest runs the real cases.
+    $this->assertStringContainsString('merge-tree --write-tree --name-only --messages "$branch" "origin/$branch"', $reconcileHelper);
+    $this->assertStringContainsString('git -C "$REPO_ROOT" merge --no-ff --no-edit', $reconcileHelper);
+    $this->assertStringContainsString('git merge --abort', $reconcileHelper);
+    $this->assertStringNotContainsString('reset --hard "origin/', $reconcileHelper);
+    $this->assertStringNotContainsString('cherry-pick "$commit"', $reconcileHelper);
     $this->assertStringContainsString('npm run git:publish', $reconcileHelper);
     $this->assertStringContainsString('npm run git:finish', $reconcileHelper);
 
