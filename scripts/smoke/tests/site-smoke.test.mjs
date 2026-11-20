@@ -15,7 +15,10 @@ const html = (body, lang = 'en') => `<!doctype html><html lang="${lang}"><body><
 function healthyRoutes() {
   const sitemap = `<urlset>${'<url><loc>https://example.test/x</loc></url>'.repeat(60)}</urlset>`;
   return {
-    '/': [200, html('')],
+    '/': [200, html('<link rel="stylesheet" href="/sites/default/files/css/css_abc.css?delta=0&amp;theme=b5subtheme" /><img src="/sites/default/files/logo.svg">')],
+    // Like Drupal, the aggregate is only served when its parameters arrive.
+    '/sites/default/files/css/css_abc.css?delta=0&theme=b5subtheme': [200, 'body{}'],
+    '/sites/default/files/css/css_abc.css': [400, 'Bad Request'],
     '/legal-help/housing': [200, html('')],
     '/donate': [200, html('')],
     '/apply-for-help': [200, html('')],
@@ -88,14 +91,42 @@ test('a healthy site passes every check', async () => {
   const result = await runSmoke();
 
   assert.equal(result.code, 0, result.stdout);
-  assert.match(result.stdout, /Summary: 18 passed, 0 failed/);
+  assert.match(result.stdout, /Summary: 19 passed, 0 failed/);
   assert.doesNotMatch(result.stdout, /\[FAIL\]/);
+});
+
+test('a missing files directory fails although every page renders', async () => {
+  // Dev on 2026-11-20: pages answered 200 while aggregated CSS returned 400
+  // because the link to the file mount was gone.
+  const result = await runSmoke({ '/sites/default/files/css/css_abc.css?delta=0&theme=b5subtheme': [400, 'Bad Request'] });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /\[PASS\] GET \/ HTTP 200/);
+  assert.match(result.stdout, /\[FAIL\] GET \/sites\/default\/files\/css\/css_abc\.css HTTP 400 - expected HTTP 200, got 400/);
+  assert.match(result.stdout, /Summary: 18 passed, 1 failed/);
+});
+
+test('an uploaded file is requested when the page has no aggregate', async () => {
+  const result = await runSmoke({
+    '/': [200, html('<img src="/sites/default/files/logo.svg">')],
+    '/sites/default/files/logo.svg': [200, '<svg/>'],
+  });
+
+  assert.equal(result.code, 0, result.stdout);
+  assert.match(result.stdout, /\[PASS\] GET \/sites\/default\/files\/logo\.svg HTTP 200/);
+});
+
+test('a front page that links nothing from the files directory fails', async () => {
+  const result = await runSmoke({ '/': [200, html('')] });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stdout, /\[FAIL\] GET a file from the files directory HTTP 0 - the front page links nothing under \/sites\/default\/files/);
 });
 
 test('every request carries the same per-run cache-busting parameter', async () => {
   const result = await runSmoke();
 
-  assert.equal(result.busters.length, 18);
+  assert.equal(result.busters.length, 19);
   assert.ok(result.busters[0], 'first request has a smoke= parameter');
   assert.equal(new Set(result.busters).size, 1);
 });
@@ -106,12 +137,12 @@ test('a server error fails the run after exactly one retry', async () => {
   assert.equal(result.code, 1);
   assert.match(result.stdout, /\[FAIL\] GET \/donate HTTP 500 - expected HTTP 200, got 500 \(after one retry\)/);
   assert.equal(result.hits['/donate'], 2);
-  assert.match(result.stdout, /Summary: 17 passed, 1 failed/);
+  assert.match(result.stdout, /Summary: 18 passed, 1 failed/);
 });
 
 test('a waking container (555 then 200) is retried and passes', async () => {
   const result = await runSmoke({
-    '/': (hit) => (hit === 1 ? [555, 'starting'] : [200, html('')]),
+    '/': (hit) => (hit === 1 ? [555, 'starting'] : healthyRoutes()['/']),
   });
 
   assert.equal(result.code, 0, result.stdout);
@@ -155,7 +186,7 @@ test('live skips the session-creating token check', async () => {
   const result = await runSmoke({}, ['--env', 'live']);
 
   assert.equal(result.code, 0, result.stdout);
-  assert.match(result.stdout, /Summary: 17 passed, 0 failed/);
+  assert.match(result.stdout, /Summary: 18 passed, 0 failed/);
   assert.ok(!result.requested.includes('/employment-application/token'));
 });
 

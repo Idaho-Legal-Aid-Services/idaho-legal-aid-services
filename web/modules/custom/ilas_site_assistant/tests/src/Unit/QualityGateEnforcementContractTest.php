@@ -186,6 +186,8 @@ final class QualityGateEnforcementContractTest extends TestCase {
       strpos($script, 'verify_deployed_code "$site_env" || exit 1'),
     );
     $this->assertStringContainsString('php:script "$remote_script"', $script);
+    // What the script does in which order is tested by running it:
+    // DeployScriptBehaviourTest.
     // Config drift is fatal off dev, and both smokes gate success.
     $this->assertStringContainsString('check_config_drift "$site_env" || exit 1', $script);
     $this->assertStringContainsString('run_site_smoke || exit 1', $script);
@@ -206,7 +208,7 @@ final class QualityGateEnforcementContractTest extends TestCase {
 
     // Publishing to dev goes through the same script.
     $this->assertStringContainsString(
-      'scripts/deploy/pantheon-deploy.sh" --env dev',
+      'scripts/deploy/pantheon-deploy.sh" "${deploy_args[@]}"',
       self::readFile('scripts/git/finish.sh'),
     );
   }

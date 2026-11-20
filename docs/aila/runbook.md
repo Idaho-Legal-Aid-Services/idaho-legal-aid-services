@@ -88,18 +88,30 @@ npm run deploy:live    # backs up (kept 7 days), asks for a typed confirmation, 
 What `scripts/deploy/pantheon-deploy.sh` does, in order:
 
 1. test/live only: `terminus env:deploy --updatedb --cc`.
-2. Checks that the environment really runs the commit Pantheon records for
+2. Leaves the environment completely alone until Pantheon has no workflow
+   running on it (after a push to dev it rebuilds the container for three to
+   six minutes; `git:finish` passes the push time so the script also waits
+   for that sync to appear). If Pantheon's last code workflow there failed,
+   it stops and prints the repair command: a failed code sync can leave new
+   code without the link to the file mount. Then it
+   checks that the environment really runs the commit Pantheon records for
    it: `scripts/deploy/code-fingerprint.php` is run on the environment and
    its result compared with the same fingerprint computed from git. Fails if
    any custom module, theme, config or deploy file differs, or if the
-   installed packages do not match `composer.lock`. Nothing is applied when
-   this fails.
+   installed packages do not match `composer.lock`, if `sites/default/files`
+   is missing or not writable, or (dev) if the container still names the
+   previous deployment. Nothing is applied when this fails.
 3. `drush deploy` (database updates, config import, cache rebuild).
 4. Fails if database updates are still pending, or (test/live) if config
    differs from the repository after the import.
-5. Site smoke (`scripts/smoke/site-smoke.mjs`, 18 public-page checks).
+5. Site smoke (`scripts/smoke/site-smoke.mjs`: 18 public pages, plus one
+   file from `sites/default/files` to prove the file mount is linked).
 6. Assistant smoke (`scripts/smoke/assistant-smoke.mjs`, production-safe mode).
 7. dev/test, when Langfuse is enabled there: a trace export probe, read back.
+
+If Pantheon's code sync on dev fails, repair it with
+`terminus env:code-rebuild idaho-legal-aid-services.dev`, wait for that
+workflow to succeed, then run `npm run deploy:dev`.
 
 Step 2 exists because Pantheon's "Bring application container to desired
 configuration state" step failed twice on 2026-11-19 (dev kept its old custom
@@ -107,6 +119,18 @@ code; live got the new custom code with the previous day's packages) while
 the database updates, config import and smokes on dev still passed. When it
 fails, `terminus workflow:list idaho-legal-aid-services` shows the failed
 code sync or deploy.
+
+To see at any time whether this checkout, GitHub, Pantheon and the three
+environments are on the same code, without changing anything:
+
+```bash
+npm run deploy:check
+```
+
+It prints, per environment, whether Pantheon is idle, the recorded commit,
+whether the files and packages there are that commit, pending database
+updates and config status, and exits non-zero if anything is out of line.
+Run it before promoting to the next environment.
 
 Useful flags: `--dry-run` prints every command; `--skip-promote` re-runs the
 apply and check steps on code that is already on test or live;
