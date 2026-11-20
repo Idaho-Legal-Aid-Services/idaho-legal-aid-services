@@ -258,10 +258,14 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
-      // Drop core's "extension is missing from the file system" warning when
-      // it is raised by a request for an aggregate built for the old site's
-      // themes and modules (PHP-BD). Crawlers replay those URLs in bursts.
-      if (static::isStaleExtensionAssetWarning($sentryEvent)) {
+      // Drop the 400 that ilas_security's AggregateAssetRequestGuard answers
+      // to an aggregate URL naming a theme or library owner this site does
+      // not have (crawlers replaying the old site's URLs, PHP-BD). The
+      // request was refused correctly before core did any work. Core's
+      // "missing from the file system" warning itself is never dropped: with
+      // the guard in place it can only mean an installed extension whose
+      // code is gone.
+      if (static::isRefusedAggregateAssetRequest($sentryEvent, $hint)) {
         return NULL;
       }
 
@@ -659,6 +663,15 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   ];
 
   /**
+   * The message of ilas_security's refusal of an aggregate request.
+   *
+   * Kept equal to AggregateAssetRequestGuard::REFUSAL_MESSAGE by
+   * SentryOptionsSubscriberTest; not referenced as a class constant so that
+   * this module does not depend on ilas_security being installed.
+   */
+  public const AGGREGATE_REFUSAL_MESSAGE = 'The aggregate names a theme or library owner that is not installed on this site.';
+
+  /**
    * Legacy extension owners observed in stale aggregate asset requests.
    *
    * These names are intentionally not sourced from active config: they describe
@@ -755,35 +768,37 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * Checks for a missing-extension warning caused by a stale asset URL.
+   * Checks for an aggregate request refused by AggregateAssetRequestGuard.
    *
-   * Aggregate URLs carry the theme they were built for (?theme=...). When a
-   * crawler replays one from the pre-migration site, core resolves that theme
-   * name, does not find it, and logs "The following theme is missing from the
-   * file system: dlaw_glossary". Nothing is wrong with this site: the URL is
-   * years old.
-   *
-   * Deliberately narrow. The same warning for an extension this site should
-   * have, or on any request that is not an aggregate asset, is a real defect
-   * (an enabled module or theme whose code is gone) and is kept.
+   * Recognised by the guard's fixed message on a handled 400 for an
+   * aggregate URL, not by a list of names: whatever name a crawler sends,
+   * the refusal reads the same.
    *
    * @param \Sentry\Event $sentryEvent
    *   The Sentry event to inspect.
+   * @param \Sentry\EventHint|null $hint
+   *   Additional exception context supplied by the Sentry SDK.
    *
    * @return bool
-   *   TRUE if the event should be dropped as stale asset noise.
+   *   TRUE if the event is such a refusal.
    */
-  public static function isStaleExtensionAssetWarning(Event $sentryEvent): bool {
-    $haystack = ($sentryEvent->getMessage() ?? '') . ' ' . ($sentryEvent->getMessageFormatted() ?? '');
-    if (preg_match('/The following (?:theme|module|profile) is missing from the file system: ([A-Za-z0-9_]+)/', $haystack, $matches) !== 1) {
-      return FALSE;
-    }
-    if (!in_array($matches[1], self::STALE_ASSET_LIBRARY_OWNERS, TRUE)) {
+  public static function isRefusedAggregateAssetRequest(Event $sentryEvent, ?EventHint $hint = NULL): bool {
+    if (!self::hasBadRequestHttpException($sentryEvent, $hint) || !self::isHandledExceptionEvent($sentryEvent)) {
       return FALSE;
     }
 
-    // Private helpers are called through self::, not static::, so a subclass
-    // cannot be made to resolve a method it has no access to.
+    $messages = [
+      $sentryEvent->getMessage() ?? '',
+      $sentryEvent->getMessageFormatted() ?? '',
+      $hint?->exception?->getMessage() ?? '',
+    ];
+    foreach ($sentryEvent->getExceptions() as $exceptionBag) {
+      $messages[] = $exceptionBag->getValue();
+    }
+    if (!str_contains(implode(' ', $messages), self::AGGREGATE_REFUSAL_MESSAGE)) {
+      return FALSE;
+    }
+
     foreach (self::assetCandidateUrls($sentryEvent) as $url) {
       if (self::isDrupalAggregateAssetUrl($url)) {
         return TRUE;

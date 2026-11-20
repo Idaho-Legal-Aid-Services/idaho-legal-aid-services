@@ -1322,56 +1322,90 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
-   * A replayed old-site asset URL naming a retired theme is dropped (PHP-BD).
-   */
-  public function testStaleExtensionAssetWarningIsDroppedForLegacyThemeAssetUrl(): void {
-    $this->requireSentry();
-    $callback = SentryOptionsSubscriber::beforeSendCallback();
-
-    $event = $this->createMissingExtensionWarning(
-      'theme',
-      'dlaw_glossary',
-      'https://idaholegalaid.org/sites/default/files/js/js__f3vqYtBjMu0uPCFWYmbBb0rfaZxlPs3tclsu2gcgTs.js?delta=1&include=abc&language=en&scope=footer&theme=dlaw_glossary',
-    );
-
-    $this->assertNull($callback($event, NULL));
-  }
-
-  /**
-   * The same warning for an extension this site should have is kept.
-   */
-  public function testStaleExtensionAssetWarningKeepsUnknownExtension(): void {
-    $this->requireSentry();
-    $callback = SentryOptionsSubscriber::beforeSendCallback();
-
-    $event = $this->createMissingExtensionWarning(
-      'theme',
-      'b5subtheme',
-      'https://idaholegalaid.org/sites/default/files/js/js_abc.js?delta=1&theme=b5subtheme',
-    );
-    $this->assertNotNull($callback($event, NULL));
-
-    $module = $this->createMissingExtensionWarning(
-      'module',
-      'ilas_site_assistant',
-      'https://idaholegalaid.org/sites/default/files/css/css_abc.css?delta=0&theme=b5subtheme',
-    );
-    $this->assertNotNull($callback($module, NULL));
-  }
-
-  /**
-   * A retired name on an ordinary page request is kept.
+   * Core's missing-extension warning always reaches Sentry.
    *
-   * There it would mean config still references the old extension, which is
-   * a defect in this site and not a stale URL.
+   * The ilas_security module refuses aggregate requests that name extensions this site
+   * does not have before core can raise it, so when it does appear an
+   * installed extension has lost its code. It was dropped by a list of
+   * retired names for one day (2026-11-19); the next burst used names that
+   * were not on the list.
    */
-  public function testStaleExtensionAssetWarningKeepsNonAssetRequest(): void {
+  public function testMissingExtensionWarningIsNeverDropped(): void {
     $this->requireSentry();
     $callback = SentryOptionsSubscriber::beforeSendCallback();
 
-    $event = $this->createMissingExtensionWarning('theme', 'dlaw_glossary', 'https://idaholegalaid.org/legal-help/housing');
+    $cases = [
+      ['theme', 'dlaw_glossary', 'https://idaholegalaid.org/sites/default/files/js/js_abc.js?delta=1&include=abc&language=en&theme=dlaw_glossary'],
+      ['theme', 'rate', 'https://idaholegalaid.org/sites/default/files/js/js_abc.js?delta=1&include=abc&language=en&theme=b5subtheme'],
+      ['theme', 'b5subtheme', 'https://idaholegalaid.org/sites/default/files/js/js_abc.js?delta=1&theme=b5subtheme'],
+      ['module', 'ilas_site_assistant', 'https://idaholegalaid.org/legal-help/housing'],
+    ];
+    foreach ($cases as [$kind, $name, $url]) {
+      $this->assertNotNull($callback($this->createMissingExtensionWarning($kind, $name, $url), NULL), "{$kind} {$name}");
+    }
+  }
 
-    $this->assertNotNull($callback($event, NULL));
+  /**
+   * Builds the handled 400 raised by ilas_security's aggregate guard.
+   */
+  private function createAggregateRefusalEvent(string $url, string $message): Event {
+    $event = Event::createEvent();
+    $event->setLogger('client error');
+    $event->setMessage(
+      'Symfony\\Component\\HttpKernel\\Exception\\BadRequestHttpException: ' . $message
+      . ' in Drupal\\ilas_security\\EventSubscriber\\AggregateAssetRequestGuard->onRequest()'
+      . ' (line 70 of /code/web/modules/custom/ilas_security/src/EventSubscriber/AggregateAssetRequestGuard.php).',
+    );
+    $event->setExtra(['request_uri' => $url]);
+    $event->setExceptions([
+      new ExceptionDataBag(
+        new BadRequestHttpException($message),
+        NULL,
+        new ExceptionMechanism(ExceptionMechanism::TYPE_GENERIC, TRUE),
+      ),
+    ]);
+
+    return $event;
+  }
+
+  /**
+   * The guard's refusal of an aggregate request is dropped, for any name.
+   */
+  public function testRefusedAggregateAssetRequestIsDropped(): void {
+    $this->requireSentry();
+    $callback = SentryOptionsSubscriber::beforeSendCallback();
+    $message = SentryOptionsSubscriber::AGGREGATE_REFUSAL_MESSAGE;
+
+    foreach (['dlaw_dashboard', 'rate', 'a_name_nobody_listed'] as $theme) {
+      $url = "https://idaholegalaid.org/sites/default/files/css/css_abc.css?delta=0&include=abc&language=en&theme={$theme}";
+      $this->assertNull($callback($this->createAggregateRefusalEvent($url, $message), NULL), $theme);
+    }
+  }
+
+  /**
+   * The same exception anywhere else, or another 400 on an aggregate, is kept.
+   */
+  public function testOtherBadRequestsAreNotTreatedAsAggregateRefusals(): void {
+    $this->requireSentry();
+    $message = SentryOptionsSubscriber::AGGREGATE_REFUSAL_MESSAGE;
+
+    $elsewhere = $this->createAggregateRefusalEvent('https://idaholegalaid.org/search?keys=eviction', $message);
+    $this->assertFalse(SentryOptionsSubscriber::isRefusedAggregateAssetRequest($elsewhere, NULL));
+
+    $other = $this->createAggregateRefusalEvent('https://idaholegalaid.org/sites/default/files/css/css_abc.css?theme=b5subtheme', 'Something else went wrong.');
+    $this->assertFalse(SentryOptionsSubscriber::isRefusedAggregateAssetRequest($other, NULL));
+  }
+
+  /**
+   * The filter and the guard agree on the message that marks a refusal.
+   */
+  public function testRefusalMessageMatchesTheGuard(): void {
+    $guard = (string) file_get_contents(dirname(__DIR__, 4) . '/ilas_security/src/EventSubscriber/AggregateAssetRequestGuard.php');
+
+    $this->assertStringContainsString(
+      "REFUSAL_MESSAGE = '" . SentryOptionsSubscriber::AGGREGATE_REFUSAL_MESSAGE . "';",
+      $guard,
+    );
   }
 
   /**
