@@ -128,5 +128,16 @@ content: |
   User-agent: TikTokSpider
   Disallow: /
 
+  # Semrush crawlers — third-party SEO tools this site does not use. Also
+  # blocked at Cloudflare; this is the layer for crawlers that honour robots.txt.
+  User-agent: SemrushBot
+  Disallow: /
+
+  User-agent: SemrushBot-BA
+  Disallow: /
+
+  User-agent: SiteAuditBot
+  Disallow: /
+
   # XML sitemap
   Sitemap: https://idaholegalaid.org/sitemap.xml

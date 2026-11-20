@@ -5,22 +5,18 @@
  * Prevents database exhaustion from facet spam and known bot patterns.
  * Placed at the top to exit before bootstrapping Drupal.
  */
-if (isset($_SERVER['REQUEST_URI']) &&
-    strpos($_SERVER['REQUEST_URI'], '/admin/') === false &&
-    (strpos($_SERVER['REQUEST_URI'], '/search') === 0 ||
-     strpos($_SERVER['REQUEST_URI'], '/search?') === 0 ||
-     preg_match('#^/[^/]+/search($|\?)#', $_SERVER['REQUEST_URI']))) {
-
-  // 1. Block ALL Facet Parameters (The "Kill Switch")
-  // Faceted search is not enabled on this site (Facets module disabled).
-  // Any request with f[...] parameters is bot traffic.
-  // Updated Dec 19, 2025: Changed from blocking f[5]+ to blocking ALL facet params
-  // to address China-based botnet attack using 5-filter combinations.
-  if (isset($_SERVER['QUERY_STRING']) && (strpos($_SERVER['QUERY_STRING'], 'f[') !== false || strpos($_SERVER['QUERY_STRING'], 'f%5B') !== false)) {
-      header('HTTP/1.1 429 Too Many Requests');
-      die('Error: Invalid search parameters.');
-  }
-
+// Block ALL facet parameters on search paths (the "kill switch").
+// Faceted search is not enabled on this site (Facets module not installed),
+// so any search request with f[...] parameters is bot traffic.
+// Updated Dec 19, 2025: changed from blocking f[5]+ to blocking ALL facet
+// params to address a botnet using 5-filter combinations.
+// Updated Nov 20, 2026: the match now URL-decodes and lower-cases the query,
+// because requests encoded as f%5b0%5d (lower case) were getting through.
+// The decision lives in settings.search-guard.php so it can be tested.
+require_once __DIR__ . '/settings.search-guard.php';
+if (isset($_SERVER['REQUEST_URI']) && _ilas_is_facet_spam_request($_SERVER['REQUEST_URI'])) {
+  header('HTTP/1.1 429 Too Many Requests');
+  die('Error: Invalid search parameters.');
 }
 
 /**
