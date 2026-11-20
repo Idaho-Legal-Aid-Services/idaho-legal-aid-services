@@ -13,6 +13,7 @@ SKIP_SMOKE=false
 SKIP_PROMOTE=false
 DEPLOY_NOTE=""
 CHECK_ONLY=false
+PUSHED_AT=""
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Seconds between looks at Pantheon while it is still working, and between
 # rechecks of a result that may not have settled. Tests set these to 0.
@@ -44,6 +45,8 @@ Options:
   --skip-promote         test/live: do not run terminus env:deploy (code is already there).
   --note <text>          test/live: note recorded on the Pantheon deploy. Default: the local commit.
   --skip-smoke           Skip the post-deploy site smoke, assistant smoke and Langfuse probe.
+  --pushed-at <epoch>    dev: code was pushed at this time; wait for the Pantheon code sync
+                         that the push started before touching the environment.
   -h, --help             Show this help output.
 USAGE
 }
@@ -142,6 +145,14 @@ parse_args() {
       --check)
         CHECK_ONLY=true
         shift
+        ;;
+      --pushed-at)
+        if (($# < 2)) || [[ ! "$2" =~ ^[0-9]+$ ]]; then
+          err "--pushed-at needs a time in seconds since the epoch."
+          exit 1
+        fi
+        PUSHED_AT="$2"
+        shift 2
         ;;
       --note)
         if (($# < 2)); then
@@ -388,7 +399,6 @@ verify_deployed_code() {
 
   info "Checking that $site_env runs the code it was given ..."
   if "$DRY_RUN"; then
-    print_cmd terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status
     print_cmd terminus env:code-log "$site_env" --format=csv --fields=hash
     print_cmd terminus drush "$site_env" -- php:script "$remote_script"
     print_cmd php "$fingerprint_script" --git-ref="<recorded commit>" --compare="<environment report>"
@@ -499,7 +509,7 @@ run_alignment_check() {
     fi
   done
 
-  if ! statuses="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status 2>/dev/null)"; then
+  if ! statuses="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status,started_at,workflow 2>/dev/null)"; then
     err "Could not list Pantheon workflows for $SITE_NAME."
     return 1
   fi
@@ -508,14 +518,16 @@ run_alignment_check() {
     site_env="${SITE_NAME}.${env}"
     printf '\n%s\n' "$env"
 
-    state="$(printf '%s\n' "$statuses" | grep -m 1 "^${env}," | cut -d, -f2)"
+    state="$(printf '%s\n' "$statuses" | grep -m 1 -E "^${env},[a-z]+,.*(Sync code|Deploy code)" | cut -d, -f2)"
     if printf '%s\n' "$statuses" | grep -q "^${env},running"; then
-      printf '  %-18s %s\n' "Pantheon" "still working on it  <-- wait and check again"
+      printf '  %-18s %s\n' "Pantheon" "still working on it  <-- wait and check again (nothing else was asked of $env)"
       problems=$((problems + 1))
+      continue
     elif [[ "$state" == "failed" ]]; then
-      printf '  %-18s %s\n' "Pantheon" "last workflow FAILED (see the lines below for what actually runs)"
+      printf '  %-18s %s\n' "Pantheon" "last code workflow FAILED  <-- the lines below show what it left behind"
+      problems=$((problems + 1))
     else
-      printf '  %-18s %s\n' "Pantheon" "idle, last workflow ${state:-unknown}"
+      printf '  %-18s %s\n' "Pantheon" "idle, last code workflow ${state:-unknown}"
     fi
 
     if ! commit="$(recorded_commit "$site_env")"; then
@@ -569,36 +581,69 @@ run_alignment_check() {
 # Waits until Pantheon has no workflow running on the target environment.
 #
 # A push to dev starts a "Sync code" workflow that builds and replaces the
-# application container. Until it ends, the environment still serves the old
-# code, and applying updates or promoting from it would act on that old code:
-# on 2026-11-19 test was promoted while dev's sync was still running. A
-# workflow that ended in failure is reported here; whether the environment
-# has the right code regardless is decided by the fingerprint.
+# application container, which takes three to six minutes. Until it ends the
+# environment still runs the old code, so nothing here may act on it: from
+# 2026-11-18 this script ran straight after the push and applied updates,
+# rebuilt caches and passed its smokes on the previous code.
+#
+# (Whether acting on the environment during the rebuild also makes Pantheon's
+# container step fail was tested on 2026-11-20 with eight rebuilds and pushes
+# on a Multidev, half of them under Drush and page load: all eight succeeded
+# and the step took 26 to 132 seconds either way. It does not.)
+#
+# With "wait-only" the state of the last code workflow is not judged (before
+# a promote, which starts a new one). Otherwise a last code workflow that
+# failed stops the run.
 wait_for_pantheon_workflows() {
-  local waited=0 max_wait=2700 statuses=""
+  local judge="${1:-judge}"
+  local waited=0 max_wait=2700 appear_wait=600 rows="" code_row="" started="" started_epoch=0 appeared=true
 
   while true; do
-    if ! statuses="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status 2>/dev/null)"; then
+    if ! rows="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status,started_at,workflow 2>/dev/null)"; then
       err "Could not list Pantheon workflows for $SITE_NAME."
       return 1
     fi
-    if ! printf '%s\n' "$statuses" | grep -q "^${ENV_NAME},running"; then
+    # The newest code workflow (a sync on dev, a deploy on test and live).
+    code_row="$(printf '%s\n' "$rows" | grep -m 1 -E "^${ENV_NAME},[a-z]+,.*(Sync code|Deploy code)" || true)"
+
+    # Straight after a push the workflow for it may not be listed yet. Until
+    # one that started after the push is, the environment must be left alone.
+    appeared=true
+    if [[ -n "$PUSHED_AT" ]]; then
+      started="$(printf '%s' "$code_row" | cut -d, -f3 | tr -d '"')"
+      started_epoch="$(date -u -d "$started" +%s 2>/dev/null || echo 0)"
+      if (( started_epoch < PUSHED_AT - 300 )); then
+        appeared=false
+      fi
+    fi
+
+    if "$appeared" && ! printf '%s\n' "$rows" | grep -q "^${ENV_NAME},running"; then
       break
+    fi
+    if ! "$appeared" && (( waited >= appear_wait )); then
+      err "Pantheon has not started a code sync on $ENV_NAME for the push made $((waited / 60)) minutes ago."
+      return 1
     fi
     if (( waited >= max_wait )); then
       err "Pantheon still has a workflow running on $ENV_NAME after $((max_wait / 60)) minutes."
       return 1
     fi
     if (( waited == 0 )); then
-      info "Pantheon is still working on $ENV_NAME; waiting for it to finish ..."
+      info "Pantheon is still working on $ENV_NAME; leaving it alone until it has finished ..."
     fi
     sleep "$WORKFLOW_POLL_SECONDS"
     waited=$((waited + 30))
   done
 
-  # The newest workflow listed for the environment.
-  if [[ "$(printf '%s\n' "$statuses" | grep -m 1 "^${ENV_NAME}," | cut -d, -f2)" == "failed" ]]; then
-    warn "The most recent Pantheon workflow on $ENV_NAME failed; checking what the environment actually runs."
+  if [[ "$judge" == "judge" && "$(printf '%s' "$code_row" | cut -d, -f2)" == "failed" ]]; then
+    err "Pantheon's last code workflow on $ENV_NAME failed: $(printf '%s' "$code_row" | cut -d, -f4- | tr -d '"') (started $(printf '%s' "$code_row" | cut -d, -f3 | tr -d '"') UTC)."
+    err "A failed code workflow can leave the new code in place without the link to the file mount. Nothing has been applied by this run."
+    if [[ "$ENV_NAME" == "test" || "$ENV_NAME" == "live" ]]; then
+      err "Pantheon has to complete a code deploy on $ENV_NAME first: run 'npm run deploy:$ENV_NAME' again."
+    else
+      err "Repair it with: terminus env:code-rebuild ${SITE_NAME}.${ENV_NAME}   (then run this again; do not touch $ENV_NAME while it rebuilds)"
+    fi
+    return 1
   fi
 }
 
@@ -705,6 +750,13 @@ main() {
   fi
 
   preflight_checks
+
+  # Nothing below may reach the environment while Pantheon is rebuilding it.
+  if "$DRY_RUN"; then
+    print_cmd terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status,started_at,workflow
+  else
+    wait_for_pantheon_workflows wait-only || exit 1
+  fi
 
   info "Waking Pantheon environment..."
   run_cmd terminus env:wake "$site_env"

@@ -201,9 +201,55 @@ function page(path, extra = []) {
   };
 }
 
+/**
+ * The front page, followed by one file it links from the files directory.
+ *
+ * Aggregated CSS and JS, and every uploaded image, are served from
+ * sites/default/files, which on Pantheon is a link to a separate file mount.
+ * When a code deploy fails part-way that link can be missing while every
+ * page still renders with HTTP 200 and an <h1>: the pages are unstyled and
+ * without images, and nothing that only requests pages notices (dev,
+ * 2026-11-19 and 2026-11-20). So one such file has to be requested.
+ */
+function frontPageAndOneFile() {
+  const front = page('/');
+  return {
+    ...front,
+    follow(response) {
+      // The query string is kept: Drupal builds an aggregate on its first
+      // request from the parameters in it, and answers 400 without them
+      // until the file exists, which is the state right after a deploy.
+      const links = [...response.text.matchAll(/(?:href|src)="(\/sites\/default\/files\/[^"#]+)/g)]
+        .map((match) => match[1].replaceAll('&amp;', '&'));
+      // An aggregate is preferred: it is written by Drupal itself, so it
+      // also proves the directory is writable.
+      const file = links.find((link) => /\/files\/(?:css|js)\//.test(link)) || links[0];
+      if (!file) {
+        return {
+          name: 'GET a file from the files directory',
+          path: null,
+          run() {
+            throw new SmokeFailure('the front page links nothing under /sites/default/files');
+          },
+        };
+      }
+      return {
+        name: `GET ${file.split('?')[0].length > 60 ? `${file.slice(0, 57)}...` : file.split('?')[0]}`,
+        path: file,
+        run(fileResponse) {
+          expectStatus(fileResponse, 200);
+          if (fileResponse.text.length === 0) {
+            throw new SmokeFailure('the file is empty');
+          }
+        },
+      };
+    },
+  };
+}
+
 function buildChecks(environment) {
   const checks = [
-    page('/'),
+    frontPageAndOneFile(),
     // Content pages recorded as 200 on dev, test and live
     // (docs/evidence/browser-language-cacheability/).
     page('/legal-help/housing'),
@@ -333,13 +379,22 @@ async function main() {
   console.log(`Site smoke: ${options.baseUrl} (env: ${environment})`);
 
   let failed = 0;
+  let total = 0;
+  // A check may name a second request that depends on its response.
   const checks = buildChecks(environment);
-  for (const check of checks) {
-    const response = await request(options, check.path);
+  while (checks.length > 0) {
+    const check = checks.shift();
+    total += 1;
+    const response = check.path === null
+      ? { status: 0, location: '', text: '', retried: false }
+      : await request(options, check.path);
     const suffix = response.retried ? ' (after one retry)' : '';
     try {
       const detail = check.run(response);
       console.log(`[PASS] ${check.name} HTTP ${response.status}${detail ? ` - ${detail}` : ''}${suffix}`);
+      if (check.follow) {
+        checks.unshift(check.follow(response));
+      }
     }
     catch (error) {
       if (!(error instanceof SmokeFailure)) {
@@ -350,7 +405,7 @@ async function main() {
     }
   }
 
-  console.log(`Summary: ${checks.length - failed} passed, ${failed} failed`);
+  console.log(`Summary: ${total - failed} passed, ${failed} failed`);
   return failed === 0 ? 0 : 1;
 }
 

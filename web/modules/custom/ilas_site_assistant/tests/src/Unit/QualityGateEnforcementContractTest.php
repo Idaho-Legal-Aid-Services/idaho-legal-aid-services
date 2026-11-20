@@ -208,7 +208,7 @@ final class QualityGateEnforcementContractTest extends TestCase {
 
     // Publishing to dev goes through the same script.
     $this->assertStringContainsString(
-      'scripts/deploy/pantheon-deploy.sh" --env dev',
+      'scripts/deploy/pantheon-deploy.sh" "${deploy_args[@]}"',
       self::readFile('scripts/git/finish.sh'),
     );
   }

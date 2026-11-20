@@ -415,7 +415,13 @@ run_post_deploy_pantheon_verification() {
   # and the assistant endpoints; it runs first because it is fast and covers
   # everything the promptfoo gate never requests.
   info "Applying and checking the dev deploy ..."
-  if ! bash "$REPO_ROOT/scripts/deploy/pantheon-deploy.sh" --env dev; then
+  local -a deploy_args=(--env dev)
+  if [[ -n "${PANTHEON_PUSHED_AT:-}" ]]; then
+    # The push has just started a code sync on dev. The deploy command must
+    # not touch dev until that sync has appeared and finished.
+    deploy_args+=(--pushed-at "$PANTHEON_PUSHED_AT")
+  fi
+  if ! bash "$REPO_ROOT/scripts/deploy/pantheon-deploy.sh" "${deploy_args[@]}"; then
     err "Post-deploy dev deploy steps or smoke checks failed."
     return 1
   fi
@@ -589,6 +595,7 @@ main() {
     local-ahead)
       info "Pantheon dev is behind; deploying origin/master through the local DDEV deploy gate..."
       # PIPE-04: publish.sh delegates --no-verify pushes through scripts/git/safe-push.sh for bypass audit trail.
+      PANTHEON_PUSHED_AT="$(date +%s)"
       bash "$SCRIPT_DIR/publish.sh" --origin-only
       ;;
     in-sync)

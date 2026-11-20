@@ -16,7 +16,13 @@
  *    can be computed from git for the commit an environment should be on and
  *    from the files on the environment itself;
  *  - packages: whether what is installed under vendor/ matches composer.lock
- *    on the same filesystem.
+ *    on the same filesystem;
+ *  - runtime (on Pantheon only): whether sites/default/files is there and
+ *    writable, and which deployment the container says it is. When that
+ *    Pantheon step fails after the code has been replaced, the code is new
+ *    but the link to the file mount is missing and the container still
+ *    names the previous deployment: pages render without CSS or images and
+ *    Drupal cannot write its .htaccess files (dev, 2026-11-20).
  *
  * The report also carries a short fingerprint per module, theme and directory
  * ("groups"), so that a mismatch names the part of the code that differs.
@@ -234,18 +240,39 @@ function package_state(string $root): array {
 }
 
 /**
+ * Describes the container the script runs in, on Pantheon.
+ *
+ * @return array{checked: bool, environment: string, files: bool, deployment: string}
+ *   Whether this is a Pantheon container, its environment name, whether the
+ *   public files directory exists and is writable, and the deployment
+ *   identifier the container was given.
+ */
+function runtime_state(string $root): array {
+  $environment = (string) getenv('PANTHEON_ENVIRONMENT');
+  $files = $root . '/web/sites/default/files';
+  return [
+    'checked' => $environment !== '',
+    'environment' => $environment,
+    'files' => is_dir($files) && is_writable($files),
+    'deployment' => (string) getenv('PANTHEON_DEPLOYMENT_IDENTIFIER'),
+  ];
+}
+
+/**
  * Lists how an environment's report differs from the commit it should run.
  *
  * @param array<string, mixed> $expected
  *   The report computed from git for that commit.
  * @param array<string, mixed> $actual
  *   The report the environment printed from its own files.
+ * @param string $commit
+ *   The full id of that commit, when known.
  *
  * @return string[]
  *   One line per problem; empty when the environment runs that commit with
  *   the packages its composer.lock names.
  */
-function differences(array $expected, array $actual): array {
+function differences(array $expected, array $actual, string $commit = ''): array {
   $problems = [];
 
   if (!is_string($actual['fingerprint'] ?? NULL)) {
@@ -276,6 +303,21 @@ function differences(array $expected, array $actual): array {
     $problems[] = 'Installed packages do not match composer.lock: ' . implode('; ', $packages['mismatches'] ?? []);
   }
 
+  $runtime = is_array($actual['runtime'] ?? NULL) ? $actual['runtime'] : [];
+  if (($runtime['checked'] ?? FALSE) === TRUE) {
+    if (($runtime['files'] ?? FALSE) !== TRUE) {
+      $problems[] = 'sites/default/files is missing or not writable: the container is not linked to the file mount, so CSS, images and uploads are broken.';
+    }
+    // Dev and Multidev containers are named after the commit they run; test
+    // and live are named after the deploy (test_211), which says nothing
+    // about the commit.
+    $deployment = (string) ($runtime['deployment'] ?? '');
+    $namedAfterCommit = !in_array($runtime['environment'] ?? '', ['test', 'live'], TRUE);
+    if ($namedAfterCommit && $commit !== '' && ($deployment === '' || !str_starts_with($commit, $deployment))) {
+      $problems[] = "The container still says it is deployment '{$deployment}': Pantheon replaced the code but did not finish switching the container.";
+    }
+  }
+
   return $problems;
 }
 
@@ -302,7 +344,10 @@ function main(array $argv): int {
   }
 
   if ($ref === NULL) {
-    $report = ['source' => 'disk'] + fingerprint_of(blobs_from_disk($root)) + ['packages' => package_state($root)];
+    $report = ['source' => 'disk'] + fingerprint_of(blobs_from_disk($root)) + [
+      'packages' => package_state($root),
+      'runtime' => runtime_state($root),
+    ];
     echo json_encode($report, JSON_UNESCAPED_SLASHES) . "\n";
     return 0;
   }
@@ -314,7 +359,12 @@ function main(array $argv): int {
   }
 
   $actual = json_decode((string) @file_get_contents($compare), TRUE);
-  $problems = differences($expected, is_array($actual) ? $actual : []);
+  $commit = trim((string) shell_exec(sprintf(
+    'git -C %s rev-parse --verify --quiet %s 2>/dev/null',
+    escapeshellarg($root),
+    escapeshellarg($ref . '^{commit}'),
+  )));
+  $problems = differences($expected, is_array($actual) ? $actual : [], $commit);
   foreach ($problems as $problem) {
     echo $problem . "\n";
   }

@@ -72,11 +72,13 @@ final class DeployScriptBehaviourTest extends TestCase {
     // packages composer.lock names.
     $this->shell('git archive HEAD | tar -x -C ' . escapeshellarg($this->makeDirectory($this->server)), $this->work);
     $this->serverPackages('11.4.13');
+    $this->makeDirectory($this->server . '/web/sites/default/files');
 
     $this->write($this->base . '/bin/terminus', $this->fakeTerminus());
     chmod($this->base . '/bin/terminus', 0755);
     $this->scenario('code_log', $this->head() . "\n");
-    $this->scenario('workflows', "dev,succeeded\ntest,succeeded\nlive,succeeded\n");
+    $this->scenario('workflows', $this->workflows('succeeded', 'succeeded', 'succeeded'));
+    $this->scenario('deployment', substr($this->head(), 0, 7) . "\n");
     $this->scenario('running_polls', "0\n");
     $this->scenario('config_status', " [notice] No differences between DB and sync directory.\n");
   }
@@ -101,12 +103,16 @@ final class DeployScriptBehaviourTest extends TestCase {
 printf '%s\n' "$*" >> "$FAKE/calls.log"
 case "$1" in
   auth:whoami) echo "tester" ;;
-  env:wake|env:deploy|backup:create) ;;
+  env:wake|backup:create) ;;
+  env:deploy)
+    # A promote starts a new code workflow, which here succeeds.
+    sed -i "s/^${FAKE_ENV},failed/${FAKE_ENV},succeeded/" "$FAKE/workflows"
+    ;;
   workflow:list)
     left="$(cat "$FAKE/running_polls")"
     if (( left > 0 )); then
       echo $((left - 1)) > "$FAKE/running_polls"
-      echo "${FAKE_ENV},running"
+      echo "${FAKE_ENV},running,\"2026-11-20 16:14:54\",\"Sync code on \"\"${FAKE_ENV}\"\"\""
     fi
     cat "$FAKE/workflows"
     ;;
@@ -121,7 +127,12 @@ case "$1" in
           echo "Unable to find any of the following: $2" >&2
           exit 1
         fi
-        php "$FAKE_SERVER/$script"
+        # The container's environment, as Pantheon sets it.
+        deployment="$(cat "$FAKE/deployment")"
+        if [[ "$FAKE_ENV" != "dev" ]]; then
+          deployment="${FAKE_ENV}_211"
+        fi
+        PANTHEON_ENVIRONMENT="$FAKE_ENV" PANTHEON_DEPLOYMENT_IDENTIFIER="$deployment" php "$FAKE_SERVER/$script"
         ;;
       updatedb:status) echo " [success] No database updates required." ;;
       config:status) cat "$FAKE/config_status" ;;
@@ -155,6 +166,19 @@ BASH;
    */
   private function scenario(string $name, string $contents): void {
     $this->write($this->base . '/fake/' . $name, $contents);
+  }
+
+  /**
+   * Builds Pantheon's workflow list: newest first, one code workflow each.
+   *
+   * Live also lists a later workflow that is not a code workflow, as the
+   * real list does (the nightly backup).
+   */
+  private function workflows(string $dev, string $test, string $live, string $started = '2026-11-20 16:14:54'): string {
+    return 'live,succeeded,"2026-11-20 14:16:40","Automated backup for the ""live"" environment"' . "\n"
+      . "dev,{$dev},\"{$started}\",\"Sync code on \"\"dev\"\"\"\n"
+      . "test,{$test},\"{$started}\",\"Deploy code to \"\"test\"\"\"\n"
+      . "live,{$live},\"{$started}\",\"Deploy code to \"\"live\"\"\"\n";
   }
 
   /**
@@ -214,13 +238,17 @@ BASH;
   /**
    * Returns the terminus calls made so far, one per entry.
    *
+   * The login check is left out: it asks Pantheon's API who is signed in
+   * and never reaches an environment.
+   *
    * @return string[]
    *   The calls, in order.
    */
   private function calls(): array {
     $log = $this->base . '/fake/calls.log';
+    $calls = is_file($log) ? explode("\n", (string) file_get_contents($log)) : [];
 
-    return is_file($log) ? array_values(array_filter(explode("\n", (string) file_get_contents($log)))) : [];
+    return array_values(array_filter($calls, static fn (string $call): bool => $call !== '' && $call !== 'auth:whoami'));
   }
 
   /**
@@ -273,10 +301,62 @@ BASH;
 
     $this->assertSame(0, $status, $output);
     $this->assertStringContainsString('Pantheon is still working on dev', $output);
+    // Three polls saw it running and the fourth saw it idle. While Pantheon
+    // was rebuilding the container nothing else was asked of the
+    // environment: not even the wake request.
     $calls = $this->calls();
-    $firstCheck = $this->position('php:script');
-    $polls = array_filter(array_slice($calls, 0, $firstCheck), static fn (string $call): bool => str_starts_with($call, 'workflow:list'));
-    $this->assertCount(4, $polls, 'Three polls saw it running; the fourth saw it idle.');
+    foreach (array_slice($calls, 0, 4) as $call) {
+      $this->assertStringStartsWith('workflow:list', $call, 'Only workflow:list may run while Pantheon is working.');
+    }
+    $this->assertStringStartsWith('env:wake', $calls[4]);
+  }
+
+  /**
+   * Straight after a push the sync may not be listed yet: wait for it.
+   */
+  public function testAfterPushWaitsForTheSyncThatThePushStarted(): void {
+    // Pantheon still lists only the sync of an earlier push, long finished.
+    $this->scenario('workflows', $this->workflows('succeeded', 'succeeded', 'succeeded', '2026-11-19 15:48:49'));
+
+    [$status, $output] = $this->deploy('--env dev --skip-smoke --pushed-at ' . strtotime('2026-11-20 16:14:50 UTC'));
+
+    $this->assertSame(1, $status, $output);
+    $this->assertStringContainsString('Pantheon has not started a code sync on dev for the push', $output);
+    foreach ($this->calls() as $call) {
+      $this->assertStringStartsWith('workflow:list', $call, 'The environment must be left alone until the sync is listed.');
+    }
+
+    // Once the sync that the push started is listed and has finished, go on.
+    file_put_contents($this->base . '/fake/calls.log', '');
+    $this->scenario('workflows', $this->workflows('succeeded', 'succeeded', 'succeeded', '2026-11-20 16:14:54'));
+    [$status, $output] = $this->deploy('--env dev --skip-smoke --pushed-at ' . strtotime('2026-11-20 16:14:50 UTC'));
+    $this->assertSame(0, $status, $output);
+  }
+
+  /**
+   * New code without the link to the file mount (dev, 2026-11-20): stop.
+   */
+  public function testMissingFilesDirectoryStopsTheDeploy(): void {
+    rmdir($this->server . '/web/sites/default/files');
+
+    [$status, $output] = $this->deploy('--env dev --skip-smoke');
+
+    $this->assertSame(1, $status, $output);
+    $this->assertStringContainsString('sites/default/files is missing or not writable', $output);
+    $this->assertNothingWasApplied();
+  }
+
+  /**
+   * The container still names the previous deployment: stop.
+   */
+  public function testContainerOnThePreviousDeploymentStopsTheDeploy(): void {
+    $this->scenario('deployment', "7264b91\n");
+
+    [$status, $output] = $this->deploy('--env dev --skip-smoke');
+
+    $this->assertSame(1, $status, $output);
+    $this->assertStringContainsString("The container still says it is deployment '7264b91'", $output);
+    $this->assertNothingWasApplied();
   }
 
   /**
@@ -323,18 +403,35 @@ BASH;
   }
 
   /**
-   * A failed Pantheon workflow is reported; the files decide the outcome.
+   * Pantheon's code sync failed: stop, apply nothing, say how to repair it.
    */
-  public function testFailedPantheonWorkflowIsReportedAndTheFilesDecide(): void {
-    $this->scenario('workflows', "dev,failed\n");
+  public function testFailedCodeWorkflowStopsTheDeploy(): void {
+    $this->scenario('workflows', $this->workflows('failed', 'succeeded', 'succeeded'));
 
     [$status, $output] = $this->deploy('--env dev --skip-smoke');
-    $this->assertSame(0, $status, $output);
-    $this->assertStringContainsString('The most recent Pantheon workflow on dev failed', $output);
 
-    $this->write($this->server . '/web/modules/custom/demo/demo.module', "<?php\n// yesterday\n");
-    [$status, $output] = $this->deploy('--env dev --skip-smoke');
     $this->assertSame(1, $status, $output);
+    $this->assertStringContainsString("Pantheon's last code workflow on dev failed", $output);
+    $this->assertStringContainsString('terminus env:code-rebuild idaho-legal-aid-services.dev', $output);
+    $this->assertNothingWasApplied();
+  }
+
+  /**
+   * An earlier failed deploy to live: a new promote goes ahead, a run that
+   * does not promote stops.
+   */
+  public function testEarlierFailedDeployBlocksOnlyARunThatDoesNotPromote(): void {
+    $this->scenario('code_log', str_repeat('a', 40) . "\n" . $this->head() . "\n");
+    $this->scenario('workflows', $this->workflows('succeeded', 'succeeded', 'failed'));
+
+    [$status, $output] = $this->deploy('--env live --skip-smoke --yes-live --skip-promote', 'live');
+    $this->assertSame(1, $status, $output);
+    $this->assertStringContainsString("run 'npm run deploy:live' again", $output);
+    $this->assertNothingWasApplied();
+
+    [$status, $output] = $this->deploy('--env live --skip-smoke --yes-live', 'live');
+    $this->assertSame(0, $status, $output);
+    $this->assertLessThan($this->position('php:script'), $this->position('env:deploy'));
   }
 
   /**
