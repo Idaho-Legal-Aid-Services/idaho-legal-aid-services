@@ -1,0 +1,6 @@
+services:
+  ilas_security.aggregate_asset_request_guard:
+    class: Drupal\ilas_security\EventSubscriber\AggregateAssetRequestGuard
+    arguments: ['@module_handler', '@theme_handler']
+    tags:
+      - { name: event_subscriber }

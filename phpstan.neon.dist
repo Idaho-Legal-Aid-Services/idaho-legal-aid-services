@@ -11,6 +11,10 @@ parameters:
     - web/modules/custom/*/dist/*
     - web/themes/custom/*/dist/*
     - web/modules/custom/*/tests/fixtures/*
+  # Pre-bootstrap helpers that live outside the analysed paths but are called
+  # from tests inside them.
+  scanFiles:
+    - web/sites/default/settings.search-guard.php
 
 includes:
   - phpstan-baseline.neon
