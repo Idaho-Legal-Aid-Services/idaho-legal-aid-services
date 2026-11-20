@@ -93,13 +93,18 @@ jobs:
           {
             echo "**${DEPLOY_USER}** triggered \`${DEPLOY_WORKFLOW}\` on Pantheon **${DEPLOY_ENV}** at ${when}."
             echo ""
-            echo "This did not come through the GitHub pull-request flow, so it had no CI and no review, and GitHub \`master\` may now be behind Pantheon."
+            if [[ "$DEPLOY_WORKFLOW" == sync_code* ]]; then
+              echo "Code was pushed straight to Pantheon. It did not come through the GitHub pull-request flow, so it had no CI and no review, and GitHub \`master\` is probably behind Pantheon now."
+            else
+              echo "This moved code that was already on Pantheon to **${DEPLOY_ENV}**. It was not run with \`npm run deploy:${DEPLOY_ENV}\`, so the database updates, config import and checks of that command may not have happened there. If the code was first pushed straight to Pantheon, GitHub \`master\` is behind it."
+            fi
             echo ""
-            echo "To see and adopt the change:"
+            echo "To see what changed and whether it merges cleanly (changes nothing):"
             echo '```bash'
             echo 'terminus env:code-log idaho-legal-aid-services.dev --format=table'
             echo 'npm run git:reconcile-origin -- --dry-run'
             echo '```'
+            echo "If Pantheon has commits GitHub lacks, \`npm run git:reconcile-origin\` merges them into local \`master\` (it pushes nothing). The steps after that, through \`npm run git:publish\` and the deploys, are in \`docs/aila/runbook.md\` under \"Recovery when Pantheon origin/master drifted\". If the dry run reports nothing to reconcile, the code is already in GitHub and this issue can be closed."
             echo ""
             echo "The site smoke for this change: ${RUN_URL}"
           } > body.md

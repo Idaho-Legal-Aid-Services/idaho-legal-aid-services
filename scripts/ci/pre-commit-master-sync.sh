@@ -82,7 +82,7 @@ case "$ORIGIN_STATUS" in
   diverged)
     err "Local master diverged from origin/master."
     [[ -n "$ORIGIN_RECOVERY" ]] && err "Recovery: $ORIGIN_RECOVERY"
-    err "The reconcile helper preserves local-only commits, resets master to origin/master, then replays the preserved commits."
+    err "The reconcile helper merges origin/master into local master; it pushes nothing and rewrites no commit."
     err "Verify unexpected Pantheon code movement with: terminus env:code-log idaho-legal-aid-services.dev --format=table"
     err "Inspect with: git log --left-right --cherry-pick --oneline origin/master...master"
     exit 1
