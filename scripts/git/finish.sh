@@ -556,6 +556,16 @@ main() {
       err "Inspect with: gh pr checks $pr_number"
       exit 1
     fi
+    # gh reports a cancelled job as "fail" and still exits 0, so the outcome
+    # of every check is read again before merging.
+    local not_passed=""
+    not_passed="$(gh pr view "$pr_number" --json statusCheckRollup | checks_not_passed)"
+    if [[ -n "$not_passed" ]]; then
+      err "Not every check passed on PR #$pr_number; it will not be merged:"
+      printf '%s\n' "$not_passed" | sed 's/^/  /' >&2
+      err "Re-run a cancelled or flaky job with: gh run rerun <run-id> --failed"
+      exit 1
+    fi
 
     require_publish_pr_promptfoo_artifact_pass "$pr_number" "$publish_branch"
 

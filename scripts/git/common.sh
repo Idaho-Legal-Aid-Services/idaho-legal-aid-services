@@ -173,3 +173,45 @@ print_remote_status() {
       ;;
   esac
 }
+
+# Lists the checks of a pull request that did not pass.
+#
+# Reads the JSON of `gh pr view <n> --json statusCheckRollup` on stdin and
+# prints one "name: outcome" line for every check that is not a success, a
+# skip or neutral, including one that is still running. Prints nothing when
+# every check passed.
+#
+# `gh pr checks --watch` cannot be used for this decision: gh 2.45 shows a
+# cancelled job as "fail" but still exits 0, so a job cancelled at its time
+# limit let a pull request through on 2026-11-20.
+checks_not_passed() {
+  php -r '
+    $data = json_decode(stream_get_contents(STDIN), true);
+    if (!is_array($data) || !isset($data["statusCheckRollup"]) || !is_array($data["statusCheckRollup"])) {
+      echo "(could not read the checks of the pull request)", PHP_EOL;
+      exit(0);
+    }
+    foreach ($data["statusCheckRollup"] as $check) {
+      $name = (string) ($check["name"] ?? $check["context"] ?? "unnamed check");
+      if (isset($check["state"]) && !isset($check["conclusion"])) {
+        // A commit status rather than a check run.
+        $outcome = strtoupper((string) $check["state"]);
+        $passed = $outcome === "SUCCESS";
+      }
+      else {
+        $status = strtoupper((string) ($check["status"] ?? ""));
+        $outcome = strtoupper((string) ($check["conclusion"] ?? ""));
+        if ($status !== "COMPLETED" || $outcome === "") {
+          $outcome = $status === "" ? "UNKNOWN" : $status;
+          $passed = false;
+        }
+        else {
+          $passed = in_array($outcome, ["SUCCESS", "SKIPPED", "NEUTRAL"], true);
+        }
+      }
+      if (!$passed) {
+        echo $name, ": ", strtolower($outcome), PHP_EOL;
+      }
+    }
+  '
+}

@@ -726,8 +726,13 @@ run_langfuse_export_probe() {
     return 1
   fi
 
-  if ! terminus drush "$site_env" -- ilas:langfuse-lookup "$trace_id" --attempts=10 --delay-ms=2000 >/dev/null 2>&1; then
-    err "Langfuse accepted probe $trace_id but it could not be read back."
+  # Langfuse stores a trace some time after accepting it: usually within
+  # seconds, but on 2026-11-20 a probe was not readable after 20 seconds and
+  # was there two minutes later. The lookup returns as soon as the trace is
+  # found, so a long limit costs nothing when Langfuse is quick.
+  if ! terminus drush "$site_env" -- ilas:langfuse-lookup "$trace_id" --attempts=45 --delay-ms=4000 >/dev/null 2>&1; then
+    err "Langfuse accepted probe $trace_id but it could not be read back within three minutes."
+    err "Look again with: terminus drush $site_env -- ilas:langfuse-lookup $trace_id"
     return 1
   fi
   ok "Langfuse export probe $trace_id was stored and read back."
