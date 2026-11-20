@@ -24,7 +24,7 @@
  * Usage:
  *   php scripts/deploy/code-fingerprint.php                 files on disk
  *   php scripts/deploy/code-fingerprint.php --git-ref=REF   a commit, from git
- *   drush php:script /code/scripts/deploy/code-fingerprint.php   on Pantheon
+ *   drush php:script scripts/deploy/code-fingerprint.php    on Pantheon
  *   php scripts/deploy/code-fingerprint.php --git-ref=REF --compare=FILE
  *
  * Output: one JSON object. No Drupal bootstrap is needed. With --compare, FILE

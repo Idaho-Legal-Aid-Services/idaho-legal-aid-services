@@ -12,12 +12,22 @@ SKIP_LIVE_BACKUP=false
 SKIP_SMOKE=false
 SKIP_PROMOTE=false
 DEPLOY_NOTE=""
+CHECK_ONLY=false
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Seconds between looks at Pantheon while it is still working, and between
+# rechecks of a result that may not have settled. Tests set these to 0.
+WORKFLOW_POLL_SECONDS="${ILAS_DEPLOY_WORKFLOW_POLL_SECONDS:-30}"
+RECHECK_SECONDS="${ILAS_DEPLOY_RECHECK_SECONDS:-60}"
 
 usage() {
   cat <<'USAGE'
 Usage:
   pantheon-deploy.sh --env <dev|test|live> [--site <machine-name>] [--dry-run] [--yes-live] [--skip-live-backup] [--skip-promote] [--note <text>] [--skip-smoke]
+  pantheon-deploy.sh --check [--site <machine-name>]
+
+--check changes nothing. It reports whether this checkout, GitHub, Pantheon
+and the dev, test and live environments are all on the same code, and exits
+non-zero if they are not.
 
 This is the one deploy command for every environment:
   dev   code arrives by git push; this applies it (database updates, config
@@ -129,6 +139,10 @@ parse_args() {
         SKIP_PROMOTE=true
         shift
         ;;
+      --check)
+        CHECK_ONLY=true
+        shift
+        ;;
       --note)
         if (($# < 2)); then
           err "Missing value for --note"
@@ -156,6 +170,9 @@ parse_args() {
 }
 
 validate_args() {
+  if "$CHECK_ONLY"; then
+    return 0
+  fi
   if [[ -z "$ENV_NAME" ]]; then
     err "--env is required."
     usage
@@ -321,9 +338,9 @@ check_config_drift() {
       return 1
     fi
 
-    warn "Config status reported differences (check ${attempt} of ${max_attempts}); rechecking in 60 seconds."
+    warn "Config status reported differences (check ${attempt} of ${max_attempts}); rechecking in ${RECHECK_SECONDS} seconds."
     attempt=$((attempt + 1))
-    sleep 60
+    sleep "$RECHECK_SECONDS"
   done
 }
 
@@ -365,53 +382,224 @@ promote_code() {
 verify_deployed_code() {
   local site_env="$1"
   local fingerprint_script="$REPO_ROOT/scripts/deploy/code-fingerprint.php"
-  local remote_script="/code/scripts/deploy/code-fingerprint.php"
+  # Relative to the site root, which is where Drush runs, so the same call
+  # works on Pantheon (/code) and in DDEV (/var/www/html).
+  local remote_script="scripts/deploy/code-fingerprint.php"
 
   info "Checking that $site_env runs the code it was given ..."
   if "$DRY_RUN"; then
+    print_cmd terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status
     print_cmd terminus env:code-log "$site_env" --format=csv --fields=hash
     print_cmd terminus drush "$site_env" -- php:script "$remote_script"
     print_cmd php "$fingerprint_script" --git-ref="<recorded commit>" --compare="<environment report>"
     return 0
   fi
 
-  # The newest commit Pantheon recorded for the environment. On test and live
-  # the first entry is Pantheon's own build-artifact commit, which exists only
-  # there; the commit that was promoted is the one below it.
-  local hashes="" expected="" candidate="" position=0
+  local expected=""
+  if ! expected="$(recorded_commit "$site_env")"; then
+    return 1
+  fi
+
+  # Pantheon records the commit at once and rebuilds the container afterwards,
+  # which takes minutes after a push to dev. Checking before that has finished
+  # would compare against the old container, so wait for Pantheon first, and
+  # look again if the first answer is wrong: the workflow for a push can take
+  # a moment to appear.
+  local verdict="" status=0 attempt=1 max_attempts=3
+  while true; do
+    wait_for_pantheon_workflows || return 1
+
+    status=0
+    verdict="$(compare_with_commit "$site_env" "$expected")" || status=$?
+    if (( status == 0 )); then
+      ok "$site_env runs ${expected:0:10}: $verdict"
+      return 0
+    fi
+
+    printf '%s\n' "$verdict" >&2
+    if (( attempt >= max_attempts )); then
+      break
+    fi
+    warn "$site_env does not match ${expected:0:10} yet (check ${attempt} of ${max_attempts}); rechecking in ${RECHECK_SECONDS} seconds."
+    attempt=$((attempt + 1))
+    sleep "$RECHECK_SECONDS"
+  done
+
+  err "$site_env is not running commit ${expected:0:10}, although Pantheon records it as deployed there."
+  err "Look at 'terminus workflow:list $SITE_NAME' for a failed code sync or deploy. Nothing has been applied by this run."
+  return 1
+}
+
+# Prints the commit Pantheon records for an environment.
+#
+# On test and live the first entry is Pantheon's own build-artifact commit,
+# which exists only there; the commit that was promoted is the one below it.
+recorded_commit() {
+  local site_env="$1"
+  local env_name="${site_env##*.}"
+  local hashes="" candidate="" position=0
+
   if ! hashes="$(terminus env:code-log "$site_env" --format=csv --fields=hash 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -n 2)"; then
     err "Could not read the commit recorded for $site_env."
     return 1
   fi
   for candidate in $hashes; do
     position=$((position + 1))
-    if [[ "$ENV_NAME" == "dev" ]] && (( position > 1 )); then
+    if [[ "$env_name" == "dev" ]] && (( position > 1 )); then
       break
     fi
     if git -C "$REPO_ROOT" cat-file -e "${candidate}^{commit}" 2>/dev/null; then
-      expected="$candidate"
-      break
+      printf '%s\n' "$candidate"
+      return 0
     fi
   done
-  if [[ -z "$expected" ]]; then
-    err "The commit recorded for $site_env is not in this checkout. Fetch, then run this again."
-    return 1
-  fi
+  err "The commit recorded for $site_env is not in this checkout. Fetch, then run this again."
+  return 1
+}
 
-  local report=""
+# Asks an environment for its fingerprint and compares it with a commit.
+#
+# Prints one line per difference, or one line saying everything matches.
+compare_with_commit() {
+  local site_env="$1"
+  local commit="$2"
+  local report="" status=0
+
   report="$(mktemp)"
-  terminus drush "$site_env" -- php:script "$remote_script" 2>/dev/null | grep -m 1 '^{"source":"disk"' >"$report" || true
-
-  local verdict="" status=0
-  verdict="$(php "$fingerprint_script" --git-ref="$expected" --compare="$report")" || status=$?
+  terminus drush "$site_env" -- php:script scripts/deploy/code-fingerprint.php 2>/dev/null | grep -m 1 '^{"source":"disk"' >"$report" || true
+  php "$REPO_ROOT/scripts/deploy/code-fingerprint.php" --git-ref="$commit" --compare="$report" || status=$?
   rm -f "$report"
-  if (( status != 0 )); then
-    printf '%s\n' "$verdict" >&2
-    err "$site_env is not running commit ${expected:0:10}, although Pantheon records it as deployed there."
-    err "Look at 'terminus workflow:list $SITE_NAME' for a failed code sync or deploy. Nothing has been applied by this run."
+  return "$status"
+}
+
+# Reports, without changing anything, whether this checkout, GitHub, Pantheon
+# and the three environments are all on the same code.
+#
+# For each environment: is Pantheon still working on it or did its last
+# workflow fail, which commit it records, whether its files and packages are
+# that commit, whether database updates are pending, and whether its config
+# equals the repository. Exits 1 if anything is out of line. Config that
+# differs on dev is shown but allowed, as in a deploy.
+run_alignment_check() {
+  local problems=0 head="" remote="" remote_head="" env="" site_env=""
+  local statuses="" state="" commit="" verdict="" pending="" config=""
+
+  head="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  printf '%-22s %s\n' "this checkout" "${head:0:10}"
+  if [[ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+    printf '%-22s %s\n' "" "(has uncommitted changes)"
+  fi
+  for remote in github origin; do
+    remote_head="$(git -C "$REPO_ROOT" ls-remote "$remote" refs/heads/master 2>/dev/null | cut -c1-40)"
+    if [[ "$remote_head" == "$head" ]]; then
+      printf '%-22s %s\n' "$remote master" "${remote_head:0:10}"
+    else
+      printf '%-22s %s  <-- differs from this checkout\n' "$remote master" "${remote_head:0:10}"
+      problems=$((problems + 1))
+    fi
+  done
+
+  if ! statuses="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status 2>/dev/null)"; then
+    err "Could not list Pantheon workflows for $SITE_NAME."
     return 1
   fi
-  ok "$site_env runs ${expected:0:10}: $verdict"
+
+  for env in dev test live; do
+    site_env="${SITE_NAME}.${env}"
+    printf '\n%s\n' "$env"
+
+    state="$(printf '%s\n' "$statuses" | grep -m 1 "^${env}," | cut -d, -f2)"
+    if printf '%s\n' "$statuses" | grep -q "^${env},running"; then
+      printf '  %-18s %s\n' "Pantheon" "still working on it  <-- wait and check again"
+      problems=$((problems + 1))
+    elif [[ "$state" == "failed" ]]; then
+      printf '  %-18s %s\n' "Pantheon" "last workflow FAILED (see the lines below for what actually runs)"
+    else
+      printf '  %-18s %s\n' "Pantheon" "idle, last workflow ${state:-unknown}"
+    fi
+
+    if ! commit="$(recorded_commit "$site_env")"; then
+      problems=$((problems + 1))
+      continue
+    fi
+    if [[ "$commit" == "$head" ]]; then
+      printf '  %-18s %s\n' "recorded commit" "${commit:0:10}"
+    else
+      printf '  %-18s %s  <-- differs from this checkout\n' "recorded commit" "${commit:0:10}"
+      problems=$((problems + 1))
+    fi
+
+    if verdict="$(compare_with_commit "$site_env" "$commit")"; then
+      printf '  %-18s %s\n' "files and packages" "$verdict"
+    elif [[ "$verdict" == "The environment did not return a fingerprint." ]]; then
+      printf '  %-18s %s\n' "files and packages" "cannot tell: no fingerprint script there (code older than the check, or not deployed)  <-- unproven"
+      problems=$((problems + 1))
+    else
+      printf '  %-18s %s  <-- NOT the recorded commit\n' "files and packages" "$(printf '%s' "$verdict" | tr '\n' ' ')"
+      problems=$((problems + 1))
+    fi
+
+    pending="$(pending_update_count "$site_env")"
+    if [[ "$pending" == "0" ]]; then
+      printf '  %-18s %s\n' "database updates" "none pending"
+    else
+      printf '  %-18s %s  <-- not applied\n' "database updates" "$pending pending"
+      problems=$((problems + 1))
+    fi
+
+    config="$(terminus drush "$site_env" -- config:status 2>&1 || true)"
+    if printf '%s\n' "$config" | grep -Eq 'No differences|No config changes|No changes'; then
+      printf '  %-18s %s\n' "config" "matches the repository"
+    elif [[ "$env" == "dev" ]]; then
+      printf '  %-18s %s\n' "config" "differs from the repository (allowed on dev)"
+    else
+      printf '  %-18s %s\n' "config" "differs from the repository  <-- not imported, or changed by hand"
+      problems=$((problems + 1))
+    fi
+  done
+
+  echo
+  if (( problems > 0 )); then
+    err "Not aligned: $problems item(s) marked above."
+    return 1
+  fi
+  ok "Aligned: this checkout, GitHub, Pantheon and all three environments are on ${head:0:10}."
+}
+
+# Waits until Pantheon has no workflow running on the target environment.
+#
+# A push to dev starts a "Sync code" workflow that builds and replaces the
+# application container. Until it ends, the environment still serves the old
+# code, and applying updates or promoting from it would act on that old code:
+# on 2026-11-19 test was promoted while dev's sync was still running. A
+# workflow that ended in failure is reported here; whether the environment
+# has the right code regardless is decided by the fingerprint.
+wait_for_pantheon_workflows() {
+  local waited=0 max_wait=2700 statuses=""
+
+  while true; do
+    if ! statuses="$(terminus workflow:list "$SITE_NAME" --format=csv --fields=env,status 2>/dev/null)"; then
+      err "Could not list Pantheon workflows for $SITE_NAME."
+      return 1
+    fi
+    if ! printf '%s\n' "$statuses" | grep -q "^${ENV_NAME},running"; then
+      break
+    fi
+    if (( waited >= max_wait )); then
+      err "Pantheon still has a workflow running on $ENV_NAME after $((max_wait / 60)) minutes."
+      return 1
+    fi
+    if (( waited == 0 )); then
+      info "Pantheon is still working on $ENV_NAME; waiting for it to finish ..."
+    fi
+    sleep "$WORKFLOW_POLL_SECONDS"
+    waited=$((waited + 30))
+  done
+
+  # The newest workflow listed for the environment.
+  if [[ "$(printf '%s\n' "$statuses" | grep -m 1 "^${ENV_NAME}," | cut -d, -f2)" == "failed" ]]; then
+    warn "The most recent Pantheon workflow on $ENV_NAME failed; checking what the environment actually runs."
+  fi
 }
 
 # Checks the assistant endpoints with the read-mostly smoke.
@@ -503,6 +691,12 @@ run_langfuse_export_probe() {
 main() {
   parse_args "$@"
   validate_args
+
+  if "$CHECK_ONLY"; then
+    preflight_checks
+    run_alignment_check
+    return
+  fi
 
   local site_env="${SITE_NAME}.${ENV_NAME}"
   info "Target environment: $site_env"

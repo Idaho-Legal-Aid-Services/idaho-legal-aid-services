@@ -88,7 +88,9 @@ npm run deploy:live    # backs up (kept 7 days), asks for a typed confirmation, 
 What `scripts/deploy/pantheon-deploy.sh` does, in order:
 
 1. test/live only: `terminus env:deploy --updatedb --cc`.
-2. Checks that the environment really runs the commit Pantheon records for
+2. Waits until Pantheon has no workflow running on the environment (after a
+   push to dev it rebuilds the container for several minutes), then
+   checks that the environment really runs the commit Pantheon records for
    it: `scripts/deploy/code-fingerprint.php` is run on the environment and
    its result compared with the same fingerprint computed from git. Fails if
    any custom module, theme, config or deploy file differs, or if the
@@ -107,6 +109,18 @@ code; live got the new custom code with the previous day's packages) while
 the database updates, config import and smokes on dev still passed. When it
 fails, `terminus workflow:list idaho-legal-aid-services` shows the failed
 code sync or deploy.
+
+To see at any time whether this checkout, GitHub, Pantheon and the three
+environments are on the same code, without changing anything:
+
+```bash
+npm run deploy:check
+```
+
+It prints, per environment, whether Pantheon is idle, the recorded commit,
+whether the files and packages there are that commit, pending database
+updates and config status, and exits non-zero if anything is out of line.
+Run it before promoting to the next environment.
 
 Useful flags: `--dry-run` prints every command; `--skip-promote` re-runs the
 apply and check steps on code that is already on test or live;
