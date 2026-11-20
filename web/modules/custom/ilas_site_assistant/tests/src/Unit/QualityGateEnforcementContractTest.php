@@ -179,6 +179,13 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('terminus env:deploy "$site_env" --updatedb --cc', $script);
     $this->assertStringContainsString('terminus drush "$site_env" -- deploy -y', $script);
     $this->assertStringContainsString('Post-deploy pending database updates remain', $script);
+    // The code on the environment is proven before anything is applied.
+    $this->assertStringContainsString('verify_deployed_code "$site_env" || exit 1', $script);
+    $this->assertLessThan(
+      strpos($script, 'terminus drush "$site_env" -- deploy -y'),
+      strpos($script, 'verify_deployed_code "$site_env" || exit 1'),
+    );
+    $this->assertStringContainsString('php:script "$remote_script"', $script);
     // Config drift is fatal off dev, and both smokes gate success.
     $this->assertStringContainsString('check_config_drift "$site_env" || exit 1', $script);
     $this->assertStringContainsString('run_site_smoke || exit 1', $script);

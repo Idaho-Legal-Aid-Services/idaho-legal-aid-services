@@ -175,6 +175,7 @@ validate_args() {
 
 preflight_checks() {
   require_command terminus
+  require_command php
 
   if "$DRY_RUN"; then
     info "Dry run enabled; skipping Terminus auth check."
@@ -350,6 +351,69 @@ promote_code() {
   run_cmd terminus env:deploy "$site_env" --updatedb --cc --note="$note" -y
 }
 
+# Proves the environment's application container runs the code it was given.
+#
+# Pantheon records the commit an environment should be on before it rebuilds
+# the container. On 2026-11-19 that rebuild ("Bring application container to
+# desired configuration state") failed twice: dev kept its old custom code,
+# and live got the new custom code with the previous day's packages. Nothing
+# else in this script looks at which files are actually there, so the
+# environment is asked for a fingerprint of them, which is compared with the
+# same fingerprint computed from git for the recorded commit. This runs
+# before the database updates so that they are never applied by the wrong
+# code.
+verify_deployed_code() {
+  local site_env="$1"
+  local fingerprint_script="$REPO_ROOT/scripts/deploy/code-fingerprint.php"
+  local remote_script="/code/scripts/deploy/code-fingerprint.php"
+
+  info "Checking that $site_env runs the code it was given ..."
+  if "$DRY_RUN"; then
+    print_cmd terminus env:code-log "$site_env" --format=csv --fields=hash
+    print_cmd terminus drush "$site_env" -- php:script "$remote_script"
+    print_cmd php "$fingerprint_script" --git-ref="<recorded commit>" --compare="<environment report>"
+    return 0
+  fi
+
+  # The newest commit Pantheon recorded for the environment. On test and live
+  # the first entry is Pantheon's own build-artifact commit, which exists only
+  # there; the commit that was promoted is the one below it.
+  local hashes="" expected="" candidate="" position=0
+  if ! hashes="$(terminus env:code-log "$site_env" --format=csv --fields=hash 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -n 2)"; then
+    err "Could not read the commit recorded for $site_env."
+    return 1
+  fi
+  for candidate in $hashes; do
+    position=$((position + 1))
+    if [[ "$ENV_NAME" == "dev" ]] && (( position > 1 )); then
+      break
+    fi
+    if git -C "$REPO_ROOT" cat-file -e "${candidate}^{commit}" 2>/dev/null; then
+      expected="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$expected" ]]; then
+    err "The commit recorded for $site_env is not in this checkout. Fetch, then run this again."
+    return 1
+  fi
+
+  local report=""
+  report="$(mktemp)"
+  terminus drush "$site_env" -- php:script "$remote_script" 2>/dev/null | grep -m 1 '^{"source":"disk"' >"$report" || true
+
+  local verdict="" status=0
+  verdict="$(php "$fingerprint_script" --git-ref="$expected" --compare="$report")" || status=$?
+  rm -f "$report"
+  if (( status != 0 )); then
+    printf '%s\n' "$verdict" >&2
+    err "$site_env is not running commit ${expected:0:10}, although Pantheon records it as deployed there."
+    err "Look at 'terminus workflow:list $SITE_NAME' for a failed code sync or deploy. Nothing has been applied by this run."
+    return 1
+  fi
+  ok "$site_env runs ${expected:0:10}: $verdict"
+}
+
 # Checks the assistant endpoints with the read-mostly smoke.
 run_assistant_smoke() {
   local base_url="https://${ENV_NAME}-${SITE_NAME}.pantheonsite.io"
@@ -454,6 +518,8 @@ main() {
   live_guardrails "$site_env"
 
   promote_code "$site_env"
+
+  verify_deployed_code "$site_env" || exit 1
 
   show_pending_updates "$site_env" "before deploy"
 
