@@ -221,7 +221,10 @@ ensure_master_github_pr() {
 
   if [[ -n "$pr_url" ]]; then
     pr_number="$(php -r '$data = json_decode(stream_get_contents(STDIN), true); if (!empty($data[0]["number"])) { echo $data[0]["number"]; }' <<< "$pr_json")"
-    gh pr edit "$pr_number" --title "$title" --body "$body" >/dev/null
+    # The REST API is used because `gh pr edit` in gh 2.45 fails on every
+    # pull request with a GraphQL deprecation error (projectCards), which
+    # made a publish that had already pushed exit 1.
+    gh api -X PATCH "repos/{owner}/{repo}/pulls/$pr_number" -f title="$title" -f body="$body" >/dev/null
     ok "Updated PR: $pr_url"
     return 0
   fi
