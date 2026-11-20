@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Drupal\ilas_security\EventSubscriber;
+namespace Drupal\ilas_seo\EventSubscriber;
 
 use Drupal\Component\Utility\UrlHelper;
 use Drupal\Core\Extension\ModuleHandlerInterface;
@@ -27,6 +27,13 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * appeared on live for modules and themes that were retired years ago. No
  * list of names can keep up with input a stranger chooses. This refuses the
  * request before core does any of that work: same 400, no warning.
+ *
+ * It lives in this module, which is already installed everywhere, on
+ * purpose. Installing a module during a deploy makes Drupal's locale module
+ * rewrite translated configuration from interface translations: a first
+ * version in a newly enabled module replaced sixteen Spanish and Dutch
+ * configuration translations on dev (2026-11-20) until config was imported
+ * a second time.
  */
 final class AggregateAssetRequestGuard implements EventSubscriberInterface {
 

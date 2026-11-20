@@ -379,6 +379,44 @@ promote_code() {
   run_cmd terminus env:deploy "$site_env" --updatedb --cc --note="$note" -y
 }
 
+# Applies the code: database updates, config import, cache rebuild.
+#
+# When the config import installs or uninstalls a module, Drupal's locale
+# module afterwards rewrites translated configuration from the interface
+# translations, replacing the translations kept in the repository. On
+# 2026-11-20 enabling one module on dev replaced sixteen Spanish and Dutch
+# configuration translations, front page metatags among them; a second
+# import restored every one. So after such a deploy config is imported once
+# more. The drift check that follows still decides whether the result is
+# right.
+apply_deploy() {
+  local site_env="$1"
+  local output=""
+
+  if "$DRY_RUN"; then
+    print_cmd terminus drush "$site_env" -- deploy -y
+    return 0
+  fi
+
+  output="$(mktemp)"
+  if ! terminus drush "$site_env" -- deploy -y 2>&1 | tee "$output"; then
+    rm -f "$output"
+    err "drush deploy failed on $site_env."
+    exit 1
+  fi
+
+  if grep -q 'Synchronized extensions' "$output"; then
+    warn "This deploy installed or uninstalled a module, after which Drupal rewrites translated configuration."
+    warn "Importing config once more to put the repository's translations back ..."
+    if ! terminus drush "$site_env" -- config:import -y; then
+      rm -f "$output"
+      err "The second config import failed on $site_env."
+      exit 1
+    fi
+  fi
+  rm -f "$output"
+}
+
 # Proves the environment's application container runs the code it was given.
 #
 # Pantheon records the commit an environment should be on before it rebuilds
@@ -775,7 +813,7 @@ main() {
   show_pending_updates "$site_env" "before deploy"
 
   info "Running Drush deploy pipeline..."
-  run_cmd terminus drush "$site_env" -- deploy -y
+  apply_deploy "$site_env"
 
   show_pending_updates "$site_env" "after deploy"
 

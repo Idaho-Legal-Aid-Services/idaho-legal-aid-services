@@ -81,6 +81,7 @@ final class DeployScriptBehaviourTest extends TestCase {
     $this->scenario('deployment', substr($this->head(), 0, 7) . "\n");
     $this->scenario('running_polls', "0\n");
     $this->scenario('config_status', " [notice] No differences between DB and sync directory.\n");
+    $this->scenario('deploy_output', " [success] The configuration was imported successfully.\n");
   }
 
   /**
@@ -136,7 +137,8 @@ case "$1" in
         ;;
       updatedb:status) echo " [success] No database updates required." ;;
       config:status) cat "$FAKE/config_status" ;;
-      deploy) ;;
+      deploy) cat "$FAKE/deploy_output" ;;
+      config:import) ;;
     esac
     ;;
 esac
@@ -450,6 +452,27 @@ BASH;
     [$status, $output] = $this->deploy('--env test --skip-smoke --skip-promote', 'test');
     $this->assertSame(1, $status, $output);
     $this->assertStringContainsString('still differs from the repository', $output);
+  }
+
+  /**
+   * A deploy that installs a module imports config a second time.
+   *
+   * Installing a module makes Drupal rewrite translated configuration after
+   * the import (dev, 2026-11-20); only a second import restores it.
+   */
+  public function testModuleInstallIsFollowedByASecondConfigImport(): void {
+    [$status, $output] = $this->deploy('--env dev --skip-smoke');
+    $this->assertSame(0, $status, $output);
+    $this->assertStringNotContainsString('config:import', implode("\n", $this->calls()), 'An ordinary deploy imports once, inside drush deploy.');
+
+    file_put_contents($this->base . '/fake/calls.log', '');
+    $this->scenario('deploy_output', ">  [notice] Synchronized extensions: installed ilas_security.\n [success] The configuration was imported successfully.\n");
+    [$status, $output] = $this->deploy('--env dev --skip-smoke');
+
+    $this->assertSame(0, $status, $output);
+    $this->assertStringContainsString('Importing config once more', $output);
+    $this->assertLessThan($this->position('config:import -y'), $this->position('-- deploy -y'));
+    $this->assertLessThan($this->position('config:status'), $this->position('config:import -y'));
   }
 
   /**

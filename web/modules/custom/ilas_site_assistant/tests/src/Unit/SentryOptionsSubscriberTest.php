@@ -1324,7 +1324,7 @@ class SentryOptionsSubscriberTest extends TestCase {
   /**
    * Core's missing-extension warning always reaches Sentry.
    *
-   * The ilas_security module refuses aggregate requests that name extensions this site
+   * The ilas_seo module refuses aggregate requests that name extensions this site
    * does not have before core can raise it, so when it does appear an
    * installed extension has lost its code. It was dropped by a list of
    * retired names for one day (2026-11-19); the next burst used names that
@@ -1346,15 +1346,15 @@ class SentryOptionsSubscriberTest extends TestCase {
   }
 
   /**
-   * Builds the handled 400 raised by ilas_security's aggregate guard.
+   * Builds the handled 400 raised by ilas_seo's aggregate guard.
    */
   private function createAggregateRefusalEvent(string $url, string $message): Event {
     $event = Event::createEvent();
     $event->setLogger('client error');
     $event->setMessage(
       'Symfony\\Component\\HttpKernel\\Exception\\BadRequestHttpException: ' . $message
-      . ' in Drupal\\ilas_security\\EventSubscriber\\AggregateAssetRequestGuard->onRequest()'
-      . ' (line 70 of /code/web/modules/custom/ilas_security/src/EventSubscriber/AggregateAssetRequestGuard.php).',
+      . ' in Drupal\\ilas_seo\\EventSubscriber\\AggregateAssetRequestGuard->onRequest()'
+      . ' (line 70 of /code/web/modules/custom/ilas_seo/src/EventSubscriber/AggregateAssetRequestGuard.php).',
     );
     $event->setExtra(['request_uri' => $url]);
     $event->setExceptions([
@@ -1400,7 +1400,7 @@ class SentryOptionsSubscriberTest extends TestCase {
    * The filter and the guard agree on the message that marks a refusal.
    */
   public function testRefusalMessageMatchesTheGuard(): void {
-    $guard = (string) file_get_contents(dirname(__DIR__, 4) . '/ilas_security/src/EventSubscriber/AggregateAssetRequestGuard.php');
+    $guard = (string) file_get_contents(dirname(__DIR__, 4) . '/ilas_seo/src/EventSubscriber/AggregateAssetRequestGuard.php');
 
     $this->assertStringContainsString(
       "REFUSAL_MESSAGE = '" . SentryOptionsSubscriber::AGGREGATE_REFUSAL_MESSAGE . "';",

@@ -8,6 +8,11 @@ services:
     class: Drupal\ilas_seo\EventSubscriber\CspEnhancementSubscriber
     tags:
       - { name: event_subscriber }
+  ilas_seo.aggregate_asset_request_guard:
+    class: Drupal\ilas_seo\EventSubscriber\AggregateAssetRequestGuard
+    arguments: ['@module_handler', '@theme_handler']
+    tags:
+      - { name: event_subscriber }
   ilas_seo.graph_builder:
     class: Drupal\ilas_seo\StructuredData\GraphBuilder
     arguments:

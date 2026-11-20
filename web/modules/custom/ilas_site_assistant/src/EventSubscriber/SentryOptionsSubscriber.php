@@ -258,7 +258,7 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
         return NULL;
       }
 
-      // Drop the 400 that ilas_security's AggregateAssetRequestGuard answers
+      // Drop the 400 that ilas_seo's AggregateAssetRequestGuard answers
       // to an aggregate URL naming a theme or library owner this site does
       // not have (crawlers replaying the old site's URLs, PHP-BD). The
       // request was refused correctly before core did any work. Core's
@@ -663,11 +663,11 @@ class SentryOptionsSubscriber implements EventSubscriberInterface {
   ];
 
   /**
-   * The message of ilas_security's refusal of an aggregate request.
+   * The message of ilas_seo's refusal of an aggregate request.
    *
    * Kept equal to AggregateAssetRequestGuard::REFUSAL_MESSAGE by
    * SentryOptionsSubscriberTest; not referenced as a class constant so that
-   * this module does not depend on ilas_security being installed.
+   * this module does not depend on ilas_seo being installed.
    */
   public const AGGREGATE_REFUSAL_MESSAGE = 'The aggregate names a theme or library owner that is not installed on this site.';
 

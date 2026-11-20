@@ -181,8 +181,10 @@ final class QualityGateEnforcementContractTest extends TestCase {
     $this->assertStringContainsString('Post-deploy pending database updates remain', $script);
     // The code on the environment is proven before anything is applied.
     $this->assertStringContainsString('verify_deployed_code "$site_env" || exit 1', $script);
+    // That it happens before the deploy is applied is tested by running the
+    // script (DeployScriptBehaviourTest), not by where the text sits.
     $this->assertLessThan(
-      strpos($script, 'terminus drush "$site_env" -- deploy -y'),
+      strpos($script, '  apply_deploy "$site_env"'),
       strpos($script, 'verify_deployed_code "$site_env" || exit 1'),
     );
     $this->assertStringContainsString('php:script "$remote_script"', $script);
